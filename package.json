@@ -4,8 +4,7 @@
   "description": "TypeScript-based CLI task management tool with SQLite storage",
   "main": "dist/cli/index.js",
   "bin": {
-    "agkan": "./bin/agkan",
-    "akan": "./bin/akan"
+    "agkan": "./bin/agkan"
   },
   "files": [
     "dist",
