@@ -40,142 +40,6 @@ Install directly from the repository:
 npm install -g https://github.com/gendosu/agkan.git
 ```
 
-## Configuration
-
-### Database Storage Location
-
-agkan allows customization of the database storage location via a configuration file.
-
-#### Configuration File: `.agkan.yml`
-
-Create a `.agkan.yml` file in your project root directory to specify the database storage location.
-
-**Configuration Example:**
-
-```yaml
-# Path to database file
-path: ./.agkan/data.db
-```
-
-#### Path Specification
-
-- **Relative Path**: Resolved relative to the current directory
-  ```yaml
-  path: ./data/kanban.db
-  path: ./.agkan/data.db
-  ```
-
-- **Absolute Path**: Used as-is
-  ```yaml
-  path: /home/user/.config/akan/data.db
-  ```
-
-#### Environment Variable Configuration
-
-agkan supports the `AGENT_KANBAN_DB_PATH` environment variable for specifying the database location. This is particularly useful in CI/CD environments and for managing multiple environments.
-
-**Setting the Environment Variable:**
-
-```bash
-# Use a custom database path
-export AGENT_KANBAN_DB_PATH=/path/to/your/database.db
-agkan task list
-
-# Use absolute path
-export AGENT_KANBAN_DB_PATH=/home/user/.config/akan/data.db
-
-# Use relative path
-export AGENT_KANBAN_DB_PATH=./custom/location/data.db
-```
-
-**Priority Order:**
-
-The database path is resolved in the following priority order:
-
-**Normal Mode (when `NODE_ENV` is not `test`):**
-1. **Environment Variable** (highest priority): `AGENT_KANBAN_DB_PATH`
-2. **Configuration File** (fallback): `path` field in `.agkan.yml`
-3. **Default Path** (lowest priority): `.agkan/data.db`
-
-**Test Mode (when `NODE_ENV=test`):**
-1. **Environment Variable** (highest priority): `AGENT_KANBAN_DB_PATH`
-2. **Configuration File** (fallback): `path` field in `.agkan-test.yml`
-3. **Default Path** (lowest priority): `.agkan-test/data.db`
-
-**Test Mode Explanation:**
-
-Test mode (`NODE_ENV=test`) automatically isolates test data from production data:
-
-- Uses separate configuration file: `.agkan-test.yml` instead of `.agkan.yml`
-- Uses separate default directory: `.agkan-test/` instead of `.agkan/`
-- Environment variable still takes highest priority in test mode
-- Prevents accidental mixing of test and production data
-
-**Use Cases:**
-
-1. **CI/CD Pipeline:**
-   ```bash
-   # Use temporary database for CI tests
-   export AGENT_KANBAN_DB_PATH=/tmp/ci-test-db.db
-   agkan task list
-   ```
-
-2. **Multiple Environments:**
-   ```bash
-   # Development environment
-   export AGENT_KANBAN_DB_PATH=./dev/data.db
-
-   # Staging environment
-   export AGENT_KANBAN_DB_PATH=./staging/data.db
-
-   # Production environment
-   export AGENT_KANBAN_DB_PATH=./prod/data.db
-   ```
-
-3. **Testing:**
-   ```bash
-   # Automated tests with isolated database
-   NODE_ENV=test npm test
-   # Uses .agkan-test/data.db by default
-
-   # Override with custom test database
-   NODE_ENV=test AGENT_KANBAN_DB_PATH=/tmp/test.db npm test
-   ```
-
-#### Default Behavior
-
-If no `.agkan.yml` file exists and no environment variable is set, the database is created in:
-
-```
-<current-directory>/.agkan/data.db
-```
-
-In test mode (`NODE_ENV=test`), the default location is:
-
-```
-<current-directory>/.agkan-test/data.db
-```
-
-#### Per-Project Management
-
-To manage separate tasks for different projects, place `.agkan.yml` in each project root:
-
-```bash
-# Project A
-cd /path/to/projectA
-cat > .agkan.yml << EOF
-path: ./.agkan/data.db
-EOF
-
-# Project B
-cd /path/to/projectB
-cat > .agkan.yml << EOF
-path: ./.agkan/data.db
-EOF
-```
-
-This enables independent task management for each project.
-
 ## Usage
 
 ### Create Tasks
@@ -866,6 +730,142 @@ agkan task tag delete "urgent"
 - **review**: Tasks under review (cyan display)
 - **done**: Completed tasks (green display)
 - **closed**: Closed tasks (magenta display)
+
+## Configuration
+
+### Database Storage Location
+
+agkan allows customization of the database storage location via a configuration file.
+
+#### Configuration File: `.agkan.yml`
+
+Create a `.agkan.yml` file in your project root directory to specify the database storage location.
+
+**Configuration Example:**
+
+```yaml
+# Path to database file
+path: ./.agkan/data.db
+```
+
+#### Path Specification
+
+- **Relative Path**: Resolved relative to the current directory
+  ```yaml
+  path: ./data/kanban.db
+  path: ./.agkan/data.db
+  ```
+
+- **Absolute Path**: Used as-is
+  ```yaml
+  path: /home/user/.config/akan/data.db
+  ```
+
+#### Environment Variable Configuration
+
+agkan supports the `AGENT_KANBAN_DB_PATH` environment variable for specifying the database location. This is particularly useful in CI/CD environments and for managing multiple environments.
+
+**Setting the Environment Variable:**
+
+```bash
+# Use a custom database path
+export AGENT_KANBAN_DB_PATH=/path/to/your/database.db
+agkan task list
+
+# Use absolute path
+export AGENT_KANBAN_DB_PATH=/home/user/.config/akan/data.db
+
+# Use relative path
+export AGENT_KANBAN_DB_PATH=./custom/location/data.db
+```
+
+**Priority Order:**
+
+The database path is resolved in the following priority order:
+
+**Normal Mode (when `NODE_ENV` is not `test`):**
+1. **Environment Variable** (highest priority): `AGENT_KANBAN_DB_PATH`
+2. **Configuration File** (fallback): `path` field in `.agkan.yml`
+3. **Default Path** (lowest priority): `.agkan/data.db`
+
+**Test Mode (when `NODE_ENV=test`):**
+1. **Environment Variable** (highest priority): `AGENT_KANBAN_DB_PATH`
+2. **Configuration File** (fallback): `path` field in `.agkan-test.yml`
+3. **Default Path** (lowest priority): `.agkan-test/data.db`
+
+**Test Mode Explanation:**
+
+Test mode (`NODE_ENV=test`) automatically isolates test data from production data:
+
+- Uses separate configuration file: `.agkan-test.yml` instead of `.agkan.yml`
+- Uses separate default directory: `.agkan-test/` instead of `.agkan/`
+- Environment variable still takes highest priority in test mode
+- Prevents accidental mixing of test and production data
+
+**Use Cases:**
+
+1. **CI/CD Pipeline:**
+   ```bash
+   # Use temporary database for CI tests
+   export AGENT_KANBAN_DB_PATH=/tmp/ci-test-db.db
+   agkan task list
+   ```
+
+2. **Multiple Environments:**
+   ```bash
+   # Development environment
+   export AGENT_KANBAN_DB_PATH=./dev/data.db
+
+   # Staging environment
+   export AGENT_KANBAN_DB_PATH=./staging/data.db
+
+   # Production environment
+   export AGENT_KANBAN_DB_PATH=./prod/data.db
+   ```
+
+3. **Testing:**
+   ```bash
+   # Automated tests with isolated database
+   NODE_ENV=test npm test
+   # Uses .agkan-test/data.db by default
+
+   # Override with custom test database
+   NODE_ENV=test AGENT_KANBAN_DB_PATH=/tmp/test.db npm test
+   ```
+
+#### Default Behavior
+
+If no `.agkan.yml` file exists and no environment variable is set, the database is created in:
+
+```
+<current-directory>/.agkan/data.db
+```
+
+In test mode (`NODE_ENV=test`), the default location is:
+
+```
+<current-directory>/.agkan-test/data.db
+```
+
+#### Per-Project Management
+
+To manage separate tasks for different projects, place `.agkan.yml` in each project root:
+
+```bash
+# Project A
+cd /path/to/projectA
+cat > .agkan.yml << EOF
+path: ./.agkan/data.db
+EOF
+
+# Project B
+cd /path/to/projectB
+cat > .agkan.yml << EOF
+path: ./.agkan/data.db
+EOF
+```
+
+This enables independent task management for each project.
 
 ## Planned Features
 

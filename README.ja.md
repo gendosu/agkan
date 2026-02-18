@@ -40,129 +40,6 @@ npm install -g agkan
 npm install -g https://github.com/gendosu/agkan.git
 ```
 
-## 設定
-
-### データベースの保存場所
-
-agkanは、データベースの保存場所を設定ファイルでカスタマイズできます。
-
-#### 設定ファイル: `.agkan.yml`
-
-プロジェクトのルートディレクトリに`.agkan.yml`ファイルを作成することで、データベースの保存場所を指定できます。
-
-**設定例:**
-
-```yaml
-# データベースファイルのパス
-path: ./.agkan/data.db
-```
-
-#### パスの指定方法
-
-- **相対パス**: カレントディレクトリからの相対パスとして解決されます
-  ```yaml
-  path: ./data/kanban.db
-  path: ./.agkan/data.db
-  ```
-
-- **絶対パス**: そのままのパスが使用されます
-  ```yaml
-  path: /home/user/.config/agkan/data.db
-  ```
-
-#### 環境変数による設定
-
-agkanは `AGENT_KANBAN_DB_PATH` 環境変数によるデータベースの場所指定をサポートしています。CI/CD環境や複数環境の管理に特に有用です。
-
-**環境変数の設定例:**
-
-```bash
-# カスタムデータベースパスを使用
-export AGENT_KANBAN_DB_PATH=/path/to/your/database.db
-agkan task list
-
-# 絶対パスを使用
-export AGENT_KANBAN_DB_PATH=/home/user/.config/agkan/data.db
-
-# 相対パスを使用
-export AGENT_KANBAN_DB_PATH=./custom/location/data.db
-```
-
-**優先順位:**
-
-データベースパスは以下の優先順位で解決されます:
-
-**通常モード (`NODE_ENV` が `test` でない場合):**
-1. **環境変数**（最高優先）: `AGENT_KANBAN_DB_PATH`
-2. **設定ファイル**（フォールバック）: `.agkan.yml` の `path` フィールド
-3. **デフォルトパス**（最低優先）: `.agkan/data.db`
-
-**テストモード (`NODE_ENV=test` の場合):**
-1. **環境変数**（最高優先）: `AGENT_KANBAN_DB_PATH`
-2. **設定ファイル**（フォールバック）: `.agkan-test.yml` の `path` フィールド
-3. **デフォルトパス**（最低優先）: `.agkan-test/data.db`
-
-**テストモードについて:**
-
-テストモード（`NODE_ENV=test`）では、テストデータと本番データを自動的に分離します:
-
-- 別の設定ファイルを使用: `.agkan.yml` の代わりに `.agkan-test.yml`
-- 別のデフォルトディレクトリを使用: `.agkan/` の代わりに `.agkan-test/`
-- テストモードでも環境変数が最高優先になります
-
-**使用例:**
-
-```bash
-# CI/CDパイプライン（一時DBを使用）
-export AGENT_KANBAN_DB_PATH=/tmp/ci-test-db.db
-agkan task list
-
-# 複数環境の管理
-export AGENT_KANBAN_DB_PATH=./dev/data.db      # 開発環境
-export AGENT_KANBAN_DB_PATH=./staging/data.db  # ステージング環境
-
-# テストの実行
-NODE_ENV=test npm test
-# デフォルトで .agkan-test/data.db を使用
-
-# カスタムテストDBで実行
-NODE_ENV=test AGENT_KANBAN_DB_PATH=/tmp/test.db npm test
-```
-
-#### デフォルトの動作
-
-`.agkan.yml`ファイルが存在せず、環境変数も設定されていない場合、データベースは以下の場所に作成されます：
-
-```
-<カレントディレクトリ>/.agkan/data.db
-```
-
-テストモード（`NODE_ENV=test`）の場合のデフォルト:
-
-```
-<カレントディレクトリ>/.agkan-test/data.db
-```
-
-#### プロジェクトごとの管理
-
-プロジェクトごとに異なるタスク管理を行いたい場合は、各プロジェクトのルートに`.agkan.yml`を配置してください：
-
-```bash
-# プロジェクトA
-cd /path/to/projectA
-cat > .agkan.yml << EOF
-path: ./.agkan/data.db
-EOF
-
-# プロジェクトB
-cd /path/to/projectB
-cat > .agkan.yml << EOF
-path: ./.agkan/data.db
-EOF
-```
-
-これにより、各プロジェクトで独立したタスク管理が可能になります。
-
 ## 使用方法
 
 ### タスクの作成
@@ -853,6 +730,129 @@ agkan task tag delete "urgent"
 - **review**: レビュー中のタスク（シアン表示）
 - **done**: 完了したタスク（緑色表示）
 - **closed**: クローズされたタスク（マゼンタ表示）
+
+## 設定
+
+### データベースの保存場所
+
+agkanは、データベースの保存場所を設定ファイルでカスタマイズできます。
+
+#### 設定ファイル: `.agkan.yml`
+
+プロジェクトのルートディレクトリに`.agkan.yml`ファイルを作成することで、データベースの保存場所を指定できます。
+
+**設定例:**
+
+```yaml
+# データベースファイルのパス
+path: ./.agkan/data.db
+```
+
+#### パスの指定方法
+
+- **相対パス**: カレントディレクトリからの相対パスとして解決されます
+  ```yaml
+  path: ./data/kanban.db
+  path: ./.agkan/data.db
+  ```
+
+- **絶対パス**: そのままのパスが使用されます
+  ```yaml
+  path: /home/user/.config/agkan/data.db
+  ```
+
+#### 環境変数による設定
+
+agkanは `AGENT_KANBAN_DB_PATH` 環境変数によるデータベースの場所指定をサポートしています。CI/CD環境や複数環境の管理に特に有用です。
+
+**環境変数の設定例:**
+
+```bash
+# カスタムデータベースパスを使用
+export AGENT_KANBAN_DB_PATH=/path/to/your/database.db
+agkan task list
+
+# 絶対パスを使用
+export AGENT_KANBAN_DB_PATH=/home/user/.config/agkan/data.db
+
+# 相対パスを使用
+export AGENT_KANBAN_DB_PATH=./custom/location/data.db
+```
+
+**優先順位:**
+
+データベースパスは以下の優先順位で解決されます:
+
+**通常モード (`NODE_ENV` が `test` でない場合):**
+1. **環境変数**（最高優先）: `AGENT_KANBAN_DB_PATH`
+2. **設定ファイル**（フォールバック）: `.agkan.yml` の `path` フィールド
+3. **デフォルトパス**（最低優先）: `.agkan/data.db`
+
+**テストモード (`NODE_ENV=test` の場合):**
+1. **環境変数**（最高優先）: `AGENT_KANBAN_DB_PATH`
+2. **設定ファイル**（フォールバック）: `.agkan-test.yml` の `path` フィールド
+3. **デフォルトパス**（最低優先）: `.agkan-test/data.db`
+
+**テストモードについて:**
+
+テストモード（`NODE_ENV=test`）では、テストデータと本番データを自動的に分離します:
+
+- 別の設定ファイルを使用: `.agkan.yml` の代わりに `.agkan-test.yml`
+- 別のデフォルトディレクトリを使用: `.agkan/` の代わりに `.agkan-test/`
+- テストモードでも環境変数が最高優先になります
+
+**使用例:**
+
+```bash
+# CI/CDパイプライン（一時DBを使用）
+export AGENT_KANBAN_DB_PATH=/tmp/ci-test-db.db
+agkan task list
+
+# 複数環境の管理
+export AGENT_KANBAN_DB_PATH=./dev/data.db      # 開発環境
+export AGENT_KANBAN_DB_PATH=./staging/data.db  # ステージング環境
+
+# テストの実行
+NODE_ENV=test npm test
+# デフォルトで .agkan-test/data.db を使用
+
+# カスタムテストDBで実行
+NODE_ENV=test AGENT_KANBAN_DB_PATH=/tmp/test.db npm test
+```
+
+#### デフォルトの動作
+
+`.agkan.yml`ファイルが存在せず、環境変数も設定されていない場合、データベースは以下の場所に作成されます：
+
+```
+<カレントディレクトリ>/.agkan/data.db
+```
+
+テストモード（`NODE_ENV=test`）の場合のデフォルト:
+
+```
+<カレントディレクトリ>/.agkan-test/data.db
+```
+
+#### プロジェクトごとの管理
+
+プロジェクトごとに異なるタスク管理を行いたい場合は、各プロジェクトのルートに`.agkan.yml`を配置してください：
+
+```bash
+# プロジェクトA
+cd /path/to/projectA
+cat > .agkan.yml << EOF
+path: ./.agkan/data.db
+EOF
+
+# プロジェクトB
+cd /path/to/projectB
+cat > .agkan.yml << EOF
+path: ./.agkan/data.db
+EOF
+```
+
+これにより、各プロジェクトで独立したタスク管理が可能になります。
 
 ## 実装予定機能
 
