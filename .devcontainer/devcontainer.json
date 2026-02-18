@@ -1,0 +1,34 @@
+{
+  "name": "Agent Kanban Dev Container",
+  "dockerComposeFile": "compose.yaml",
+  "service": "app",
+  "workspaceFolder": "/workspace",
+  "features": {
+    "ghcr.io/devcontainers/features/common-utils:2": {
+      "installZsh": false,
+      "installOhMyZsh": false,
+      "upgradePackages": false,
+      "username": "node",
+      "userUid": "1000",
+      "userGid": "1000",
+      "configureZshAsDefaultShell": false
+    }
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "dbaeumer.vscode-eslint",
+        "esbenp.prettier-vscode"
+      ],
+      "settings": {
+        "terminal.integrated.defaultProfile.linux": "bash"
+      }
+    }
+  },
+  "containerEnv": {
+    "GITHUB_TOKEN": "${localEnv:GITHUB_TOKEN}",
+    "GITHUB_ID": "${localEnv:GITHUB_ID}"
+  },
+  "remoteUser": "node",
+  "postCreateCommand": "npm install"
+}

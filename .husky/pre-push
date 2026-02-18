@@ -1,0 +1,22 @@
+# node関係のファイルが変更された場合のみテストを実行
+NODE_PATTERN="package\.json|package-lock\.json|tsconfig|vitest\.config|eslint\.config|\.ts$|^src/|^tests/"
+
+while read local_ref local_sha remote_ref remote_sha; do
+  # ブランチ削除の場合はスキップ（local_sha が全ゼロ）
+  if [ "$local_sha" = "0000000000000000000000000000000000000000" ]; then
+    continue
+  fi
+
+  if [ "$remote_sha" = "0000000000000000000000000000000000000000" ]; then
+    changed_files=$(git diff-tree --no-commit-id -r --name-only "$local_sha" 2>/dev/null || git ls-files)
+  else
+    changed_files=$(git diff --name-only "$remote_sha..$local_sha" 2>/dev/null)
+  fi
+
+  if echo "$changed_files" | grep -qE "$NODE_PATTERN"; then
+    npm test
+    exit $?
+  fi
+done
+
+echo "node関係のファイルの変更なし。テストをスキップします"

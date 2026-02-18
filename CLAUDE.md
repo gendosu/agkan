@@ -1,0 +1,5 @@
+- Use comprehensive testing with tests/ and e2etest.sh
+- Follow key-guidelines strictly
+- When creating plans in plan mode, use checklist format
+- Tags should be applied to the main branch
+- Load agkan

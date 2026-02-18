@@ -1,0 +1,10 @@
+{
+  "extraKnownMarketplaces": {
+    "gendosu-claude-plugins": {
+      "source": {
+        "source": "github",
+        "repo": "gendosu/gendosu-claude-plugins"
+      }
+    }
+  }
+}

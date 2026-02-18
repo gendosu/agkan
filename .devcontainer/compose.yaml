@@ -1,0 +1,21 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    volumes:
+      - ..:/workspace:cached
+      - /workspace/node_modules
+      - node-home:/home/node
+      - ~/.ssh:/home/node/.ssh:ro
+    entrypoint: /workspace/.devcontainer/setup.sh
+    command: sleep infinity
+    network_mode: host
+    environment:
+      - SHELL=/bin/bash
+      - GITHUB_ID=${GITHUB_ID}
+      - GITHUB_TOKEN=${GITHUB_TOKEN}
+      - GIT_PR_RELEASE_TOKEN=${GITHUB_TOKEN}
+
+volumes:
+  node-home:

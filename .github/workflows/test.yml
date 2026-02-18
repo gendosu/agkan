@@ -1,0 +1,42 @@
+name: Test
+
+# NOTE: カバレッジは計測しますが、閾値チェックは行いません
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  coverage:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Run tests with coverage
+        run: npm test -- --coverage
+
+      # NOTE: カバレッジ閾値チェックは削除されています
+      # 復活させる場合は、コミット 1d344f1 または 176494d^ を参照してください
+      # git show 1d344f1:.github/workflows/coverage.yml
+
+      - name: Upload coverage report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: coverage-report
+          path: coverage/
+          retention-days: 30

@@ -1,0 +1,40 @@
+# Source files
+src/
+*.ts
+!*.d.ts
+
+# Configuration files
+tsconfig.json
+vitest.config.ts
+
+# Test files
+test/
+tests/
+*.test.ts
+*.test.js
+*.spec.ts
+*.spec.js
+
+# Development files
+.git/
+.gitignore
+TODO.md
+
+# Data files
+data/
+attachments/
+*.db
+*.sqlite
+
+# IDE
+.vscode/
+.idea/
+.devcontainer/
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS
+.DS_Store
+Thumbs.db
