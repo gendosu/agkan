@@ -56,4 +56,25 @@ describe('setupAgentGuideCommand', () => {
     expect(output).toContain('agkan task add');
     expect(output).toContain('agkan task list');
   });
+
+  it('should contain status descriptions with 7 statuses', async () => {
+    const { logs } = await runCommand(program, ['agent-guide']);
+    const output = logs.join('\n');
+
+    expect(output).toContain('7 statuses');
+  });
+
+  it('should contain icebox status', async () => {
+    const { logs } = await runCommand(program, ['agent-guide']);
+    const output = logs.join('\n');
+
+    expect(output).toContain('icebox');
+  });
+
+  it('should contain review status', async () => {
+    const { logs } = await runCommand(program, ['agent-guide']);
+    const output = logs.join('\n');
+
+    expect(output).toContain('review');
+  });
 });
