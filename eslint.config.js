@@ -45,6 +45,9 @@ module.exports = [
       semi: ['error', 'always'],
       indent: ['error', 2],
       quotes: ['error', 'single'],
+      'max-lines-per-function': ['warn', 40],
+      'max-depth': ['warn', 3],
+      'complexity': ['warn', 10],
     },
   },
   {
