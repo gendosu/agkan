@@ -33,6 +33,9 @@ import { setupMetaGetCommand } from './commands/meta/get';
 import { setupMetaListCommand } from './commands/meta/list';
 import { setupMetaDeleteCommand } from './commands/meta/delete';
 
+// Agent guide command handler
+import { setupAgentGuideCommand } from './commands/agent-guide';
+
 const program = new Command();
 
 // Load version from package.json
@@ -75,6 +78,9 @@ setupMetaSetCommand(program);
 setupMetaGetCommand(program);
 setupMetaListCommand(program);
 setupMetaDeleteCommand(program);
+
+// Register agent-guide command
+setupAgentGuideCommand(program);
 
 // Execute program
 program.parse(process.argv);
