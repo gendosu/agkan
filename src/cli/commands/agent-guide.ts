@@ -10,7 +10,7 @@ const AGENT_GUIDE_CONTENT = `# agkan
 
 \`agkan\` is a SQLite-based CLI task management tool, optimized for collaboration with AI agents.
 
-**5 statuses:** \`backlog\` → \`ready\` → \`in_progress\` → \`done\` → \`closed\`
+**7 statuses:** \`icebox\` → \`backlog\` → \`ready\` → \`in_progress\` → \`review\` → \`done\` → \`closed\`
 
 ---
 
@@ -140,7 +140,7 @@ agkan task list --status ready --json | jq '.tasks[].id'
       "title": "Task title",
       "body": "body | null",
       "author": "string | null",
-      "status": "backlog | ready | in_progress | review | done | closed",
+      "status": "icebox | backlog | ready | in_progress | review | done | closed",
       "parent_id": "number | null",
       "created_at": "2026-01-01T00:00:00.000Z",
       "updated_at": "2026-01-01T00:00:00.000Z",
@@ -162,7 +162,7 @@ agkan task list --status ready --json | jq '.tasks[].id'
     "title": "Task title",
     "body": "body | null",
     "author": "string | null",
-    "status": "backlog | ready | in_progress | review | done | closed",
+    "status": "icebox | backlog | ready | in_progress | review | done | closed",
     "parent_id": "number | null",
     "created_at": "2026-01-01T00:00:00.000Z",
     "updated_at": "2026-01-01T00:00:00.000Z"
@@ -181,6 +181,7 @@ agkan task list --status ready --json | jq '.tasks[].id'
 \`\`\`json
 {
   "counts": {
+    "icebox": 0,
     "backlog": 0,
     "ready": 2,
     "in_progress": 1,
