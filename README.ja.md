@@ -9,7 +9,7 @@ TypeScriptで実装された軽量なCLIタスク管理ツールです。エー�
 
 - **シンプルなCLI**: 直感的なコマンドラインインターフェース
 - **SQLiteベース**: ローカルでの高速データ管理
-- **カンバン形式**: 6つのステータスでタスクを管理（backlog, ready, in_progress, review, done, closed）
+- **カンバン形式**: 7つのステータスでタスクを管理（icebox, backlog, ready, in_progress, review, done, closed）
 - **柔軟な入力**: コマンドライン引数またはMarkdownファイルからタスクを作成
 - **フィルタリング**: ステータスや作成者でタスクを絞り込み
 - **色分け表示**: ステータスごとに見やすい色分け表示
@@ -724,6 +724,7 @@ agkan task tag delete "urgent"
 
 ## タスクステータス
 
+- **icebox**: 積極的に検討していない凍結タスク（白色表示）
 - **backlog**: 未着手のタスク（グレー表示）
 - **ready**: 着手可能なタスク（青色表示）
 - **in_progress**: 作業中のタスク（黄色表示）
@@ -951,7 +952,7 @@ agkan/
 | id | INTEGER | 主キー（自動採番） |
 | title | TEXT | タスクタイトル（必須） |
 | body | TEXT | タスク本文 |
-| status | TEXT | ステータス（backlog, ready, in_progress, review, done, closed） |
+| status | TEXT | ステータス（icebox, backlog, ready, in_progress, review, done, closed） |
 | author | TEXT | 作成者 |
 | parent_id | INTEGER | 親タスクID（外部キー、NULL可） |
 | created_at | TEXT | 作成日時（ISO 8601形式） |

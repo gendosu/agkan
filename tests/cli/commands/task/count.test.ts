@@ -70,6 +70,7 @@ describe('setupTaskCountCommand', () => {
     }
 
     const output = consoleLogs.join('\n');
+    expect(output).toContain('icebox');
     expect(output).toContain('ready');
     expect(output).toContain('backlog');
   });

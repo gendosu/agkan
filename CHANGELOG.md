@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - Add `--file` option to `task update` command for reading body content from a file (`agkan task update <id> body --file <path>`)
+- Add icebox status for parking inactive tasks
 
 ## [1.0.0] - 2026-02-13
 

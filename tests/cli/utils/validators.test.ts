@@ -6,6 +6,7 @@ import { join } from 'path';
 describe('validators', () => {
   describe('validateTaskStatus', () => {
     it('should return true for valid task statuses', () => {
+      expect(validateTaskStatus('icebox')).toBe(true);
       expect(validateTaskStatus('backlog')).toBe(true);
       expect(validateTaskStatus('ready')).toBe(true);
       expect(validateTaskStatus('in_progress')).toBe(true);

@@ -82,7 +82,7 @@ export class TagService {
   listTags(): Tag[] {
     const db = this.db;
 
-    const stmt = db.prepare('SELECT * FROM tags ORDER BY created_at DESC');
+    const stmt = db.prepare('SELECT * FROM tags ORDER BY created_at DESC, id DESC');
     const results = stmt.all();
 
     return results as Tag[];

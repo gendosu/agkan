@@ -225,6 +225,7 @@ export class TaskService {
 
     // Initialize all statuses with 0
     const countMap: Record<TaskStatus, number> = {
+      icebox: 0,
       backlog: 0,
       ready: 0,
       in_progress: 0,
@@ -254,8 +255,8 @@ export class TaskService {
     const params: string[] = [`%${keyword}%`, `%${keyword}%`];
 
     if (!includeAll) {
-      query += ' AND status NOT IN (?, ?)';
-      params.push('done', 'closed');
+      query += ' AND status NOT IN (?, ?, ?)';
+      params.push('icebox', 'done', 'closed');
     }
 
     query += ' ORDER BY created_at DESC';
