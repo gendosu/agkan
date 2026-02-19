@@ -46,7 +46,8 @@ function displayTaskTree(
   taskService: TaskService,
   task: { id: number; title: string; status: TaskStatus },
   prefix: string,
-  isLast: boolean
+  isLast: boolean,
+  allTasksMetadata: MetadataMap
 ): void {
   const statusColor = getStatusColor(task.status);
 
@@ -59,6 +60,14 @@ function displayTaskTree(
       `${chalk[statusColor](`(${task.status})`)}`
   );
 
+  // Display metadata if present
+  const metadata = allTasksMetadata.get(task.id);
+  if (metadata && metadata.length > 0) {
+    const childPrefix = prefix + (isLast ? '    ' : '│   ');
+    const metadataStrings = metadata.map(formatMetadataEntry);
+    console.log(`${childPrefix}${chalk.bold('Metadata:')} ${metadataStrings.join(', ')}`);
+  }
+
   // Get child tasks
   const children = taskService.getChildTasks(task.id);
 
@@ -68,7 +77,7 @@ function displayTaskTree(
 
     children.forEach((child, index) => {
       const isChildLast = index === children.length - 1;
-      displayTaskTree(taskService, child, newPrefix, isChildLast);
+      displayTaskTree(taskService, child, newPrefix, isChildLast, allTasksMetadata);
     });
   }
 }
@@ -384,7 +393,7 @@ export function setupTaskListCommand(program: Command): void {
 
               rootTasks.forEach((task, index) => {
                 const isLast = index === rootTasks.length - 1;
-                displayTaskTree(taskService, task, '', isLast);
+                displayTaskTree(taskService, task, '', isLast, allTasksMetadata);
               });
 
               console.log('\n');
