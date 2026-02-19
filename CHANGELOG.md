@@ -7,9 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-02-19
+
 ### Added
-- Add `--file` option to `task update` command for reading body content from a file (`agkan task update <id> body --file <path>`)
 - Add icebox status for parking inactive tasks
+- Add `--file` option to `task update` command for reading body content from a file (`agkan task update <id> body --file <path>`)
+- Add `agent-guide` command for AI agent collaboration documentation
+
+### Fixed
+- Ensure deterministic tag ordering when timestamps are equal
+
+### Changed
+- Translate agent guide content to English
+- Reorganize README sections for better readability
+
+### Removed
+- Remove invalid `akan` bin alias from package.json
 
 ## [1.0.0] - 2026-02-13
 
