@@ -9,6 +9,7 @@ import { TaskStatus } from '../../../models';
 import { validateNumberInput } from '../../utils/error-handler';
 import { validateTaskStatus } from '../../utils/validators';
 import { getStatusColor, formatDate } from '../../../utils/format';
+import { readBodyFromFile } from './add-helpers';
 
 const SUPPORTED_FIELDS = ['status', 'title', 'body', 'author'] as const;
 type SupportedField = (typeof SUPPORTED_FIELDS)[number];
@@ -23,9 +24,10 @@ export function setupTaskUpdateCommand(program: Command): void {
     .command('update')
     .argument('<id>', 'Task ID')
     .argument('<field>', 'Field to update (status, title, body, author)')
-    .argument('<value>', 'New value')
+    .argument('[value]', 'New value')
+    .option('--file <path>', 'Read body from file (only valid for body field)')
     .description('Update a task field')
-    .action(async (id, field, value) => {
+    .action(async (id, field, value, options) => {
       try {
         const taskService = new TaskService();
 
@@ -41,17 +43,44 @@ export function setupTaskUpdateCommand(program: Command): void {
           process.exit(1);
         }
 
+        // Validate --file option usage
+        if (options.file && field !== 'body') {
+          console.log(chalk.red(`\nError: --file option is only valid for the body field\n`));
+          process.exit(1);
+        }
+
+        // Resolve the body value from file if --file is specified
+        let resolvedValue = value;
+        if (options.file) {
+          try {
+            resolvedValue = readBodyFromFile(options.file);
+          } catch (error) {
+            const msg = error instanceof Error ? error.message : 'Error reading file';
+            console.log(chalk.red(`\n✗ Error: ${msg}\n`));
+            process.exit(1);
+            return;
+          }
+        }
+
+        // Require a value when not using --file
+        if (resolvedValue === undefined) {
+          console.log(
+            chalk.red(`\nError: Missing value for field '${field}'. Provide a value argument or use --file for body.\n`)
+          );
+          process.exit(1);
+        }
+
         const updateInput: Record<string, string> = {};
 
         if (field === 'status') {
-          if (!validateTaskStatus(value)) {
-            console.log(chalk.red(`\nInvalid status: ${value}`));
+          if (!validateTaskStatus(resolvedValue)) {
+            console.log(chalk.red(`\nInvalid status: ${resolvedValue}`));
             console.log('Valid statuses: backlog, ready, in_progress, review, done, closed\n');
             process.exit(1);
           }
-          updateInput.status = value;
+          updateInput.status = resolvedValue;
         } else {
-          updateInput[field] = value;
+          updateInput[field] = resolvedValue;
         }
 
         const task = taskService.updateTask(taskId, {

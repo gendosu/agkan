@@ -2,11 +2,32 @@
  * Tests for task update command handler
  */
 
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { Command } from 'commander';
 import { setupTaskUpdateCommand } from '../../../../src/cli/commands/task/update';
 import { getDatabase } from '../../../../src/db/connection';
 import { TaskService } from '../../../../src/services';
+
+async function runCommand(program: Command, args: string[]): Promise<{ logs: string[]; exitCode: number | undefined }> {
+  const logs: string[] = [];
+  const originalLog = console.log;
+  console.log = (...a: unknown[]) => logs.push(a.join(' '));
+
+  let exitCode: number | undefined;
+  const originalExit = process.exit;
+  process.exit = ((code?: number) => {
+    exitCode = code;
+  }) as never;
+
+  try {
+    await program.parseAsync(['node', 'test', ...args]);
+  } finally {
+    console.log = originalLog;
+    process.exit = originalExit;
+  }
+
+  return { logs, exitCode };
+}
 
 describe('setupTaskUpdateCommand', () => {
   let program: Command;
@@ -22,6 +43,10 @@ describe('setupTaskUpdateCommand', () => {
     program.exitOverride();
     program.command('task').description('Task management commands');
     setupTaskUpdateCommand(program);
+  });
+
+  afterEach(() => {
+    // cleanup if needed
   });
 
   it('should register the update command', () => {
@@ -295,5 +320,128 @@ describe('setupTaskUpdateCommand', () => {
     const output = consoleLogs.join('\n');
     expect(output).toContain('number');
     expect(exitCode).toBe(1);
+  });
+
+  describe('--file option for body update', () => {
+    it('should have --file option registered on update command', () => {
+      const taskCommand = program.commands.find((cmd) => cmd.name() === 'task');
+      const updateCommand = taskCommand?.commands.find((cmd) => cmd.name() === 'update');
+      const options = updateCommand?.options || [];
+      const optionNames = options.map((opt) => opt.long);
+      expect(optionNames).toContain('--file');
+    });
+
+    it('should update body from file when --file is specified', async () => {
+      const fs = await import('fs');
+      const os = await import('os');
+      const path = await import('path');
+
+      const taskService = new TaskService();
+      taskService.createTask({ title: 'Test task', status: 'backlog' });
+      const task = taskService.listTasks()[0];
+
+      const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'task-update-test-'));
+      const filePath = path.join(tmpDir, 'body.md');
+      fs.writeFileSync(filePath, '# Body from file');
+
+      try {
+        const { exitCode } = await runCommand(program, ['task', 'update', String(task.id), 'body', '--file', filePath]);
+        expect(exitCode).toBeUndefined();
+
+        const updatedTask = taskService.getTask(task.id);
+        expect(updatedTask?.body).toBe('# Body from file');
+      } finally {
+        fs.rmSync(tmpDir, { recursive: true, force: true });
+      }
+    });
+
+    it('should update body from file without providing <value> argument', async () => {
+      const fs = await import('fs');
+      const os = await import('os');
+      const path = await import('path');
+
+      const taskService = new TaskService();
+      taskService.createTask({ title: 'Test task', status: 'backlog' });
+      const task = taskService.listTasks()[0];
+
+      const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'task-update-test-'));
+      const filePath = path.join(tmpDir, 'body.md');
+      fs.writeFileSync(filePath, '# Content without value arg');
+
+      try {
+        // No <value> argument provided - only --file option
+        const { exitCode, logs } = await runCommand(program, [
+          'task',
+          'update',
+          String(task.id),
+          'body',
+          '--file',
+          filePath,
+        ]);
+        expect(exitCode).toBeUndefined();
+        expect(logs.join('\n')).toContain('✓');
+
+        const updatedTask = taskService.getTask(task.id);
+        expect(updatedTask?.body).toBe('# Content without value arg');
+      } finally {
+        fs.rmSync(tmpDir, { recursive: true, force: true });
+      }
+    });
+
+    it('should exit with error when --file is specified but file does not exist', async () => {
+      const taskService = new TaskService();
+      taskService.createTask({ title: 'Test task', status: 'backlog' });
+      const task = taskService.listTasks()[0];
+
+      const { exitCode, logs } = await runCommand(program, [
+        'task',
+        'update',
+        String(task.id),
+        'body',
+        '--file',
+        '/nonexistent/path.md',
+      ]);
+      expect(exitCode).toBe(1);
+      expect(logs.join('\n')).toContain('Error reading file');
+    });
+
+    it('should exit with error when body field and --file is not specified and value is missing', async () => {
+      const taskService = new TaskService();
+      taskService.createTask({ title: 'Test task', status: 'backlog' });
+      const task = taskService.listTasks()[0];
+
+      const { exitCode, logs } = await runCommand(program, ['task', 'update', String(task.id), 'body']);
+      expect(exitCode).toBe(1);
+      expect(logs.join('\n')).toContain('value');
+    });
+
+    it('should exit with error when --file is used with non-body field', async () => {
+      const taskService = new TaskService();
+      taskService.createTask({ title: 'Test task', status: 'backlog' });
+      const task = taskService.listTasks()[0];
+
+      const fs = await import('fs');
+      const os = await import('os');
+      const path = await import('path');
+
+      const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'task-update-test-'));
+      const filePath = path.join(tmpDir, 'content.md');
+      fs.writeFileSync(filePath, 'some content');
+
+      try {
+        const { exitCode, logs } = await runCommand(program, [
+          'task',
+          'update',
+          String(task.id),
+          'title',
+          '--file',
+          filePath,
+        ]);
+        expect(exitCode).toBe(1);
+        expect(logs.join('\n')).toContain('--file');
+      } finally {
+        fs.rmSync(tmpDir, { recursive: true, force: true });
+      }
+    });
   });
 });
