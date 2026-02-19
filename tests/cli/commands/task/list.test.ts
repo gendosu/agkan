@@ -449,4 +449,83 @@ describe('setupTaskListCommand', () => {
     expect(rootTask.metadata[0].key).toBe('priority');
     expect(rootTask.metadata[0].value).toBe('high');
   });
+
+  it('should display metadata in tree view', async () => {
+    const taskService = new TaskService();
+    const metadataService = new MetadataService();
+    const task = taskService.createTask({ title: 'Tree Meta Task', status: 'ready' });
+    metadataService.setMetadata({ task_id: task.id, key: 'priority', value: 'high' });
+
+    const consoleLogs: string[] = [];
+    const originalLog = console.log;
+    console.log = (...args: unknown[]) => consoleLogs.push(args.join(' '));
+
+    const originalExit = process.exit;
+    process.exit = (() => {}) as never;
+
+    try {
+      await program.parseAsync(['node', 'test', 'task', 'list', '--tree']);
+    } finally {
+      console.log = originalLog;
+      process.exit = originalExit;
+    }
+
+    const output = consoleLogs.join('\n');
+    expect(output).toContain('Tree Meta Task');
+    expect(output).toContain('Metadata:');
+    expect(output).toContain('priority');
+    expect(output).toContain('high');
+  });
+
+  it('should not display metadata section in tree view when task has no metadata', async () => {
+    const taskService = new TaskService();
+    taskService.createTask({ title: 'Tree No Meta Task', status: 'ready' });
+
+    const consoleLogs: string[] = [];
+    const originalLog = console.log;
+    console.log = (...args: unknown[]) => consoleLogs.push(args.join(' '));
+
+    const originalExit = process.exit;
+    process.exit = (() => {}) as never;
+
+    try {
+      await program.parseAsync(['node', 'test', 'task', 'list', '--tree']);
+    } finally {
+      console.log = originalLog;
+      process.exit = originalExit;
+    }
+
+    const output = consoleLogs.join('\n');
+    expect(output).toContain('Tree No Meta Task');
+    expect(output).not.toContain('Metadata:');
+  });
+
+  it('should display metadata for child tasks in tree view', async () => {
+    const taskService = new TaskService();
+    const metadataService = new MetadataService();
+    const parent = taskService.createTask({ title: 'Parent Task Tree', status: 'ready' });
+    const child = taskService.createTask({ title: 'Child Task Tree', status: 'ready', parent_id: parent.id });
+    metadataService.setMetadata({ task_id: child.id, key: 'priority', value: 'medium' });
+
+    const consoleLogs: string[] = [];
+    const originalLog = console.log;
+    console.log = (...args: unknown[]) => consoleLogs.push(args.join(' '));
+
+    const originalExit = process.exit;
+    process.exit = (() => {}) as never;
+
+    try {
+      await program.parseAsync(['node', 'test', 'task', 'list', '--tree']);
+    } finally {
+      console.log = originalLog;
+      process.exit = originalExit;
+    }
+
+    const output = consoleLogs.join('\n');
+    expect(output).toContain('Parent Task Tree');
+    expect(output).toContain('Child Task Tree');
+    expect(output).toContain('Metadata:');
+    expect(output).toContain('priority');
+    expect(output).toContain('medium');
+  });
 });
