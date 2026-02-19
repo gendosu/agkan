@@ -75,7 +75,7 @@ export function setupTaskUpdateCommand(program: Command): void {
         if (field === 'status') {
           if (!validateTaskStatus(resolvedValue)) {
             console.log(chalk.red(`\nInvalid status: ${resolvedValue}`));
-            console.log('Valid statuses: backlog, ready, in_progress, review, done, closed\n');
+            console.log('Valid statuses: icebox, backlog, ready, in_progress, review, done, closed\n');
             process.exit(1);
           }
           updateInput.status = resolvedValue;
@@ -108,6 +108,7 @@ export function setupTaskUpdateCommand(program: Command): void {
         console.log(chalk.bold('Task Count by Status:'));
 
         const statusEntries: Array<{ status: TaskStatus; count: number }> = [
+          { status: 'icebox', count: statusCounts.icebox },
           { status: 'backlog', count: statusCounts.backlog },
           { status: 'ready', count: statusCounts.ready },
           { status: 'in_progress', count: statusCounts.in_progress },

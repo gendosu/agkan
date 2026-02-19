@@ -6,7 +6,7 @@
 /**
  * Task status type
  */
-export type TaskStatus = 'backlog' | 'ready' | 'in_progress' | 'review' | 'done' | 'closed';
+export type TaskStatus = 'icebox' | 'backlog' | 'ready' | 'in_progress' | 'review' | 'done' | 'closed';
 
 /**
  * Complete task type definition

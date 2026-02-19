@@ -9,7 +9,7 @@ description: Use when managing tasks with the agkan CLI tool - creating, listing
 
 `agkan` はSQLiteベースのCLIタスク管理ツール。AIエージェントとの協働に最適化されている。
 
-**5つのステータス:** `backlog` → `ready` → `in_progress` → `done` → `closed`
+**7つのステータス:** `icebox` → `backlog` → `ready` → `in_progress` → `review` → `done` → `closed`
 
 ---
 
@@ -139,7 +139,7 @@ agkan task list --status ready --json | jq '.tasks[].id'
       "title": "タスクタイトル",
       "body": "本文 | null",
       "author": "string | null",
-      "status": "backlog | ready | in_progress | review | done | closed",
+      "status": "icebox | backlog | ready | in_progress | review | done | closed",
       "parent_id": "number | null",
       "created_at": "2026-01-01T00:00:00.000Z",
       "updated_at": "2026-01-01T00:00:00.000Z",
@@ -161,7 +161,7 @@ agkan task list --status ready --json | jq '.tasks[].id'
     "title": "タスクタイトル",
     "body": "本文 | null",
     "author": "string | null",
-    "status": "backlog | ready | in_progress | review | done | closed",
+    "status": "icebox | backlog | ready | in_progress | review | done | closed",
     "parent_id": "number | null",
     "created_at": "2026-01-01T00:00:00.000Z",
     "updated_at": "2026-01-01T00:00:00.000Z"
@@ -180,6 +180,7 @@ agkan task list --status ready --json | jq '.tasks[].id'
 ```json
 {
   "counts": {
+    "icebox": 0,
     "backlog": 0,
     "ready": 2,
     "in_progress": 1,

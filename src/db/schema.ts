@@ -11,7 +11,7 @@ export function runMigrations(db: Database.Database): void {
       title TEXT NOT NULL,
       body TEXT,
       author TEXT,
-      status TEXT NOT NULL DEFAULT 'backlog' CHECK(status IN ('backlog', 'ready', 'in_progress', 'review', 'done', 'closed')),
+      status TEXT NOT NULL DEFAULT 'backlog' CHECK(status IN ('icebox', 'backlog', 'ready', 'in_progress', 'review', 'done', 'closed')),
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL
     );
@@ -38,7 +38,35 @@ export function runMigrations(db: Database.Database): void {
         title TEXT NOT NULL,
         body TEXT,
         author TEXT,
-        status TEXT NOT NULL DEFAULT 'backlog' CHECK(status IN ('backlog', 'ready', 'in_progress', 'review', 'done', 'closed')),
+        status TEXT NOT NULL DEFAULT 'backlog' CHECK(status IN ('icebox', 'backlog', 'ready', 'in_progress', 'review', 'done', 'closed')),
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        parent_id INTEGER DEFAULT NULL REFERENCES tasks_new(id) ON DELETE SET NULL
+      );
+    `);
+    db.exec(
+      `INSERT INTO tasks_new SELECT id, title, body, author, status, created_at, updated_at, parent_id FROM tasks`
+    );
+    db.exec(`DROP TABLE tasks`);
+    db.exec(`ALTER TABLE tasks_new RENAME TO tasks`);
+    db.exec(`CREATE INDEX IF NOT EXISTS idx_tasks_status ON tasks(status)`);
+    db.exec(`CREATE INDEX IF NOT EXISTS idx_tasks_author ON tasks(author)`);
+    db.exec(`CREATE INDEX IF NOT EXISTS idx_tasks_parent_id ON tasks(parent_id)`);
+  }
+
+  // Migrate tasks table to add 'icebox' status to CHECK constraint
+  const taskTableDefForIcebox = db
+    .prepare(`SELECT sql FROM sqlite_master WHERE type='table' AND name='tasks'`)
+    .get() as { sql: string } | undefined;
+
+  if (taskTableDefForIcebox && !taskTableDefForIcebox.sql.includes("'icebox'")) {
+    db.exec(`
+      CREATE TABLE tasks_new (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        title TEXT NOT NULL,
+        body TEXT,
+        author TEXT,
+        status TEXT NOT NULL DEFAULT 'backlog' CHECK(status IN ('icebox', 'backlog', 'ready', 'in_progress', 'review', 'done', 'closed')),
         created_at TEXT NOT NULL,
         updated_at TEXT NOT NULL,
         parent_id INTEGER DEFAULT NULL REFERENCES tasks_new(id) ON DELETE SET NULL

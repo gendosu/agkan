@@ -318,10 +318,10 @@ export function setupTaskListCommand(program: Command): void {
         // Validate status filter
         if (options.status && !validateTaskStatus(options.status)) {
           formatter.error(
-            `Invalid status: ${options.status}. Valid statuses: backlog, ready, in_progress, review, done, closed`,
+            `Invalid status: ${options.status}. Valid statuses: icebox, backlog, ready, in_progress, review, done, closed`,
             () => {
               console.log(chalk.red(`Invalid status: ${options.status}`));
-              console.log('Valid statuses: backlog, ready, in_progress, review, done, closed');
+              console.log('Valid statuses: icebox, backlog, ready, in_progress, review, done, closed');
             }
           );
           process.exit(1);
@@ -336,9 +336,9 @@ export function setupTaskListCommand(program: Command): void {
           tagIds,
         });
 
-        // Default: exclude done and closed unless --all or --status is explicitly specified
+        // Default: exclude icebox, done, and closed unless --all or --status is explicitly specified
         if (!options.status && !options.all) {
-          tasks = tasks.filter((t) => t.status !== 'done' && t.status !== 'closed');
+          tasks = tasks.filter((t) => t.status !== 'icebox' && t.status !== 'done' && t.status !== 'closed');
         }
 
         // If --root-only option is specified, filter to only tasks without parent

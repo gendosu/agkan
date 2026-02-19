@@ -9,7 +9,7 @@ A lightweight CLI task management tool implemented in TypeScript. Optimized for 
 
 - **Simple CLI**: Intuitive command-line interface
 - **SQLite-based**: Fast local data management
-- **Kanban Format**: Manage tasks with 6 statuses (backlog, ready, in_progress, review, done, closed)
+- **Kanban Format**: Manage tasks with 7 statuses (icebox, backlog, ready, in_progress, review, done, closed)
 - **Flexible Input**: Create tasks from command-line arguments or Markdown files
 - **Filtering**: Narrow down tasks by status or author
 - **Color-coded Display**: Easy-to-read color-coded display by status
@@ -724,6 +724,7 @@ agkan task tag delete "urgent"
 
 ## Task Statuses
 
+- **icebox**: Frozen tasks not actively being considered (white display)
 - **backlog**: Not yet started tasks (gray display)
 - **ready**: Tasks ready to be started (blue display)
 - **in_progress**: Tasks currently being worked on (yellow display)
@@ -964,7 +965,7 @@ agkan/
 | id | INTEGER | Primary key (auto-increment) |
 | title | TEXT | Task title (required) |
 | body | TEXT | Task body |
-| status | TEXT | Status (backlog, ready, in_progress, review, done, closed) |
+| status | TEXT | Status (icebox, backlog, ready, in_progress, review, done, closed) |
 | author | TEXT | Creator/author |
 | parent_id | INTEGER | Parent task ID (foreign key, nullable) |
 | created_at | TEXT | Creation timestamp (ISO 8601 format) |

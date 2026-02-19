@@ -4,8 +4,11 @@ import { TaskStatus } from '../models';
  * Get the color corresponding to a status
  * Returns the color name to be used by chalk
  */
-export function getStatusColor(status: TaskStatus): 'gray' | 'blue' | 'yellow' | 'cyan' | 'green' | 'magenta' {
-  const colorMap: Record<TaskStatus, 'gray' | 'blue' | 'yellow' | 'cyan' | 'green' | 'magenta'> = {
+export function getStatusColor(
+  status: TaskStatus
+): 'white' | 'gray' | 'blue' | 'yellow' | 'cyan' | 'green' | 'magenta' {
+  const colorMap: Record<TaskStatus, 'white' | 'gray' | 'blue' | 'yellow' | 'cyan' | 'green' | 'magenta'> = {
+    icebox: 'white',
     backlog: 'gray',
     ready: 'blue',
     in_progress: 'yellow',
