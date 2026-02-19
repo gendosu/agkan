@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.1] - 2026-02-19
+
+### Fixed
+- Fix agent-guide command to show correct 7 statuses (icebox, backlog, ready, in_progress, review, done, closed)
+
 ## [1.1.0] - 2026-02-19
 
 ### Added
