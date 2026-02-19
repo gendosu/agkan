@@ -25,6 +25,7 @@ agkan task add "サブタスク" --parent 1
 agkan task add "タイトル" --file ./spec.md  # ファイルから本文読み込み
 
 # 一覧表示
+※githubのissueやPRのリンクがある場合はリストに表示
 agkan task list                    # 全タスク
 agkan task list --status in_progress
 agkan task list --tree             # 階層表示
