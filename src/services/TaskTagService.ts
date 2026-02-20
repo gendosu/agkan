@@ -2,18 +2,18 @@ import { TaskTag, CreateTaskTagInput, Tag, Task } from '../models';
 import { getDatabase } from '../db/connection';
 import { TaskService } from './TaskService';
 import { TagService } from './TagService';
-import Database from 'better-sqlite3';
+import { StorageProvider } from '../db/types/storage';
 
 /**
  * Task Tag Service
  * Manages associations between tasks and tags
  */
 export class TaskTagService {
-  private db: Database.Database;
+  private db: StorageProvider;
   private taskService: TaskService;
   private tagService: TagService;
 
-  constructor(db?: Database.Database, taskService?: TaskService, tagService?: TagService) {
+  constructor(db?: StorageProvider, taskService?: TaskService, tagService?: TagService) {
     this.db = db || getDatabase();
     this.taskService = taskService || new TaskService(this.db);
     this.tagService = tagService || new TagService(this.db);

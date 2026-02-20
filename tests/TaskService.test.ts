@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { TaskService } from '../src/services/TaskService';
 import { resetDatabase } from '../src/db/reset';
 import { createMockDatabase } from './utils/mock-database';
-import type { Database } from 'better-sqlite3';
+import type { StorageProvider } from '../src/db/types/storage';
 
 describe('TaskService', () => {
   let taskService: TaskService;
@@ -1405,7 +1405,7 @@ describe('TaskService', () => {
   });
 
   describe('TaskService with Mock Database', () => {
-    let mockDb: Database.Database;
+    let mockDb: StorageProvider;
     let taskService: TaskService;
 
     beforeEach(() => {

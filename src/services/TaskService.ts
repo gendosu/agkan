@@ -2,16 +2,16 @@ import { Task, CreateTaskInput, UpdateTaskInput, TaskStatus } from '../models';
 import { getDatabase } from '../db/connection';
 import { validateTaskInput, validateTaskUpdateInput } from '../utils/input-validators';
 import { wouldCreateCycle } from '../utils/cycle-detector';
-import Database from 'better-sqlite3';
+import { StorageProvider } from '../db/types/storage';
 
 /**
  * Task Service
  * Provides CRUD operations for tasks
  */
 export class TaskService {
-  private db: Database.Database;
+  private db: StorageProvider;
 
-  constructor(db?: Database.Database) {
+  constructor(db?: StorageProvider) {
     this.db = db || getDatabase();
   }
 

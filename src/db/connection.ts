@@ -3,17 +3,21 @@ import path from 'path';
 import fs from 'fs';
 import { resolveDatabasePath } from './config';
 import { runMigrations } from './schema';
+import { StorageProvider } from './types/storage';
+import { getStorageProvider } from './storage-factory';
 
 /**
  * Singleton management of database connection
  */
 export class DatabaseConnection {
-  private static instance: Database.Database | null = null;
+  private static instance: StorageProvider | null = null;
+  private static rawDatabase: Database.Database | null = null;
 
   /**
    * Get database instance (singleton)
+   * @returns StorageProvider instance
    */
-  public static getInstance(): Database.Database {
+  public static getInstance(): StorageProvider {
     if (!this.instance) {
       this.initialize();
     }
@@ -34,13 +38,16 @@ export class DatabaseConnection {
     }
 
     // Create database connection
-    this.instance = new Database(dbPath);
+    this.rawDatabase = new Database(dbPath);
 
     // Enable foreign key constraints
-    this.instance.pragma('foreign_keys = ON');
+    this.rawDatabase.pragma('foreign_keys = ON');
 
     // Run migrations
-    runMigrations(this.instance);
+    runMigrations(this.rawDatabase);
+
+    // Wrap with storage provider
+    this.instance = getStorageProvider(this.rawDatabase);
   }
 
   /**
@@ -51,12 +58,17 @@ export class DatabaseConnection {
       this.instance.close();
       this.instance = null;
     }
+    if (this.rawDatabase) {
+      this.rawDatabase.close();
+      this.rawDatabase = null;
+    }
   }
 }
 
 /**
  * Convenience function to get database instance
+ * @returns StorageProvider instance
  */
-export function getDatabase(): Database.Database {
+export function getDatabase(): StorageProvider {
   return DatabaseConnection.getInstance();
 }

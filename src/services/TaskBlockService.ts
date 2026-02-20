@@ -1,17 +1,17 @@
 import { TaskBlock, CreateTaskBlockInput } from '../models';
 import { getDatabase } from '../db/connection';
 import { TaskService } from './TaskService';
-import Database from 'better-sqlite3';
+import { StorageProvider } from '../db/types/storage';
 
 /**
  * Task Block Service
  * Manages blocking relationships between tasks
  */
 export class TaskBlockService {
-  private db: Database.Database;
+  private db: StorageProvider;
   private taskService: TaskService;
 
-  constructor(db?: Database.Database, taskService?: TaskService) {
+  constructor(db?: StorageProvider, taskService?: TaskService) {
     this.db = db || getDatabase();
     this.taskService = taskService || new TaskService(this.db);
   }

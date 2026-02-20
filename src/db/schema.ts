@@ -2,6 +2,9 @@ import Database from 'better-sqlite3';
 
 /**
  * Create database schema and run migrations
+ *
+ * Note: This function receives a raw better-sqlite3 Database instance
+ * because it needs to execute migrations before the StorageProvider is created.
  */
 export function runMigrations(db: Database.Database): void {
   // Create tasks table

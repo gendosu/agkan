@@ -1,15 +1,15 @@
 import { TaskMetadata, CreateTaskMetadataInput } from '../models';
 import { getDatabase } from '../db/connection';
-import Database from 'better-sqlite3';
+import { StorageProvider } from '../db/types/storage';
 
 /**
  * Metadata Service
  * Manages creation, retrieval, update, and deletion of task metadata
  */
 export class MetadataService {
-  private db: Database.Database;
+  private db: StorageProvider;
 
-  constructor(db?: Database.Database) {
+  constructor(db?: StorageProvider) {
     this.db = db || getDatabase();
   }
 
