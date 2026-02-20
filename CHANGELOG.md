@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+(no entries yet)
+
+## [1.3.0] - 2026-02-20
+
 ### Added
 - DB layer abstraction with StorageProvider interface for multi-backend support
 - SQLite adapter implementing StorageProvider interface for better-sqlite3 integration
