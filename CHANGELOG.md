@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-02-20
+
+### Added
+- Display metadata in tree view of task list
+
+### Changed
+- Strengthen ESLint rules: `no-explicit-any` from warn to error, add `max-lines-per-function`, `max-depth`, `complexity` rules
+
 ## [1.1.1] - 2026-02-19
 
 ### Fixed
