@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- DB layer abstraction with StorageProvider interface for multi-backend support
+- SQLite adapter implementing StorageProvider interface for better-sqlite3 integration
+- Storage factory for backend selection and provider instantiation
+- Comprehensive unit tests for SQLiteAdapter (46 tests covering all methods)
+- DB architecture documentation
+
+### Changed
+- Internal: DB connections now use StorageProvider interface (no user-facing changes)
+
 ## [1.2.0] - 2026-02-20
 
 ### Added
