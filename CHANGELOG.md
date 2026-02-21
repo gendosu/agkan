@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 (no entries yet)
 
+## [1.3.1] - 2026-02-21
+
+### Fixed
+- Resolve TypeScript type casting errors (TS2322, TS2352) in SQLiteAdapter and service layer
+- Fix `pragma()` return type cast in SQLiteAdapter
+- Fix `as unknown as T` pattern for `Record<string, unknown>` casts in MetadataService, TagService, TaskBlockService, TaskService, TaskTagService
+- Fix `TagService.updateTag()` to handle optional `name` parameter with nullish coalescing
+
 ## [1.3.0] - 2026-02-20
 
 ### Added
