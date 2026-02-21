@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 (no entries yet)
 
+## [1.3.2] - 2026-02-21
+
+### Fixed
+- Normalize bin entry path in package.json (remove redundant `./` prefix)
+
 ## [1.3.1] - 2026-02-21
 
 ### Fixed
