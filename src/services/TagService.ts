@@ -44,7 +44,7 @@ export class TagService {
     const result = stmt.run(input.name, now);
 
     const getStmt = db.prepare('SELECT * FROM tags WHERE id = ?');
-    return getStmt.get(result.lastInsertRowid as number) as Tag;
+    return getStmt.get(result.lastInsertRowid as number) as unknown as Tag;
   }
 
   /**
@@ -58,7 +58,7 @@ export class TagService {
     const stmt = db.prepare('SELECT * FROM tags WHERE id = ?');
     const result = stmt.get(id);
 
-    return result ? (result as Tag) : null;
+    return result ? (result as unknown as Tag) : null;
   }
 
   /**
@@ -72,7 +72,7 @@ export class TagService {
     const stmt = db.prepare('SELECT * FROM tags WHERE name = ?');
     const result = stmt.get(name);
 
-    return result ? (result as Tag) : null;
+    return result ? (result as unknown as Tag) : null;
   }
 
   /**
@@ -85,7 +85,7 @@ export class TagService {
     const stmt = db.prepare('SELECT * FROM tags ORDER BY created_at DESC, id DESC');
     const results = stmt.all();
 
-    return results as Tag[];
+    return results as unknown as Tag[];
   }
 
   /**
@@ -131,7 +131,7 @@ export class TagService {
       WHERE id = ?
     `);
 
-    stmt.run(input.name, id);
+    stmt.run(input.name ?? null, id);
 
     return this.getTag(id);
   }

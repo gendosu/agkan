@@ -58,7 +58,7 @@ export class TaskBlockService {
     const result = stmt.run(input.blocker_task_id, input.blocked_task_id, now);
 
     const getStmt = db.prepare('SELECT * FROM task_blocks WHERE id = ?');
-    return getStmt.get(result.lastInsertRowid as number) as TaskBlock;
+    return getStmt.get(result.lastInsertRowid as number) as unknown as TaskBlock;
   }
 
   /**

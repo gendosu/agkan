@@ -66,7 +66,7 @@ export class MetadataService {
 
     const result = stmt.get(taskId, key);
 
-    return result ? (result as TaskMetadata) : null;
+    return result ? (result as unknown as TaskMetadata) : null;
   }
 
   /**
@@ -85,7 +85,7 @@ export class MetadataService {
 
     const results = stmt.all(taskId);
 
-    return results as TaskMetadata[];
+    return results as unknown as TaskMetadata[];
   }
 
   /**
@@ -120,7 +120,7 @@ export class MetadataService {
       ORDER BY task_id, created_at DESC
     `);
 
-    const results = stmt.all() as TaskMetadata[];
+    const results = stmt.all() as unknown as TaskMetadata[];
     const metadataMap = new Map<number, TaskMetadata[]>();
 
     for (const row of results) {

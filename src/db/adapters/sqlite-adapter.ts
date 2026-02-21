@@ -71,7 +71,7 @@ export class SQLiteAdapter implements StorageProvider {
   }
 
   pragma(pragma: string): Record<string, unknown> | Record<string, unknown>[] | void {
-    return this.db.pragma(pragma);
+    return this.db.pragma(pragma) as Record<string, unknown> | Record<string, unknown>[];
   }
 
   transaction(fn: () => void): () => void {

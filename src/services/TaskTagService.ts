@@ -55,7 +55,7 @@ export class TaskTagService {
     const result = stmt.run(input.task_id, input.tag_id, now);
 
     const getStmt = db.prepare('SELECT * FROM task_tags WHERE id = ?');
-    return getStmt.get(result.lastInsertRowid as number) as TaskTag;
+    return getStmt.get(result.lastInsertRowid as number) as unknown as TaskTag;
   }
 
   /**
@@ -129,7 +129,7 @@ export class TaskTagService {
       ORDER BY tt.created_at ASC
     `);
 
-    return stmt.all(taskId) as Tag[];
+    return stmt.all(taskId) as unknown as Tag[];
   }
 
   /**
@@ -166,7 +166,7 @@ export class TaskTagService {
       ORDER BY tt.created_at ASC
     `);
 
-    return stmt.all(tagId) as Task[];
+    return stmt.all(tagId) as unknown as Task[];
   }
 
   /**
@@ -184,7 +184,7 @@ export class TaskTagService {
       ORDER BY tt.task_id, tt.created_at ASC
     `);
 
-    const results = stmt.all() as Array<{ task_id: number } & Tag>;
+    const results = stmt.all() as unknown as Array<{ task_id: number } & Tag>;
 
     const taskTagsMap = new Map<number, Tag[]>();
 

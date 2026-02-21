@@ -107,7 +107,7 @@ export class TaskService {
     query += ' ORDER BY created_at DESC';
 
     const stmt = db.prepare(query);
-    return stmt.all(...params) as Task[];
+    return stmt.all(...params) as unknown as Task[];
   }
 
   /**
@@ -262,7 +262,7 @@ export class TaskService {
     query += ' ORDER BY created_at DESC';
 
     const stmt = db.prepare(query);
-    return stmt.all(...params) as Task[];
+    return stmt.all(...params) as unknown as Task[];
   }
 
   /**
@@ -273,7 +273,7 @@ export class TaskService {
   getChildTasks(parentId: number): Task[] {
     const db = this.db;
     const stmt = db.prepare('SELECT * FROM tasks WHERE parent_id = ? ORDER BY created_at ASC');
-    return stmt.all(parentId) as Task[];
+    return stmt.all(parentId) as unknown as Task[];
   }
 
   /**
