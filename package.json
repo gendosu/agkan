@@ -15,7 +15,7 @@
     "dev": "tsc --watch",
     "start": "node dist/cli/index.js",
     "test": "vitest",
-    "test:all": "npm run type-check && npm run lint && vitest run && npm run test:e2e",
+    "test:all": "npm install && npm run build && npm run type-check && npm run lint && vitest run && npm run test:e2e",
     "test:errors": "vitest run --reporter=./tests/reporters/error-only.ts",
     "test:e2e": "./test-e2e.sh",
     "lint": "eslint src tests --ext .ts",
