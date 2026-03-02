@@ -36,6 +36,12 @@ test_json_find() {
     assert_json_valid "Testing task find --json" "$output" '.tasks | type == "array"' "task find --json returns valid JSON with .tasks array"
 }
 
+test_json_update() {
+    local task_id=$1
+    output=$(run_cli task update "$task_id" status in_progress --json)
+    assert_json_valid "Testing task update --json" "$output" '.success == true and .task.status == "in_progress"' "task update --json returns valid JSON with updated status"
+}
+
 test_json_update_parent() {
     local task_id=$1
 
@@ -86,6 +92,7 @@ test_json_output() {
     test_json_list
     test_json_get "$JSON_TASK_ID"
     test_json_find
+    test_json_update "$JSON_TASK_ID"
     test_json_update_parent "$JSON_TASK_ID"
     test_json_block_list "$JSON_TASK_ID"
     test_json_tag_list
