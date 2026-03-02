@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.4.0] - 2026-03-02
+
+### 追加
+- `task update` コマンドに `--json` オプションを追加（`success`、`task`、`counts` フィールドを含む構造化 JSON を出力）
+
 ## [1.1.0] - 2026-02-19
 
 ### 追加

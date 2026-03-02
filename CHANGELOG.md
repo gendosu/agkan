@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 (no entries yet)
 
+## [1.4.0] - 2026-03-02
+
+### Added
+- Add `--json` option to `task update` command for structured JSON output (`success`, `task`, `counts` fields)
+
 ## [1.3.2] - 2026-02-21
 
 ### Fixed
