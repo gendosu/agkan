@@ -147,9 +147,8 @@ describe('CLI JSON Output Format', () => {
     it('--status オプションでフィルタリングされること', () => {
       // in_progress ステータスのタスクを作成
       const task = runCommand('task add "In Progress Task" --json');
-      // task update コマンドはJSON出力をサポートしていない
       const taskObj = task.task as { id: number };
-      execSync(`${CLI_PATH} task update ${taskObj.id} status in_progress`, { stdio: 'ignore' });
+      execSync(`${CLI_PATH} task update ${taskObj.id} status in_progress --json`, { stdio: 'ignore' });
 
       const json = runCommand('task list --status in_progress --json');
       const tasks = json.tasks as Array<Record<string, unknown>>;
@@ -197,6 +196,36 @@ describe('CLI JSON Output Format', () => {
     });
   });
 
+  describe('task update --json', () => {
+    let taskId: number;
+
+    beforeEach(() => {
+      const result = runCommand('task add "Update Target" --json');
+      taskId = result.task.id as number;
+    });
+
+    it('JSON.parse()でパース可能であること', () => {
+      const output = execSync(`${CLI_PATH} task update ${taskId} status in_progress --json`, { encoding: 'utf-8' });
+      expect(() => JSON.parse(output)).not.toThrow();
+    });
+
+    it('success, task, counts フィールドが存在すること', () => {
+      const json = runCommand(`task update ${taskId} status in_progress --json`);
+      expect(json).toHaveProperty('success');
+      expect(json.success).toBe(true);
+      expect(json).toHaveProperty('task');
+      expect(json).toHaveProperty('counts');
+      expect((json.task as Record<string, unknown>).status).toBe('in_progress');
+    });
+
+    it('無効なステータスでエラーJSONを返すこと', () => {
+      const json = runCommand(`task update ${taskId} status invalid_status --json`);
+      expect(json).toHaveProperty('success');
+      expect(json.success).toBe(false);
+      expect(json).toHaveProperty('error');
+    });
+  });
+
   describe('task find --json', () => {
     beforeEach(() => {
       runCommand('task add "Find Test Task 1" --json');
@@ -236,11 +265,10 @@ describe('CLI JSON Output Format', () => {
       // 複数のステータスのタスクを作成
       const task1 = runCommand('task add "Task 1" --json');
       const task2 = runCommand('task add "Task 2" --json');
-      // task update コマンドはJSON出力をサポートしていない
       const task1Obj = task1.task as { id: number };
       const task2Obj = task2.task as { id: number };
-      execSync(`${CLI_PATH} task update ${task1Obj.id} status in_progress`, { stdio: 'ignore' });
-      execSync(`${CLI_PATH} task update ${task2Obj.id} status done`, { stdio: 'ignore' });
+      execSync(`${CLI_PATH} task update ${task1Obj.id} status in_progress --json`, { stdio: 'ignore' });
+      execSync(`${CLI_PATH} task update ${task2Obj.id} status done --json`, { stdio: 'ignore' });
       runCommand('task add "Task 3" --json');
     });
 
