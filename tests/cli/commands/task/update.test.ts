@@ -275,6 +275,35 @@ describe('setupTaskUpdateCommand', () => {
     expect(exitCode).toBe(1);
   });
 
+  it('should show error when assignees exceeds 500 characters', async () => {
+    const taskService = new TaskService();
+    taskService.createTask({ title: 'Test task', status: 'backlog' });
+    const task = taskService.listTasks()[0];
+
+    const consoleLogs: string[] = [];
+    const originalLog = console.log;
+    console.log = (...args: unknown[]) => consoleLogs.push(args.join(' '));
+
+    let exitCode: number | undefined;
+    const originalExit = process.exit;
+    process.exit = ((code?: number) => {
+      exitCode = code;
+    }) as never;
+
+    const longAssignees = 'a'.repeat(501);
+
+    try {
+      await program.parseAsync(['node', 'test', 'task', 'update', String(task.id), 'assignees', longAssignees]);
+    } finally {
+      console.log = originalLog;
+      process.exit = originalExit;
+    }
+
+    const output = consoleLogs.join('\n');
+    expect(output).toContain('500');
+    expect(exitCode).toBe(1);
+  });
+
   it('should show error when field is not supported', async () => {
     const taskService = new TaskService();
     taskService.createTask({ title: 'Test task', status: 'backlog' });
