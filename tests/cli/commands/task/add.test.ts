@@ -333,6 +333,21 @@ describe('setupTaskAddCommand', () => {
       expect(tasks[0].assignees).toBe('user1,user2');
     });
 
+    it('should show Assignees in console output when --assignees is specified', async () => {
+      const { exitCode, logs } = await runCommand(program, [
+        'task',
+        'add',
+        'Task with Assignees Output',
+        '--assignees',
+        'user1,user2',
+      ]);
+      expect(exitCode).toBeUndefined();
+
+      const output = logs.join('\n');
+      expect(output).toContain('Assignees:');
+      expect(output).toContain('user1,user2');
+    });
+
     it('should create task with parent (normal output shows parent)', async () => {
       // Create parent task first
       const taskService = new TaskService();
