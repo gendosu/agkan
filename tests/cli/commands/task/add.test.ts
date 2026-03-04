@@ -379,6 +379,22 @@ describe('setupTaskAddCommand', () => {
       expect(output.blocking).toEqual([]);
     });
 
+    it('should include assignees in JSON output when --assignees is specified', async () => {
+      const { exitCode, logs } = await runCommand(program, [
+        'task',
+        'add',
+        'Assignees Task',
+        '--assignees',
+        'user1,user2',
+        '--json',
+      ]);
+      expect(exitCode).toBeUndefined();
+
+      const output = JSON.parse(logs[0]);
+      expect(output.success).toBe(true);
+      expect(output.task.assignees).toBe('user1,user2');
+    });
+
     it('should create task with blocked-by relationship', async () => {
       const taskService = new TaskService();
       const blocker = taskService.createTask({ title: 'Blocker Task' });
