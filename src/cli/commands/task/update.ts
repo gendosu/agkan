@@ -12,7 +12,7 @@ import { getStatusColor, formatDate } from '../../../utils/format';
 import { createFormatter } from '../../utils/output-formatter';
 import { readBodyFromFile } from './add-helpers';
 
-const SUPPORTED_FIELDS = ['status', 'title', 'body', 'author'] as const;
+const SUPPORTED_FIELDS = ['status', 'title', 'body', 'author', 'assignees'] as const;
 type SupportedField = (typeof SUPPORTED_FIELDS)[number];
 
 export function setupTaskUpdateCommand(program: Command): void {
@@ -24,7 +24,7 @@ export function setupTaskUpdateCommand(program: Command): void {
   taskCommand
     .command('update')
     .argument('<id>', 'Task ID')
-    .argument('<field>', 'Field to update (status, title, body, author)')
+    .argument('<field>', 'Field to update (status, title, body, author, assignees)')
     .argument('[value]', 'New value')
     .option('--file <path>', 'Read body from file (only valid for body field)')
     .option('--json', 'Output in JSON format')
@@ -111,6 +111,7 @@ export function setupTaskUpdateCommand(program: Command): void {
           ...(updateInput.title !== undefined && { title: updateInput.title }),
           ...(updateInput.body !== undefined && { body: updateInput.body }),
           ...(updateInput.author !== undefined && { author: updateInput.author }),
+          ...(updateInput.assignees !== undefined && { assignees: updateInput.assignees }),
         });
 
         if (!task) {
