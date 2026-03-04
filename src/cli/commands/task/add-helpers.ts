@@ -77,6 +77,7 @@ function taskToJson(task: Task): object {
     title: task.title,
     body: task.body,
     author: task.author,
+    assignees: task.assignees,
     status: task.status,
     parent_id: task.parent_id,
     created_at: task.created_at,
@@ -112,6 +113,9 @@ export function printTaskCreated(
   console.log(`${chalk.bold('Status:')} ${chalk[statusColor](task.status)}`);
   if (task.author) {
     console.log(`${chalk.bold('Author:')} ${task.author}`);
+  }
+  if (task.assignees) {
+    console.log(`${chalk.bold('Assignees:')} ${task.assignees}`);
   }
   if (task.parent_id && parentTask) {
     console.log(`${chalk.bold('Parent:')} #${parentTask.id} - ${parentTask.title}`);
