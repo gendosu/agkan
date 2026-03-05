@@ -44,6 +44,25 @@ test_assignees_update() {
     assert_json_valid "task update assignees" "$output" '.task.assignees == "alice,bob"' "task update can change assignees"
 }
 
+test_assignees_update_verify_get() {
+    local task_id=$1
+    print_info "Verifying updated assignees via task get..."
+    output=$(run_cli task get "$task_id")
+    assert_output_contains "$output" "alice,bob" "task get shows updated assignees after update" "task get does not show updated assignees after update"
+
+    output=$(run_cli task get "$task_id" --json)
+    assert_json_valid "task get --json shows updated assignees" "$output" '.task.assignees == "alice,bob"' "task get --json shows updated assignees after update"
+}
+
+test_assignees_update_verify_list() {
+    print_info "Verifying updated assignees via task list..."
+    output=$(run_cli task list)
+    assert_output_contains "$output" "alice,bob" "task list shows updated assignees after update" "task list does not show updated assignees after update"
+
+    output=$(run_cli task list --json)
+    assert_json_valid "task list --json shows updated assignees" "$output" '.tasks[] | select(.assignees == "alice,bob")' "task list --json shows updated assignees after update"
+}
+
 test_assignees_add_json() {
     output=$(run_cli task add "JSON Assigneesテスト" --assignees "carol" --json)
     assert_json_valid "task add --json includes assignees" "$output" '.task.assignees == "carol"' "task add --json includes assignees field"
@@ -72,6 +91,8 @@ test_assignees() {
         test_assignees_list
         test_assignees_list_json
         test_assignees_update "$ASSIGNEES_TASK_ID"
+        test_assignees_update_verify_get "$ASSIGNEES_TASK_ID"
+        test_assignees_update_verify_list
         test_assignees_update_validation "$ASSIGNEES_TASK_ID"
     fi
     test_assignees_add_json
