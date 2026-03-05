@@ -77,7 +77,12 @@ export class TaskService {
    * @param filters - Filter criteria (status, author, tagIds)
    * @returns Array of tasks
    */
-  listTasks(filters?: { status?: TaskStatus | TaskStatus[]; author?: string; assignees?: string; tagIds?: number[] }): Task[] {
+  listTasks(filters?: {
+    status?: TaskStatus | TaskStatus[];
+    author?: string;
+    assignees?: string;
+    tagIds?: number[];
+  }): Task[] {
     const db = this.db;
 
     let query: string;
