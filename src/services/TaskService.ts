@@ -77,7 +77,7 @@ export class TaskService {
    * @param filters - Filter criteria (status, author, tagIds)
    * @returns Array of tasks
    */
-  listTasks(filters?: { status?: TaskStatus; author?: string; tagIds?: number[] }): Task[] {
+  listTasks(filters?: { status?: TaskStatus; author?: string; assignees?: string; tagIds?: number[] }): Task[] {
     const db = this.db;
 
     let query: string;
@@ -103,6 +103,11 @@ export class TaskService {
     if (filters?.author) {
       query += ' AND author = ?';
       params.push(filters.author);
+    }
+
+    if (filters?.assignees) {
+      query += ' AND assignees LIKE ?';
+      params.push(`%${filters.assignees}%`);
     }
 
     query += ' ORDER BY created_at DESC';
