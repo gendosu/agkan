@@ -573,4 +573,78 @@ describe('setupTaskListCommand', () => {
     const output = consoleLogs.join('\n');
     expect(output).toContain('alice,bob');
   });
+
+  it('should filter tasks by multiple statuses (comma-separated)', async () => {
+    const taskService = new TaskService();
+    taskService.createTask({ title: 'Ready Task', status: 'ready' });
+    taskService.createTask({ title: 'Backlog Task', status: 'backlog' });
+    taskService.createTask({ title: 'Done Task', status: 'done' });
+
+    const consoleLogs: string[] = [];
+    const originalLog = console.log;
+    console.log = (...args: unknown[]) => consoleLogs.push(args.join(' '));
+    const originalExit = process.exit;
+    process.exit = (() => {}) as never;
+
+    try {
+      await program.parseAsync(['node', 'test', 'task', 'list', '--status', 'ready,backlog']);
+    } finally {
+      console.log = originalLog;
+      process.exit = originalExit;
+    }
+
+    const output = consoleLogs.join('\n');
+    expect(output).toContain('Ready Task');
+    expect(output).toContain('Backlog Task');
+    expect(output).not.toContain('Done Task');
+  });
+
+  it('should show error on invalid status in comma-separated list', async () => {
+    const consoleLogs: string[] = [];
+    const originalLog = console.log;
+    console.log = (...args: unknown[]) => consoleLogs.push(args.join(' '));
+    const originalExit = process.exit;
+    let exitCode: number | undefined;
+    process.exit = ((code: number) => {
+      exitCode = code;
+    }) as never;
+
+    try {
+      await program.parseAsync(['node', 'test', 'task', 'list', '--status', 'ready,invalid_status']);
+    } finally {
+      console.log = originalLog;
+      process.exit = originalExit;
+    }
+
+    expect(exitCode).toBe(1);
+    const output = consoleLogs.join('\n');
+    expect(output).toContain('Invalid status');
+  });
+
+  it('should output JSON format with multiple statuses', async () => {
+    const taskService = new TaskService();
+    taskService.createTask({ title: 'Ready Task', status: 'ready' });
+    taskService.createTask({ title: 'In Progress Task', status: 'in_progress' });
+    taskService.createTask({ title: 'Done Task', status: 'done' });
+
+    const consoleLogs: string[] = [];
+    const originalLog = console.log;
+    console.log = (...args: unknown[]) => consoleLogs.push(args.join(' '));
+    const originalExit = process.exit;
+    process.exit = (() => {}) as never;
+
+    try {
+      await program.parseAsync(['node', 'test', 'task', 'list', '--status', 'ready,in_progress', '--json']);
+    } finally {
+      console.log = originalLog;
+      process.exit = originalExit;
+    }
+
+    const output = consoleLogs.join('\n');
+    const jsonOutput = JSON.parse(output);
+    expect(jsonOutput.totalCount).toBe(2);
+    expect(jsonOutput.tasks.some((t: { status: string }) => t.status === 'ready')).toBe(true);
+    expect(jsonOutput.tasks.some((t: { status: string }) => t.status === 'in_progress')).toBe(true);
+    expect(jsonOutput.tasks.every((t: { status: string }) => t.status !== 'done')).toBe(true);
+  });
 });

@@ -77,7 +77,12 @@ export class TaskService {
    * @param filters - Filter criteria (status, author, tagIds)
    * @returns Array of tasks
    */
-  listTasks(filters?: { status?: TaskStatus; author?: string; assignees?: string; tagIds?: number[] }): Task[] {
+  listTasks(filters?: {
+    status?: TaskStatus | TaskStatus[];
+    author?: string;
+    assignees?: string;
+    tagIds?: number[];
+  }): Task[] {
     const db = this.db;
 
     let query: string;
@@ -96,8 +101,12 @@ export class TaskService {
     }
 
     if (filters?.status) {
-      query += ' AND status = ?';
-      params.push(filters.status);
+      const statuses = Array.isArray(filters.status) ? filters.status : [filters.status];
+      if (statuses.length > 0) {
+        const placeholders = statuses.map(() => '?').join(', ');
+        query += ` AND status IN (${placeholders})`;
+        params.push(...statuses);
+      }
     }
 
     if (filters?.author) {

@@ -450,6 +450,87 @@ describe('TaskService', () => {
       expect(filtered).toHaveLength(1);
       expect(filtered[0].id).toBe(task2.id);
     });
+
+    it('複数ステータスでのフィルター取得テスト - status配列を指定して複数ステータスのタスクを同時取得', () => {
+      const task1 = taskService.createTask({
+        title: 'Backlogタスク',
+        status: 'backlog',
+      });
+
+      const task2 = taskService.createTask({
+        title: 'Readyタスク',
+        status: 'ready',
+      });
+
+      const task3 = taskService.createTask({
+        title: 'In Progressタスク',
+        status: 'in_progress',
+      });
+
+      const task4 = taskService.createTask({
+        title: 'Doneタスク',
+        status: 'done',
+      });
+
+      // 複数ステータス（backlog, ready）でフィルター
+      const filteredTasks = taskService.listTasks({ status: ['backlog', 'ready'] });
+
+      expect(filteredTasks).toBeDefined();
+      expect(filteredTasks.length).toBe(2);
+      expect(filteredTasks.every((t) => t.status === 'backlog' || t.status === 'ready')).toBe(true);
+
+      const taskIds = filteredTasks.map((t) => t.id);
+      expect(taskIds).toContain(task1.id);
+      expect(taskIds).toContain(task2.id);
+      expect(taskIds).not.toContain(task3.id);
+      expect(taskIds).not.toContain(task4.id);
+    });
+
+    it('複数ステータスでのフィルターと作成者の複合フィルターテスト', () => {
+      taskService.createTask({
+        title: 'Alice Backlog',
+        author: 'Alice',
+        status: 'backlog',
+      });
+
+      taskService.createTask({
+        title: 'Alice In Progress',
+        author: 'Alice',
+        status: 'in_progress',
+      });
+
+      taskService.createTask({
+        title: 'Bob Backlog',
+        author: 'Bob',
+        status: 'backlog',
+      });
+
+      taskService.createTask({
+        title: 'Alice Done',
+        author: 'Alice',
+        status: 'done',
+      });
+
+      // 複数ステータス + 作成者フィルター
+      const filteredTasks = taskService.listTasks({
+        status: ['backlog', 'in_progress'],
+        author: 'Alice',
+      });
+
+      expect(filteredTasks.length).toBe(2);
+      expect(filteredTasks.every((t) => t.author === 'Alice')).toBe(true);
+      expect(filteredTasks.every((t) => t.status === 'backlog' || t.status === 'in_progress')).toBe(true);
+    });
+
+    it('単一ステータスを配列で渡してもフィルターが正しく動作する', () => {
+      taskService.createTask({ title: 'Readyタスク', status: 'ready' });
+      taskService.createTask({ title: 'Backlogタスク', status: 'backlog' });
+
+      const filteredTasks = taskService.listTasks({ status: ['ready'] });
+
+      expect(filteredTasks.length).toBe(1);
+      expect(filteredTasks[0].status).toBe('ready');
+    });
   });
 
   describe('updateTask', () => {

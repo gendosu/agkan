@@ -335,23 +335,35 @@ export function setupTaskListCommand(program: Command): void {
         const taskTagService = new TaskTagService();
         const metadataService = new MetadataService();
 
-        // Validate status filter
-        if (options.status && !validateTaskStatus(options.status)) {
-          formatter.error(
-            `Invalid status: ${options.status}. Valid statuses: icebox, backlog, ready, in_progress, review, done, closed`,
-            () => {
-              console.log(chalk.red(`Invalid status: ${options.status}`));
-              console.log('Valid statuses: icebox, backlog, ready, in_progress, review, done, closed');
+        // Validate status filter (supports comma-separated multiple statuses)
+        let statusFilter: TaskStatus | TaskStatus[] | undefined;
+        if (options.status) {
+          const statusParts = options.status
+            .split(',')
+            .map((s: string) => s.trim())
+            .filter((s: string) => s !== '');
+
+          for (const s of statusParts) {
+            if (!validateTaskStatus(s)) {
+              formatter.error(
+                `Invalid status: ${s}. Valid statuses: icebox, backlog, ready, in_progress, review, done, closed`,
+                () => {
+                  console.log(chalk.red(`Invalid status: ${s}`));
+                  console.log('Valid statuses: icebox, backlog, ready, in_progress, review, done, closed');
+                }
+              );
+              process.exit(1);
             }
-          );
-          process.exit(1);
+          }
+
+          statusFilter = statusParts.length === 1 ? (statusParts[0] as TaskStatus) : (statusParts as TaskStatus[]);
         }
 
         // Parse and resolve tag filter (supports IDs and names)
         const tagIds = resolveTagIds(options.tag, tagService, formatter);
 
         let tasks = taskService.listTasks({
-          status: options.status as TaskStatus,
+          status: statusFilter,
           author: options.author,
           assignees: options.assignees,
           tagIds,
