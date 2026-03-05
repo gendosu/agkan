@@ -138,7 +138,7 @@ export class TaskService {
 
     if (input.assignees !== undefined) {
       updates.push('assignees = ?');
-      params.push(input.assignees);
+      params.push(input.assignees || null);
     }
 
     if (input.status !== undefined) {

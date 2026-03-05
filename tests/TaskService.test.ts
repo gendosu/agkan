@@ -555,6 +555,21 @@ describe('TaskService', () => {
       }).toThrow('Assignees must not exceed 500 characters');
     });
 
+    it('assigneesに空文字列を指定した場合はnullに変換される', () => {
+      const createdTask = taskService.createTask({
+        title: 'テストタスク',
+        assignees: 'user1,user2',
+      });
+
+      const updatedTask = taskService.updateTask(createdTask.id, {
+        assignees: '',
+      });
+
+      expect(updatedTask).toBeDefined();
+      expect(updatedTask).not.toBeNull();
+      expect(updatedTask!.assignees).toBeNull();
+    });
+
     it('ステータス（status）の更新テスト - タスク作成後、ステータスのみを更新し、他のフィールドが変更されていないことを検証', () => {
       // 完全なデータでタスクを作成
       const createdTask = taskService.createTask({
