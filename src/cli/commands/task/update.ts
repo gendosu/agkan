@@ -24,8 +24,13 @@ export function setupTaskUpdateCommand(program: Command): void {
   taskCommand
     .command('update')
     .argument('<id>', 'Task ID')
-    .argument('<field>', 'Field to update (status, title, body, author, assignees)')
-    .argument('[value]', 'New value')
+    .argument('[field]', 'Field to update (status, title, body, author, assignees) - for legacy positional syntax')
+    .argument('[value]', 'New value - for legacy positional syntax')
+    .option('--title <title>', 'Update title')
+    .option('--status <status>', 'Update status')
+    .option('--body <body>', 'Update body')
+    .option('--author <author>', 'Update author')
+    .option('--assignees <assignees>', 'Update assignees')
     .option('--file <path>', 'Read body from file (only valid for body field)')
     .option('--json', 'Output in JSON format')
     .description('Update a task field')
@@ -42,68 +47,134 @@ export function setupTaskUpdateCommand(program: Command): void {
           process.exit(1);
         }
 
-        if (!SUPPORTED_FIELDS.includes(field as SupportedField)) {
-          formatter.error(`Unsupported field: ${field}. Supported fields: ${SUPPORTED_FIELDS.join(', ')}`, () => {
-            console.log(chalk.red(`\nUnsupported field: ${field}`));
-            console.log(`Supported fields: ${SUPPORTED_FIELDS.join(', ')}\n`);
-          });
-          process.exit(1);
-        }
-
-        // Validate --file option usage
-        if (options.file && field !== 'body') {
-          formatter.error('--file option is only valid for the body field', () => {
-            console.log(chalk.red(`\nError: --file option is only valid for the body field\n`));
-          });
-          process.exit(1);
-        }
-
-        // Resolve the body value from file if --file is specified
-        let resolvedValue = value;
-        if (options.file) {
-          try {
-            resolvedValue = readBodyFromFile(options.file);
-          } catch (error) {
-            const msg = error instanceof Error ? error.message : 'Error reading file';
-            formatter.error(msg, () => {
-              console.log(chalk.red(`\n✗ Error: ${msg}\n`));
-            });
-            process.exit(1);
-            return;
-          }
-        }
-
-        // Require a value when not using --file
-        if (resolvedValue === undefined) {
-          formatter.error(
-            `Missing value for field '${field}'. Provide a value argument or use --file for body.`,
-            () => {
-              console.log(
-                chalk.red(
-                  `\nError: Missing value for field '${field}'. Provide a value argument or use --file for body.\n`
-                )
-              );
-            }
-          );
-          process.exit(1);
-        }
+        // Determine if using flag-based or positional syntax
+        const flagFields: Record<string, string | undefined> = {
+          title: options.title,
+          status: options.status,
+          body: options.body,
+          author: options.author,
+          assignees: options.assignees,
+        };
+        const hasFlagFields = Object.values(flagFields).some((v) => v !== undefined);
 
         const updateInput: Record<string, string> = {};
 
-        if (field === 'status') {
-          if (!validateTaskStatus(resolvedValue)) {
+        if (hasFlagFields) {
+          // Flag-based mode: --title "new" --status done --author alice
+          // --file can also be used for body in flag mode
+          if (options.file) {
+            if (flagFields.body !== undefined) {
+              formatter.error('Cannot specify both --body and --file', () => {
+                console.log(chalk.red(`\nError: Cannot specify both --body and --file\n`));
+              });
+              process.exit(1);
+            }
+            try {
+              flagFields.body = readBodyFromFile(options.file);
+            } catch (error) {
+              const msg = error instanceof Error ? error.message : 'Error reading file';
+              formatter.error(msg, () => {
+                console.log(chalk.red(`\n✗ Error: ${msg}\n`));
+              });
+              process.exit(1);
+              return;
+            }
+          }
+
+          for (const [key, val] of Object.entries(flagFields)) {
+            if (val !== undefined) {
+              if (key === 'status') {
+                if (!validateTaskStatus(val)) {
+                  formatter.error(
+                    `Invalid status: ${val}. Valid statuses: icebox, backlog, ready, in_progress, review, done, closed`,
+                    () => {
+                      console.log(chalk.red(`\nInvalid status: ${val}`));
+                      console.log('Valid statuses: icebox, backlog, ready, in_progress, review, done, closed\n');
+                    }
+                  );
+                  process.exit(1);
+                }
+              }
+              updateInput[key] = val;
+            }
+          }
+        } else {
+          // Legacy positional mode: <id> <field> <value>
+          if (!field) {
             formatter.error(
-              `Invalid status: ${resolvedValue}. Valid statuses: icebox, backlog, ready, in_progress, review, done, closed`,
+              'No fields specified. Use --title, --status, --body, --author, --assignees flags or positional arguments: <field> <value>',
               () => {
-                console.log(chalk.red(`\nInvalid status: ${resolvedValue}`));
-                console.log('Valid statuses: icebox, backlog, ready, in_progress, review, done, closed\n');
+                console.log(
+                  chalk.red(
+                    '\nError: No fields specified. Use --title, --status, --body, --author, --assignees flags or positional arguments: <field> <value>\n'
+                  )
+                );
               }
             );
             process.exit(1);
           }
-          updateInput.status = resolvedValue;
-        } else {
-          updateInput[field] = resolvedValue;
+
+          if (!SUPPORTED_FIELDS.includes(field as SupportedField)) {
+            formatter.error(`Unsupported field: ${field}. Supported fields: ${SUPPORTED_FIELDS.join(', ')}`, () => {
+              console.log(chalk.red(`\nUnsupported field: ${field}`));
+              console.log(`Supported fields: ${SUPPORTED_FIELDS.join(', ')}\n`);
+            });
+            process.exit(1);
+          }
+
+          // Validate --file option usage
+          if (options.file && field !== 'body') {
+            formatter.error('--file option is only valid for the body field', () => {
+              console.log(chalk.red(`\nError: --file option is only valid for the body field\n`));
+            });
+            process.exit(1);
+          }
+
+          // Resolve the body value from file if --file is specified
+          let resolvedValue = value;
+          if (options.file) {
+            try {
+              resolvedValue = readBodyFromFile(options.file);
+            } catch (error) {
+              const msg = error instanceof Error ? error.message : 'Error reading file';
+              formatter.error(msg, () => {
+                console.log(chalk.red(`\n✗ Error: ${msg}\n`));
+              });
+              process.exit(1);
+              return;
+            }
+          }
+
+          // Require a value when not using --file
+          if (resolvedValue === undefined) {
+            formatter.error(
+              `Missing value for field '${field}'. Provide a value argument or use --file for body.`,
+              () => {
+                console.log(
+                  chalk.red(
+                    `\nError: Missing value for field '${field}'. Provide a value argument or use --file for body.\n`
+                  )
+                );
+              }
+            );
+            process.exit(1);
+          }
+
+          if (field === 'status') {
+            if (!validateTaskStatus(resolvedValue)) {
+              formatter.error(
+                `Invalid status: ${resolvedValue}. Valid statuses: icebox, backlog, ready, in_progress, review, done, closed`,
+                () => {
+                  console.log(chalk.red(`\nInvalid status: ${resolvedValue}`));
+                  console.log('Valid statuses: icebox, backlog, ready, in_progress, review, done, closed\n');
+                }
+              );
+              process.exit(1);
+            }
+            updateInput.status = resolvedValue;
+          } else {
+            updateInput[field] = resolvedValue;
+          }
         }
 
         const task = taskService.updateTask(taskId, {
