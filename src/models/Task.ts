@@ -17,6 +17,7 @@ export interface Task {
   title: string;
   body: string | null;
   author: string | null;
+  assignees: string | null;
   status: TaskStatus;
   created_at: string;
   updated_at: string;
@@ -31,11 +32,13 @@ export interface Task {
  * - title: max 200 characters (required)
  * - body: max 10000 characters (optional)
  * - author: max 100 characters (optional)
+ * - assignees: max 500 characters (optional, CSV format)
  */
 export interface CreateTaskInput {
   title: string; // max 200 chars
   body?: string; // max 10000 chars
   author?: string; // max 100 chars
+  assignees?: string; // max 500 chars, CSV format
   status?: TaskStatus;
   parent_id?: number | null;
 }
@@ -48,11 +51,13 @@ export interface CreateTaskInput {
  * - title: max 200 characters
  * - body: max 10000 characters
  * - author: max 100 characters
+ * - assignees: max 500 characters (CSV format)
  */
 export interface UpdateTaskInput {
   title?: string; // max 200 chars
   body?: string; // max 10000 chars
   author?: string; // max 100 chars
+  assignees?: string; // max 500 chars, CSV format
   status?: TaskStatus;
   parent_id?: number | null;
 }

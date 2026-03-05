@@ -105,6 +105,22 @@ export function runMigrations(db: Database.Database): void {
     `);
   }
 
+  // Add assignees column to tasks table (migration)
+  const assigneesColumnExists = db
+    .prepare(
+      `
+    SELECT COUNT(*) as count FROM pragma_table_info('tasks')
+    WHERE name = 'assignees'
+  `
+    )
+    .get() as { count: number };
+
+  if (assigneesColumnExists.count === 0) {
+    db.exec(`
+      ALTER TABLE tasks ADD COLUMN assignees TEXT DEFAULT NULL
+    `);
+  }
+
   // Create task_blocks table
   db.exec(`
     CREATE TABLE IF NOT EXISTS task_blocks (

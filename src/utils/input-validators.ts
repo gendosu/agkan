@@ -51,6 +51,14 @@ export function validateTaskInput(input: CreateTaskInput): ValidationError[] {
     });
   }
 
+  // Validate assignees (optional, max 500 chars)
+  if (input.assignees && input.assignees.length > 500) {
+    errors.push({
+      field: 'assignees',
+      message: 'Assignees must not exceed 500 characters',
+    });
+  }
+
   return errors;
 }
 
@@ -90,6 +98,14 @@ export function validateTaskUpdateInput(input: UpdateTaskInput): ValidationError
     errors.push({
       field: 'author',
       message: 'Author must not exceed 100 characters',
+    });
+  }
+
+  // Validate assignees if being updated (optional, max 500 chars)
+  if (input.assignees !== undefined && input.assignees !== null && input.assignees.length > 500) {
+    errors.push({
+      field: 'assignees',
+      message: 'Assignees must not exceed 500 characters',
     });
   }
 

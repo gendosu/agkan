@@ -19,6 +19,7 @@ type TreeNode = {
   title: string;
   body: string | null;
   author: string | null;
+  assignees: string | null;
   status: string;
   parent_id: number | null;
   created_at: string;
@@ -33,6 +34,7 @@ type TaskRecord = {
   title: string;
   body: string | null;
   author: string | null;
+  assignees: string | null;
   status: string;
   parent_id: number | null;
   created_at: string;
@@ -100,6 +102,7 @@ function buildTreeNode(
     title: task.title,
     body: task.body,
     author: task.author,
+    assignees: task.assignees,
     status: task.status,
     parent_id: task.parent_id,
     created_at: task.created_at,
@@ -182,6 +185,7 @@ function buildTaskWithRelations(
     title: task.title,
     body: task.body,
     author: task.author,
+    assignees: task.assignees,
     status: task.status,
     parent_id: task.parent_id,
     created_at: task.created_at,
@@ -226,6 +230,10 @@ function printTaskRow(
 
   if (task.author) {
     console.log(`  ${chalk.bold('Author:')} ${task.author}`);
+  }
+
+  if (task.assignees) {
+    console.log(`  ${chalk.bold('Assignees:')} ${task.assignees}`);
   }
 
   if (task.parent_id) {

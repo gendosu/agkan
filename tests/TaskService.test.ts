@@ -93,6 +93,27 @@ describe('TaskService', () => {
         taskService.createTask({ title: 'valid title', author: 'c'.repeat(101) });
       }).toThrow('Author must not exceed 100 characters');
     });
+
+    it('assigneesを指定したタスク作成テスト', () => {
+      const task = taskService.createTask({
+        title: 'テストタスク',
+        assignees: 'user1,user2,user3',
+      });
+
+      expect(task.assignees).toBe('user1,user2,user3');
+    });
+
+    it('assigneesを指定しない場合はnullになる', () => {
+      const task = taskService.createTask({ title: 'テストタスク' });
+
+      expect(task.assignees).toBeNull();
+    });
+
+    it('assigneesが500文字を超える場合はエラーが発生する', () => {
+      expect(() => {
+        taskService.createTask({ title: 'valid title', assignees: 'a'.repeat(501) });
+      }).toThrow('Assignees must not exceed 500 characters');
+    });
   });
 
   describe('getTask', () => {
@@ -497,6 +518,41 @@ describe('TaskService', () => {
       expect(retrievedTask!.title).toBe(originalTitle);
       expect(retrievedTask!.body).toBe(originalBody);
       expect(retrievedTask!.status).toBe(originalStatus);
+    });
+
+    it('assigneesの更新テスト - タスク作成後、assigneesを更新し、他のフィールドが変更されていないことを検証', () => {
+      const createdTask = taskService.createTask({
+        title: '元のタイトル',
+        body: '元の本文',
+        author: '元の作成者',
+        assignees: 'user1,user2',
+        status: 'in_progress',
+      });
+
+      const originalTitle = createdTask.title;
+      const originalBody = createdTask.body;
+      const originalAuthor = createdTask.author;
+      const originalStatus = createdTask.status;
+
+      const updatedTask = taskService.updateTask(createdTask.id, {
+        assignees: 'user3,user4,user5',
+      });
+
+      expect(updatedTask).toBeDefined();
+      expect(updatedTask).not.toBeNull();
+      expect(updatedTask!.assignees).toBe('user3,user4,user5');
+      expect(updatedTask!.title).toBe(originalTitle);
+      expect(updatedTask!.body).toBe(originalBody);
+      expect(updatedTask!.author).toBe(originalAuthor);
+      expect(updatedTask!.status).toBe(originalStatus);
+    });
+
+    it('assigneesが500文字を超える場合は更新でエラーが発生する', () => {
+      const createdTask = taskService.createTask({ title: 'テストタスク' });
+
+      expect(() => {
+        taskService.updateTask(createdTask.id, { assignees: 'a'.repeat(501) });
+      }).toThrow('Assignees must not exceed 500 characters');
     });
 
     it('ステータス（status）の更新テスト - タスク作成後、ステータスのみを更新し、他のフィールドが変更されていないことを検証', () => {

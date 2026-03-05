@@ -528,4 +528,49 @@ describe('setupTaskListCommand', () => {
     expect(output).toContain('priority');
     expect(output).toContain('medium');
   });
+
+  it('should include assignees in JSON output', async () => {
+    const taskService = new TaskService();
+    taskService.createTask({ title: 'Assignees Task', status: 'ready', assignees: 'user1,user2' });
+
+    const consoleLogs: string[] = [];
+    const originalLog = console.log;
+    console.log = (...args: unknown[]) => consoleLogs.push(args.join(' '));
+
+    const originalExit = process.exit;
+    process.exit = (() => {}) as never;
+
+    try {
+      await program.parseAsync(['node', 'test', 'task', 'list', '--json']);
+    } finally {
+      console.log = originalLog;
+      process.exit = originalExit;
+    }
+
+    const parsed = JSON.parse(consoleLogs[0]);
+    expect(parsed.tasks).toHaveLength(1);
+    expect(parsed.tasks[0].assignees).toBe('user1,user2');
+  });
+
+  it('should display assignees in console output when assignees is set', async () => {
+    const taskService = new TaskService();
+    taskService.createTask({ title: 'Assignees Display Task', status: 'ready', assignees: 'alice,bob' });
+
+    const consoleLogs: string[] = [];
+    const originalLog = console.log;
+    console.log = (...args: unknown[]) => consoleLogs.push(args.join(' '));
+
+    const originalExit = process.exit;
+    process.exit = (() => {}) as never;
+
+    try {
+      await program.parseAsync(['node', 'test', 'task', 'list']);
+    } finally {
+      console.log = originalLog;
+      process.exit = originalExit;
+    }
+
+    const output = consoleLogs.join('\n');
+    expect(output).toContain('alice,bob');
+  });
 });

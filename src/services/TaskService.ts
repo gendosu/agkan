@@ -40,14 +40,15 @@ export class TaskService {
     }
 
     const stmt = db.prepare(`
-      INSERT INTO tasks (title, body, author, status, parent_id, created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO tasks (title, body, author, assignees, status, parent_id, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     `);
 
     const result = stmt.run(
       input.title,
       input.body || null,
       input.author || null,
+      input.assignees || null,
       status,
       input.parent_id !== undefined ? input.parent_id : null,
       now,
@@ -133,6 +134,11 @@ export class TaskService {
     if (input.author !== undefined) {
       updates.push('author = ?');
       params.push(input.author);
+    }
+
+    if (input.assignees !== undefined) {
+      updates.push('assignees = ?');
+      params.push(input.assignees);
     }
 
     if (input.status !== undefined) {

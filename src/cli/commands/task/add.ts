@@ -30,6 +30,7 @@ export function setupTaskAddCommand(program: Command): void {
     .argument('[title]', 'Task title')
     .argument('[body]', 'Task body')
     .option('-a, --author <author>', 'Task author')
+    .option('--assignees <assignees>', 'Task assignees (comma-separated)')
     .option('-s, --status <status>', 'Task status (backlog, ready, in_progress, review, done, closed)', 'backlog')
     .option('-p, --parent <id>', 'Parent task ID')
     .option('--file <path>', 'Read body from markdown file')
@@ -65,6 +66,7 @@ export function setupTaskAddCommand(program: Command): void {
           title,
           body: taskBody,
           author: options.author,
+          assignees: options.assignees,
           status: options.status,
         });
         if (validationErrors.length > 0) {
@@ -117,6 +119,7 @@ export function setupTaskAddCommand(program: Command): void {
           title,
           body: taskBody,
           author: options.author,
+          assignees: options.assignees,
           status: options.status as TaskStatus,
           parent_id: parentId,
         });

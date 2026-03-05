@@ -71,6 +71,7 @@ describe('setupTaskAddCommand', () => {
     const optionNames = options.map((opt) => opt.long);
 
     expect(optionNames).toContain('--author');
+    expect(optionNames).toContain('--assignees');
     expect(optionNames).toContain('--status');
     expect(optionNames).toContain('--parent');
     expect(optionNames).toContain('--file');
@@ -125,6 +126,22 @@ describe('setupTaskAddCommand', () => {
       const { exitCode, logs } = await runCommand(program, ['task', 'add', 'Valid Title', '--author', longAuthor]);
       expect(exitCode).toBe(1);
       expect(logs.join('\n')).toContain('100');
+
+      const taskService = new TaskService();
+      expect(taskService.listTasks()).toHaveLength(0);
+    });
+
+    it('should reject assignees exceeding 500 characters', async () => {
+      const longAssignees = 'a'.repeat(501);
+      const { exitCode, logs } = await runCommand(program, [
+        'task',
+        'add',
+        'Valid Title',
+        '--assignees',
+        longAssignees,
+      ]);
+      expect(exitCode).toBe(1);
+      expect(logs.join('\n')).toContain('500');
 
       const taskService = new TaskService();
       expect(taskService.listTasks()).toHaveLength(0);
@@ -300,6 +317,37 @@ describe('setupTaskAddCommand', () => {
       expect(tasks[0].status).toBe('ready');
     });
 
+    it('should create task with --assignees option', async () => {
+      const { exitCode } = await runCommand(program, [
+        'task',
+        'add',
+        'Task with Assignees',
+        '--assignees',
+        'user1,user2',
+      ]);
+      expect(exitCode).toBeUndefined();
+
+      const taskService = new TaskService();
+      const tasks = taskService.listTasks();
+      expect(tasks).toHaveLength(1);
+      expect(tasks[0].assignees).toBe('user1,user2');
+    });
+
+    it('should show Assignees in console output when --assignees is specified', async () => {
+      const { exitCode, logs } = await runCommand(program, [
+        'task',
+        'add',
+        'Task with Assignees Output',
+        '--assignees',
+        'user1,user2',
+      ]);
+      expect(exitCode).toBeUndefined();
+
+      const output = logs.join('\n');
+      expect(output).toContain('Assignees:');
+      expect(output).toContain('user1,user2');
+    });
+
     it('should create task with parent (normal output shows parent)', async () => {
       // Create parent task first
       const taskService = new TaskService();
@@ -329,6 +377,22 @@ describe('setupTaskAddCommand', () => {
       expect(output.parent).toBeNull();
       expect(output.blockedBy).toEqual([]);
       expect(output.blocking).toEqual([]);
+    });
+
+    it('should include assignees in JSON output when --assignees is specified', async () => {
+      const { exitCode, logs } = await runCommand(program, [
+        'task',
+        'add',
+        'Assignees Task',
+        '--assignees',
+        'user1,user2',
+        '--json',
+      ]);
+      expect(exitCode).toBeUndefined();
+
+      const output = JSON.parse(logs[0]);
+      expect(output.success).toBe(true);
+      expect(output.task.assignees).toBe('user1,user2');
     });
 
     it('should create task with blocked-by relationship', async () => {

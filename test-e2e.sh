@@ -38,6 +38,7 @@ source "$E2E_DIR/test_task_deletion.sh"
 source "$E2E_DIR/test_cascade_deletion.sh"
 source "$E2E_DIR/test_task_blocking.sh"
 source "$E2E_DIR/test_json_output.sh"
+source "$E2E_DIR/test_assignees.sh"
 source "$E2E_DIR/test_env_var.sh"
 source "$E2E_DIR/test_test_mode.sh"
 
@@ -61,6 +62,7 @@ main() {
     test_cascade_deletion
     test_task_blocking
     test_json_output
+    test_assignees
     test_env_var_config
     test_test_mode_config
 

@@ -93,6 +93,35 @@ describe('Input Validators', () => {
       expect(errors).toEqual([]);
     });
 
+    it('should return error for assignees exceeding 500 characters', () => {
+      const input: CreateTaskInput = {
+        title: 'Valid title',
+        assignees: 'a'.repeat(501),
+      };
+      const errors = validateTaskInput(input);
+      expect(errors).toHaveLength(1);
+      expect(errors[0].field).toBe('assignees');
+      expect(errors[0].message).toBe('Assignees must not exceed 500 characters');
+    });
+
+    it('should accept assignees with exactly 500 characters', () => {
+      const input: CreateTaskInput = {
+        title: 'Valid title',
+        assignees: 'a'.repeat(500),
+      };
+      const errors = validateTaskInput(input);
+      expect(errors).toEqual([]);
+    });
+
+    it('should accept assignees in CSV format', () => {
+      const input: CreateTaskInput = {
+        title: 'Valid title',
+        assignees: 'user1,user2,user3',
+      };
+      const errors = validateTaskInput(input);
+      expect(errors).toEqual([]);
+    });
+
     it('should return multiple errors for multiple invalid fields', () => {
       const input: CreateTaskInput = {
         title: 'a'.repeat(201),
@@ -160,6 +189,26 @@ describe('Input Validators', () => {
 
     it('should skip title validation when title is not provided', () => {
       const input: UpdateTaskInput = { body: 'some body' };
+      const errors = validateTaskUpdateInput(input);
+      expect(errors).toEqual([]);
+    });
+
+    it('should return error for assignees exceeding 500 characters', () => {
+      const input: UpdateTaskInput = { assignees: 'a'.repeat(501) };
+      const errors = validateTaskUpdateInput(input);
+      expect(errors).toHaveLength(1);
+      expect(errors[0].field).toBe('assignees');
+      expect(errors[0].message).toBe('Assignees must not exceed 500 characters');
+    });
+
+    it('should accept assignees with exactly 500 characters', () => {
+      const input: UpdateTaskInput = { assignees: 'a'.repeat(500) };
+      const errors = validateTaskUpdateInput(input);
+      expect(errors).toEqual([]);
+    });
+
+    it('should skip assignees validation when assignees is not provided', () => {
+      const input: UpdateTaskInput = { title: 'some title' };
       const errors = validateTaskUpdateInput(input);
       expect(errors).toEqual([]);
     });

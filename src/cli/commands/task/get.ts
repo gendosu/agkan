@@ -63,6 +63,7 @@ export function setupTaskGetCommand(program: Command): void {
                 title: task.title,
                 body: task.body,
                 author: task.author,
+                assignees: task.assignees,
                 status: task.status,
                 parent_id: task.parent_id,
                 created_at: task.created_at,
@@ -74,6 +75,7 @@ export function setupTaskGetCommand(program: Command): void {
                     title: parentTask.title,
                     body: parentTask.body,
                     author: parentTask.author,
+                    assignees: parentTask.assignees,
                     status: parentTask.status,
                     parent_id: parentTask.parent_id,
                     created_at: parentTask.created_at,
@@ -85,6 +87,7 @@ export function setupTaskGetCommand(program: Command): void {
                 title: child.title,
                 body: child.body,
                 author: child.author,
+                assignees: child.assignees,
                 status: child.status,
                 parent_id: child.parent_id,
                 created_at: child.created_at,
@@ -95,6 +98,7 @@ export function setupTaskGetCommand(program: Command): void {
                 title: blocker.title,
                 body: blocker.body,
                 author: blocker.author,
+                assignees: blocker.assignees,
                 status: blocker.status,
                 parent_id: blocker.parent_id,
                 created_at: blocker.created_at,
@@ -105,6 +109,7 @@ export function setupTaskGetCommand(program: Command): void {
                 title: blocked.title,
                 body: blocked.body,
                 author: blocked.author,
+                assignees: blocked.assignees,
                 status: blocked.status,
                 parent_id: blocked.parent_id,
                 created_at: blocked.created_at,
@@ -126,6 +131,9 @@ export function setupTaskGetCommand(program: Command): void {
             console.log(`${chalk.bold('Status:')} ${chalk[statusColor](task.status)}`);
             if (task.author) {
               console.log(`${chalk.bold('Author:')} ${task.author}`);
+            }
+            if (task.assignees) {
+              console.log(`${chalk.bold('Assignees:')} ${task.assignees}`);
             }
             console.log(`${chalk.bold('Created:')} ${formatDate(task.created_at)}`);
             console.log(`${chalk.bold('Updated:')} ${formatDate(task.updated_at)}`);

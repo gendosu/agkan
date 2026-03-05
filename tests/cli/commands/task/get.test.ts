@@ -285,6 +285,17 @@ describe('setupTaskGetCommand', () => {
       expect(blockerParsed.blocking[0].id).toBe(blocked.id);
     });
 
+    it('should include assignees in JSON output', async () => {
+      const taskService = new TaskService();
+      const task = taskService.createTask({ title: 'Assignees Task', status: 'ready', assignees: 'user1,user2' });
+
+      const { exitCode, logs } = await runCommand(program, ['task', 'get', String(task.id), '--json']);
+      expect(exitCode).toBeUndefined();
+
+      const parsed = JSON.parse(logs[0]);
+      expect(parsed.task.assignees).toBe('user1,user2');
+    });
+
     it('should include tags in JSON output', async () => {
       const taskService = new TaskService();
       const task = taskService.createTask({ title: 'Tagged Task', status: 'ready' });
@@ -302,5 +313,17 @@ describe('setupTaskGetCommand', () => {
       expect(parsed.tags).toHaveLength(1);
       expect(parsed.tags[0].name).toBe('json-tag');
     });
+  });
+
+  it('should display Assignees in console output when assignees is set', async () => {
+    const taskService = new TaskService();
+    const task = taskService.createTask({ title: 'Assignees Display Task', status: 'ready', assignees: 'alice,bob' });
+
+    const { exitCode, logs } = await runCommand(program, ['task', 'get', String(task.id)]);
+    expect(exitCode).toBeUndefined();
+
+    const output = logs.join('\n');
+    expect(output).toContain('Assignees:');
+    expect(output).toContain('alice,bob');
   });
 });

@@ -162,6 +162,32 @@ describe('setupTaskUpdateCommand', () => {
     expect(updatedTask?.author).toBe('new-author');
   });
 
+  it('should update assignees field successfully', async () => {
+    const taskService = new TaskService();
+    taskService.createTask({ title: 'Test task', status: 'backlog' });
+    const task = taskService.listTasks()[0];
+
+    const consoleLogs: string[] = [];
+    const originalLog = console.log;
+    console.log = (...args: unknown[]) => consoleLogs.push(args.join(' '));
+
+    const originalExit = process.exit;
+    process.exit = (() => {}) as never;
+
+    try {
+      await program.parseAsync(['node', 'test', 'task', 'update', String(task.id), 'assignees', 'user1,user2,user3']);
+    } finally {
+      console.log = originalLog;
+      process.exit = originalExit;
+    }
+
+    const output = consoleLogs.join('\n');
+    expect(output).toContain('✓');
+
+    const updatedTask = taskService.getTask(task.id);
+    expect(updatedTask?.assignees).toBe('user1,user2,user3');
+  });
+
   it('should show error when title exceeds 200 characters', async () => {
     const taskService = new TaskService();
     taskService.createTask({ title: 'Test task', status: 'backlog' });
@@ -246,6 +272,35 @@ describe('setupTaskUpdateCommand', () => {
 
     const output = consoleLogs.join('\n');
     expect(output).toContain('100');
+    expect(exitCode).toBe(1);
+  });
+
+  it('should show error when assignees exceeds 500 characters', async () => {
+    const taskService = new TaskService();
+    taskService.createTask({ title: 'Test task', status: 'backlog' });
+    const task = taskService.listTasks()[0];
+
+    const consoleLogs: string[] = [];
+    const originalLog = console.log;
+    console.log = (...args: unknown[]) => consoleLogs.push(args.join(' '));
+
+    let exitCode: number | undefined;
+    const originalExit = process.exit;
+    process.exit = ((code?: number) => {
+      exitCode = code;
+    }) as never;
+
+    const longAssignees = 'a'.repeat(501);
+
+    try {
+      await program.parseAsync(['node', 'test', 'task', 'update', String(task.id), 'assignees', longAssignees]);
+    } finally {
+      console.log = originalLog;
+      process.exit = originalExit;
+    }
+
+    const output = consoleLogs.join('\n');
+    expect(output).toContain('500');
     expect(exitCode).toBe(1);
   });
 
