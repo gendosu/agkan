@@ -580,6 +580,31 @@ describe('TaskBlockService', () => {
     });
   });
 
+  describe('getAllBlocks', () => {
+    it('should return all block relationships', () => {
+      const task1 = taskService.createTask({ title: 'Task 1' });
+      const task2 = taskService.createTask({ title: 'Task 2' });
+      const task3 = taskService.createTask({ title: 'Task 3' });
+
+      taskBlockService.addBlock({ blocker_task_id: task1.id, blocked_task_id: task2.id });
+      taskBlockService.addBlock({ blocker_task_id: task1.id, blocked_task_id: task3.id });
+
+      const allBlocks = taskBlockService.getAllBlocks();
+      expect(allBlocks).toHaveLength(2);
+      expect(allBlocks).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ blocker_task_id: task1.id, blocked_task_id: task2.id }),
+          expect.objectContaining({ blocker_task_id: task1.id, blocked_task_id: task3.id }),
+        ])
+      );
+    });
+
+    it('should return empty array when no block relationships exist', () => {
+      const allBlocks = taskBlockService.getAllBlocks();
+      expect(allBlocks).toHaveLength(0);
+    });
+  });
+
   describe('依存注入（Dependency Injection）', () => {
     it('外部から注入したTaskServiceインスタンスを使用できる', () => {
       // 外部で作成したTaskServiceインスタンスを注入

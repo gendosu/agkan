@@ -117,6 +117,18 @@ export class TaskBlockService {
   }
 
   /**
+   * Get all blocking relationships
+   * Returns all block records for efficient bulk operations
+   * @returns Array of all blocking relationships
+   */
+  getAllBlocks(): Array<{ blocker_task_id: number; blocked_task_id: number }> {
+    const db = this.db;
+
+    const stmt = db.prepare('SELECT blocker_task_id, blocked_task_id FROM task_blocks');
+    return stmt.all() as Array<{ blocker_task_id: number; blocked_task_id: number }>;
+  }
+
+  /**
    * Check for circular references in blocking relationships (private method)
    * Detects whether adding a new blocking relationship would create a cycle using BFS algorithm
    * @param blockerId - ID of the blocking task
