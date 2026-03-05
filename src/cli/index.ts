@@ -26,6 +26,7 @@ import { setupTagDeleteCommand } from './commands/tag/delete';
 import { setupTagAttachCommand } from './commands/tag/attach';
 import { setupTagDetachCommand } from './commands/tag/detach';
 import { setupTagShowCommand } from './commands/tag/show';
+import { setupTagRenameCommand } from './commands/tag/rename';
 
 // Meta command handlers
 import { setupMetaSetCommand } from './commands/meta/set';
@@ -72,6 +73,7 @@ setupTagDeleteCommand(program);
 setupTagAttachCommand(program);
 setupTagDetachCommand(program);
 setupTagShowCommand(program);
+setupTagRenameCommand(program);
 
 // Register meta commands
 setupMetaSetCommand(program);
