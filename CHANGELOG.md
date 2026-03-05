@@ -9,6 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 (no entries yet)
 
+## [1.5.0] - 2026-03-05
+
+### Added
+- Add `assignees` field to tasks for tracking task ownership (`--assignees` option in `task add` and `task update`)
+- Display `assignees` in task list, task get, and task create output
+- Add `assignees` field to JSON output of task commands
+
 ## [1.4.0] - 2026-03-02
 
 ### Added
