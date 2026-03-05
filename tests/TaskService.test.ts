@@ -371,6 +371,85 @@ describe('TaskService', () => {
       expect(taskIds).not.toContain(task4.id); // Bobのin_progressは含まれない
       expect(taskIds).not.toContain(task5.id); // Aliceのdoneは含まれない
     });
+
+    it('assigneesフィルターのテスト - CSV形式のassigneesフィールドに対してLIKEマッチングで絞り込み', () => {
+      const task1 = taskService.createTask({
+        title: 'Task assigned to Alice',
+        assignees: 'Alice',
+        status: 'backlog',
+      });
+
+      const task2 = taskService.createTask({
+        title: 'Task assigned to Alice and Bob',
+        assignees: 'Alice,Bob',
+        status: 'in_progress',
+      });
+
+      const task3 = taskService.createTask({
+        title: 'Task assigned to Bob',
+        assignees: 'Bob',
+        status: 'backlog',
+      });
+
+      const task4 = taskService.createTask({
+        title: 'Task assigned to Charlie',
+        assignees: 'Charlie',
+        status: 'backlog',
+      });
+
+      taskService.createTask({
+        title: 'Task with no assignees',
+        status: 'backlog',
+      });
+
+      // Aliceでフィルター: task1, task2がマッチ
+      const aliceTasks = taskService.listTasks({ assignees: 'Alice' });
+      expect(aliceTasks).toHaveLength(2);
+      const aliceIds = aliceTasks.map((t) => t.id);
+      expect(aliceIds).toContain(task1.id);
+      expect(aliceIds).toContain(task2.id);
+
+      // Bobでフィルター: task2, task3がマッチ
+      const bobTasks = taskService.listTasks({ assignees: 'Bob' });
+      expect(bobTasks).toHaveLength(2);
+      const bobIds = bobTasks.map((t) => t.id);
+      expect(bobIds).toContain(task2.id);
+      expect(bobIds).toContain(task3.id);
+
+      // Charlieでフィルター: task4のみ
+      const charlieTasks = taskService.listTasks({ assignees: 'Charlie' });
+      expect(charlieTasks).toHaveLength(1);
+      expect(charlieTasks[0].id).toBe(task4.id);
+
+      // 存在しないアサイニーでフィルター: 0件
+      const nonExistentTasks = taskService.listTasks({ assignees: 'David' });
+      expect(nonExistentTasks).toHaveLength(0);
+    });
+
+    it('assigneesフィルターと他のフィルターの複合テスト - assigneesとstatusの組み合わせ', () => {
+      taskService.createTask({
+        title: 'Alice backlog',
+        assignees: 'Alice',
+        status: 'backlog',
+      });
+
+      const task2 = taskService.createTask({
+        title: 'Alice in_progress',
+        assignees: 'Alice',
+        status: 'in_progress',
+      });
+
+      taskService.createTask({
+        title: 'Bob in_progress',
+        assignees: 'Bob',
+        status: 'in_progress',
+      });
+
+      // assignees='Alice' AND status='in_progress'
+      const filtered = taskService.listTasks({ assignees: 'Alice', status: 'in_progress' });
+      expect(filtered).toHaveLength(1);
+      expect(filtered[0].id).toBe(task2.id);
+    });
   });
 
   describe('updateTask', () => {

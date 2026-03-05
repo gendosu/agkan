@@ -118,7 +118,7 @@ function buildTreeNode(
  */
 function buildTreeJsonOutput(
   displayTasks: TaskRecord[],
-  options: { status?: string; author?: string; rootOnly?: boolean; all?: boolean },
+  options: { status?: string; author?: string; assignees?: string; rootOnly?: boolean; all?: boolean },
   tagIds: number[] | undefined,
   taskService: TaskService,
   allTaskTags: TaskTagMap,
@@ -132,6 +132,7 @@ function buildTreeJsonOutput(
     filters: {
       status: options.status || null,
       author: options.author || null,
+      assignees: options.assignees || null,
       tagIds: tagIds || [],
       rootOnly: options.rootOnly || false,
       all: options.all || false,
@@ -145,7 +146,7 @@ function buildTreeJsonOutput(
  */
 function buildListJsonOutput(
   displayTasks: TaskRecord[],
-  options: { status?: string; author?: string; rootOnly?: boolean },
+  options: { status?: string; author?: string; assignees?: string; rootOnly?: boolean },
   tagIds: number[] | undefined,
   taskService: TaskService,
   allTaskTags: TaskTagMap,
@@ -160,6 +161,7 @@ function buildListJsonOutput(
     filters: {
       status: options.status || null,
       author: options.author || null,
+      assignees: options.assignees || null,
       tagIds: tagIds || [],
       rootOnly: options.rootOnly || false,
     },
@@ -318,6 +320,7 @@ export function setupTaskListCommand(program: Command): void {
     .command('list')
     .option('-s, --status <status>', 'Filter by status')
     .option('-a, --author <author>', 'Filter by author')
+    .option('--assignees <assignees>', 'Filter by assignee (LIKE match on CSV assignees field)')
     .option('-t, --tag <tags>', 'Filter by tag IDs or names (comma-separated, e.g., "1,2,3" or "bug,feature")')
     .option('--all', 'Include all statuses (including done and closed)')
     .option('--tree', 'Display tasks in tree structure')
@@ -350,6 +353,7 @@ export function setupTaskListCommand(program: Command): void {
         let tasks = taskService.listTasks({
           status: options.status as TaskStatus,
           author: options.author,
+          assignees: options.assignees,
           tagIds,
         });
 
@@ -372,6 +376,7 @@ export function setupTaskListCommand(program: Command): void {
               filters: {
                 status: options.status || null,
                 author: options.author || null,
+                assignees: options.assignees || null,
                 tagIds: tagIds || [],
                 rootOnly: options.rootOnly || false,
                 all: options.all || false,
