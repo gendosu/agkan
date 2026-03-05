@@ -4,6 +4,11 @@ import { validateTaskInput, validateTaskUpdateInput } from '../utils/input-valid
 import { wouldCreateCycle } from '../utils/cycle-detector';
 import { StorageProvider } from '../db/types/storage';
 
+/** Allowed sort fields for task listing */
+export const ALLOWED_SORT_FIELDS = ['id', 'title', 'status', 'created_at', 'updated_at'] as const;
+export type SortField = (typeof ALLOWED_SORT_FIELDS)[number];
+export type SortOrder = 'asc' | 'desc';
+
 /**
  * Task Service
  * Provides CRUD operations for tasks
@@ -75,14 +80,20 @@ export class TaskService {
   /**
    * Get task list
    * @param filters - Filter criteria (status, author, tagIds)
+   * @param sort - Sort field (default: created_at)
+   * @param order - Sort order (default: desc)
    * @returns Array of tasks
    */
-  listTasks(filters?: {
-    status?: TaskStatus | TaskStatus[];
-    author?: string;
-    assignees?: string;
-    tagIds?: number[];
-  }): Task[] {
+  listTasks(
+    filters?: {
+      status?: TaskStatus | TaskStatus[];
+      author?: string;
+      assignees?: string;
+      tagIds?: number[];
+    },
+    sort?: SortField,
+    order?: SortOrder
+  ): Task[] {
     const db = this.db;
 
     let query: string;
@@ -119,7 +130,10 @@ export class TaskService {
       params.push(`%${filters.assignees}%`);
     }
 
-    query += ' ORDER BY created_at DESC';
+    const sortField: SortField = sort && ALLOWED_SORT_FIELDS.includes(sort) ? sort : 'created_at';
+    const sortOrder: SortOrder = order === 'asc' ? 'asc' : 'desc';
+    const tablePrefix = filters?.tagIds && filters.tagIds.length > 0 ? 'tasks.' : '';
+    query += ` ORDER BY ${tablePrefix}${sortField} ${sortOrder.toUpperCase()}`;
 
     const stmt = db.prepare(query);
     return stmt.all(...params) as unknown as Task[];

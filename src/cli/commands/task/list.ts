@@ -5,6 +5,7 @@
 import { Command } from 'commander';
 import chalk from 'chalk';
 import { TaskService, TagService, TaskTagService, MetadataService } from '../../../services';
+import { ALLOWED_SORT_FIELDS, SortField, SortOrder } from '../../../services/TaskService';
 import { TaskStatus } from '../../../models';
 import { handleError } from '../../utils/error-handler';
 import { validateTaskStatus } from '../../utils/validators';
@@ -118,7 +119,7 @@ function buildTreeNode(
  */
 function buildTreeJsonOutput(
   displayTasks: TaskRecord[],
-  options: { status?: string; author?: string; assignees?: string; rootOnly?: boolean; all?: boolean },
+  options: { status?: string; author?: string; assignees?: string; rootOnly?: boolean; all?: boolean; sort?: string; order?: string },
   tagIds: number[] | undefined,
   taskService: TaskService,
   allTaskTags: TaskTagMap,
@@ -137,6 +138,8 @@ function buildTreeJsonOutput(
       rootOnly: options.rootOnly || false,
       all: options.all || false,
     },
+    sort: options.sort || 'created_at',
+    order: options.order || 'desc',
     tasks: rootTasks.map((task) => buildTreeNode(task, taskService, allTaskTags, allTasksMetadata)),
   };
 }
@@ -146,7 +149,7 @@ function buildTreeJsonOutput(
  */
 function buildListJsonOutput(
   displayTasks: TaskRecord[],
-  options: { status?: string; author?: string; assignees?: string; rootOnly?: boolean },
+  options: { status?: string; author?: string; assignees?: string; rootOnly?: boolean; sort?: string; order?: string },
   tagIds: number[] | undefined,
   taskService: TaskService,
   allTaskTags: TaskTagMap,
@@ -165,6 +168,8 @@ function buildListJsonOutput(
       tagIds: tagIds || [],
       rootOnly: options.rootOnly || false,
     },
+    sort: options.sort || 'created_at',
+    order: options.order || 'desc',
     tasks: tasksWithRelations,
   };
 }
@@ -325,6 +330,8 @@ export function setupTaskListCommand(program: Command): void {
     .option('--all', 'Include all statuses (including done and closed)')
     .option('--tree', 'Display tasks in tree structure')
     .option('--root-only', 'Show only root tasks (tasks without parent)')
+    .option('--sort <field>', `Sort by field (${ALLOWED_SORT_FIELDS.join(', ')})`, 'created_at')
+    .option('--order <order>', 'Sort order (asc, desc)', 'desc')
     .option('--json', 'Output in JSON format')
     .description('List all tasks')
     .action(async (options) => {
@@ -359,15 +366,40 @@ export function setupTaskListCommand(program: Command): void {
           statusFilter = statusParts.length === 1 ? (statusParts[0] as TaskStatus) : (statusParts as TaskStatus[]);
         }
 
+        // Validate sort field
+        if (options.sort && !ALLOWED_SORT_FIELDS.includes(options.sort as SortField)) {
+          formatter.error(
+            `Invalid sort field: ${options.sort}. Valid fields: ${ALLOWED_SORT_FIELDS.join(', ')}`,
+            () => {
+              console.log(chalk.red(`Invalid sort field: ${options.sort}`));
+              console.log(`Valid fields: ${ALLOWED_SORT_FIELDS.join(', ')}`);
+            }
+          );
+          process.exit(1);
+        }
+
+        // Validate sort order
+        if (options.order && !['asc', 'desc'].includes(options.order)) {
+          formatter.error(`Invalid sort order: ${options.order}. Valid orders: asc, desc`, () => {
+            console.log(chalk.red(`Invalid sort order: ${options.order}`));
+            console.log('Valid orders: asc, desc');
+          });
+          process.exit(1);
+        }
+
         // Parse and resolve tag filter (supports IDs and names)
         const tagIds = resolveTagIds(options.tag, tagService, formatter);
 
-        let tasks = taskService.listTasks({
-          status: statusFilter,
-          author: options.author,
-          assignees: options.assignees,
-          tagIds,
-        });
+        let tasks = taskService.listTasks(
+          {
+            status: statusFilter,
+            author: options.author,
+            assignees: options.assignees,
+            tagIds,
+          },
+          options.sort as SortField,
+          options.order as SortOrder
+        );
 
         // Default: exclude icebox, done, and closed unless --all or --status is explicitly specified
         if (!options.status && !options.all) {

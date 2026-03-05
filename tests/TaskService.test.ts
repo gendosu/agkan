@@ -531,6 +531,80 @@ describe('TaskService', () => {
       expect(filteredTasks.length).toBe(1);
       expect(filteredTasks[0].status).toBe('ready');
     });
+
+    it('ソートオプションでid昇順にソートできる', () => {
+      const task1 = taskService.createTask({ title: 'Task A', status: 'backlog' });
+      const task2 = taskService.createTask({ title: 'Task B', status: 'backlog' });
+      const task3 = taskService.createTask({ title: 'Task C', status: 'backlog' });
+
+      const tasks = taskService.listTasks({}, 'id', 'asc');
+      expect(tasks[0].id).toBe(task1.id);
+      expect(tasks[1].id).toBe(task2.id);
+      expect(tasks[2].id).toBe(task3.id);
+    });
+
+    it('ソートオプションでid降順にソートできる', () => {
+      const task1 = taskService.createTask({ title: 'Task A', status: 'backlog' });
+      const task2 = taskService.createTask({ title: 'Task B', status: 'backlog' });
+      const task3 = taskService.createTask({ title: 'Task C', status: 'backlog' });
+
+      const tasks = taskService.listTasks({}, 'id', 'desc');
+      expect(tasks[0].id).toBe(task3.id);
+      expect(tasks[1].id).toBe(task2.id);
+      expect(tasks[2].id).toBe(task1.id);
+    });
+
+    it('ソートオプションでtitle昇順にソートできる', () => {
+      taskService.createTask({ title: 'Charlie', status: 'backlog' });
+      taskService.createTask({ title: 'Alice', status: 'backlog' });
+      taskService.createTask({ title: 'Bob', status: 'backlog' });
+
+      const tasks = taskService.listTasks({}, 'title', 'asc');
+      expect(tasks[0].title).toBe('Alice');
+      expect(tasks[1].title).toBe('Bob');
+      expect(tasks[2].title).toBe('Charlie');
+    });
+
+    it('ソートオプションでstatus昇順にソートできる', () => {
+      taskService.createTask({ title: 'Task In Progress', status: 'in_progress' });
+      taskService.createTask({ title: 'Task Backlog', status: 'backlog' });
+      taskService.createTask({ title: 'Task Done', status: 'done' });
+
+      const tasks = taskService.listTasks({}, 'status', 'asc');
+      expect(tasks[0].status).toBe('backlog');
+      expect(tasks[1].status).toBe('done');
+      expect(tasks[2].status).toBe('in_progress');
+    });
+
+    it('ソートオプションでupdated_at降順にソートできる', () => {
+      const task1 = taskService.createTask({ title: 'Task A', status: 'backlog' });
+      taskService.createTask({ title: 'Task B', status: 'backlog' });
+      // Update task1 to make its updated_at newer
+      taskService.updateTask(task1.id, { title: 'Task A Updated' });
+
+      const tasks = taskService.listTasks({}, 'updated_at', 'desc');
+      expect(tasks[0].title).toBe('Task A Updated');
+    });
+
+    it('デフォルトソートはcreated_at降順のまま', () => {
+      const task1 = taskService.createTask({ title: 'First', status: 'backlog' });
+      const task2 = taskService.createTask({ title: 'Second', status: 'backlog' });
+
+      const tasks = taskService.listTasks();
+      expect(tasks[0].id).toBe(task2.id);
+      expect(tasks[1].id).toBe(task1.id);
+    });
+
+    it('フィルターとソートを組み合わせて使用できる', () => {
+      taskService.createTask({ title: 'Charlie', status: 'in_progress' });
+      taskService.createTask({ title: 'Alice', status: 'in_progress' });
+      taskService.createTask({ title: 'Bob', status: 'backlog' });
+
+      const tasks = taskService.listTasks({ status: 'in_progress' }, 'title', 'asc');
+      expect(tasks.length).toBe(2);
+      expect(tasks[0].title).toBe('Alice');
+      expect(tasks[1].title).toBe('Charlie');
+    });
   });
 
   describe('updateTask', () => {

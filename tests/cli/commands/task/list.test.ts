@@ -552,6 +552,146 @@ describe('setupTaskListCommand', () => {
     expect(parsed.tasks[0].assignees).toBe('user1,user2');
   });
 
+  it('should have --sort and --order options', () => {
+    const taskCommand = program.commands.find((cmd) => cmd.name() === 'task');
+    const listCommand = taskCommand?.commands.find((cmd) => cmd.name() === 'list');
+
+    const options = listCommand?.options || [];
+    const optionNames = options.map((opt) => opt.long);
+
+    expect(optionNames).toContain('--sort');
+    expect(optionNames).toContain('--order');
+  });
+
+  it('should sort tasks by title ascending with --sort title --order asc', async () => {
+    const taskService = new TaskService();
+    taskService.createTask({ title: 'Charlie Task', status: 'ready' });
+    taskService.createTask({ title: 'Alice Task', status: 'ready' });
+    taskService.createTask({ title: 'Bob Task', status: 'ready' });
+
+    const consoleLogs: string[] = [];
+    const originalLog = console.log;
+    console.log = (...args: unknown[]) => consoleLogs.push(args.join(' '));
+
+    const originalExit = process.exit;
+    process.exit = (() => {}) as never;
+
+    try {
+      await program.parseAsync(['node', 'test', 'task', 'list', '--sort', 'title', '--order', 'asc', '--json']);
+    } finally {
+      console.log = originalLog;
+      process.exit = originalExit;
+    }
+
+    const parsed = JSON.parse(consoleLogs[0]);
+    expect(parsed.tasks).toHaveLength(3);
+    expect(parsed.tasks[0].title).toBe('Alice Task');
+    expect(parsed.tasks[1].title).toBe('Bob Task');
+    expect(parsed.tasks[2].title).toBe('Charlie Task');
+    expect(parsed.sort).toBe('title');
+    expect(parsed.order).toBe('asc');
+  });
+
+  it('should sort tasks by id ascending with --sort id --order asc', async () => {
+    const taskService = new TaskService();
+    taskService.createTask({ title: 'Task 1', status: 'ready' });
+    taskService.createTask({ title: 'Task 2', status: 'ready' });
+    taskService.createTask({ title: 'Task 3', status: 'ready' });
+
+    const consoleLogs: string[] = [];
+    const originalLog = console.log;
+    console.log = (...args: unknown[]) => consoleLogs.push(args.join(' '));
+
+    const originalExit = process.exit;
+    process.exit = (() => {}) as never;
+
+    try {
+      await program.parseAsync(['node', 'test', 'task', 'list', '--sort', 'id', '--order', 'asc', '--json']);
+    } finally {
+      console.log = originalLog;
+      process.exit = originalExit;
+    }
+
+    const parsed = JSON.parse(consoleLogs[0]);
+    expect(parsed.tasks).toHaveLength(3);
+    expect(parsed.tasks[0].title).toBe('Task 1');
+    expect(parsed.tasks[1].title).toBe('Task 2');
+    expect(parsed.tasks[2].title).toBe('Task 3');
+  });
+
+  it('should show error on invalid sort field', async () => {
+    const consoleLogs: string[] = [];
+    const originalLog = console.log;
+    console.log = (...args: unknown[]) => consoleLogs.push(args.join(' '));
+
+    let exitCode: number | undefined;
+    const originalExit = process.exit;
+    process.exit = ((code?: number) => {
+      exitCode = code;
+    }) as never;
+
+    try {
+      await program.parseAsync(['node', 'test', 'task', 'list', '--sort', 'invalid_field']);
+    } finally {
+      console.log = originalLog;
+      process.exit = originalExit;
+    }
+
+    expect(exitCode).toBe(1);
+    const output = consoleLogs.join('\n');
+    expect(output).toContain('Invalid sort field');
+  });
+
+  it('should show error on invalid sort order', async () => {
+    const consoleLogs: string[] = [];
+    const originalLog = console.log;
+    console.log = (...args: unknown[]) => consoleLogs.push(args.join(' '));
+
+    let exitCode: number | undefined;
+    const originalExit = process.exit;
+    process.exit = ((code?: number) => {
+      exitCode = code;
+    }) as never;
+
+    try {
+      await program.parseAsync(['node', 'test', 'task', 'list', '--order', 'invalid_order']);
+    } finally {
+      console.log = originalLog;
+      process.exit = originalExit;
+    }
+
+    expect(exitCode).toBe(1);
+    const output = consoleLogs.join('\n');
+    expect(output).toContain('Invalid sort order');
+  });
+
+  it('should default to created_at desc when no sort options provided (JSON)', async () => {
+    const taskService = new TaskService();
+    taskService.createTask({ title: 'First', status: 'ready' });
+    taskService.createTask({ title: 'Second', status: 'ready' });
+
+    const consoleLogs: string[] = [];
+    const originalLog = console.log;
+    console.log = (...args: unknown[]) => consoleLogs.push(args.join(' '));
+
+    const originalExit = process.exit;
+    process.exit = (() => {}) as never;
+
+    try {
+      await program.parseAsync(['node', 'test', 'task', 'list', '--json']);
+    } finally {
+      console.log = originalLog;
+      process.exit = originalExit;
+    }
+
+    const parsed = JSON.parse(consoleLogs[0]);
+    expect(parsed.sort).toBe('created_at');
+    expect(parsed.order).toBe('desc');
+    // Default: newest first
+    expect(parsed.tasks[0].title).toBe('Second');
+    expect(parsed.tasks[1].title).toBe('First');
+  });
+
   it('should display assignees in console output when assignees is set', async () => {
     const taskService = new TaskService();
     taskService.createTask({ title: 'Assignees Display Task', status: 'ready', assignees: 'alice,bob' });
