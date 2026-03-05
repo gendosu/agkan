@@ -499,4 +499,197 @@ describe('setupTaskUpdateCommand', () => {
       }
     });
   });
+
+  describe('flag-based multi-field update', () => {
+    it('should update multiple fields simultaneously with flags', async () => {
+      const taskService = new TaskService();
+      taskService.createTask({ title: 'Original title', status: 'backlog' });
+      const task = taskService.listTasks()[0];
+
+      const { exitCode, logs } = await runCommand(program, [
+        'task',
+        'update',
+        String(task.id),
+        '--title',
+        'New title',
+        '--status',
+        'ready',
+        '--author',
+        'alice',
+      ]);
+      expect(exitCode).toBeUndefined();
+      expect(logs.join('\n')).toContain('✓');
+
+      const updatedTask = taskService.getTask(task.id);
+      expect(updatedTask?.title).toBe('New title');
+      expect(updatedTask?.status).toBe('ready');
+      expect(updatedTask?.author).toBe('alice');
+    });
+
+    it('should update title and body simultaneously', async () => {
+      const taskService = new TaskService();
+      taskService.createTask({ title: 'Original', status: 'backlog' });
+      const task = taskService.listTasks()[0];
+
+      const { exitCode } = await runCommand(program, [
+        'task',
+        'update',
+        String(task.id),
+        '--title',
+        'Updated title',
+        '--body',
+        'Updated body content',
+      ]);
+      expect(exitCode).toBeUndefined();
+
+      const updatedTask = taskService.getTask(task.id);
+      expect(updatedTask?.title).toBe('Updated title');
+      expect(updatedTask?.body).toBe('Updated body content');
+    });
+
+    it('should update all fields simultaneously', async () => {
+      const taskService = new TaskService();
+      taskService.createTask({ title: 'Original', status: 'backlog' });
+      const task = taskService.listTasks()[0];
+
+      const { exitCode } = await runCommand(program, [
+        'task',
+        'update',
+        String(task.id),
+        '--title',
+        'All fields',
+        '--status',
+        'in_progress',
+        '--body',
+        'New body',
+        '--author',
+        'bob',
+        '--assignees',
+        'alice,charlie',
+      ]);
+      expect(exitCode).toBeUndefined();
+
+      const updatedTask = taskService.getTask(task.id);
+      expect(updatedTask?.title).toBe('All fields');
+      expect(updatedTask?.status).toBe('in_progress');
+      expect(updatedTask?.body).toBe('New body');
+      expect(updatedTask?.author).toBe('bob');
+      expect(updatedTask?.assignees).toBe('alice,charlie');
+    });
+
+    it('should update a single field with flag syntax', async () => {
+      const taskService = new TaskService();
+      taskService.createTask({ title: 'Original', status: 'backlog' });
+      const task = taskService.listTasks()[0];
+
+      const { exitCode } = await runCommand(program, ['task', 'update', String(task.id), '--title', 'Flag title']);
+      expect(exitCode).toBeUndefined();
+
+      const updatedTask = taskService.getTask(task.id);
+      expect(updatedTask?.title).toBe('Flag title');
+      expect(updatedTask?.status).toBe('backlog'); // unchanged
+    });
+
+    it('should show error for invalid status in flag mode', async () => {
+      const taskService = new TaskService();
+      taskService.createTask({ title: 'Test', status: 'backlog' });
+      const task = taskService.listTasks()[0];
+
+      const { exitCode, logs } = await runCommand(program, [
+        'task',
+        'update',
+        String(task.id),
+        '--status',
+        'invalid_status',
+      ]);
+      expect(exitCode).toBe(1);
+      expect(logs.join('\n')).toContain('Invalid status');
+    });
+
+    it('should show error when no fields specified (no flags and no positional args)', async () => {
+      const taskService = new TaskService();
+      taskService.createTask({ title: 'Test', status: 'backlog' });
+      const task = taskService.listTasks()[0];
+
+      const { exitCode, logs } = await runCommand(program, ['task', 'update', String(task.id)]);
+      expect(exitCode).toBe(1);
+      expect(logs.join('\n')).toContain('No fields specified');
+    });
+
+    it('should use --file with flag mode for body', async () => {
+      const fs = await import('fs');
+      const os = await import('os');
+      const path = await import('path');
+
+      const taskService = new TaskService();
+      taskService.createTask({ title: 'Test', status: 'backlog' });
+      const task = taskService.listTasks()[0];
+
+      const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'task-update-flag-'));
+      const filePath = path.join(tmpDir, 'body.md');
+      fs.writeFileSync(filePath, '# Flag mode body from file');
+
+      try {
+        const { exitCode } = await runCommand(program, [
+          'task',
+          'update',
+          String(task.id),
+          '--title',
+          'Updated with file',
+          '--file',
+          filePath,
+        ]);
+        expect(exitCode).toBeUndefined();
+
+        const updatedTask = taskService.getTask(task.id);
+        expect(updatedTask?.title).toBe('Updated with file');
+        expect(updatedTask?.body).toBe('# Flag mode body from file');
+      } finally {
+        fs.rmSync(tmpDir, { recursive: true, force: true });
+      }
+    });
+
+    it('should show error when both --body and --file are specified in flag mode', async () => {
+      const fs = await import('fs');
+      const os = await import('os');
+      const path = await import('path');
+
+      const taskService = new TaskService();
+      taskService.createTask({ title: 'Test', status: 'backlog' });
+      const task = taskService.listTasks()[0];
+
+      const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'task-update-flag-'));
+      const filePath = path.join(tmpDir, 'body.md');
+      fs.writeFileSync(filePath, 'file content');
+
+      try {
+        const { exitCode, logs } = await runCommand(program, [
+          'task',
+          'update',
+          String(task.id),
+          '--body',
+          'inline body',
+          '--file',
+          filePath,
+        ]);
+        expect(exitCode).toBe(1);
+        expect(logs.join('\n')).toContain('Cannot specify both --body and --file');
+      } finally {
+        fs.rmSync(tmpDir, { recursive: true, force: true });
+      }
+    });
+
+    it('should maintain backward compatibility with positional syntax', async () => {
+      const taskService = new TaskService();
+      taskService.createTask({ title: 'Compat test', status: 'backlog' });
+      const task = taskService.listTasks()[0];
+
+      // Old-style positional update still works
+      const { exitCode } = await runCommand(program, ['task', 'update', String(task.id), 'status', 'ready']);
+      expect(exitCode).toBeUndefined();
+
+      const updatedTask = taskService.getTask(task.id);
+      expect(updatedTask?.status).toBe('ready');
+    });
+  });
 });
