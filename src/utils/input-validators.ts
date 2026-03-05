@@ -1,4 +1,4 @@
-import type { CreateTaskInput, UpdateTaskInput } from '../models/Task';
+import type { CreateTaskInput, UpdateTaskInput, TaskStatus } from '../models/Task';
 import type { CreateTagInput } from '../models/Tag';
 
 /**
@@ -117,6 +117,39 @@ export function validateTaskUpdateInput(input: UpdateTaskInput): ValidationError
  * @param input - Tag creation input to validate
  * @returns Array of validation errors (empty if valid)
  */
+/**
+ * Valid task statuses
+ */
+const VALID_STATUSES: TaskStatus[] = ['icebox', 'backlog', 'ready', 'in_progress', 'review', 'done', 'closed'];
+
+/**
+ * Validate multiple status values
+ * @param statuses - Array of status strings to validate
+ * @returns Array of validation errors (empty if all valid)
+ */
+export function validateMultipleStatuses(statuses: string[]): ValidationError[] {
+  const errors: ValidationError[] = [];
+
+  if (statuses.length === 0) {
+    errors.push({
+      field: 'status',
+      message: 'At least one status must be specified',
+    });
+    return errors;
+  }
+
+  for (const status of statuses) {
+    if (!VALID_STATUSES.includes(status as TaskStatus)) {
+      errors.push({
+        field: 'status',
+        message: `Invalid status: ${status}. Valid statuses: ${VALID_STATUSES.join(', ')}`,
+      });
+    }
+  }
+
+  return errors;
+}
+
 export function validateTagInput(input: CreateTagInput): ValidationError[] {
   const errors: ValidationError[] = [];
 

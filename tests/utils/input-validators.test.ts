@@ -1,5 +1,10 @@
 import { describe, it, expect } from 'vitest';
-import { validateTaskInput, validateTaskUpdateInput, validateTagInput } from '../../src/utils/input-validators';
+import {
+  validateTaskInput,
+  validateTaskUpdateInput,
+  validateTagInput,
+  validateMultipleStatuses,
+} from '../../src/utils/input-validators';
 import type { CreateTaskInput, UpdateTaskInput } from '../../src/models/Task';
 import type { CreateTagInput } from '../../src/models/Tag';
 
@@ -276,6 +281,50 @@ describe('Input Validators', () => {
         name: '123abc',
       };
       const errors = validateTagInput(input);
+      expect(errors).toEqual([]);
+    });
+  });
+
+  describe('validateMultipleStatuses', () => {
+    it('should return no errors for valid statuses', () => {
+      const errors = validateMultipleStatuses(['backlog', 'ready', 'in_progress']);
+      expect(errors).toEqual([]);
+    });
+
+    it('should return no errors for a single valid status', () => {
+      const errors = validateMultipleStatuses(['done']);
+      expect(errors).toEqual([]);
+    });
+
+    it('should return error for empty array', () => {
+      const errors = validateMultipleStatuses([]);
+      expect(errors).toHaveLength(1);
+      expect(errors[0].field).toBe('status');
+      expect(errors[0].message).toContain('At least one status');
+    });
+
+    it('should return error for invalid status', () => {
+      const errors = validateMultipleStatuses(['backlog', 'invalid']);
+      expect(errors).toHaveLength(1);
+      expect(errors[0].field).toBe('status');
+      expect(errors[0].message).toContain('Invalid status: invalid');
+    });
+
+    it('should return multiple errors for multiple invalid statuses', () => {
+      const errors = validateMultipleStatuses(['foo', 'bar']);
+      expect(errors).toHaveLength(2);
+    });
+
+    it('should accept all valid statuses', () => {
+      const errors = validateMultipleStatuses([
+        'icebox',
+        'backlog',
+        'ready',
+        'in_progress',
+        'review',
+        'done',
+        'closed',
+      ]);
       expect(errors).toEqual([]);
     });
   });
