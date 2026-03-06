@@ -7,6 +7,7 @@ RUN apt-get update && apt-get install -y \
     sudo \
     jq \
     ripgrep \
+    tmux \
     && rm -rf /var/lib/apt/lists/*
 
 # Install GitHub CLI
