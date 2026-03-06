@@ -4,7 +4,7 @@
 
 import { Command } from 'commander';
 import chalk from 'chalk';
-import { TaskService, TagService, TaskTagService, MetadataService } from '../../../services';
+import { TaskService, TagService, TaskTagService, MetadataService, TaskBlockService } from '../../../services';
 import { ALLOWED_SORT_FIELDS, SortField, SortOrder } from '../../../services/TaskService';
 import { TaskStatus } from '../../../models';
 import { handleError } from '../../utils/error-handler';
@@ -14,6 +14,7 @@ import { createFormatter } from '../../utils/output-formatter';
 
 type TaskTagMap = Map<number, Array<{ id: number; name: string }>>;
 type MetadataMap = Map<number, Array<{ key: string; value: string }>>;
+type BlockMap = Map<number, number[]>;
 
 type TreeNode = {
   id: number;
@@ -119,7 +120,15 @@ function buildTreeNode(
  */
 function buildTreeJsonOutput(
   displayTasks: TaskRecord[],
-  options: { status?: string; author?: string; assignees?: string; rootOnly?: boolean; all?: boolean; sort?: string; order?: string },
+  options: {
+    status?: string;
+    author?: string;
+    assignees?: string;
+    rootOnly?: boolean;
+    all?: boolean;
+    sort?: string;
+    order?: string;
+  },
   tagIds: number[] | undefined,
   taskService: TaskService,
   allTaskTags: TaskTagMap,
@@ -200,6 +209,187 @@ function buildTaskWithRelations(
     parent: parent ? { id: parent.id, title: parent.title, status: parent.status } : null,
     tags: tags ? tags.map((tag) => ({ id: tag.id, name: tag.name })) : [],
     metadata: metadata ? metadata.map((m) => ({ key: m.key, value: m.value })) : [],
+  };
+}
+
+type DepTreeNode = {
+  id: number;
+  title: string;
+  body: string | null;
+  author: string | null;
+  assignees: string | null;
+  status: string;
+  parent_id: number | null;
+  created_at: string;
+  updated_at: string;
+  tags: Array<{ id: number; name: string }>;
+  metadata: Array<{ key: string; value: string }>;
+  blocks: Array<DepTreeNode>;
+};
+
+/**
+ * Build a map from blocker_task_id to its blocked_task_ids.
+ */
+function buildBlockMap(taskBlockService: TaskBlockService): BlockMap {
+  const allBlocks = taskBlockService.getAllBlocks();
+  const blockMap: BlockMap = new Map();
+  for (const block of allBlocks) {
+    const existing = blockMap.get(block.blocker_task_id) || [];
+    existing.push(block.blocked_task_id);
+    blockMap.set(block.blocker_task_id, existing);
+  }
+  return blockMap;
+}
+
+/**
+ * Collect all blocked task IDs from a block map.
+ */
+function collectAllBlockedIds(blockMap: BlockMap): Set<number> {
+  const allBlockedIds = new Set<number>();
+  for (const blockedIds of blockMap.values()) {
+    for (const id of blockedIds) {
+      allBlockedIds.add(id);
+    }
+  }
+  return allBlockedIds;
+}
+
+/**
+ * Display a single task node line with optional metadata.
+ */
+function printTreeNodeLine(
+  task: { id: number; title: string; status: string },
+  allTasksMetadata: MetadataMap,
+  prefix: string,
+  isLast: boolean
+): void {
+  const statusColor = getStatusColor(task.status as TaskStatus);
+  const connector = isLast ? '\u2514\u2500\u2500 ' : '\u251c\u2500\u2500 ';
+
+  console.log(
+    `${prefix}${connector}${chalk.bold.cyan(`[${task.id}]`)} ${chalk.bold(task.title)} ` +
+      `${chalk[statusColor](`(${task.status})`)}`
+  );
+
+  const metadata = allTasksMetadata.get(task.id);
+  if (metadata && metadata.length > 0) {
+    const childPrefix = prefix + (isLast ? '    ' : '\u2502   ');
+    const metadataStrings = metadata.map(formatMetadataEntry);
+    console.log(`${childPrefix}${chalk.bold('Metadata:')} ${metadataStrings.join(', ')}`);
+  }
+}
+
+/**
+ * Recursively display dependency tree (blocker -> blocked).
+ */
+function displayDependencyTree(
+  task: { id: number; title: string; status: string },
+  taskService: TaskService,
+  blockMap: BlockMap,
+  allTasksMetadata: MetadataMap,
+  prefix: string,
+  isLast: boolean,
+  visited: Set<number>
+): void {
+  printTreeNodeLine(task, allTasksMetadata, prefix, isLast);
+
+  if (visited.has(task.id)) {
+    return;
+  }
+  visited.add(task.id);
+
+  const blockedIds = blockMap.get(task.id) || [];
+  const newPrefix = prefix + (isLast ? '    ' : '\u2502   ');
+  blockedIds.forEach((blockedId, index) => {
+    const blockedTask = taskService.getTask(blockedId);
+    if (blockedTask) {
+      const isChildLast = index === blockedIds.length - 1;
+      displayDependencyTree(
+        blockedTask,
+        taskService,
+        blockMap,
+        allTasksMetadata,
+        newPrefix,
+        isChildLast,
+        new Set(visited)
+      );
+    }
+  });
+}
+
+/**
+ * Build a dependency tree node recursively.
+ */
+function buildDepTreeNode(
+  task: TaskRecord,
+  taskService: TaskService,
+  blockMap: BlockMap,
+  allTaskTags: TaskTagMap,
+  allTasksMetadata: MetadataMap,
+  visited: Set<number>
+): DepTreeNode {
+  const tags = allTaskTags.get(task.id);
+  const metadata = allTasksMetadata.get(task.id);
+  const blockedIds = blockMap.get(task.id) || [];
+
+  visited.add(task.id);
+
+  const blocks: DepTreeNode[] = [];
+  for (const blockedId of blockedIds) {
+    if (!visited.has(blockedId)) {
+      const blockedTask = taskService.getTask(blockedId);
+      if (blockedTask) {
+        blocks.push(
+          buildDepTreeNode(blockedTask, taskService, blockMap, allTaskTags, allTasksMetadata, new Set(visited))
+        );
+      }
+    }
+  }
+
+  return {
+    id: task.id,
+    title: task.title,
+    body: task.body,
+    author: task.author,
+    assignees: task.assignees,
+    status: task.status,
+    parent_id: task.parent_id,
+    created_at: task.created_at,
+    updated_at: task.updated_at,
+    tags: tags ? tags.map((tag) => ({ id: tag.id, name: tag.name })) : [],
+    metadata: metadata ? metadata.map((m) => ({ key: m.key, value: m.value })) : [],
+    blocks,
+  };
+}
+
+/**
+ * Build the JSON output for dep-tree view.
+ */
+function buildDepTreeJsonOutput(
+  displayTasks: TaskRecord[],
+  options: { status?: string; author?: string; rootOnly?: boolean; all?: boolean },
+  tagIds: number[] | undefined,
+  taskService: TaskService,
+  blockMap: BlockMap,
+  allTaskTags: TaskTagMap,
+  allTasksMetadata: MetadataMap
+): object {
+  const allBlockedIds = collectAllBlockedIds(blockMap);
+  const rootTasks = displayTasks.filter((task) => !allBlockedIds.has(task.id));
+
+  return {
+    totalCount: displayTasks.length,
+    viewMode: 'dep-tree',
+    filters: {
+      status: options.status || null,
+      author: options.author || null,
+      tagIds: tagIds || [],
+      rootOnly: options.rootOnly || false,
+      all: options.all || false,
+    },
+    tasks: rootTasks.map((task) =>
+      buildDepTreeNode(task, taskService, blockMap, allTaskTags, allTasksMetadata, new Set())
+    ),
   };
 }
 
@@ -329,6 +519,7 @@ export function setupTaskListCommand(program: Command): void {
     .option('-t, --tag <tags>', 'Filter by tag IDs or names (comma-separated, e.g., "1,2,3" or "bug,feature")')
     .option('--all', 'Include all statuses (including done and closed)')
     .option('--tree', 'Display tasks in tree structure')
+    .option('--dep-tree', 'Display tasks in dependency (blocking) tree structure')
     .option('--root-only', 'Show only root tasks (tasks without parent)')
     .option('--sort <field>', `Sort by field (${ALLOWED_SORT_FIELDS.join(', ')})`, 'created_at')
     .option('--order <order>', 'Sort order (asc, desc)', 'desc')
@@ -437,6 +628,7 @@ export function setupTaskListCommand(program: Command): void {
         // Fetch all task tags and metadata at once to avoid N+1 problem
         const allTaskTags = taskTagService.getAllTaskTags();
         const allTasksMetadata = metadataService.getAllTasksMetadata();
+        const taskBlockService = new TaskBlockService();
 
         // If --tree option is specified, display in tree structure
         if (options.tree) {
@@ -451,6 +643,38 @@ export function setupTaskListCommand(program: Command): void {
               rootTasks.forEach((task, index) => {
                 const isLast = index === rootTasks.length - 1;
                 displayTaskTree(taskService, task, '', isLast, allTasksMetadata);
+              });
+
+              console.log('\n');
+            }
+          );
+          return;
+        }
+
+        // If --dep-tree option is specified, display dependency (blocking) tree
+        if (options.depTree) {
+          const blockMap = buildBlockMap(taskBlockService);
+          const allBlockedIds = collectAllBlockedIds(blockMap);
+          const rootTasks = displayTasks.filter((task) => !allBlockedIds.has(task.id));
+
+          formatter.output(
+            () =>
+              buildDepTreeJsonOutput(
+                displayTasks,
+                options,
+                tagIds,
+                taskService,
+                blockMap,
+                allTaskTags,
+                allTasksMetadata
+              ),
+            () => {
+              console.log(chalk.bold(`\nFound ${displayTasks.length} task(s) in dependency tree view:\n`));
+              console.log(chalk.bold('\u2500'.repeat(80)));
+
+              rootTasks.forEach((task, index) => {
+                const isLast = index === rootTasks.length - 1;
+                displayDependencyTree(task, taskService, blockMap, allTasksMetadata, '', isLast, new Set());
               });
 
               console.log('\n');

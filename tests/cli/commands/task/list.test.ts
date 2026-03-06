@@ -6,7 +6,7 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { Command } from 'commander';
 import { setupTaskListCommand } from '../../../../src/cli/commands/task/list';
 import { getDatabase } from '../../../../src/db/connection';
-import { TaskService, MetadataService } from '../../../../src/services';
+import { TaskService, MetadataService, TaskBlockService } from '../../../../src/services';
 
 function resetDatabase() {
   const db = getDatabase();
@@ -786,5 +786,174 @@ describe('setupTaskListCommand', () => {
     expect(jsonOutput.tasks.some((t: { status: string }) => t.status === 'ready')).toBe(true);
     expect(jsonOutput.tasks.some((t: { status: string }) => t.status === 'in_progress')).toBe(true);
     expect(jsonOutput.tasks.every((t: { status: string }) => t.status !== 'done')).toBe(true);
+  });
+
+  it('should have --dep-tree option', () => {
+    const taskCommand = program.commands.find((cmd) => cmd.name() === 'task');
+    const listCommand = taskCommand?.commands.find((cmd) => cmd.name() === 'list');
+
+    const options = listCommand?.options || [];
+    const optionNames = options.map((opt) => opt.long);
+
+    expect(optionNames).toContain('--dep-tree');
+  });
+
+  it('should display dependency tree with --dep-tree option', async () => {
+    const taskService = new TaskService();
+    const taskBlockService = new TaskBlockService();
+
+    const taskA = taskService.createTask({ title: 'Task A Blocker', status: 'ready' });
+    const taskB = taskService.createTask({ title: 'Task B Blocked', status: 'ready' });
+    taskBlockService.addBlock({ blocker_task_id: taskA.id, blocked_task_id: taskB.id });
+
+    const consoleLogs: string[] = [];
+    const originalLog = console.log;
+    console.log = (...args: unknown[]) => consoleLogs.push(args.join(' '));
+    const originalExit = process.exit;
+    process.exit = (() => {}) as never;
+
+    try {
+      await program.parseAsync(['node', 'test', 'task', 'list', '--dep-tree']);
+    } finally {
+      console.log = originalLog;
+      process.exit = originalExit;
+    }
+
+    const output = consoleLogs.join('\n');
+    expect(output).toContain('dependency tree view');
+    expect(output).toContain('Task A Blocker');
+    expect(output).toContain('Task B Blocked');
+  });
+
+  it('should show blocker as root and blocked as child in dep-tree', async () => {
+    const taskService = new TaskService();
+    const taskBlockService = new TaskBlockService();
+
+    const blocker = taskService.createTask({ title: 'Root Blocker', status: 'ready' });
+    const blocked = taskService.createTask({ title: 'Blocked Child', status: 'backlog' });
+    taskBlockService.addBlock({ blocker_task_id: blocker.id, blocked_task_id: blocked.id });
+
+    const consoleLogs: string[] = [];
+    const originalLog = console.log;
+    console.log = (...args: unknown[]) => consoleLogs.push(args.join(' '));
+    const originalExit = process.exit;
+    process.exit = (() => {}) as never;
+
+    try {
+      await program.parseAsync(['node', 'test', 'task', 'list', '--dep-tree']);
+    } finally {
+      console.log = originalLog;
+      process.exit = originalExit;
+    }
+
+    const output = consoleLogs.join('\n');
+    // Root blocker should appear; blocked child should appear indented beneath it
+    expect(output).toContain('Root Blocker');
+    expect(output).toContain('Blocked Child');
+  });
+
+  it('should output dep-tree JSON with --dep-tree --json options', async () => {
+    const taskService = new TaskService();
+    const taskBlockService = new TaskBlockService();
+
+    const taskA = taskService.createTask({ title: 'Dep Root', status: 'ready' });
+    const taskB = taskService.createTask({ title: 'Dep Child', status: 'ready' });
+    taskBlockService.addBlock({ blocker_task_id: taskA.id, blocked_task_id: taskB.id });
+
+    const consoleLogs: string[] = [];
+    const originalLog = console.log;
+    console.log = (...args: unknown[]) => consoleLogs.push(args.join(' '));
+
+    const originalExit = process.exit;
+    process.exit = (() => {}) as never;
+
+    try {
+      await program.parseAsync(['node', 'test', 'task', 'list', '--dep-tree', '--json']);
+    } finally {
+      console.log = originalLog;
+      process.exit = originalExit;
+    }
+
+    const parsed = JSON.parse(consoleLogs[0]);
+    expect(parsed.viewMode).toBe('dep-tree');
+    expect(parsed.tasks).toBeDefined();
+
+    // Task A (blocker) should be a root with Task B as a child in blocks
+    const rootTask = parsed.tasks.find((t: { title: string }) => t.title === 'Dep Root');
+    expect(rootTask).toBeDefined();
+    expect(rootTask.blocks).toHaveLength(1);
+    expect(rootTask.blocks[0].title).toBe('Dep Child');
+  });
+
+  it('should display multi-level dependency chain in dep-tree', async () => {
+    const taskService = new TaskService();
+    const taskBlockService = new TaskBlockService();
+
+    const taskA = taskService.createTask({ title: 'Chain A', status: 'ready' });
+    const taskB = taskService.createTask({ title: 'Chain B', status: 'ready' });
+    const taskC = taskService.createTask({ title: 'Chain C', status: 'ready' });
+    taskBlockService.addBlock({ blocker_task_id: taskA.id, blocked_task_id: taskB.id });
+    taskBlockService.addBlock({ blocker_task_id: taskB.id, blocked_task_id: taskC.id });
+
+    const consoleLogs: string[] = [];
+    const originalLog = console.log;
+    console.log = (...args: unknown[]) => consoleLogs.push(args.join(' '));
+
+    const originalExit = process.exit;
+    process.exit = (() => {}) as never;
+
+    try {
+      await program.parseAsync(['node', 'test', 'task', 'list', '--dep-tree', '--json']);
+    } finally {
+      console.log = originalLog;
+      process.exit = originalExit;
+    }
+
+    const parsed = JSON.parse(consoleLogs[0]);
+    const rootTask = parsed.tasks.find((t: { title: string }) => t.title === 'Chain A');
+    expect(rootTask).toBeDefined();
+    expect(rootTask.blocks).toHaveLength(1);
+    expect(rootTask.blocks[0].title).toBe('Chain B');
+    expect(rootTask.blocks[0].blocks).toHaveLength(1);
+    expect(rootTask.blocks[0].blocks[0].title).toBe('Chain C');
+  });
+
+  it('should show tasks without block relationships as standalone roots in dep-tree', async () => {
+    const taskService = new TaskService();
+    const taskBlockService = new TaskBlockService();
+
+    taskService.createTask({ title: 'Standalone Task', status: 'ready' });
+    const taskB = taskService.createTask({ title: 'Blocker Task', status: 'ready' });
+    const taskC = taskService.createTask({ title: 'Blocked Task', status: 'ready' });
+    taskBlockService.addBlock({ blocker_task_id: taskB.id, blocked_task_id: taskC.id });
+
+    const consoleLogs: string[] = [];
+    const originalLog = console.log;
+    console.log = (...args: unknown[]) => consoleLogs.push(args.join(' '));
+
+    const originalExit = process.exit;
+    process.exit = (() => {}) as never;
+
+    try {
+      await program.parseAsync(['node', 'test', 'task', 'list', '--dep-tree', '--json']);
+    } finally {
+      console.log = originalLog;
+      process.exit = originalExit;
+    }
+
+    const parsed = JSON.parse(consoleLogs[0]);
+    // Standalone Task should be a root (not blocked by anyone)
+    const standalone = parsed.tasks.find((t: { title: string }) => t.title === 'Standalone Task');
+    expect(standalone).toBeDefined();
+    expect(standalone.blocks).toHaveLength(0);
+
+    // Blocker Task should be a root with Blocked Task as child
+    const blocker = parsed.tasks.find((t: { title: string }) => t.title === 'Blocker Task');
+    expect(blocker).toBeDefined();
+    expect(blocker.blocks).toHaveLength(1);
+
+    // Blocked Task should NOT be a root
+    const blocked = parsed.tasks.find((t: { title: string }) => t.title === 'Blocked Task');
+    expect(blocked).toBeUndefined();
   });
 });
