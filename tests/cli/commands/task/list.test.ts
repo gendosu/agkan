@@ -340,6 +340,63 @@ describe('setupTaskListCommand', () => {
     expect(rootTask.children[0].title).toBe('Child Task');
   });
 
+  it('should include assignees in tree JSON output', async () => {
+    const taskService = new TaskService();
+    const parent = taskService.createTask({ title: 'Root Assignees Task', status: 'ready', assignees: 'alice,bob' });
+    taskService.createTask({
+      title: 'Child Assignees Task',
+      status: 'ready',
+      parent_id: parent.id,
+      assignees: 'charlie',
+    });
+
+    const consoleLogs: string[] = [];
+    const originalLog = console.log;
+    console.log = (...args: unknown[]) => consoleLogs.push(args.join(' '));
+
+    const originalExit = process.exit;
+    process.exit = (() => {}) as never;
+
+    try {
+      await program.parseAsync(['node', 'test', 'task', 'list', '--tree', '--json']);
+    } finally {
+      console.log = originalLog;
+      process.exit = originalExit;
+    }
+
+    const parsed = JSON.parse(consoleLogs[0]);
+    const rootTask = parsed.tasks.find((t: { title: string }) => t.title === 'Root Assignees Task');
+    expect(rootTask).toBeDefined();
+    expect(rootTask.assignees).toBe('alice,bob');
+    expect(rootTask.children).toHaveLength(1);
+    expect(rootTask.children[0].assignees).toBe('charlie');
+  });
+
+  it('should include null assignees in tree JSON output when not set', async () => {
+    const taskService = new TaskService();
+    taskService.createTask({ title: 'No Assignees Tree Task', status: 'ready' });
+
+    const consoleLogs: string[] = [];
+    const originalLog = console.log;
+    console.log = (...args: unknown[]) => consoleLogs.push(args.join(' '));
+
+    const originalExit = process.exit;
+    process.exit = (() => {}) as never;
+
+    try {
+      await program.parseAsync(['node', 'test', 'task', 'list', '--tree', '--json']);
+    } finally {
+      console.log = originalLog;
+      process.exit = originalExit;
+    }
+
+    const parsed = JSON.parse(consoleLogs[0]);
+    const task = parsed.tasks.find((t: { title: string }) => t.title === 'No Assignees Tree Task');
+    expect(task).toBeDefined();
+    expect(task).toHaveProperty('assignees');
+    expect(task.assignees).toBeNull();
+  });
+
   it('should display metadata in normal list view', async () => {
     const taskService = new TaskService();
     const metadataService = new MetadataService();
