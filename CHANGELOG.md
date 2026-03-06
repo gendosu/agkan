@@ -9,6 +9,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 (no entries yet)
 
+## [1.6.0] - 2026-03-06
+
+### Added
+- Add `--dep-tree` option to `task list` command for dependency tree display (#19)
+- Add `--sort` and `--order` options to `task list` command (#17)
+- Support multiple statuses filter in `task list` command (#16)
+- Add `--assignees` filter option to `task list` command (#15)
+- Add `tag rename` command (#14)
+- Support multi-field update via option flags in `task update` command (#18)
+- Add tmux to devcontainer Dockerfile (#23)
+
+### Fixed
+- Convert empty assignees string to null in `task update` (#13)
+
+### Tests
+- Add `--json` flag tests to `task update` (#22)
+- Add assignees field tests for tree JSON output (#21)
+- Add post-update verification steps for assignees in e2e tests (#20)
+
 ## [1.5.0] - 2026-03-05
 
 ### Added
