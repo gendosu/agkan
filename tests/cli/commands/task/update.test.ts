@@ -377,6 +377,110 @@ describe('setupTaskUpdateCommand', () => {
     expect(exitCode).toBe(1);
   });
 
+  describe('--json flag', () => {
+    it('should output JSON format when updating assignees with --json flag', async () => {
+      const taskService = new TaskService();
+      taskService.createTask({ title: 'Test task', status: 'backlog' });
+      const task = taskService.listTasks()[0];
+
+      const { exitCode, logs } = await runCommand(program, [
+        'task',
+        'update',
+        String(task.id),
+        'assignees',
+        'user1,user2,user3',
+        '--json',
+      ]);
+      expect(exitCode).toBeUndefined();
+
+      const parsed = JSON.parse(logs[0]);
+      expect(parsed.success).toBe(true);
+      expect(parsed.task.id).toBe(task.id);
+      expect(parsed.task.assignees).toBe('user1,user2,user3');
+      expect(parsed.counts).toBeDefined();
+      expect(parsed.counts.backlog).toBeGreaterThanOrEqual(1);
+    });
+
+    it('should output JSON format when updating status with --json flag', async () => {
+      const taskService = new TaskService();
+      taskService.createTask({ title: 'Test task', status: 'backlog' });
+      const task = taskService.listTasks()[0];
+
+      const { exitCode, logs } = await runCommand(program, [
+        'task',
+        'update',
+        String(task.id),
+        'status',
+        'ready',
+        '--json',
+      ]);
+      expect(exitCode).toBeUndefined();
+
+      const parsed = JSON.parse(logs[0]);
+      expect(parsed.success).toBe(true);
+      expect(parsed.task.id).toBe(task.id);
+      expect(parsed.task.status).toBe('ready');
+    });
+
+    it('should output JSON format when updating title with --json flag', async () => {
+      const taskService = new TaskService();
+      taskService.createTask({ title: 'Original title', status: 'backlog' });
+      const task = taskService.listTasks()[0];
+
+      const { exitCode, logs } = await runCommand(program, [
+        'task',
+        'update',
+        String(task.id),
+        'title',
+        'Updated title',
+        '--json',
+      ]);
+      expect(exitCode).toBeUndefined();
+
+      const parsed = JSON.parse(logs[0]);
+      expect(parsed.success).toBe(true);
+      expect(parsed.task.title).toBe('Updated title');
+    });
+
+    it('should output JSON error when task does not exist with --json flag', async () => {
+      const { exitCode, logs } = await runCommand(program, ['task', 'update', '999', 'status', 'ready', '--json']);
+      expect(exitCode).toBe(1);
+
+      const parsed = JSON.parse(logs[0]);
+      expect(parsed.success).toBe(false);
+      expect(parsed.error.message).toContain('999');
+    });
+
+    it('should output JSON error when field is not supported with --json flag', async () => {
+      const taskService = new TaskService();
+      taskService.createTask({ title: 'Test task', status: 'backlog' });
+      const task = taskService.listTasks()[0];
+
+      const { exitCode, logs } = await runCommand(program, [
+        'task',
+        'update',
+        String(task.id),
+        'invalid_field',
+        'value',
+        '--json',
+      ]);
+      expect(exitCode).toBe(1);
+
+      const parsed = JSON.parse(logs[0]);
+      expect(parsed.success).toBe(false);
+      expect(parsed.error.message).toContain('invalid_field');
+    });
+
+    it('should output JSON error when ID is not a number with --json flag', async () => {
+      const { exitCode, logs } = await runCommand(program, ['task', 'update', 'abc', 'status', 'ready', '--json']);
+      expect(exitCode).toBe(1);
+
+      const parsed = JSON.parse(logs[0]);
+      expect(parsed.success).toBe(false);
+      expect(parsed.error.message).toContain('number');
+    });
+  });
+
   describe('--file option for body update', () => {
     it('should have --file option registered on update command', () => {
       const taskCommand = program.commands.find((cmd) => cmd.name() === 'task');
