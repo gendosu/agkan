@@ -120,7 +120,15 @@ function buildTreeNode(
  */
 function buildTreeJsonOutput(
   displayTasks: TaskRecord[],
-  options: { status?: string; author?: string; assignees?: string; rootOnly?: boolean; all?: boolean; sort?: string; order?: string },
+  options: {
+    status?: string;
+    author?: string;
+    assignees?: string;
+    rootOnly?: boolean;
+    all?: boolean;
+    sort?: string;
+    order?: string;
+  },
   tagIds: number[] | undefined,
   taskService: TaskService,
   allTaskTags: TaskTagMap,
