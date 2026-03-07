@@ -199,34 +199,34 @@ agkan task delete 1
 
 タグを作成:
 ```bash
-agkan task tag add "frontend"
+agkan tag add "frontend"
 ```
 
 タグ一覧を表示:
 ```bash
-agkan task tag list
+agkan tag list
 ```
 
 タグを削除:
 ```bash
-agkan task tag delete "frontend"
+agkan tag delete "frontend"
 ```
 
 ### タスクへのタグ付け
 
 タスクにタグを付与:
 ```bash
-agkan task tag attach 1 "frontend"
+agkan tag attach 1 "frontend"
 ```
 
 タスクからタグを削除:
 ```bash
-agkan task tag detach 1 "frontend"
+agkan tag detach 1 "frontend"
 ```
 
 タスクに付けられたタグを表示:
 ```bash
-agkan task tag show 1
+agkan tag show 1
 ```
 
 ### メタデータの管理
@@ -551,7 +551,7 @@ agkan task count --status in_progress --json
 
 JSON出力フォーマット:
 ```bash
-agkan task tag list --json
+agkan tag list --json
 ```
 
 ```json
@@ -576,7 +576,7 @@ agkan task tag list --json
 
 JSON出力フォーマット:
 ```bash
-agkan task tag show 1 --json
+agkan tag show 1 --json
 ```
 
 ```json
@@ -693,21 +693,21 @@ agkan task block remove 1 2
 
 ```bash
 # タグを作成
-agkan task tag add "frontend"
-agkan task tag add "backend"
-agkan task tag add "urgent"
+agkan tag add "frontend"
+agkan tag add "backend"
+agkan tag add "urgent"
 
 # タスクを作成してタグを付与
 agkan task add "ログイン画面の実装"
 # 出力: Task created with ID: 1
 
-agkan task tag attach 1 "frontend"
-agkan task tag attach 1 "urgent"
+agkan tag attach 1 "frontend"
+agkan tag attach 1 "urgent"
 
 agkan task add "API開発"
 # 出力: Task created with ID: 2
 
-agkan task tag attach 2 "backend"
+agkan tag attach 2 "backend"
 
 # タグでフィルタリング
 agkan task list --tag "frontend"
@@ -715,17 +715,17 @@ agkan task list --tag "frontend"
 # 1 [backlog] ログイン画面の実装 (tags: frontend, urgent)
 
 # タスクのタグを確認
-agkan task tag show 1
+agkan tag show 1
 # 出力:
 # Tags for task 1:
 #   - frontend
 #   - urgent
 
 # タグを削除
-agkan task tag detach 1 "urgent"
+agkan tag detach 1 "urgent"
 
 # タグ自体を削除（関連するすべてのタスクから削除される）
-agkan task tag delete "urgent"
+agkan tag delete "urgent"
 ```
 
 ## タスクステータス
