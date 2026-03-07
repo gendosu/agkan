@@ -358,22 +358,22 @@ agkan task delete 1
 
 Create a tag:
 ```bash
-agkan task tag add "frontend"
+agkan tag add "frontend"
 ```
 
 List all tags:
 ```bash
-agkan task tag list
+agkan tag list
 ```
 
 Delete a tag:
 ```bash
-agkan task tag delete "frontend"
+agkan tag delete "frontend"
 ```
 
 JSON output format for tag list:
 ```bash
-agkan task tag list --json
+agkan tag list --json
 ```
 
 ```json
@@ -400,22 +400,22 @@ agkan task tag list --json
 
 Attach a tag to a task:
 ```bash
-agkan task tag attach 1 "frontend"
+agkan tag attach 1 "frontend"
 ```
 
 Remove a tag from a task:
 ```bash
-agkan task tag detach 1 "frontend"
+agkan tag detach 1 "frontend"
 ```
 
 Display tags on a task:
 ```bash
-agkan task tag show 1
+agkan tag show 1
 ```
 
 JSON output format for tag show:
 ```bash
-agkan task tag show 1 --json
+agkan tag show 1 --json
 ```
 
 ```json
@@ -708,21 +708,21 @@ Example of classifying tasks with tags:
 
 ```bash
 # Create tags
-agkan task tag add "frontend"
-agkan task tag add "backend"
-agkan task tag add "urgent"
+agkan tag add "frontend"
+agkan tag add "backend"
+agkan tag add "urgent"
 
 # Create tasks and attach tags
 agkan task add "Implement login screen"
 # Output: Task created with ID: 1
 
-agkan task tag attach 1 "frontend"
-agkan task tag attach 1 "urgent"
+agkan tag attach 1 "frontend"
+agkan tag attach 1 "urgent"
 
 agkan task add "API development"
 # Output: Task created with ID: 2
 
-agkan task tag attach 2 "backend"
+agkan tag attach 2 "backend"
 
 # Filter by tag
 agkan task list --tag "frontend"
@@ -730,17 +730,17 @@ agkan task list --tag "frontend"
 # 1 [backlog] Implement login screen (tags: frontend, urgent)
 
 # Display task tags
-agkan task tag show 1
+agkan tag show 1
 # Output:
 # Tags for task 1:
 #   - frontend
 #   - urgent
 
 # Remove a tag
-agkan task tag detach 1 "urgent"
+agkan tag detach 1 "urgent"
 
 # Delete a tag (removes from all associated tasks)
-agkan task tag delete "urgent"
+agkan tag delete "urgent"
 ```
 
 ## Task Statuses
