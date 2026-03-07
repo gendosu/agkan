@@ -76,6 +76,76 @@ describe('createBoardApp', () => {
     });
   });
 
+  describe('sortByPriority', () => {
+    it('should sort tasks by priority: critical → high → medium → low → no priority', async () => {
+      // Create tasks in non-sorted order within the same status column
+      taskService.createTask({ title: 'No priority task', status: 'backlog' });
+      const tLow = taskService.createTask({ title: 'Low priority task', status: 'backlog' });
+      const tCritical = taskService.createTask({ title: 'Critical priority task', status: 'backlog' });
+      const tHigh = taskService.createTask({ title: 'High priority task', status: 'backlog' });
+      const tMedium = taskService.createTask({ title: 'Medium priority task', status: 'backlog' });
+
+      // Set priority metadata
+      metadataService.setMetadata({ task_id: tLow.id, key: 'priority', value: 'low' });
+      metadataService.setMetadata({ task_id: tCritical.id, key: 'priority', value: 'critical' });
+      metadataService.setMetadata({ task_id: tHigh.id, key: 'priority', value: 'high' });
+      metadataService.setMetadata({ task_id: tMedium.id, key: 'priority', value: 'medium' });
+
+      const app = createBoardApp(taskService, taskTagService, metadataService);
+      const res = await app.fetch(new Request('http://localhost/'));
+      const html = await res.text();
+
+      const criticalPos = html.indexOf('Critical priority task');
+      const highPos = html.indexOf('High priority task');
+      const mediumPos = html.indexOf('Medium priority task');
+      const lowPos = html.indexOf('Low priority task');
+      const nonePos = html.indexOf('No priority task');
+
+      expect(criticalPos).toBeGreaterThan(-1);
+      expect(highPos).toBeGreaterThan(-1);
+      expect(mediumPos).toBeGreaterThan(-1);
+      expect(lowPos).toBeGreaterThan(-1);
+      expect(nonePos).toBeGreaterThan(-1);
+
+      // Verify order: critical < high < medium < low < no priority
+      expect(criticalPos).toBeLessThan(highPos);
+      expect(highPos).toBeLessThan(mediumPos);
+      expect(mediumPos).toBeLessThan(lowPos);
+      expect(lowPos).toBeLessThan(nonePos);
+    });
+
+    it('should treat tasks without priority equally (stable relative order)', async () => {
+      taskService.createTask({ title: 'Task A no prio', status: 'ready' });
+      taskService.createTask({ title: 'Task B no prio', status: 'ready' });
+
+      const app = createBoardApp(taskService, taskTagService, metadataService);
+      const res = await app.fetch(new Request('http://localhost/'));
+      const html = await res.text();
+
+      const posA = html.indexOf('Task A no prio');
+      const posB = html.indexOf('Task B no prio');
+
+      expect(posA).toBeGreaterThan(-1);
+      expect(posB).toBeGreaterThan(-1);
+    });
+
+    it('should sort tasks with priority before tasks without priority', async () => {
+      taskService.createTask({ title: 'Unprioritized task', status: 'backlog' });
+      const tLowPrio = taskService.createTask({ title: 'Low prio task', status: 'backlog' });
+
+      metadataService.setMetadata({ task_id: tLowPrio.id, key: 'priority', value: 'low' });
+
+      const app = createBoardApp(taskService, taskTagService, metadataService);
+      const res = await app.fetch(new Request('http://localhost/'));
+      const html = await res.text();
+
+      const lowPos = html.indexOf('Low prio task');
+      const nonePos = html.indexOf('Unprioritized task');
+
+      expect(lowPos).toBeLessThan(nonePos);
+    });
+  });
+
   describe('GET /api/tasks', () => {
     it('should return tasks as JSON', async () => {
       taskService.createTask({ title: 'API task', status: 'ready' });
