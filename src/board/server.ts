@@ -153,6 +153,15 @@ function renderBoard(
     .detail-meta-table td { padding: 4px 0; font-size: 12px; }
     .detail-meta-table td:first-child { color: #64748b; width: 100px; }
     .detail-meta-table td:last-child { color: #1e293b; }
+    .detail-panel-footer { padding: 12px 20px; border-top: 1px solid #e2e8f0; display: flex; justify-content: flex-end; }
+    .detail-panel-footer button { padding: 7px 18px; border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer; border: 1px solid #3b82f6; background: #3b82f6; color: white; }
+    .detail-panel-footer button:hover { background: #2563eb; border-color: #2563eb; }
+    .detail-edit-input { width: 100%; border: 1px solid #e2e8f0; border-radius: 6px; padding: 7px 10px; font-size: 13px; font-family: inherit; background: white; color: #1e293b; }
+    .detail-edit-input:focus { outline: none; border-color: #3b82f6; box-shadow: 0 0 0 2px rgba(59,130,246,0.2); }
+    .detail-edit-textarea { width: 100%; border: 1px solid #e2e8f0; border-radius: 6px; padding: 7px 10px; font-size: 13px; font-family: inherit; resize: vertical; min-height: 80px; background: white; color: #1e293b; }
+    .detail-edit-textarea:focus { outline: none; border-color: #3b82f6; box-shadow: 0 0 0 2px rgba(59,130,246,0.2); }
+    .detail-edit-select { width: 100%; border: 1px solid #e2e8f0; border-radius: 6px; padding: 7px 10px; font-size: 13px; font-family: inherit; background: white; color: #1e293b; }
+    .detail-edit-select:focus { outline: none; border-color: #3b82f6; box-shadow: 0 0 0 2px rgba(59,130,246,0.2); }
   </style>
 </head>
 <body>
@@ -178,31 +187,7 @@ function renderBoard(
     </div>
   </div>
   <div class="context-menu" id="context-menu">
-    <div class="context-menu-item" id="ctx-edit">Edit task</div>
     <div class="context-menu-item danger" id="ctx-delete">Delete task</div>
-  </div>
-  <div class="modal-overlay" id="edit-modal">
-    <div class="modal">
-      <h2>Edit Task</h2>
-      <label for="edit-title">Title</label>
-      <input type="text" id="edit-title" placeholder="Task title">
-      <label for="edit-body">Description</label>
-      <textarea id="edit-body" placeholder="Optional"></textarea>
-      <label for="edit-priority">Priority</label>
-      <select id="edit-priority">
-        <option value="">None</option>
-        ${PRIORITIES.map((p) => `<option value="${p}">${p.charAt(0).toUpperCase() + p.slice(1)}</option>`).join('\n        ')}
-      </select>
-      <label for="edit-status">Status</label>
-      <select id="edit-status">
-        ${STATUSES.map((s) => `<option value="${s}">${STATUS_LABELS[s]}</option>`).join('\n        ')}
-      </select>
-      <input type="hidden" id="edit-task-id">
-      <div class="modal-actions">
-        <button id="edit-cancel">Cancel</button>
-        <button id="edit-submit" class="primary">Save</button>
-      </div>
-    </div>
   </div>
   <div class="detail-panel" id="detail-panel">
     <div class="detail-panel-header">
@@ -210,6 +195,9 @@ function renderBoard(
       <button class="detail-panel-close" id="detail-panel-close" title="Close">&times;</button>
     </div>
     <div class="detail-panel-body" id="detail-panel-body"></div>
+    <div class="detail-panel-footer">
+      <button id="detail-save-btn">Save</button>
+    </div>
   </div>
   <div class="toast" id="toast">Failed to update task</div>
   <script>
@@ -354,77 +342,6 @@ function renderBoard(
       }
     });
 
-    // Edit task modal
-    const editModal = document.getElementById('edit-modal');
-    const editTitle = document.getElementById('edit-title');
-    const editBody = document.getElementById('edit-body');
-    const editPriority = document.getElementById('edit-priority');
-    const editStatus = document.getElementById('edit-status');
-    const editTaskId = document.getElementById('edit-task-id');
-
-    document.getElementById('ctx-edit').addEventListener('click', async e => {
-      e.stopPropagation();
-      ctxMenu.style.display = 'none';
-      if (!ctxTargetCard) return;
-      const card = ctxTargetCard;
-      ctxTargetCard = null;
-      const taskId = card.dataset.id;
-
-      try {
-        const res = await fetch('/api/tasks/' + taskId);
-        if (!res.ok) throw new Error('Server error');
-        const data = await res.json();
-        const task = data.task;
-        const priority = (data.metadata || []).find(m => m.key === 'priority');
-
-        editTaskId.value = taskId;
-        editTitle.value = task.title;
-        editBody.value = task.body || '';
-        editPriority.value = priority ? priority.value : '';
-        editStatus.value = task.status;
-        editModal.classList.add('show');
-        editTitle.focus();
-      } catch {
-        showToast('Failed to load task for editing');
-      }
-    });
-
-    document.getElementById('edit-cancel').addEventListener('click', () => {
-      editModal.classList.remove('show');
-    });
-
-    editModal.addEventListener('click', e => {
-      if (e.target === editModal) editModal.classList.remove('show');
-    });
-
-    editTitle.addEventListener('keydown', e => {
-      if (e.key === 'Enter') { e.preventDefault(); document.getElementById('edit-submit').click(); }
-    });
-
-    document.getElementById('edit-submit').addEventListener('click', async () => {
-      const title = editTitle.value.trim();
-      if (!title) { editTitle.focus(); return; }
-      const taskId = editTaskId.value;
-      editModal.classList.remove('show');
-
-      try {
-        const res = await fetch('/api/tasks/' + taskId, {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            title,
-            body: editBody.value.trim() || null,
-            status: editStatus.value,
-            priority: editPriority.value || null
-          })
-        });
-        if (!res.ok) throw new Error('Server error');
-        location.reload();
-      } catch {
-        showToast('Failed to update task');
-      }
-    });
-
     document.getElementById('ctx-delete').addEventListener('click', async e => {
       e.stopPropagation();
       ctxMenu.style.display = 'none';
@@ -451,14 +368,19 @@ function renderBoard(
     const detailPanel = document.getElementById('detail-panel');
     const detailPanelTitle = document.getElementById('detail-panel-title');
     const detailPanelBody = document.getElementById('detail-panel-body');
+    let detailTaskId = null;
 
     function closeDetailPanel() {
       detailPanel.classList.remove('open');
+      detailTaskId = null;
     }
 
     document.getElementById('detail-panel-close').addEventListener('click', closeDetailPanel);
 
     const statusColors = ${JSON.stringify(STATUS_COLORS)};
+    const allStatuses = ${JSON.stringify(STATUSES)};
+    const statusLabels = ${JSON.stringify(STATUS_LABELS)};
+    const allPriorities = ${JSON.stringify(PRIORITIES)};
 
     function renderDetailPanel(data) {
       const task = data.task;
@@ -466,36 +388,47 @@ function renderBoard(
       const metadata = data.metadata || [];
       const priority = metadata.find(m => m.key === 'priority');
 
+      detailTaskId = task.id;
       detailPanelTitle.textContent = '#' + task.id + ' ' + task.title;
 
       let html = '';
 
-      // Status
-      const sColor = statusColors[task.status] || '#64748b';
+      // Title (editable)
+      html += '<div class="detail-field">';
+      html += '<div class="detail-field-label">Title</div>';
+      html += '<input id="detail-edit-title" class="detail-edit-input" type="text" value="' + escapeHtmlClient(task.title) + '">';
+      html += '</div>';
+
+      // Status (editable)
       html += '<div class="detail-field">';
       html += '<div class="detail-field-label">Status</div>';
-      html += '<div class="detail-field-value"><span class="detail-status-badge" style="background:' + sColor + '">' + escapeHtmlClient(task.status.replace('_', ' ')) + '</span></div>';
+      html += '<select id="detail-edit-status" class="detail-edit-select">';
+      allStatuses.forEach(s => {
+        const selected = s === task.status ? ' selected' : '';
+        html += '<option value="' + s + '"' + selected + '>' + statusLabels[s] + '</option>';
+      });
+      html += '</select>';
       html += '</div>';
 
-      // Priority
-      if (priority) {
-        html += '<div class="detail-field">';
-        html += '<div class="detail-field-label">Priority</div>';
-        html += '<div class="detail-field-value"><span class="priority priority-' + escapeHtmlClient(priority.value) + '">' + escapeHtmlClient(priority.value) + '</span></div>';
-        html += '</div>';
-      }
+      // Priority (editable)
+      html += '<div class="detail-field">';
+      html += '<div class="detail-field-label">Priority</div>';
+      html += '<select id="detail-edit-priority" class="detail-edit-select">';
+      html += '<option value="">None</option>';
+      allPriorities.forEach(p => {
+        const selected = priority && priority.value === p ? ' selected' : '';
+        html += '<option value="' + p + '"' + selected + '>' + p.charAt(0).toUpperCase() + p.slice(1) + '</option>';
+      });
+      html += '</select>';
+      html += '</div>';
 
-      // Body
+      // Body (editable)
       html += '<div class="detail-field">';
       html += '<div class="detail-field-label">Description</div>';
-      if (task.body) {
-        html += '<div class="detail-field-value">' + escapeHtmlClient(task.body) + '</div>';
-      } else {
-        html += '<div class="detail-field-value empty">No description</div>';
-      }
+      html += '<textarea id="detail-edit-body" class="detail-edit-textarea">' + escapeHtmlClient(task.body || '') + '</textarea>';
       html += '</div>';
 
-      // Tags
+      // Tags (read-only)
       if (tags.length > 0) {
         html += '<div class="detail-field">';
         html += '<div class="detail-field-label">Tags</div>';
@@ -504,7 +437,7 @@ function renderBoard(
         html += '</div></div>';
       }
 
-      // Metadata table
+      // Metadata table (read-only, non-priority)
       const otherMeta = metadata.filter(m => m.key !== 'priority');
       if (otherMeta.length > 0) {
         html += '<div class="detail-field">';
@@ -516,7 +449,7 @@ function renderBoard(
         html += '</table></div>';
       }
 
-      // Timestamps
+      // Timestamps (read-only)
       html += '<div class="detail-field">';
       html += '<div class="detail-field-label">Created</div>';
       html += '<div class="detail-field-value">' + escapeHtmlClient(task.created_at) + '</div>';
@@ -535,6 +468,33 @@ function renderBoard(
       div.textContent = String(str);
       return div.innerHTML;
     }
+
+    document.getElementById('detail-save-btn').addEventListener('click', async () => {
+      if (detailTaskId === null) return;
+      const titleInput = document.getElementById('detail-edit-title');
+      const title = titleInput ? titleInput.value.trim() : '';
+      if (!title) { if (titleInput) titleInput.focus(); return; }
+      const bodyEl = document.getElementById('detail-edit-body');
+      const statusEl = document.getElementById('detail-edit-status');
+      const priorityEl = document.getElementById('detail-edit-priority');
+
+      try {
+        const res = await fetch('/api/tasks/' + detailTaskId, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            title,
+            body: bodyEl ? (bodyEl.value.trim() || null) : null,
+            status: statusEl ? statusEl.value : undefined,
+            priority: priorityEl ? (priorityEl.value || null) : null
+          })
+        });
+        if (!res.ok) throw new Error('Server error');
+        location.reload();
+      } catch {
+        showToast('Failed to update task');
+      }
+    });
 
     document.querySelectorAll('.card').forEach(card => {
       card.addEventListener('click', async e => {
