@@ -114,6 +114,32 @@ describe('TaskService', () => {
         taskService.createTask({ title: 'valid title', assignees: 'a'.repeat(501) });
       }).toThrow('Assignees must not exceed 500 characters');
     });
+
+    it('priorityを指定したタスク作成テスト', () => {
+      const task = taskService.createTask({
+        title: 'テストタスク',
+        priority: 'high',
+      });
+
+      expect(task.priority).toBe('high');
+    });
+
+    it('priorityを指定しない場合はnullになる', () => {
+      const task = taskService.createTask({ title: 'テストタスク' });
+
+      expect(task.priority).toBeNull();
+    });
+
+    it('すべてのpriority値でタスク作成できる', () => {
+      const priorities = ['critical', 'high', 'medium', 'low'] as const;
+      for (const priority of priorities) {
+        const task = taskService.createTask({
+          title: `タスク-${priority}`,
+          priority,
+        });
+        expect(task.priority).toBe(priority);
+      }
+    });
   });
 
   describe('getTask', () => {
@@ -605,6 +631,20 @@ describe('TaskService', () => {
       expect(tasks[0].title).toBe('Alice');
       expect(tasks[1].title).toBe('Charlie');
     });
+
+    it('priorityフィルターでタスクをフィルタリングできる', () => {
+      taskService.createTask({ title: 'Critical Task', priority: 'critical' });
+      taskService.createTask({ title: 'High Task', priority: 'high' });
+      taskService.createTask({ title: 'No Priority Task' });
+
+      const criticalTasks = taskService.listTasks({ priority: 'critical' });
+      expect(criticalTasks.length).toBe(1);
+      expect(criticalTasks[0].title).toBe('Critical Task');
+
+      const highTasks = taskService.listTasks({ priority: 'high' });
+      expect(highTasks.length).toBe(1);
+      expect(highTasks[0].title).toBe('High Task');
+    });
   });
 
   describe('updateTask', () => {
@@ -802,6 +842,31 @@ describe('TaskService', () => {
       expect(updatedTask).toBeDefined();
       expect(updatedTask).not.toBeNull();
       expect(updatedTask!.assignees).toBeNull();
+    });
+
+    it('priorityの更新テスト - priorityを設定できる', () => {
+      const createdTask = taskService.createTask({ title: 'テストタスク' });
+
+      const updatedTask = taskService.updateTask(createdTask.id, {
+        priority: 'critical',
+      });
+
+      expect(updatedTask).toBeDefined();
+      expect(updatedTask!.priority).toBe('critical');
+    });
+
+    it('priorityの更新テスト - priorityをnullに設定できる', () => {
+      const createdTask = taskService.createTask({
+        title: 'テストタスク',
+        priority: 'high',
+      });
+
+      const updatedTask = taskService.updateTask(createdTask.id, {
+        priority: null,
+      });
+
+      expect(updatedTask).toBeDefined();
+      expect(updatedTask!.priority).toBeNull();
     });
 
     it('ステータス（status）の更新テスト - タスク作成後、ステータスのみを更新し、他のフィールドが変更されていないことを検証', () => {

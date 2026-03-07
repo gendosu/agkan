@@ -524,4 +524,35 @@ describe('setupTaskAddCommand', () => {
       expect(output.parent.id).toBe(parent.id);
     });
   });
+
+  describe('--priority option', () => {
+    it('should have --priority option registered', () => {
+      const taskCommand = program.commands.find((cmd) => cmd.name() === 'task');
+      const addCommand = taskCommand?.commands.find((cmd) => cmd.name() === 'add');
+      const options = addCommand?.options || [];
+      const optionNames = options.map((opt) => opt.long);
+      expect(optionNames).toContain('--priority');
+    });
+
+    it('should create task with priority', async () => {
+      const { exitCode, logs } = await runCommand(program, [
+        'task',
+        'add',
+        'Priority Task',
+        '--priority',
+        'high',
+        '--json',
+      ]);
+      expect(exitCode).toBeUndefined();
+      const output = JSON.parse(logs[0]);
+      expect(output.success).toBe(true);
+      expect(output.task.priority).toBe('high');
+    });
+
+    it('should exit with error for invalid priority', async () => {
+      const { exitCode, logs } = await runCommand(program, ['task', 'add', 'Task', '--priority', 'invalid']);
+      expect(exitCode).toBe(1);
+      expect(logs.join('\n')).toContain('Invalid priority');
+    });
+  });
 });

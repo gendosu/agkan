@@ -795,5 +795,42 @@ describe('setupTaskUpdateCommand', () => {
       const updatedTask = taskService.getTask(task.id);
       expect(updatedTask?.status).toBe('ready');
     });
+
+    it('should update priority with --priority flag', async () => {
+      const taskService = new TaskService();
+      const task = taskService.createTask({ title: 'Priority test' });
+
+      const { exitCode } = await runCommand(program, ['task', 'update', String(task.id), '--priority', 'high']);
+      expect(exitCode).toBeUndefined();
+
+      const updatedTask = taskService.getTask(task.id);
+      expect(updatedTask?.priority).toBe('high');
+    });
+
+    it('should show error for invalid priority in flag mode', async () => {
+      const taskService = new TaskService();
+      const task = taskService.createTask({ title: 'Priority test' });
+
+      const { exitCode, logs } = await runCommand(program, [
+        'task',
+        'update',
+        String(task.id),
+        '--priority',
+        'invalid',
+      ]);
+      expect(exitCode).toBe(1);
+      expect(logs.join('\n')).toContain('Invalid priority');
+    });
+
+    it('should update priority with positional syntax', async () => {
+      const taskService = new TaskService();
+      const task = taskService.createTask({ title: 'Priority test' });
+
+      const { exitCode } = await runCommand(program, ['task', 'update', String(task.id), 'priority', 'critical']);
+      expect(exitCode).toBeUndefined();
+
+      const updatedTask = taskService.getTask(task.id);
+      expect(updatedTask?.priority).toBe('critical');
+    });
   });
 });
