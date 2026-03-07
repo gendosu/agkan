@@ -8,6 +8,7 @@ import { getDatabase } from '../../src/db/connection';
 import { TaskService } from '../../src/services/TaskService';
 import { TaskTagService } from '../../src/services/TaskTagService';
 import { MetadataService } from '../../src/services/MetadataService';
+import { TagService } from '../../src/services/TagService';
 
 function resetDatabase(): void {
   const db = getDatabase();
@@ -15,6 +16,7 @@ function resetDatabase(): void {
   db.exec('DELETE FROM task_metadata');
   db.exec('DELETE FROM task_blocks');
   db.exec('DELETE FROM tasks');
+  db.exec('DELETE FROM tags');
   db.exec("DELETE FROM sqlite_sequence WHERE name='tasks'");
 }
 
@@ -22,10 +24,12 @@ describe('createBoardApp', () => {
   let taskService: TaskService;
   let taskTagService: TaskTagService;
   let metadataService: MetadataService;
+  let tagService: TagService;
 
   beforeEach(() => {
     resetDatabase();
     taskService = new TaskService();
+    tagService = new TagService();
     taskTagService = new TaskTagService();
     metadataService = new MetadataService();
   });
@@ -73,6 +77,92 @@ describe('createBoardApp', () => {
 
       expect(html).not.toContain('<script>alert("xss")</script>');
       expect(html).toContain('&lt;script&gt;');
+    });
+
+    it('should render tag badges when a task has tags', async () => {
+      const task = taskService.createTask({ title: 'Tagged task', status: 'ready' });
+      const tag1 = tagService.createTag({ name: 'frontend' });
+      const tag2 = tagService.createTag({ name: 'bug' });
+      taskTagService.addTagToTask({ task_id: task.id, tag_id: tag1.id });
+      taskTagService.addTagToTask({ task_id: task.id, tag_id: tag2.id });
+
+      const app = createBoardApp(taskService, taskTagService, metadataService);
+      const res = await app.fetch(new Request('http://localhost/'));
+      const html = await res.text();
+
+      expect(html).toContain('<span class="tag">frontend</span>');
+      expect(html).toContain('<span class="tag">bug</span>');
+      expect(html).toContain('class="card-tags"');
+    });
+
+    it('should not render card-tags div when a task has no tags', async () => {
+      taskService.createTask({ title: 'No tags task', status: 'ready' });
+
+      const app = createBoardApp(taskService, taskTagService, metadataService);
+      const res = await app.fetch(new Request('http://localhost/'));
+      const html = await res.text();
+
+      // The card for this task should not contain a card-tags div
+      const cardStart = html.indexOf('No tags task');
+      expect(cardStart).toBeGreaterThan(-1);
+      // Find the enclosing card div
+      const cardEnd = html.indexOf('</div>', html.indexOf('</div>', html.indexOf('</div>', cardStart) + 1) + 1);
+      const cardHtml = html.substring(cardStart - 200, cardEnd);
+      expect(cardHtml).not.toContain('card-tags');
+    });
+
+    it('should render priority badge when a task has priority metadata', async () => {
+      const task = taskService.createTask({ title: 'High prio render', status: 'backlog' });
+      metadataService.setMetadata({ task_id: task.id, key: 'priority', value: 'high' });
+
+      const app = createBoardApp(taskService, taskTagService, metadataService);
+      const res = await app.fetch(new Request('http://localhost/'));
+      const html = await res.text();
+
+      expect(html).toContain('<span class="priority priority-high">high</span>');
+    });
+
+    it('should render critical priority badge correctly', async () => {
+      const task = taskService.createTask({ title: 'Critical task render', status: 'ready' });
+      metadataService.setMetadata({ task_id: task.id, key: 'priority', value: 'critical' });
+
+      const app = createBoardApp(taskService, taskTagService, metadataService);
+      const res = await app.fetch(new Request('http://localhost/'));
+      const html = await res.text();
+
+      expect(html).toContain('<span class="priority priority-critical">critical</span>');
+    });
+
+    it('should not render priority badge when task has no priority', async () => {
+      taskService.createTask({ title: 'No priority render', status: 'backlog' });
+
+      const app = createBoardApp(taskService, taskTagService, metadataService);
+      const res = await app.fetch(new Request('http://localhost/'));
+      const html = await res.text();
+
+      // Find the card for this task and verify no priority badge
+      const cardIdPos = html.indexOf('No priority render');
+      expect(cardIdPos).toBeGreaterThan(-1);
+      // Extract a window around the card
+      const windowStart = Math.max(0, cardIdPos - 300);
+      const windowEnd = Math.min(html.length, cardIdPos + 200);
+      const cardWindow = html.substring(windowStart, windowEnd);
+      // The card-header for this task should not contain a priority span
+      expect(cardWindow).not.toContain('class="priority');
+    });
+
+    it('should render both tag badges and priority badge on the same task', async () => {
+      const task = taskService.createTask({ title: 'Full badges task', status: 'in_progress' });
+      const tag = tagService.createTag({ name: 'ui' });
+      taskTagService.addTagToTask({ task_id: task.id, tag_id: tag.id });
+      metadataService.setMetadata({ task_id: task.id, key: 'priority', value: 'medium' });
+
+      const app = createBoardApp(taskService, taskTagService, metadataService);
+      const res = await app.fetch(new Request('http://localhost/'));
+      const html = await res.text();
+
+      expect(html).toContain('<span class="priority priority-medium">medium</span>');
+      expect(html).toContain('<span class="tag">ui</span>');
     });
   });
 
