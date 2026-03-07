@@ -18,6 +18,7 @@ export function setupTaskGetCommand(program: Command): void {
 
   taskCommand
     .command('get')
+    .alias('show')
     .argument('<id>', 'Task ID')
     .option('--json', 'Output in JSON format')
     .description('Get a task by ID')
