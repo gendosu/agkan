@@ -178,7 +178,31 @@ function renderBoard(
     </div>
   </div>
   <div class="context-menu" id="context-menu">
+    <div class="context-menu-item" id="ctx-edit">Edit task</div>
     <div class="context-menu-item danger" id="ctx-delete">Delete task</div>
+  </div>
+  <div class="modal-overlay" id="edit-modal">
+    <div class="modal">
+      <h2>Edit Task</h2>
+      <label for="edit-title">Title</label>
+      <input type="text" id="edit-title" placeholder="Task title">
+      <label for="edit-body">Description</label>
+      <textarea id="edit-body" placeholder="Optional"></textarea>
+      <label for="edit-priority">Priority</label>
+      <select id="edit-priority">
+        <option value="">None</option>
+        ${PRIORITIES.map((p) => `<option value="${p}">${p.charAt(0).toUpperCase() + p.slice(1)}</option>`).join('\n        ')}
+      </select>
+      <label for="edit-status">Status</label>
+      <select id="edit-status">
+        ${STATUSES.map((s) => `<option value="${s}">${STATUS_LABELS[s]}</option>`).join('\n        ')}
+      </select>
+      <input type="hidden" id="edit-task-id">
+      <div class="modal-actions">
+        <button id="edit-cancel">Cancel</button>
+        <button id="edit-submit" class="primary">Save</button>
+      </div>
+    </div>
   </div>
   <div class="detail-panel" id="detail-panel">
     <div class="detail-panel-header">
@@ -327,6 +351,77 @@ function renderBoard(
       if (!e.target.closest('#context-menu')) {
         ctxMenu.style.display = 'none';
         ctxTargetCard = null;
+      }
+    });
+
+    // Edit task modal
+    const editModal = document.getElementById('edit-modal');
+    const editTitle = document.getElementById('edit-title');
+    const editBody = document.getElementById('edit-body');
+    const editPriority = document.getElementById('edit-priority');
+    const editStatus = document.getElementById('edit-status');
+    const editTaskId = document.getElementById('edit-task-id');
+
+    document.getElementById('ctx-edit').addEventListener('click', async e => {
+      e.stopPropagation();
+      ctxMenu.style.display = 'none';
+      if (!ctxTargetCard) return;
+      const card = ctxTargetCard;
+      ctxTargetCard = null;
+      const taskId = card.dataset.id;
+
+      try {
+        const res = await fetch('/api/tasks/' + taskId);
+        if (!res.ok) throw new Error('Server error');
+        const data = await res.json();
+        const task = data.task;
+        const priority = (data.metadata || []).find(m => m.key === 'priority');
+
+        editTaskId.value = taskId;
+        editTitle.value = task.title;
+        editBody.value = task.body || '';
+        editPriority.value = priority ? priority.value : '';
+        editStatus.value = task.status;
+        editModal.classList.add('show');
+        editTitle.focus();
+      } catch {
+        showToast('Failed to load task for editing');
+      }
+    });
+
+    document.getElementById('edit-cancel').addEventListener('click', () => {
+      editModal.classList.remove('show');
+    });
+
+    editModal.addEventListener('click', e => {
+      if (e.target === editModal) editModal.classList.remove('show');
+    });
+
+    editTitle.addEventListener('keydown', e => {
+      if (e.key === 'Enter') { e.preventDefault(); document.getElementById('edit-submit').click(); }
+    });
+
+    document.getElementById('edit-submit').addEventListener('click', async () => {
+      const title = editTitle.value.trim();
+      if (!title) { editTitle.focus(); return; }
+      const taskId = editTaskId.value;
+      editModal.classList.remove('show');
+
+      try {
+        const res = await fetch('/api/tasks/' + taskId, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            title,
+            body: editBody.value.trim() || null,
+            status: editStatus.value,
+            priority: editPriority.value || null
+          })
+        });
+        if (!res.ok) throw new Error('Server error');
+        location.reload();
+      } catch {
+        showToast('Failed to update task');
       }
     });
 
@@ -543,14 +638,46 @@ export function createBoardApp(
     if (isNaN(id)) {
       return c.json({ error: 'Invalid task id' }, 400);
     }
-    const body = await c.req.json<{ status: TaskStatus }>();
-    if (!STATUSES.includes(body.status)) {
-      return c.json({ error: 'Invalid status' }, 400);
+    const body = await c.req.json<{
+      title?: string;
+      body?: string | null;
+      status?: TaskStatus;
+      priority?: string | null;
+    }>();
+
+    const updateInput: { title?: string; body?: string; status?: TaskStatus } = {};
+
+    if (body.status !== undefined) {
+      if (!STATUSES.includes(body.status)) {
+        return c.json({ error: 'Invalid status' }, 400);
+      }
+      updateInput.status = body.status;
     }
-    const task = ts.updateTask(id, { status: body.status });
+
+    if (body.title !== undefined) {
+      if (typeof body.title !== 'string' || !body.title.trim()) {
+        return c.json({ error: 'Title cannot be empty' }, 400);
+      }
+      updateInput.title = body.title.trim();
+    }
+
+    if (body.body !== undefined) {
+      updateInput.body = body.body ?? '';
+    }
+
+    const task = ts.updateTask(id, updateInput);
     if (!task) {
       return c.json({ error: 'Task not found' }, 404);
     }
+
+    if (body.priority !== undefined) {
+      if (body.priority && isPriority(body.priority)) {
+        ms.setMetadata({ task_id: id, key: 'priority', value: body.priority });
+      } else {
+        ms.deleteMetadata(id, 'priority');
+      }
+    }
+
     return c.json(task);
   });
 
