@@ -16,6 +16,7 @@ A lightweight CLI task management tool implemented in TypeScript. Optimized for 
 - **Parent-Child Relationships**: Manage task hierarchy (tree view supported)
 - **Blocking Relationships**: Manage task dependencies (includes circular reference detection)
 - **Tag System**: Classify and search tasks with tags
+- **Kanban Board**: Local web-based Kanban board viewer
 
 ## Agent Skills
 
@@ -519,6 +520,20 @@ agkan task count --status in_progress --json
 }
 ```
 
+### Kanban Board (Web UI)
+
+Start a local Kanban board viewer in your browser:
+```bash
+agkan board
+```
+
+Specify a custom port:
+```bash
+agkan board -p 3000
+```
+
+The board is served at `http://localhost:8080` by default.
+
 ### Display Help
 
 Show command list:
@@ -893,6 +908,7 @@ For detailed information about planned features, see [docs/planned-features.md](
 - **CLI Framework**: Commander.js
 - **Database**: SQLite3 (better-sqlite3)
 - **Terminal Display**: Chalk
+- **Web Server**: Hono (for Kanban board viewer)
 - **Build Tool**: TypeScript Compiler
 
 ## Project Structure
@@ -920,6 +936,7 @@ agkan/
 │   │   │   │   ├── detach.ts
 │   │   │   │   ├── list.ts
 │   │   │   │   └── show.ts
+│   │   │   ├── board.ts             # Kanban board command
 │   │   │   └── task/                # Task commands
 │   │   │       ├── add.ts
 │   │   │       ├── count.ts
@@ -931,6 +948,8 @@ agkan/
 │   │   │       └── update.ts
 │   │   ├── utils/                   # CLI utilities
 │   │   └── index.ts                 # CLI entry point and command registration
+│   ├── board/
+│   │   └── server.ts                # Kanban board web server (Hono)
 │   ├── db/
 │   │   ├── config.ts                # DB configuration
 │   │   ├── connection.ts            # Database connection management

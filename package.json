@@ -13,6 +13,7 @@
   "scripts": {
     "build": "tsc",
     "dev": "tsc --watch",
+    "board": "tsc && node dist/cli/index.js board",
     "start": "node dist/cli/index.js",
     "test": "vitest",
     "test:all": "npm install && npm run build && npm run type-check && npm run lint && vitest run && npm run test:e2e",
@@ -48,9 +49,11 @@
     "node": ">=18.0.0"
   },
   "dependencies": {
+    "@hono/node-server": "^1.19.11",
     "better-sqlite3": "^11.7.0",
     "chalk": "^4.1.2",
     "commander": "^14.0.3",
+    "hono": "^4.12.5",
     "js-yaml": "^4.1.1"
   },
   "devDependencies": {

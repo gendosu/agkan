@@ -17,3 +17,7 @@ export type { TaskTag, CreateTaskTagInput } from './TaskTag';
 
 // TaskMetadata model
 export type { TaskMetadata, CreateTaskMetadataInput, UpdateTaskMetadataInput } from './TaskMetadata';
+
+// Priority model
+export type { Priority } from './Priority';
+export { PRIORITIES, PRIORITY_ORDER, isPriority } from './Priority';

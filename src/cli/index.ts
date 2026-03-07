@@ -34,6 +34,9 @@ import { setupMetaGetCommand } from './commands/meta/get';
 import { setupMetaListCommand } from './commands/meta/list';
 import { setupMetaDeleteCommand } from './commands/meta/delete';
 
+// Board command handler
+import { setupBoardCommand } from './commands/board';
+
 // Agent guide command handler
 import { setupAgentGuideCommand } from './commands/agent-guide';
 
@@ -80,6 +83,9 @@ setupMetaSetCommand(program);
 setupMetaGetCommand(program);
 setupMetaListCommand(program);
 setupMetaDeleteCommand(program);
+
+// Register board command
+setupBoardCommand(program);
 
 // Register agent-guide command
 setupAgentGuideCommand(program);

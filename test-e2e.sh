@@ -41,6 +41,7 @@ source "$E2E_DIR/test_json_output.sh"
 source "$E2E_DIR/test_assignees.sh"
 source "$E2E_DIR/test_env_var.sh"
 source "$E2E_DIR/test_test_mode.sh"
+source "$E2E_DIR/test_board.sh"
 
 ################################################################################
 # Main Test Execution
@@ -65,6 +66,7 @@ main() {
     test_assignees
     test_env_var_config
     test_test_mode_config
+    test_board
 
     # Cleanup
     cleanup_test_db
