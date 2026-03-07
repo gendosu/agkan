@@ -489,7 +489,7 @@ function renderBoard(
       html += '<div class="detail-field">';
       html += '<div class="detail-field-label">Description</div>';
       if (task.body) {
-        html += '<div class="detail-field-value">' + escapeHtmlClient(task.body) + '</div>';
+        html += '<div class="detail-field-value" style="white-space:pre-wrap">' + escapeHtmlClient(task.body) + '</div>';
       } else {
         html += '<div class="detail-field-value empty">No description</div>';
       }

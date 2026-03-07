@@ -464,6 +464,15 @@ describe('createBoardApp', () => {
       expect(html).toContain('closeDetailPanel');
       expect(html).toContain("fetch('/api/tasks/'");
     });
+
+    it('should render description with white-space:pre-wrap so newlines are preserved', async () => {
+      const app = createBoardApp(taskService, taskTagService, metadataService);
+      const res = await app.fetch(new Request('http://localhost/'));
+      const html = await res.text();
+
+      // The renderDetailPanel JS function should use white-space:pre-wrap for description
+      expect(html).toContain('white-space:pre-wrap');
+    });
   });
 
   describe('PATCH /api/tasks/:id', () => {
