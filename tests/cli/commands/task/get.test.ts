@@ -68,6 +68,15 @@ describe('setupTaskGetCommand', () => {
     expect(getCommand?.description()).toBe('Get a task by ID');
   });
 
+  it('should register show as an alias for get', () => {
+    const taskCommand = program.commands.find((cmd) => cmd.name() === 'task');
+    expect(taskCommand).toBeDefined();
+
+    const getCommand = taskCommand?.commands.find((cmd) => cmd.name() === 'get');
+    expect(getCommand).toBeDefined();
+    expect(getCommand?.alias()).toBe('show');
+  });
+
   it('should have correct options', () => {
     const taskCommand = program.commands.find((cmd) => cmd.name() === 'task');
     const getCommand = taskCommand?.commands.find((cmd) => cmd.name() === 'get');
@@ -312,6 +321,39 @@ describe('setupTaskGetCommand', () => {
       const parsed = JSON.parse(logs[0]);
       expect(parsed.tags).toHaveLength(1);
       expect(parsed.tags[0].name).toBe('json-tag');
+    });
+  });
+
+  describe('task show alias', () => {
+    it('should display task via show alias (text output)', async () => {
+      const taskService = new TaskService();
+      const task = taskService.createTask({ title: 'Show Alias Task', body: 'Alias body', status: 'ready' });
+
+      const { exitCode, logs } = await runCommand(program, ['task', 'show', String(task.id)]);
+      expect(exitCode).toBeUndefined();
+
+      const output = logs.join('\n');
+      expect(output).toContain('Show Alias Task');
+      expect(output).toContain('Alias body');
+    });
+
+    it('should display task via show alias (JSON output)', async () => {
+      const taskService = new TaskService();
+      const task = taskService.createTask({ title: 'Show JSON Task', status: 'ready' });
+
+      const { exitCode, logs } = await runCommand(program, ['task', 'show', String(task.id), '--json']);
+      expect(exitCode).toBeUndefined();
+
+      const parsed = JSON.parse(logs[0]);
+      expect(parsed.success).toBe(true);
+      expect(parsed.task.id).toBe(task.id);
+      expect(parsed.task.title).toBe('Show JSON Task');
+    });
+
+    it('should show error for invalid ID via show alias', async () => {
+      const { exitCode, logs } = await runCommand(program, ['task', 'show', 'abc']);
+      expect(exitCode).toBe(1);
+      expect(logs.join('\n')).toContain('number');
     });
   });
 
