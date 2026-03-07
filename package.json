@@ -13,6 +13,7 @@
   "scripts": {
     "build": "tsc",
     "dev": "tsc --watch",
+    "board": "tsc && node dist/cli/index.js board",
     "start": "node dist/cli/index.js",
     "test": "vitest",
     "test:all": "npm install && npm run build && npm run type-check && npm run lint && vitest run && npm run test:e2e",
