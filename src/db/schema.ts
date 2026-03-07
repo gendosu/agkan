@@ -198,4 +198,39 @@ export function runMigrations(db: Database.Database): void {
   db.exec(`
     CREATE INDEX IF NOT EXISTS idx_task_metadata_task_id ON task_metadata(task_id);
   `);
+
+  // Add priority column to tasks table (migration)
+  const priorityColumnExists = db
+    .prepare(
+      `
+    SELECT COUNT(*) as count FROM pragma_table_info('tasks')
+    WHERE name = 'priority'
+  `
+    )
+    .get() as { count: number };
+
+  if (priorityColumnExists.count === 0) {
+    db.exec(`
+      ALTER TABLE tasks ADD COLUMN priority TEXT DEFAULT NULL
+        CHECK(priority IS NULL OR priority IN ('critical', 'high', 'medium', 'low'))
+    `);
+  }
+
+  // Migrate priority from task_metadata to tasks.priority
+  const priorityMetadata = db
+    .prepare(`SELECT task_id, value FROM task_metadata WHERE key = 'priority'`)
+    .all() as Array<{ task_id: number; value: string }>;
+
+  if (priorityMetadata.length > 0) {
+    const updateStmt = db.prepare(`UPDATE tasks SET priority = ? WHERE id = ? AND priority IS NULL`);
+    const deleteStmt = db.prepare(`DELETE FROM task_metadata WHERE task_id = ? AND key = 'priority'`);
+
+    for (const row of priorityMetadata) {
+      const validPriorities = ['critical', 'high', 'medium', 'low'];
+      if (validPriorities.includes(row.value)) {
+        updateStmt.run(row.value, row.task_id);
+      }
+      deleteStmt.run(row.task_id);
+    }
+  }
 }
