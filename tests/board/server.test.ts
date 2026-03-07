@@ -255,4 +255,50 @@ describe('createBoardApp', () => {
       expect(res.status).toBe(404);
     });
   });
+
+  describe('DELETE /api/tasks/:id', () => {
+    it('should delete a task and return success', async () => {
+      const task = taskService.createTask({ title: 'Delete me', status: 'backlog' });
+
+      const app = createBoardApp(taskService, taskTagService, metadataService);
+      const res = await app.fetch(
+        new Request(`http://localhost/api/tasks/${task.id}`, {
+          method: 'DELETE',
+        })
+      );
+
+      expect(res.status).toBe(200);
+      const data = (await res.json()) as { success: boolean };
+      expect(data.success).toBe(true);
+
+      const fetched = taskService.getTask(task.id);
+      expect(fetched).toBeNull();
+    });
+
+    it('should return 400 for invalid (NaN) task id', async () => {
+      const app = createBoardApp(taskService, taskTagService, metadataService);
+      const res = await app.fetch(
+        new Request('http://localhost/api/tasks/abc', {
+          method: 'DELETE',
+        })
+      );
+
+      expect(res.status).toBe(400);
+      const data = (await res.json()) as { error: string };
+      expect(data.error).toBe('Invalid task id');
+    });
+
+    it('should return 404 for non-existent task', async () => {
+      const app = createBoardApp(taskService, taskTagService, metadataService);
+      const res = await app.fetch(
+        new Request('http://localhost/api/tasks/9999', {
+          method: 'DELETE',
+        })
+      );
+
+      expect(res.status).toBe(404);
+      const data = (await res.json()) as { error: string };
+      expect(data.error).toBe('Task not found');
+    });
+  });
 });
