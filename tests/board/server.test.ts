@@ -700,63 +700,52 @@ describe('createBoardApp', () => {
     });
   });
 
-  describe('GET / (edit modal)', () => {
-    it('should include edit modal HTML in the board page', async () => {
+  describe('GET / (detail panel editable)', () => {
+    it('should not include edit modal HTML in the board page', async () => {
       const app = createBoardApp(taskService, taskTagService, metadataService);
       const res = await app.fetch(new Request('http://localhost/'));
       const html = await res.text();
 
-      expect(html).toContain('id="edit-modal"');
-      expect(html).toContain('id="edit-title"');
-      expect(html).toContain('id="edit-body"');
-      expect(html).toContain('id="edit-priority"');
-      expect(html).toContain('id="edit-status"');
-      expect(html).toContain('id="edit-task-id"');
+      expect(html).not.toContain('id="edit-modal"');
+      expect(html).not.toContain('id="edit-task-id"');
     });
 
-    it('should include Edit task context menu item', async () => {
+    it('should not include Edit task context menu item', async () => {
       const app = createBoardApp(taskService, taskTagService, metadataService);
       const res = await app.fetch(new Request('http://localhost/'));
       const html = await res.text();
 
-      expect(html).toContain('id="ctx-edit"');
-      expect(html).toContain('Edit task');
+      expect(html).not.toContain('id="ctx-edit"');
+      expect(html).not.toContain('>Edit task<');
     });
 
-    it('should include edit modal script handlers', async () => {
+    it('should include detail panel save button', async () => {
       const app = createBoardApp(taskService, taskTagService, metadataService);
       const res = await app.fetch(new Request('http://localhost/'));
       const html = await res.text();
 
-      expect(html).toContain('edit-modal');
-      expect(html).toContain('edit-submit');
-      expect(html).toContain('edit-cancel');
+      expect(html).toContain('id="detail-save-btn"');
+      expect(html).toContain('detail-panel-footer');
     });
 
-    it('should include status options in edit modal', async () => {
+    it('should include editable field rendering in detail panel script', async () => {
       const app = createBoardApp(taskService, taskTagService, metadataService);
       const res = await app.fetch(new Request('http://localhost/'));
       const html = await res.text();
 
-      expect(html).toContain('<option value="backlog">Backlog</option>');
-      expect(html).toContain('<option value="in_progress">In Progress</option>');
-      expect(html).toContain('<option value="done">Done</option>');
+      expect(html).toContain('detail-edit-title');
+      expect(html).toContain('detail-edit-status');
+      expect(html).toContain('detail-edit-priority');
+      expect(html).toContain('detail-edit-body');
     });
 
-    it('should include priority options in edit modal', async () => {
+    it('should include save handler script', async () => {
       const app = createBoardApp(taskService, taskTagService, metadataService);
       const res = await app.fetch(new Request('http://localhost/'));
       const html = await res.text();
 
-      // The edit modal should have its own priority select
-      const editModalStart = html.indexOf('id="edit-modal"');
-      const editModalEnd = html.indexOf('</div>\n  </div>', editModalStart) + 20;
-      const editModalHtml = html.substring(editModalStart, editModalEnd);
-
-      expect(editModalHtml).toContain('<option value="critical">Critical</option>');
-      expect(editModalHtml).toContain('<option value="high">High</option>');
-      expect(editModalHtml).toContain('<option value="medium">Medium</option>');
-      expect(editModalHtml).toContain('<option value="low">Low</option>');
+      expect(html).toContain('detail-save-btn');
+      expect(html).toContain('detailTaskId');
     });
   });
 
