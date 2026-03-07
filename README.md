@@ -17,6 +17,12 @@ A lightweight CLI task management tool implemented in TypeScript. Optimized for 
 - **Blocking Relationships**: Manage task dependencies (includes circular reference detection)
 - **Tag System**: Classify and search tasks with tags
 
+## Agent Skills
+
+To use agkan with Claude Code skills (automated task execution, planning, review, etc.), install the companion skills package:
+
+- **[agkan-skills](https://github.com/gendosu/agkan-skills)** - Claude Code skills for agkan task management
+
 ## Installation
 
 ### Prerequisites
