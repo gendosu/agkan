@@ -254,6 +254,21 @@ describe('createBoardApp', () => {
 
       expect(res.status).toBe(404);
     });
+
+    it('should return 400 for invalid (NaN) task id', async () => {
+      const app = createBoardApp(taskService, taskTagService, metadataService);
+      const res = await app.fetch(
+        new Request('http://localhost/api/tasks/abc', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status: 'done' }),
+        })
+      );
+
+      expect(res.status).toBe(400);
+      const data = (await res.json()) as { error: string };
+      expect(data.error).toBe('Invalid task id');
+    });
   });
 
   describe('DELETE /api/tasks/:id', () => {
