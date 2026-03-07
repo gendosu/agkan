@@ -1,4 +1,7 @@
 {
+  "enabledPlugins": {
+    "agkan-skills@gendosu-claude-plugins": true
+  },
   "extraKnownMarketplaces": {
     "gendosu-claude-plugins": {
       "source": {
