@@ -9,6 +9,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 (no entries yet)
 
+## [2.0.0] - 2026-03-07
+
+### Added
+- Add `agkan board` command for local Kanban board viewer (web UI)
+- Add Priority model with shared constants and type guard
+- Add task detail panel with slide-in UI on card click in board
+- Add board features: create/delete tasks, priority sort, context menu
+- Add Agent Skills section to README with link to agkan-skills
+
+### Tests
+- Add board E2E tests integrated into test suite
+- Add unit tests for Priority model and sortByPriority
+- Add API endpoint tests for POST/DELETE/PATCH `/api/tasks`
+- Add tag and priority badge rendering tests for board HTML
+
 ## [1.6.0] - 2026-03-06
 
 ### Added
