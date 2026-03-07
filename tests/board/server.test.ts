@@ -531,6 +531,235 @@ describe('createBoardApp', () => {
     });
   });
 
+  describe('PATCH /api/tasks/:id (edit)', () => {
+    it('should update task title', async () => {
+      const task = taskService.createTask({ title: 'Original title', status: 'backlog' });
+
+      const app = createBoardApp(taskService, taskTagService, metadataService);
+      const res = await app.fetch(
+        new Request(`http://localhost/api/tasks/${task.id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ title: 'Updated title' }),
+        })
+      );
+
+      expect(res.status).toBe(200);
+      const data = (await res.json()) as { title: string };
+      expect(data.title).toBe('Updated title');
+
+      const fetched = taskService.getTask(task.id);
+      expect(fetched?.title).toBe('Updated title');
+    });
+
+    it('should update task body', async () => {
+      const task = taskService.createTask({ title: 'Task', body: 'Old body', status: 'backlog' });
+
+      const app = createBoardApp(taskService, taskTagService, metadataService);
+      const res = await app.fetch(
+        new Request(`http://localhost/api/tasks/${task.id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ body: 'New body' }),
+        })
+      );
+
+      expect(res.status).toBe(200);
+      const fetched = taskService.getTask(task.id);
+      expect(fetched?.body).toBe('New body');
+    });
+
+    it('should clear task body when null is sent', async () => {
+      const task = taskService.createTask({ title: 'Task', body: 'Has body', status: 'backlog' });
+
+      const app = createBoardApp(taskService, taskTagService, metadataService);
+      const res = await app.fetch(
+        new Request(`http://localhost/api/tasks/${task.id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ body: null }),
+        })
+      );
+
+      expect(res.status).toBe(200);
+      const fetched = taskService.getTask(task.id);
+      expect(fetched?.body).toBe('');
+    });
+
+    it('should update priority metadata', async () => {
+      const task = taskService.createTask({ title: 'Task', status: 'backlog' });
+      metadataService.setMetadata({ task_id: task.id, key: 'priority', value: 'low' });
+
+      const app = createBoardApp(taskService, taskTagService, metadataService);
+      const res = await app.fetch(
+        new Request(`http://localhost/api/tasks/${task.id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ priority: 'high' }),
+        })
+      );
+
+      expect(res.status).toBe(200);
+      const meta = metadataService.getMetadataByKey(task.id, 'priority');
+      expect(meta?.value).toBe('high');
+    });
+
+    it('should remove priority metadata when priority is null', async () => {
+      const task = taskService.createTask({ title: 'Task', status: 'backlog' });
+      metadataService.setMetadata({ task_id: task.id, key: 'priority', value: 'high' });
+
+      const app = createBoardApp(taskService, taskTagService, metadataService);
+      const res = await app.fetch(
+        new Request(`http://localhost/api/tasks/${task.id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ priority: null }),
+        })
+      );
+
+      expect(res.status).toBe(200);
+      const meta = metadataService.getMetadataByKey(task.id, 'priority');
+      expect(meta).toBeNull();
+    });
+
+    it('should update multiple fields at once', async () => {
+      const task = taskService.createTask({ title: 'Old', body: 'Old body', status: 'backlog' });
+
+      const app = createBoardApp(taskService, taskTagService, metadataService);
+      const res = await app.fetch(
+        new Request(`http://localhost/api/tasks/${task.id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ title: 'New', body: 'New body', status: 'ready', priority: 'critical' }),
+        })
+      );
+
+      expect(res.status).toBe(200);
+      const data = (await res.json()) as { title: string; status: string };
+      expect(data.title).toBe('New');
+      expect(data.status).toBe('ready');
+
+      const fetched = taskService.getTask(task.id);
+      expect(fetched?.body).toBe('New body');
+
+      const meta = metadataService.getMetadataByKey(task.id, 'priority');
+      expect(meta?.value).toBe('critical');
+    });
+
+    it('should return 400 when title is empty string', async () => {
+      const task = taskService.createTask({ title: 'Task', status: 'backlog' });
+
+      const app = createBoardApp(taskService, taskTagService, metadataService);
+      const res = await app.fetch(
+        new Request(`http://localhost/api/tasks/${task.id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ title: '' }),
+        })
+      );
+
+      expect(res.status).toBe(400);
+      const data = (await res.json()) as { error: string };
+      expect(data.error).toBe('Title cannot be empty');
+    });
+
+    it('should return 400 when title is whitespace only', async () => {
+      const task = taskService.createTask({ title: 'Task', status: 'backlog' });
+
+      const app = createBoardApp(taskService, taskTagService, metadataService);
+      const res = await app.fetch(
+        new Request(`http://localhost/api/tasks/${task.id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ title: '   ' }),
+        })
+      );
+
+      expect(res.status).toBe(400);
+      const data = (await res.json()) as { error: string };
+      expect(data.error).toBe('Title cannot be empty');
+    });
+
+    it('should ignore invalid priority values', async () => {
+      const task = taskService.createTask({ title: 'Task', status: 'backlog' });
+      metadataService.setMetadata({ task_id: task.id, key: 'priority', value: 'high' });
+
+      const app = createBoardApp(taskService, taskTagService, metadataService);
+      const res = await app.fetch(
+        new Request(`http://localhost/api/tasks/${task.id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ priority: 'invalid_priority' }),
+        })
+      );
+
+      expect(res.status).toBe(200);
+      // Invalid priority should delete the existing priority
+      const meta = metadataService.getMetadataByKey(task.id, 'priority');
+      expect(meta).toBeNull();
+    });
+  });
+
+  describe('GET / (edit modal)', () => {
+    it('should include edit modal HTML in the board page', async () => {
+      const app = createBoardApp(taskService, taskTagService, metadataService);
+      const res = await app.fetch(new Request('http://localhost/'));
+      const html = await res.text();
+
+      expect(html).toContain('id="edit-modal"');
+      expect(html).toContain('id="edit-title"');
+      expect(html).toContain('id="edit-body"');
+      expect(html).toContain('id="edit-priority"');
+      expect(html).toContain('id="edit-status"');
+      expect(html).toContain('id="edit-task-id"');
+    });
+
+    it('should include Edit task context menu item', async () => {
+      const app = createBoardApp(taskService, taskTagService, metadataService);
+      const res = await app.fetch(new Request('http://localhost/'));
+      const html = await res.text();
+
+      expect(html).toContain('id="ctx-edit"');
+      expect(html).toContain('Edit task');
+    });
+
+    it('should include edit modal script handlers', async () => {
+      const app = createBoardApp(taskService, taskTagService, metadataService);
+      const res = await app.fetch(new Request('http://localhost/'));
+      const html = await res.text();
+
+      expect(html).toContain('edit-modal');
+      expect(html).toContain('edit-submit');
+      expect(html).toContain('edit-cancel');
+    });
+
+    it('should include status options in edit modal', async () => {
+      const app = createBoardApp(taskService, taskTagService, metadataService);
+      const res = await app.fetch(new Request('http://localhost/'));
+      const html = await res.text();
+
+      expect(html).toContain('<option value="backlog">Backlog</option>');
+      expect(html).toContain('<option value="in_progress">In Progress</option>');
+      expect(html).toContain('<option value="done">Done</option>');
+    });
+
+    it('should include priority options in edit modal', async () => {
+      const app = createBoardApp(taskService, taskTagService, metadataService);
+      const res = await app.fetch(new Request('http://localhost/'));
+      const html = await res.text();
+
+      // The edit modal should have its own priority select
+      const editModalStart = html.indexOf('id="edit-modal"');
+      const editModalEnd = html.indexOf('</div>\n  </div>', editModalStart) + 20;
+      const editModalHtml = html.substring(editModalStart, editModalEnd);
+
+      expect(editModalHtml).toContain('<option value="critical">Critical</option>');
+      expect(editModalHtml).toContain('<option value="high">High</option>');
+      expect(editModalHtml).toContain('<option value="medium">Medium</option>');
+      expect(editModalHtml).toContain('<option value="low">Low</option>');
+    });
+  });
+
   describe('DELETE /api/tasks/:id', () => {
     it('should delete a task and return success', async () => {
       const task = taskService.createTask({ title: 'Delete me', status: 'backlog' });
