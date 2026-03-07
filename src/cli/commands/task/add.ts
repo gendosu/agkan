@@ -6,6 +6,7 @@ import { Command } from 'commander';
 import chalk from 'chalk';
 import { TaskService, TaskBlockService } from '../../../services';
 import { TaskStatus } from '../../../models';
+import { Priority, isPriority } from '../../../models/Priority';
 import { handleError, validateNumberInput } from '../../utils/error-handler';
 import { validateTaskStatus } from '../../utils/validators';
 import { validateTaskInput } from '../../../utils/input-validators';
@@ -32,6 +33,7 @@ export function setupTaskAddCommand(program: Command): void {
     .option('-a, --author <author>', 'Task author')
     .option('--assignees <assignees>', 'Task assignees (comma-separated)')
     .option('-s, --status <status>', 'Task status (backlog, ready, in_progress, review, done, closed)', 'backlog')
+    .option('--priority <priority>', 'Task priority (critical, high, medium, low)')
     .option('-p, --parent <id>', 'Parent task ID')
     .option('--file <path>', 'Read body from markdown file')
     .option('--blocked-by <ids>', 'Comma-separated task IDs that block this task')
@@ -87,6 +89,15 @@ export function setupTaskAddCommand(program: Command): void {
           process.exit(1);
         }
 
+        if (options.priority && !isPriority(options.priority)) {
+          const message = `Invalid priority: ${options.priority}. Valid priorities: critical, high, medium, low`;
+          formatter.error(message, () => {
+            console.log(chalk.red(`Invalid priority: ${options.priority}`));
+            console.log('Valid priorities: critical, high, medium, low');
+          });
+          process.exit(1);
+        }
+
         let parentId: number | undefined = undefined;
         if (options.parent) {
           const parsed = validateNumberInput(options.parent);
@@ -121,6 +132,7 @@ export function setupTaskAddCommand(program: Command): void {
           author: options.author,
           assignees: options.assignees,
           status: options.status as TaskStatus,
+          priority: options.priority ? (options.priority as Priority) : undefined,
           parent_id: parentId,
         });
 

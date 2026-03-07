@@ -66,6 +66,7 @@ export function setupTaskGetCommand(program: Command): void {
                 author: task.author,
                 assignees: task.assignees,
                 status: task.status,
+                priority: task.priority,
                 parent_id: task.parent_id,
                 created_at: task.created_at,
                 updated_at: task.updated_at,
@@ -78,6 +79,7 @@ export function setupTaskGetCommand(program: Command): void {
                     author: parentTask.author,
                     assignees: parentTask.assignees,
                     status: parentTask.status,
+                    priority: parentTask.priority,
                     parent_id: parentTask.parent_id,
                     created_at: parentTask.created_at,
                     updated_at: parentTask.updated_at,
@@ -90,6 +92,7 @@ export function setupTaskGetCommand(program: Command): void {
                 author: child.author,
                 assignees: child.assignees,
                 status: child.status,
+                priority: child.priority,
                 parent_id: child.parent_id,
                 created_at: child.created_at,
                 updated_at: child.updated_at,
@@ -101,6 +104,7 @@ export function setupTaskGetCommand(program: Command): void {
                 author: blocker.author,
                 assignees: blocker.assignees,
                 status: blocker.status,
+                priority: blocker.priority,
                 parent_id: blocker.parent_id,
                 created_at: blocker.created_at,
                 updated_at: blocker.updated_at,
@@ -112,6 +116,7 @@ export function setupTaskGetCommand(program: Command): void {
                 author: blocked.author,
                 assignees: blocked.assignees,
                 status: blocked.status,
+                priority: blocked.priority,
                 parent_id: blocked.parent_id,
                 created_at: blocked.created_at,
                 updated_at: blocked.updated_at,
@@ -135,6 +140,9 @@ export function setupTaskGetCommand(program: Command): void {
             }
             if (task.assignees) {
               console.log(`${chalk.bold('Assignees:')} ${task.assignees}`);
+            }
+            if (task.priority) {
+              console.log(`${chalk.bold('Priority:')} ${task.priority}`);
             }
             console.log(`${chalk.bold('Created:')} ${formatDate(task.created_at)}`);
             console.log(`${chalk.bold('Updated:')} ${formatDate(task.updated_at)}`);
