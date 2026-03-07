@@ -136,6 +136,23 @@ function renderBoard(
     .modal-actions button.primary:hover { background: #2563eb; }
     .toast { position: fixed; bottom: 20px; right: 20px; background: #ef4444; color: white; padding: 10px 16px; border-radius: 6px; font-size: 13px; opacity: 0; transition: opacity 0.3s; pointer-events: none; }
     .toast.show { opacity: 1; }
+    .detail-panel { position: fixed; top: 0; right: 0; width: 400px; height: 100vh; background: white; box-shadow: -4px 0 16px rgba(0,0,0,0.1); z-index: 1500; transform: translateX(100%); transition: transform 0.25s ease; display: flex; flex-direction: column; }
+    .detail-panel.open { transform: translateX(0); }
+    .detail-panel-header { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; border-bottom: 1px solid #e2e8f0; }
+    .detail-panel-header h2 { font-size: 16px; font-weight: 700; color: #1e293b; margin: 0; }
+    .detail-panel-close { background: none; border: none; font-size: 20px; color: #64748b; cursor: pointer; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; border-radius: 4px; }
+    .detail-panel-close:hover { background: #f1f5f9; color: #1e293b; }
+    .detail-panel-body { flex: 1; overflow-y: auto; padding: 20px; }
+    .detail-field { margin-bottom: 16px; }
+    .detail-field-label { font-size: 11px; font-weight: 700; text-transform: uppercase; color: #94a3b8; margin-bottom: 4px; letter-spacing: 0.05em; }
+    .detail-field-value { font-size: 13px; color: #1e293b; line-height: 1.5; }
+    .detail-field-value.empty { color: #94a3b8; font-style: italic; }
+    .detail-status-badge { display: inline-block; padding: 3px 10px; border-radius: 12px; font-size: 12px; font-weight: 600; color: white; }
+    .detail-tags { display: flex; flex-wrap: wrap; gap: 4px; }
+    .detail-meta-table { width: 100%; border-collapse: collapse; }
+    .detail-meta-table td { padding: 4px 0; font-size: 12px; }
+    .detail-meta-table td:first-child { color: #64748b; width: 100px; }
+    .detail-meta-table td:last-child { color: #1e293b; }
   </style>
 </head>
 <body>
@@ -162,6 +179,13 @@ function renderBoard(
   </div>
   <div class="context-menu" id="context-menu">
     <div class="context-menu-item danger" id="ctx-delete">Delete task</div>
+  </div>
+  <div class="detail-panel" id="detail-panel">
+    <div class="detail-panel-header">
+      <h2 id="detail-panel-title">Task Detail</h2>
+      <button class="detail-panel-close" id="detail-panel-close" title="Close">&times;</button>
+    </div>
+    <div class="detail-panel-body" id="detail-panel-body"></div>
   </div>
   <div class="toast" id="toast">Failed to update task</div>
   <script>
@@ -327,6 +351,111 @@ function renderBoard(
         showToast('Failed to delete task');
       }
     });
+
+    // Detail panel
+    const detailPanel = document.getElementById('detail-panel');
+    const detailPanelTitle = document.getElementById('detail-panel-title');
+    const detailPanelBody = document.getElementById('detail-panel-body');
+
+    function closeDetailPanel() {
+      detailPanel.classList.remove('open');
+    }
+
+    document.getElementById('detail-panel-close').addEventListener('click', closeDetailPanel);
+
+    const statusColors = ${JSON.stringify(STATUS_COLORS)};
+
+    function renderDetailPanel(data) {
+      const task = data.task;
+      const tags = data.tags || [];
+      const metadata = data.metadata || [];
+      const priority = metadata.find(m => m.key === 'priority');
+
+      detailPanelTitle.textContent = '#' + task.id + ' ' + task.title;
+
+      let html = '';
+
+      // Status
+      const sColor = statusColors[task.status] || '#64748b';
+      html += '<div class="detail-field">';
+      html += '<div class="detail-field-label">Status</div>';
+      html += '<div class="detail-field-value"><span class="detail-status-badge" style="background:' + sColor + '">' + escapeHtmlClient(task.status.replace('_', ' ')) + '</span></div>';
+      html += '</div>';
+
+      // Priority
+      if (priority) {
+        html += '<div class="detail-field">';
+        html += '<div class="detail-field-label">Priority</div>';
+        html += '<div class="detail-field-value"><span class="priority priority-' + escapeHtmlClient(priority.value) + '">' + escapeHtmlClient(priority.value) + '</span></div>';
+        html += '</div>';
+      }
+
+      // Body
+      html += '<div class="detail-field">';
+      html += '<div class="detail-field-label">Description</div>';
+      if (task.body) {
+        html += '<div class="detail-field-value">' + escapeHtmlClient(task.body) + '</div>';
+      } else {
+        html += '<div class="detail-field-value empty">No description</div>';
+      }
+      html += '</div>';
+
+      // Tags
+      if (tags.length > 0) {
+        html += '<div class="detail-field">';
+        html += '<div class="detail-field-label">Tags</div>';
+        html += '<div class="detail-field-value detail-tags">';
+        tags.forEach(t => { html += '<span class="tag">' + escapeHtmlClient(t.name) + '</span>'; });
+        html += '</div></div>';
+      }
+
+      // Metadata table
+      const otherMeta = metadata.filter(m => m.key !== 'priority');
+      if (otherMeta.length > 0) {
+        html += '<div class="detail-field">';
+        html += '<div class="detail-field-label">Metadata</div>';
+        html += '<table class="detail-meta-table">';
+        otherMeta.forEach(m => {
+          html += '<tr><td>' + escapeHtmlClient(m.key) + '</td><td>' + escapeHtmlClient(m.value) + '</td></tr>';
+        });
+        html += '</table></div>';
+      }
+
+      // Timestamps
+      html += '<div class="detail-field">';
+      html += '<div class="detail-field-label">Created</div>';
+      html += '<div class="detail-field-value">' + escapeHtmlClient(task.created_at) + '</div>';
+      html += '</div>';
+      html += '<div class="detail-field">';
+      html += '<div class="detail-field-label">Updated</div>';
+      html += '<div class="detail-field-value">' + escapeHtmlClient(task.updated_at) + '</div>';
+      html += '</div>';
+
+      detailPanelBody.innerHTML = html;
+    }
+
+    function escapeHtmlClient(str) {
+      if (!str) return '';
+      const div = document.createElement('div');
+      div.textContent = String(str);
+      return div.innerHTML;
+    }
+
+    document.querySelectorAll('.card').forEach(card => {
+      card.addEventListener('click', async e => {
+        if (e.defaultPrevented) return;
+        const taskId = card.dataset.id;
+        try {
+          const res = await fetch('/api/tasks/' + taskId);
+          if (!res.ok) throw new Error('Server error');
+          const data = await res.json();
+          renderDetailPanel(data);
+          detailPanel.classList.add('open');
+        } catch {
+          showToast('Failed to load task details');
+        }
+      });
+    });
   </script>
 </body>
 </html>`;
@@ -393,6 +522,20 @@ export function createBoardApp(
       ms.setMetadata({ task_id: task.id, key: 'priority', value: body.priority });
     }
     return c.json(task, 201);
+  });
+
+  app.get('/api/tasks/:id', (c) => {
+    const id = Number(c.req.param('id'));
+    if (isNaN(id)) {
+      return c.json({ error: 'Invalid task id' }, 400);
+    }
+    const task = ts.getTask(id);
+    if (!task) {
+      return c.json({ error: 'Task not found' }, 404);
+    }
+    const tags = tts.getTagsForTask(id);
+    const metadata = ms.listMetadata(id);
+    return c.json({ task, tags, metadata });
   });
 
   app.patch('/api/tasks/:id', async (c) => {

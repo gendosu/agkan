@@ -366,6 +366,106 @@ describe('createBoardApp', () => {
     });
   });
 
+  describe('GET /api/tasks/:id', () => {
+    it('should return task detail with tags and metadata', async () => {
+      const task = taskService.createTask({ title: 'Detail task', body: 'Task body text', status: 'ready' });
+      const tag = tagService.createTag({ name: 'backend' });
+      taskTagService.addTagToTask({ task_id: task.id, tag_id: tag.id });
+      metadataService.setMetadata({ task_id: task.id, key: 'priority', value: 'high' });
+
+      const app = createBoardApp(taskService, taskTagService, metadataService);
+      const res = await app.fetch(new Request(`http://localhost/api/tasks/${task.id}`));
+
+      expect(res.status).toBe(200);
+      const data = (await res.json()) as {
+        task: { id: number; title: string; body: string; status: string; created_at: string; updated_at: string };
+        tags: Array<{ name: string }>;
+        metadata: Array<{ key: string; value: string }>;
+      };
+      expect(data.task.id).toBe(task.id);
+      expect(data.task.title).toBe('Detail task');
+      expect(data.task.body).toBe('Task body text');
+      expect(data.task.status).toBe('ready');
+      expect(data.task.created_at).toBeDefined();
+      expect(data.task.updated_at).toBeDefined();
+      expect(data.tags).toHaveLength(1);
+      expect(data.tags[0].name).toBe('backend');
+      expect(data.metadata).toHaveLength(1);
+      expect(data.metadata[0].key).toBe('priority');
+      expect(data.metadata[0].value).toBe('high');
+    });
+
+    it('should return task with empty tags and metadata when none exist', async () => {
+      const task = taskService.createTask({ title: 'Bare task', status: 'backlog' });
+
+      const app = createBoardApp(taskService, taskTagService, metadataService);
+      const res = await app.fetch(new Request(`http://localhost/api/tasks/${task.id}`));
+
+      expect(res.status).toBe(200);
+      const data = (await res.json()) as {
+        task: { id: number; title: string };
+        tags: Array<{ name: string }>;
+        metadata: Array<{ key: string; value: string }>;
+      };
+      expect(data.task.title).toBe('Bare task');
+      expect(data.tags).toHaveLength(0);
+      expect(data.metadata).toHaveLength(0);
+    });
+
+    it('should return 404 for non-existent task', async () => {
+      const app = createBoardApp(taskService, taskTagService, metadataService);
+      const res = await app.fetch(new Request('http://localhost/api/tasks/9999'));
+
+      expect(res.status).toBe(404);
+      const data = (await res.json()) as { error: string };
+      expect(data.error).toBe('Task not found');
+    });
+
+    it('should return 400 for invalid (NaN) task id', async () => {
+      const app = createBoardApp(taskService, taskTagService, metadataService);
+      const res = await app.fetch(new Request('http://localhost/api/tasks/abc'));
+
+      expect(res.status).toBe(400);
+      const data = (await res.json()) as { error: string };
+      expect(data.error).toBe('Invalid task id');
+    });
+  });
+
+  describe('GET / (detail panel)', () => {
+    it('should include detail panel HTML in the board page', async () => {
+      const app = createBoardApp(taskService, taskTagService, metadataService);
+      const res = await app.fetch(new Request('http://localhost/'));
+      const html = await res.text();
+
+      expect(html).toContain('id="detail-panel"');
+      expect(html).toContain('id="detail-panel-close"');
+      expect(html).toContain('id="detail-panel-body"');
+      expect(html).toContain('class="detail-panel"');
+    });
+
+    it('should include detail panel CSS styles', async () => {
+      const app = createBoardApp(taskService, taskTagService, metadataService);
+      const res = await app.fetch(new Request('http://localhost/'));
+      const html = await res.text();
+
+      expect(html).toContain('.detail-panel');
+      expect(html).toContain('.detail-panel.open');
+      expect(html).toContain('.detail-panel-close');
+    });
+
+    it('should include card click handler script', async () => {
+      taskService.createTask({ title: 'Clickable task', status: 'backlog' });
+
+      const app = createBoardApp(taskService, taskTagService, metadataService);
+      const res = await app.fetch(new Request('http://localhost/'));
+      const html = await res.text();
+
+      expect(html).toContain('renderDetailPanel');
+      expect(html).toContain('closeDetailPanel');
+      expect(html).toContain("fetch('/api/tasks/'");
+    });
+  });
+
   describe('PATCH /api/tasks/:id', () => {
     it('should update task status', async () => {
       const task = taskService.createTask({ title: 'Move me', status: 'backlog' });
