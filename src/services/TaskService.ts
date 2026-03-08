@@ -91,7 +91,7 @@ export class TaskService {
       author?: string;
       assignees?: string;
       tagIds?: number[];
-      priority?: string;
+      priority?: string | string[];
     },
     sort?: SortField,
     order?: SortOrder
@@ -133,8 +133,12 @@ export class TaskService {
     }
 
     if (filters?.priority) {
-      query += ' AND priority = ?';
-      params.push(filters.priority);
+      const priorities = Array.isArray(filters.priority) ? filters.priority : [filters.priority];
+      if (priorities.length > 0) {
+        const placeholders = priorities.map(() => '?').join(', ');
+        query += ` AND priority IN (${placeholders})`;
+        params.push(...priorities);
+      }
     }
 
     const sortField: SortField = sort && ALLOWED_SORT_FIELDS.includes(sort) ? sort : 'created_at';
