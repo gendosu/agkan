@@ -133,7 +133,9 @@ function renderBoard(tasksByStatus: Map<TaskStatus, Task[]>, tagMap: Map<number,
     .modal-actions button.primary:hover { background: #2563eb; }
     .toast { position: fixed; bottom: 20px; right: 20px; background: #ef4444; color: white; padding: 10px 16px; border-radius: 6px; font-size: 13px; opacity: 0; transition: opacity 0.3s; pointer-events: none; }
     .toast.show { opacity: 1; }
-    .detail-panel { position: fixed; top: 0; right: 0; width: 400px; height: 100vh; background: white; box-shadow: -4px 0 16px rgba(0,0,0,0.1); z-index: 1500; transform: translateX(100%); transition: transform 0.25s ease; display: flex; flex-direction: column; }
+    .detail-panel { position: fixed; top: 0; right: 0; width: 400px; height: 100vh; background: white; box-shadow: -4px 0 16px rgba(0,0,0,0.1); z-index: 1500; transform: translateX(100%); transition: transform 0.25s ease; display: flex; flex-direction: column; min-width: 280px; max-width: 800px; }
+    .detail-panel-resize-handle { position: absolute; top: 0; left: 0; width: 6px; height: 100%; cursor: col-resize; z-index: 10; background: transparent; }
+    .detail-panel-resize-handle:hover, .detail-panel-resize-handle.dragging { background: rgba(59,130,246,0.3); }
     .detail-panel.open { transform: translateX(0); }
     .detail-panel-header { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; border-bottom: 1px solid #e2e8f0; }
     .detail-panel-header h2 { font-size: 16px; font-weight: 700; color: #1e293b; margin: 0; }
@@ -187,6 +189,7 @@ function renderBoard(tasksByStatus: Map<TaskStatus, Task[]>, tagMap: Map<number,
     <div class="context-menu-item danger" id="ctx-delete">Delete task</div>
   </div>
   <div class="detail-panel" id="detail-panel">
+    <div class="detail-panel-resize-handle" id="detail-panel-resize-handle"></div>
     <div class="detail-panel-header">
       <h2 id="detail-panel-title">Task Detail</h2>
       <button class="detail-panel-close" id="detail-panel-close" title="Close">&times;</button>
@@ -373,6 +376,49 @@ function renderBoard(tasksByStatus: Map<TaskStatus, Task[]>, tagMap: Map<number,
     }
 
     document.getElementById('detail-panel-close').addEventListener('click', closeDetailPanel);
+
+    // Detail panel resize
+    const resizeHandle = document.getElementById('detail-panel-resize-handle');
+    const PANEL_MIN_WIDTH = 280;
+    const PANEL_MAX_WIDTH = 800;
+    const PANEL_WIDTH_KEY = 'detailPanelWidth';
+
+    (function initPanelWidth() {
+      const saved = localStorage.getItem(PANEL_WIDTH_KEY);
+      if (saved) {
+        const w = parseInt(saved, 10);
+        if (w >= PANEL_MIN_WIDTH && w <= PANEL_MAX_WIDTH) {
+          detailPanel.style.width = w + 'px';
+        }
+      }
+    })();
+
+    resizeHandle.addEventListener('mousedown', function(e) {
+      e.preventDefault();
+      const startX = e.clientX;
+      const startWidth = detailPanel.offsetWidth;
+      resizeHandle.classList.add('dragging');
+      document.body.style.userSelect = 'none';
+      document.body.style.cursor = 'col-resize';
+
+      function onMouseMove(e) {
+        const delta = startX - e.clientX;
+        const newWidth = Math.min(PANEL_MAX_WIDTH, Math.max(PANEL_MIN_WIDTH, startWidth + delta));
+        detailPanel.style.width = newWidth + 'px';
+      }
+
+      function onMouseUp() {
+        resizeHandle.classList.remove('dragging');
+        document.body.style.userSelect = '';
+        document.body.style.cursor = '';
+        localStorage.setItem(PANEL_WIDTH_KEY, detailPanel.offsetWidth);
+        document.removeEventListener('mousemove', onMouseMove);
+        document.removeEventListener('mouseup', onMouseUp);
+      }
+
+      document.addEventListener('mousemove', onMouseMove);
+      document.addEventListener('mouseup', onMouseUp);
+    });
 
     const statusColors = ${JSON.stringify(STATUS_COLORS)};
     const allStatuses = ${JSON.stringify(STATUSES)};
