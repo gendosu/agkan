@@ -750,6 +750,68 @@ describe('setupTaskListCommand', () => {
     expect(parsed.tasks[1].title).toBe('First');
   });
 
+  it('should sort tasks by priority descending with --sort priority --order desc', async () => {
+    const taskService = new TaskService();
+    taskService.createTask({ title: 'Low Task', status: 'ready', priority: 'low' });
+    taskService.createTask({ title: 'No Priority Task', status: 'ready' });
+    taskService.createTask({ title: 'Critical Task', status: 'ready', priority: 'critical' });
+    taskService.createTask({ title: 'High Task', status: 'ready', priority: 'high' });
+    taskService.createTask({ title: 'Medium Task', status: 'ready', priority: 'medium' });
+
+    const consoleLogs: string[] = [];
+    const originalLog = console.log;
+    console.log = (...args: unknown[]) => consoleLogs.push(args.join(' '));
+
+    const originalExit = process.exit;
+    process.exit = (() => {}) as never;
+
+    try {
+      await program.parseAsync(['node', 'test', 'task', 'list', '--sort', 'priority', '--order', 'desc', '--json']);
+    } finally {
+      console.log = originalLog;
+      process.exit = originalExit;
+    }
+
+    const parsed = JSON.parse(consoleLogs[0]);
+    expect(parsed.tasks).toHaveLength(5);
+    expect(parsed.tasks[0].title).toBe('Critical Task');
+    expect(parsed.tasks[1].title).toBe('High Task');
+    expect(parsed.tasks[2].title).toBe('Medium Task');
+    expect(parsed.tasks[3].title).toBe('Low Task');
+    expect(parsed.tasks[4].title).toBe('No Priority Task');
+    expect(parsed.sort).toBe('priority');
+    expect(parsed.order).toBe('desc');
+  });
+
+  it('should sort tasks by priority ascending with --sort priority --order asc', async () => {
+    const taskService = new TaskService();
+    taskService.createTask({ title: 'Low Task', status: 'ready', priority: 'low' });
+    taskService.createTask({ title: 'No Priority Task', status: 'ready' });
+    taskService.createTask({ title: 'Critical Task', status: 'ready', priority: 'critical' });
+
+    const consoleLogs: string[] = [];
+    const originalLog = console.log;
+    console.log = (...args: unknown[]) => consoleLogs.push(args.join(' '));
+
+    const originalExit = process.exit;
+    process.exit = (() => {}) as never;
+
+    try {
+      await program.parseAsync(['node', 'test', 'task', 'list', '--sort', 'priority', '--order', 'asc', '--json']);
+    } finally {
+      console.log = originalLog;
+      process.exit = originalExit;
+    }
+
+    const parsed = JSON.parse(consoleLogs[0]);
+    expect(parsed.tasks).toHaveLength(3);
+    expect(parsed.tasks[0].title).toBe('No Priority Task');
+    expect(parsed.tasks[1].title).toBe('Low Task');
+    expect(parsed.tasks[2].title).toBe('Critical Task');
+    expect(parsed.sort).toBe('priority');
+    expect(parsed.order).toBe('asc');
+  });
+
   it('should display assignees in console output when assignees is set', async () => {
     const taskService = new TaskService();
     taskService.createTask({ title: 'Assignees Display Task', status: 'ready', assignees: 'alice,bob' });

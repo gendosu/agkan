@@ -5,8 +5,15 @@ import { wouldCreateCycle } from '../utils/cycle-detector';
 import { StorageProvider } from '../db/types/storage';
 
 /** Allowed sort fields for task listing */
-export const ALLOWED_SORT_FIELDS = ['id', 'title', 'status', 'created_at', 'updated_at'] as const;
+export const ALLOWED_SORT_FIELDS = ['id', 'title', 'status', 'created_at', 'updated_at', 'priority'] as const;
 export type SortField = (typeof ALLOWED_SORT_FIELDS)[number];
+
+/**
+ * SQL CASE expression for priority ordering.
+ * Numeric weight: critical=4, high=3, medium=2, low=1, NULL=0
+ * ORDER BY ... DESC puts critical first; ASC puts unset first.
+ */
+const PRIORITY_ORDER_EXPR = `CASE priority WHEN 'critical' THEN 4 WHEN 'high' THEN 3 WHEN 'medium' THEN 2 WHEN 'low' THEN 1 ELSE 0 END`;
 export type SortOrder = 'asc' | 'desc';
 
 /**
@@ -144,7 +151,13 @@ export class TaskService {
     const sortField: SortField = sort && ALLOWED_SORT_FIELDS.includes(sort) ? sort : 'created_at';
     const sortOrder: SortOrder = order === 'asc' ? 'asc' : 'desc';
     const tablePrefix = filters?.tagIds && filters.tagIds.length > 0 ? 'tasks.' : '';
-    query += ` ORDER BY ${tablePrefix}${sortField} ${sortOrder.toUpperCase()}, ${tablePrefix}id ${sortOrder.toUpperCase()}`;
+
+    if (sortField === 'priority') {
+      // Use CASE expression for custom priority ordering (critical > high > medium > low > unset)
+      query += ` ORDER BY ${PRIORITY_ORDER_EXPR} ${sortOrder.toUpperCase()}, ${tablePrefix}id ${sortOrder.toUpperCase()}`;
+    } else {
+      query += ` ORDER BY ${tablePrefix}${sortField} ${sortOrder.toUpperCase()}, ${tablePrefix}id ${sortOrder.toUpperCase()}`;
+    }
 
     const stmt = db.prepare(query);
     return stmt.all(...params) as unknown as Task[];
