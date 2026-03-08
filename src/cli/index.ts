@@ -13,6 +13,7 @@ import { setupTaskFindCommand } from './commands/task/find';
 import { setupTaskCountCommand } from './commands/task/count';
 import { setupTaskUpdateParentCommand } from './commands/task/update-parent';
 import { setupTaskDeleteCommand } from './commands/task/delete';
+import { setupTaskPurgeCommand } from './commands/task/purge';
 
 // Block command handlers
 import { setupBlockAddCommand } from './commands/block/add';
@@ -60,6 +61,7 @@ setupTaskFindCommand(program);
 setupTaskCountCommand(program);
 setupTaskUpdateParentCommand(program);
 setupTaskDeleteCommand(program);
+setupTaskPurgeCommand(program);
 
 // Register block commands (block and tag handlers create their own subcommands)
 setupBlockAddCommand(program);
