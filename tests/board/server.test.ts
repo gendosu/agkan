@@ -749,6 +749,84 @@ describe('createBoardApp', () => {
     });
   });
 
+  describe('GET / (board polling script)', () => {
+    it('should include polling script for board updates', async () => {
+      const app = createBoardApp(taskService, taskTagService, metadataService);
+      const res = await app.fetch(new Request('http://localhost/'));
+      const html = await res.text();
+
+      expect(html).toContain('pollBoardUpdates');
+      expect(html).toContain('/api/board/updated-at');
+      expect(html).toContain('setInterval');
+      expect(html).toContain('10000');
+    });
+
+    it('should skip reload when draggedCard is not null', async () => {
+      const app = createBoardApp(taskService, taskTagService, metadataService);
+      const res = await app.fetch(new Request('http://localhost/'));
+      const html = await res.text();
+
+      expect(html).toContain('draggedCard !== null');
+    });
+
+    it('should skip reload when detail panel is open', async () => {
+      const app = createBoardApp(taskService, taskTagService, metadataService);
+      const res = await app.fetch(new Request('http://localhost/'));
+      const html = await res.text();
+
+      expect(html).toContain("detailPanel.classList.contains('open')");
+    });
+  });
+
+  describe('GET /api/board/updated-at', () => {
+    it('should return 200 with an updatedAt timestamp when no tasks exist', async () => {
+      const app = createBoardApp(taskService, taskTagService, metadataService);
+      const res = await app.fetch(new Request('http://localhost/api/board/updated-at'));
+
+      expect(res.status).toBe(200);
+      const data = (await res.json()) as { updatedAt: string | null };
+      expect(Object.keys(data)).toContain('updatedAt');
+    });
+
+    it('should return the max updated_at from tasks', async () => {
+      taskService.createTask({ title: 'Task A', status: 'backlog' });
+      taskService.createTask({ title: 'Task B', status: 'ready' });
+
+      const app = createBoardApp(taskService, taskTagService, metadataService);
+      const res = await app.fetch(new Request('http://localhost/api/board/updated-at'));
+
+      expect(res.status).toBe(200);
+      const data = (await res.json()) as { updatedAt: string };
+      expect(data.updatedAt).toBeTruthy();
+    });
+
+    it('should reflect updated_at from task_metadata when metadata is newer', async () => {
+      const task = taskService.createTask({ title: 'Meta task', status: 'backlog' });
+
+      const app = createBoardApp(taskService, taskTagService, metadataService);
+      const res1 = await app.fetch(new Request('http://localhost/api/board/updated-at'));
+      const data1 = (await res1.json()) as { updatedAt: string };
+
+      // Set metadata after task creation
+      metadataService.setMetadata({ task_id: task.id, key: 'priority', value: 'high' });
+
+      const res2 = await app.fetch(new Request('http://localhost/api/board/updated-at'));
+      const data2 = (await res2.json()) as { updatedAt: string };
+
+      // The second call should have the same or newer timestamp
+      expect(data2.updatedAt >= data1.updatedAt).toBe(true);
+    });
+
+    it('should return null updatedAt when no tasks or metadata exist', async () => {
+      const app = createBoardApp(taskService, taskTagService, metadataService);
+      const res = await app.fetch(new Request('http://localhost/api/board/updated-at'));
+
+      expect(res.status).toBe(200);
+      const data = (await res.json()) as { updatedAt: string | null };
+      expect(data.updatedAt).toBeNull();
+    });
+  });
+
   describe('DELETE /api/tasks/:id', () => {
     it('should delete a task and return success', async () => {
       const task = taskService.createTask({ title: 'Delete me', status: 'backlog' });

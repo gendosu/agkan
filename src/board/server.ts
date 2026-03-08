@@ -6,6 +6,8 @@ import { MetadataService } from '../services/MetadataService';
 import { Task, TaskStatus, PRIORITIES, PRIORITY_ORDER, isPriority } from '../models';
 import { TaskMetadata } from '../models/TaskMetadata';
 import { Tag } from '../models/Tag';
+import { getDatabase } from '../db/connection';
+import { StorageProvider } from '../db/types/storage';
 
 const STATUSES: TaskStatus[] = ['icebox', 'backlog', 'ready', 'in_progress', 'review', 'done', 'closed'];
 
@@ -511,6 +513,28 @@ function renderBoard(
         }
       });
     });
+
+    // Board polling: reload when updated_at changes (skip during drag or detail panel open)
+    let lastUpdatedAt = null;
+    async function pollBoardUpdates() {
+      if (draggedCard !== null) return;
+      if (detailPanel.classList.contains('open')) return;
+      try {
+        const res = await fetch('/api/board/updated-at');
+        if (!res.ok) return;
+        const data = await res.json();
+        const ts = data.updatedAt;
+        if (lastUpdatedAt === null) {
+          lastUpdatedAt = ts;
+        } else if (ts !== lastUpdatedAt) {
+          location.reload();
+        }
+      } catch {
+        // Ignore network errors during polling
+      }
+    }
+    setInterval(pollBoardUpdates, 10000);
+    pollBoardUpdates();
   </script>
 </body>
 </html>`;
@@ -529,12 +553,14 @@ function sortByPriority(tasks: Task[], metaMap: Map<number, TaskMetadata[]>): Ta
 export function createBoardApp(
   taskService?: TaskService,
   taskTagService?: TaskTagService,
-  metadataService?: MetadataService
+  metadataService?: MetadataService,
+  db?: StorageProvider
 ): Hono {
   const app = new Hono();
   const ts = taskService ?? new TaskService();
   const tts = taskTagService ?? new TaskTagService();
   const ms = metadataService ?? new MetadataService();
+  const database = db ?? getDatabase();
 
   app.get('/', (c) => {
     const tasks = ts.listTasks({}, 'id', 'asc');
@@ -554,6 +580,18 @@ export function createBoardApp(
     }
 
     return c.html(renderBoard(tasksByStatus, tagMap, metaMap));
+  });
+
+  app.get('/api/board/updated-at', (c) => {
+    const stmt = database.prepare(`
+      SELECT MAX(updated_at) as max_updated_at FROM (
+        SELECT updated_at FROM tasks
+        UNION ALL
+        SELECT updated_at FROM task_metadata
+      )
+    `);
+    const row = stmt.get() as { max_updated_at: string | null };
+    return c.json({ updatedAt: row.max_updated_at });
   });
 
   app.get('/api/tasks', (c) => {
