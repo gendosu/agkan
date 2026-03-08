@@ -9,6 +9,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 (no entries yet)
 
+## [2.1.0] - 2026-03-08
+
+### Added
+- Add `task purge` command for archiving and cleaning up tasks (#37)
+- Add `--priority` option to `task add` and `task update` commands (#35)
+- Add priority field to Task model, TaskService, and database migration (#35)
+- Add board polling to auto-reload on external changes (#38)
+- Add edit task functionality to board context menu (#31)
+- Make board detail panel directly editable (removed context menu edit entry) (#33)
+- Add `agkan show` as alias for `task get` command (#30)
+
+### Fixed
+- Ignore Enter key during IME composition in board add modal (#36)
+- Rename `agkan task tag` to `agkan tag` in README (#32)
+
+### Tests
+- Add tests for priority field in TaskService and CLI commands
+
 ## [2.0.0] - 2026-03-07
 
 ### Added
