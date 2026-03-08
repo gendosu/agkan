@@ -456,6 +456,41 @@ describe('createBoardApp', () => {
       expect(html).toContain('closeDetailPanel');
       expect(html).toContain("fetch('/api/tasks/'");
     });
+
+    it('should include resize handle element in detail panel', async () => {
+      const app = createBoardApp(taskService, taskTagService, metadataService);
+      const res = await app.fetch(new Request('http://localhost/'));
+      const html = await res.text();
+
+      expect(html).toContain('id="detail-panel-resize-handle"');
+      expect(html).toContain('detail-panel-resize-handle');
+    });
+
+    it('should include resize handle CSS styles', async () => {
+      const app = createBoardApp(taskService, taskTagService, metadataService);
+      const res = await app.fetch(new Request('http://localhost/'));
+      const html = await res.text();
+
+      expect(html).toContain('.detail-panel-resize-handle');
+      expect(html).toContain('cursor: col-resize');
+      expect(html).toContain('min-width: 280px');
+      expect(html).toContain('max-width: 800px');
+    });
+
+    it('should include resize JavaScript with localStorage support', async () => {
+      const app = createBoardApp(taskService, taskTagService, metadataService);
+      const res = await app.fetch(new Request('http://localhost/'));
+      const html = await res.text();
+
+      expect(html).toContain('PANEL_MIN_WIDTH');
+      expect(html).toContain('PANEL_MAX_WIDTH');
+      expect(html).toContain('PANEL_WIDTH_KEY');
+      expect(html).toContain('localStorage.getItem');
+      expect(html).toContain('localStorage.setItem');
+      expect(html).toContain('mousedown');
+      expect(html).toContain('mousemove');
+      expect(html).toContain('mouseup');
+    });
   });
 
   describe('PATCH /api/tasks/:id', () => {
