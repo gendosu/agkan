@@ -3,6 +3,8 @@
  * Type definitions and status management for tasks
  */
 
+import type { Priority } from './Priority';
+
 /**
  * Task status type
  */
@@ -19,6 +21,7 @@ export interface Task {
   author: string | null;
   assignees: string | null;
   status: TaskStatus;
+  priority: Priority | null;
   created_at: string;
   updated_at: string;
   parent_id: number | null;
@@ -40,6 +43,7 @@ export interface CreateTaskInput {
   author?: string; // max 100 chars
   assignees?: string; // max 500 chars, CSV format
   status?: TaskStatus;
+  priority?: Priority | null;
   parent_id?: number | null;
 }
 
@@ -59,5 +63,6 @@ export interface UpdateTaskInput {
   author?: string; // max 100 chars
   assignees?: string; // max 500 chars, CSV format
   status?: TaskStatus;
+  priority?: Priority | null;
   parent_id?: number | null;
 }

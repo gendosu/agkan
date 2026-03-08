@@ -6,13 +6,14 @@ import { Command } from 'commander';
 import chalk from 'chalk';
 import { TaskService } from '../../../services';
 import { TaskStatus } from '../../../models';
+import { Priority, isPriority } from '../../../models/Priority';
 import { handleError, validateNumberInput } from '../../utils/error-handler';
 import { validateTaskStatus } from '../../utils/validators';
 import { getStatusColor, formatDate } from '../../../utils/format';
 import { createFormatter } from '../../utils/output-formatter';
 import { readBodyFromFile } from './add-helpers';
 
-const SUPPORTED_FIELDS = ['status', 'title', 'body', 'author', 'assignees'] as const;
+const SUPPORTED_FIELDS = ['status', 'title', 'body', 'author', 'assignees', 'priority'] as const;
 type SupportedField = (typeof SUPPORTED_FIELDS)[number];
 
 export function setupTaskUpdateCommand(program: Command): void {
@@ -31,6 +32,7 @@ export function setupTaskUpdateCommand(program: Command): void {
     .option('--body <body>', 'Update body')
     .option('--author <author>', 'Update author')
     .option('--assignees <assignees>', 'Update assignees')
+    .option('--priority <priority>', 'Update priority (critical, high, medium, low, or empty to clear)')
     .option('--file <path>', 'Read body from file (only valid for body field)')
     .option('--json', 'Output in JSON format')
     .description('Update a task field')
@@ -54,6 +56,7 @@ export function setupTaskUpdateCommand(program: Command): void {
           body: options.body,
           author: options.author,
           assignees: options.assignees,
+          priority: options.priority,
         };
         const hasFlagFields = Object.values(flagFields).some((v) => v !== undefined);
 
@@ -92,6 +95,15 @@ export function setupTaskUpdateCommand(program: Command): void {
                       console.log('Valid statuses: icebox, backlog, ready, in_progress, review, done, closed\n');
                     }
                   );
+                  process.exit(1);
+                }
+              }
+              if (key === 'priority' && val !== '') {
+                if (!isPriority(val)) {
+                  formatter.error(`Invalid priority: ${val}. Valid priorities: critical, high, medium, low`, () => {
+                    console.log(chalk.red(`\nInvalid priority: ${val}`));
+                    console.log('Valid priorities: critical, high, medium, low\n');
+                  });
                   process.exit(1);
                 }
               }
@@ -172,6 +184,18 @@ export function setupTaskUpdateCommand(program: Command): void {
               process.exit(1);
             }
             updateInput.status = resolvedValue;
+          } else if (field === 'priority') {
+            if (resolvedValue !== '' && !isPriority(resolvedValue)) {
+              formatter.error(
+                `Invalid priority: ${resolvedValue}. Valid priorities: critical, high, medium, low`,
+                () => {
+                  console.log(chalk.red(`\nInvalid priority: ${resolvedValue}`));
+                  console.log('Valid priorities: critical, high, medium, low\n');
+                }
+              );
+              process.exit(1);
+            }
+            updateInput.priority = resolvedValue;
           } else {
             updateInput[field] = resolvedValue;
           }
@@ -183,6 +207,9 @@ export function setupTaskUpdateCommand(program: Command): void {
           ...(updateInput.body !== undefined && { body: updateInput.body }),
           ...(updateInput.author !== undefined && { author: updateInput.author }),
           ...(updateInput.assignees !== undefined && { assignees: updateInput.assignees }),
+          ...(updateInput.priority !== undefined && {
+            priority: updateInput.priority === '' ? null : (updateInput.priority as Priority),
+          }),
         });
 
         if (!task) {

@@ -45,8 +45,8 @@ export class TaskService {
     }
 
     const stmt = db.prepare(`
-      INSERT INTO tasks (title, body, author, assignees, status, parent_id, created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO tasks (title, body, author, assignees, status, priority, parent_id, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
 
     const result = stmt.run(
@@ -55,6 +55,7 @@ export class TaskService {
       input.author || null,
       input.assignees || null,
       status,
+      input.priority !== undefined ? input.priority : null,
       input.parent_id !== undefined ? input.parent_id : null,
       now,
       now
@@ -90,6 +91,7 @@ export class TaskService {
       author?: string;
       assignees?: string;
       tagIds?: number[];
+      priority?: string;
     },
     sort?: SortField,
     order?: SortOrder
@@ -128,6 +130,11 @@ export class TaskService {
     if (filters?.assignees) {
       query += ' AND assignees LIKE ?';
       params.push(`%${filters.assignees}%`);
+    }
+
+    if (filters?.priority) {
+      query += ' AND priority = ?';
+      params.push(filters.priority);
     }
 
     const sortField: SortField = sort && ALLOWED_SORT_FIELDS.includes(sort) ? sort : 'created_at';
@@ -172,6 +179,11 @@ export class TaskService {
     if (input.status !== undefined) {
       updates.push('status = ?');
       params.push(input.status);
+    }
+
+    if (input.priority !== undefined) {
+      updates.push('priority = ?');
+      params.push(input.priority);
     }
 
     if (input.parent_id !== undefined) {
