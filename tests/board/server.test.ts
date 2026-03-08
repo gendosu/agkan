@@ -800,8 +800,45 @@ describe('createBoardApp', () => {
       const res2 = await app.fetch(new Request('http://localhost/api/board/updated-at'));
       const data2 = (await res2.json()) as { updatedAt: string };
 
-      // The second call should have the same or newer timestamp
-      expect(data2.updatedAt >= data1.updatedAt).toBe(true);
+      // The fingerprint should change when metadata is added
+      expect(data2.updatedAt).not.toBe(data1.updatedAt);
+    });
+
+    it('should change fingerprint when a tag is attached to a task', async () => {
+      const task = taskService.createTask({ title: 'Tag attach task', status: 'backlog' });
+      const tag = tagService.createTag({ name: 'test-tag' });
+
+      const app = createBoardApp(taskService, taskTagService, metadataService);
+      const res1 = await app.fetch(new Request('http://localhost/api/board/updated-at'));
+      const data1 = (await res1.json()) as { updatedAt: string };
+
+      // Attach a tag
+      taskTagService.addTagToTask({ task_id: task.id, tag_id: tag.id });
+
+      const res2 = await app.fetch(new Request('http://localhost/api/board/updated-at'));
+      const data2 = (await res2.json()) as { updatedAt: string };
+
+      // The fingerprint should change when a tag is attached
+      expect(data2.updatedAt).not.toBe(data1.updatedAt);
+    });
+
+    it('should change fingerprint when a tag is detached from a task', async () => {
+      const task = taskService.createTask({ title: 'Tag detach task', status: 'backlog' });
+      const tag = tagService.createTag({ name: 'detach-tag' });
+      taskTagService.addTagToTask({ task_id: task.id, tag_id: tag.id });
+
+      const app = createBoardApp(taskService, taskTagService, metadataService);
+      const res1 = await app.fetch(new Request('http://localhost/api/board/updated-at'));
+      const data1 = (await res1.json()) as { updatedAt: string };
+
+      // Detach the tag
+      taskTagService.removeTagFromTask(task.id, tag.id);
+
+      const res2 = await app.fetch(new Request('http://localhost/api/board/updated-at'));
+      const data2 = (await res2.json()) as { updatedAt: string };
+
+      // The fingerprint should change when a tag is detached (COUNT changes)
+      expect(data2.updatedAt).not.toBe(data1.updatedAt);
     });
 
     it('should return null updatedAt when no tasks or metadata exist', async () => {

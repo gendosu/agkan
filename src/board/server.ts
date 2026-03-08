@@ -574,15 +574,24 @@ export function createBoardApp(
   });
 
   app.get('/api/board/updated-at', (c) => {
-    const stmt = database.prepare(`
+    const stmtBase = database.prepare(`
       SELECT MAX(updated_at) as max_updated_at FROM (
         SELECT updated_at FROM tasks
         UNION ALL
         SELECT updated_at FROM task_metadata
       )
     `);
-    const row = stmt.get() as { max_updated_at: string | null };
-    return c.json({ updatedAt: row.max_updated_at });
+    const baseRow = stmtBase.get() as { max_updated_at: string | null };
+
+    const stmtTags = database.prepare(`
+      SELECT MAX(created_at) as max_created_at, COUNT(*) as count FROM task_tags
+    `);
+    const tagsRow = stmtTags.get() as { max_created_at: string | null; count: number };
+
+    const fingerprint = `${baseRow.max_updated_at}|${tagsRow.max_created_at}|${tagsRow.count}`;
+    const updatedAt = baseRow.max_updated_at === null && tagsRow.max_created_at === null ? null : fingerprint;
+
+    return c.json({ updatedAt });
   });
 
   app.get('/api/tasks', (c) => {
