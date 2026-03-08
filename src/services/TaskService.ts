@@ -144,7 +144,7 @@ export class TaskService {
     const sortField: SortField = sort && ALLOWED_SORT_FIELDS.includes(sort) ? sort : 'created_at';
     const sortOrder: SortOrder = order === 'asc' ? 'asc' : 'desc';
     const tablePrefix = filters?.tagIds && filters.tagIds.length > 0 ? 'tasks.' : '';
-    query += ` ORDER BY ${tablePrefix}${sortField} ${sortOrder.toUpperCase()}`;
+    query += ` ORDER BY ${tablePrefix}${sortField} ${sortOrder.toUpperCase()}, ${tablePrefix}id ${sortOrder.toUpperCase()}`;
 
     const stmt = db.prepare(query);
     return stmt.all(...params) as unknown as Task[];
