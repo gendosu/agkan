@@ -645,6 +645,36 @@ describe('TaskService', () => {
       expect(highTasks.length).toBe(1);
       expect(highTasks[0].title).toBe('High Task');
     });
+
+    it('priorityソートで降順（critical > high > medium > low > 未設定）にソートできる', () => {
+      taskService.createTask({ title: 'Low Task', priority: 'low' });
+      taskService.createTask({ title: 'No Priority Task' });
+      taskService.createTask({ title: 'High Task', priority: 'high' });
+      taskService.createTask({ title: 'Critical Task', priority: 'critical' });
+      taskService.createTask({ title: 'Medium Task', priority: 'medium' });
+
+      const tasks = taskService.listTasks({}, 'priority', 'desc');
+      expect(tasks[0].title).toBe('Critical Task');
+      expect(tasks[1].title).toBe('High Task');
+      expect(tasks[2].title).toBe('Medium Task');
+      expect(tasks[3].title).toBe('Low Task');
+      expect(tasks[4].title).toBe('No Priority Task');
+    });
+
+    it('priorityソートで昇順（未設定 > low > medium > high > critical）にソートできる', () => {
+      taskService.createTask({ title: 'Low Task', priority: 'low' });
+      taskService.createTask({ title: 'No Priority Task' });
+      taskService.createTask({ title: 'High Task', priority: 'high' });
+      taskService.createTask({ title: 'Critical Task', priority: 'critical' });
+      taskService.createTask({ title: 'Medium Task', priority: 'medium' });
+
+      const tasks = taskService.listTasks({}, 'priority', 'asc');
+      expect(tasks[0].title).toBe('No Priority Task');
+      expect(tasks[1].title).toBe('Low Task');
+      expect(tasks[2].title).toBe('Medium Task');
+      expect(tasks[3].title).toBe('High Task');
+      expect(tasks[4].title).toBe('Critical Task');
+    });
   });
 
   describe('updateTask', () => {
