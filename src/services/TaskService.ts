@@ -289,6 +289,36 @@ export class TaskService {
   }
 
   /**
+   * Purge (delete) tasks that match given statuses and were last updated before the given date
+   * @param beforeDate - ISO date string; tasks updated before this date are eligible
+   * @param statuses - Array of statuses to target (default: ['done', 'closed'])
+   * @param dryRun - If true, return matching tasks without deleting them
+   * @returns Array of purged (or would-be-purged) tasks
+   */
+  purgeTasksBefore(beforeDate: string, statuses: TaskStatus[] = ['done', 'closed'], dryRun: boolean = false): Task[] {
+    const db = this.db;
+
+    if (statuses.length === 0) {
+      return [];
+    }
+
+    const placeholders = statuses.map(() => '?').join(', ');
+    const query = `SELECT * FROM tasks WHERE status IN (${placeholders}) AND updated_at < ? ORDER BY updated_at ASC`;
+    const params: (string | number)[] = [...statuses, beforeDate];
+
+    const stmt = db.prepare(query);
+    const tasks = stmt.all(...params) as unknown as Task[];
+
+    if (!dryRun && tasks.length > 0) {
+      const idPlaceholders = tasks.map(() => '?').join(', ');
+      const ids = tasks.map((t) => t.id);
+      db.prepare(`DELETE FROM tasks WHERE id IN (${idPlaceholders})`).run(...ids);
+    }
+
+    return tasks;
+  }
+
+  /**
    * Search tasks
    * @param keyword - Search keyword (LIKE search on title and body)
    * @param includeAll - If true, include done/closed tasks in search (default: false)
