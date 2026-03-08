@@ -6,7 +6,7 @@ import { Command } from 'commander';
 import chalk from 'chalk';
 import { TaskService, TagService, TaskTagService, MetadataService, TaskBlockService } from '../../../services';
 import { ALLOWED_SORT_FIELDS, SortField, SortOrder } from '../../../services/TaskService';
-import { TaskStatus } from '../../../models';
+import { TaskStatus, PRIORITIES, isPriority } from '../../../models';
 import { handleError } from '../../utils/error-handler';
 import { validateTaskStatus } from '../../utils/validators';
 import { getStatusColor, formatDate } from '../../../utils/format';
@@ -128,6 +128,7 @@ function buildTreeJsonOutput(
     all?: boolean;
     sort?: string;
     order?: string;
+    priority?: string;
   },
   tagIds: number[] | undefined,
   taskService: TaskService,
@@ -146,6 +147,7 @@ function buildTreeJsonOutput(
       tagIds: tagIds || [],
       rootOnly: options.rootOnly || false,
       all: options.all || false,
+      priority: options.priority || null,
     },
     sort: options.sort || 'created_at',
     order: options.order || 'desc',
@@ -158,7 +160,15 @@ function buildTreeJsonOutput(
  */
 function buildListJsonOutput(
   displayTasks: TaskRecord[],
-  options: { status?: string; author?: string; assignees?: string; rootOnly?: boolean; sort?: string; order?: string },
+  options: {
+    status?: string;
+    author?: string;
+    assignees?: string;
+    rootOnly?: boolean;
+    sort?: string;
+    order?: string;
+    priority?: string;
+  },
   tagIds: number[] | undefined,
   taskService: TaskService,
   allTaskTags: TaskTagMap,
@@ -176,6 +186,7 @@ function buildListJsonOutput(
       assignees: options.assignees || null,
       tagIds: tagIds || [],
       rootOnly: options.rootOnly || false,
+      priority: options.priority || null,
     },
     sort: options.sort || 'created_at',
     order: options.order || 'desc',
@@ -367,7 +378,7 @@ function buildDepTreeNode(
  */
 function buildDepTreeJsonOutput(
   displayTasks: TaskRecord[],
-  options: { status?: string; author?: string; rootOnly?: boolean; all?: boolean },
+  options: { status?: string; author?: string; rootOnly?: boolean; all?: boolean; priority?: string },
   tagIds: number[] | undefined,
   taskService: TaskService,
   blockMap: BlockMap,
@@ -386,6 +397,7 @@ function buildDepTreeJsonOutput(
       tagIds: tagIds || [],
       rootOnly: options.rootOnly || false,
       all: options.all || false,
+      priority: options.priority || null,
     },
     tasks: rootTasks.map((task) =>
       buildDepTreeNode(task, taskService, blockMap, allTaskTags, allTasksMetadata, new Set())
@@ -517,6 +529,10 @@ export function setupTaskListCommand(program: Command): void {
     .option('-a, --author <author>', 'Filter by author')
     .option('--assignees <assignees>', 'Filter by assignee (LIKE match on CSV assignees field)')
     .option('-t, --tag <tags>', 'Filter by tag IDs or names (comma-separated, e.g., "1,2,3" or "bug,feature")')
+    .option(
+      '-p, --priority <priorities>',
+      `Filter by priority (comma-separated, e.g., "high" or "critical,high"). Valid values: ${PRIORITIES.join(', ')}`
+    )
     .option('--all', 'Include all statuses (including done and closed)')
     .option('--tree', 'Display tasks in tree structure')
     .option('--dep-tree', 'Display tasks in dependency (blocking) tree structure')
@@ -581,12 +597,34 @@ export function setupTaskListCommand(program: Command): void {
         // Parse and resolve tag filter (supports IDs and names)
         const tagIds = resolveTagIds(options.tag, tagService, formatter);
 
+        // Validate and parse priority filter (comma-separated)
+        let priorityFilter: string | string[] | undefined;
+        if (options.priority) {
+          const priorityParts = options.priority
+            .split(',')
+            .map((s: string) => s.trim())
+            .filter((s: string) => s !== '');
+
+          for (const p of priorityParts) {
+            if (!isPriority(p)) {
+              formatter.error(`Invalid priority: ${p}. Valid priorities: ${PRIORITIES.join(', ')}`, () => {
+                console.log(chalk.red(`Invalid priority: ${p}`));
+                console.log(`Valid priorities: ${PRIORITIES.join(', ')}`);
+              });
+              process.exit(1);
+            }
+          }
+
+          priorityFilter = priorityParts.length === 1 ? priorityParts[0] : priorityParts;
+        }
+
         let tasks = taskService.listTasks(
           {
             status: statusFilter,
             author: options.author,
             assignees: options.assignees,
             tagIds,
+            priority: priorityFilter,
           },
           options.sort as SortField,
           options.order as SortOrder
@@ -615,6 +653,7 @@ export function setupTaskListCommand(program: Command): void {
                 tagIds: tagIds || [],
                 rootOnly: options.rootOnly || false,
                 all: options.all || false,
+                priority: options.priority || null,
               },
               tasks: [],
             }),

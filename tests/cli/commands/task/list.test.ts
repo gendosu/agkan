@@ -48,6 +48,7 @@ describe('setupTaskListCommand', () => {
     expect(optionNames).toContain('--status');
     expect(optionNames).toContain('--author');
     expect(optionNames).toContain('--tag');
+    expect(optionNames).toContain('--priority');
     expect(optionNames).toContain('--all');
     expect(optionNames).toContain('--tree');
     expect(optionNames).toContain('--root-only');
@@ -1012,5 +1013,132 @@ describe('setupTaskListCommand', () => {
     // Blocked Task should NOT be a root
     const blocked = parsed.tasks.find((t: { title: string }) => t.title === 'Blocked Task');
     expect(blocked).toBeUndefined();
+  });
+
+  it('should have --priority option', () => {
+    const taskCommand = program.commands.find((cmd) => cmd.name() === 'task');
+    const listCommand = taskCommand?.commands.find((cmd) => cmd.name() === 'list');
+
+    const options = listCommand?.options || [];
+    const optionNames = options.map((opt) => opt.long);
+
+    expect(optionNames).toContain('--priority');
+  });
+
+  it('should filter tasks by single priority', async () => {
+    const taskService = new TaskService();
+    taskService.createTask({ title: 'High Priority Task', status: 'ready', priority: 'high' });
+    taskService.createTask({ title: 'Low Priority Task', status: 'ready', priority: 'low' });
+    taskService.createTask({ title: 'No Priority Task', status: 'ready' });
+
+    const consoleLogs: string[] = [];
+    const originalLog = console.log;
+    console.log = (...args: unknown[]) => consoleLogs.push(args.join(' '));
+    const originalExit = process.exit;
+    process.exit = (() => {}) as never;
+
+    try {
+      await program.parseAsync(['node', 'test', 'task', 'list', '--priority', 'high']);
+    } finally {
+      console.log = originalLog;
+      process.exit = originalExit;
+    }
+
+    const output = consoleLogs.join('\n');
+    expect(output).toContain('High Priority Task');
+    expect(output).not.toContain('Low Priority Task');
+    expect(output).not.toContain('No Priority Task');
+  });
+
+  it('should filter tasks by multiple priorities (comma-separated)', async () => {
+    const taskService = new TaskService();
+    taskService.createTask({ title: 'Critical Task', status: 'ready', priority: 'critical' });
+    taskService.createTask({ title: 'High Task', status: 'ready', priority: 'high' });
+    taskService.createTask({ title: 'Medium Task', status: 'ready', priority: 'medium' });
+    taskService.createTask({ title: 'Low Task', status: 'ready', priority: 'low' });
+
+    const consoleLogs: string[] = [];
+    const originalLog = console.log;
+    console.log = (...args: unknown[]) => consoleLogs.push(args.join(' '));
+    const originalExit = process.exit;
+    process.exit = (() => {}) as never;
+
+    try {
+      await program.parseAsync(['node', 'test', 'task', 'list', '--priority', 'critical,high']);
+    } finally {
+      console.log = originalLog;
+      process.exit = originalExit;
+    }
+
+    const output = consoleLogs.join('\n');
+    expect(output).toContain('Critical Task');
+    expect(output).toContain('High Task');
+    expect(output).not.toContain('Medium Task');
+    expect(output).not.toContain('Low Task');
+  });
+
+  it('should show error on invalid priority', async () => {
+    const consoleLogs: string[] = [];
+    const originalLog = console.log;
+    console.log = (...args: unknown[]) => consoleLogs.push(args.join(' '));
+    let exitCode: number | undefined;
+    const originalExit = process.exit;
+    process.exit = ((code?: number) => {
+      exitCode = code;
+    }) as never;
+
+    try {
+      await program.parseAsync(['node', 'test', 'task', 'list', '--priority', 'invalid_priority']);
+    } finally {
+      console.log = originalLog;
+      process.exit = originalExit;
+    }
+
+    expect(exitCode).toBe(1);
+    const output = consoleLogs.join('\n');
+    expect(output).toContain('Invalid priority');
+  });
+
+  it('should include priority in JSON output filters', async () => {
+    const taskService = new TaskService();
+    taskService.createTask({ title: 'High Task JSON', status: 'ready', priority: 'high' });
+
+    const consoleLogs: string[] = [];
+    const originalLog = console.log;
+    console.log = (...args: unknown[]) => consoleLogs.push(args.join(' '));
+    const originalExit = process.exit;
+    process.exit = (() => {}) as never;
+
+    try {
+      await program.parseAsync(['node', 'test', 'task', 'list', '--priority', 'high', '--json']);
+    } finally {
+      console.log = originalLog;
+      process.exit = originalExit;
+    }
+
+    const parsed = JSON.parse(consoleLogs[0]);
+    expect(parsed.filters.priority).toBe('high');
+    expect(parsed.tasks).toHaveLength(1);
+    expect(parsed.tasks[0].title).toBe('High Task JSON');
+  });
+
+  it('should include priority filter in empty JSON output', async () => {
+    const consoleLogs: string[] = [];
+    const originalLog = console.log;
+    console.log = (...args: unknown[]) => consoleLogs.push(args.join(' '));
+    const originalExit = process.exit;
+    process.exit = (() => {}) as never;
+
+    try {
+      await program.parseAsync(['node', 'test', 'task', 'list', '--priority', 'critical', '--json']);
+    } finally {
+      console.log = originalLog;
+      process.exit = originalExit;
+    }
+
+    const parsed = JSON.parse(consoleLogs[0]);
+    expect(parsed.totalCount).toBe(0);
+    expect(parsed.filters.priority).toBe('critical');
+    expect(parsed.tasks).toHaveLength(0);
   });
 });

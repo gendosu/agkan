@@ -91,7 +91,7 @@ export class TaskService {
       author?: string;
       assignees?: string;
       tagIds?: number[];
-      priority?: string;
+      priority?: string | string[];
     },
     sort?: SortField,
     order?: SortOrder
@@ -133,14 +133,18 @@ export class TaskService {
     }
 
     if (filters?.priority) {
-      query += ' AND priority = ?';
-      params.push(filters.priority);
+      const priorities = Array.isArray(filters.priority) ? filters.priority : [filters.priority];
+      if (priorities.length > 0) {
+        const placeholders = priorities.map(() => '?').join(', ');
+        query += ` AND priority IN (${placeholders})`;
+        params.push(...priorities);
+      }
     }
 
     const sortField: SortField = sort && ALLOWED_SORT_FIELDS.includes(sort) ? sort : 'created_at';
     const sortOrder: SortOrder = order === 'asc' ? 'asc' : 'desc';
     const tablePrefix = filters?.tagIds && filters.tagIds.length > 0 ? 'tasks.' : '';
-    query += ` ORDER BY ${tablePrefix}${sortField} ${sortOrder.toUpperCase()}`;
+    query += ` ORDER BY ${tablePrefix}${sortField} ${sortOrder.toUpperCase()}, ${tablePrefix}id ${sortOrder.toUpperCase()}`;
 
     const stmt = db.prepare(query);
     return stmt.all(...params) as unknown as Task[];

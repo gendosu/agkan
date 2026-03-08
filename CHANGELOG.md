@@ -7,7 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-(no entries yet)
+### Added
+- Add `--priority` filter option to `task list` command, supporting comma-separated values (e.g., `--priority high` or `--priority critical,high`) (#119)
 
 ## [2.1.1] - 2026-03-08
 
