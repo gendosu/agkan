@@ -7,8 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.2.0] - 2026-03-08
+
 ### Added
 - Add `--priority` filter option to `task list` command, supporting comma-separated values (e.g., `--priority high` or `--priority critical,high`) (#119)
+- Add priority sort support to `task list` command (#118)
+- Make board detail panel resizable by dragging (#125)
+
+### Fixed
+- Detect task_tags changes in board polling endpoint (#126)
+- Add id as tiebreaker in listTasks sort to ensure stable ordering
 
 ## [2.1.1] - 2026-03-08
 
