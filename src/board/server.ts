@@ -299,7 +299,7 @@ function renderBoard(
     });
 
     addTitle.addEventListener('keydown', e => {
-      if (e.key === 'Enter') { e.preventDefault(); document.getElementById('add-submit').click(); }
+      if (e.key === 'Enter' && !e.isComposing) { e.preventDefault(); document.getElementById('add-submit').click(); }
     });
 
     document.getElementById('add-submit').addEventListener('click', async () => {
