@@ -542,6 +542,43 @@ function sortByPriority(tasks: Task[]): Task[] {
   });
 }
 
+type TaskPatchBody = {
+  title?: string;
+  body?: string | null;
+  status?: TaskStatus;
+  priority?: string | null;
+};
+
+type TaskUpdateInput = { title?: string; body?: string; status?: TaskStatus; priority?: Priority | null };
+
+function buildTaskUpdateInput(body: TaskPatchBody): { input: TaskUpdateInput; error?: string } {
+  const input: TaskUpdateInput = {};
+
+  if (body.status !== undefined) {
+    if (!STATUSES.includes(body.status)) {
+      return { input, error: 'Invalid status' };
+    }
+    input.status = body.status;
+  }
+
+  if (body.title !== undefined) {
+    if (!body.title.trim()) {
+      return { input, error: 'Title cannot be empty' };
+    }
+    input.title = body.title.trim();
+  }
+
+  if (body.body !== undefined) {
+    input.body = body.body ?? '';
+  }
+
+  if (body.priority !== undefined) {
+    input.priority = body.priority && isPriority(body.priority) ? body.priority : null;
+  }
+
+  return { input };
+}
+
 export function createBoardApp(
   taskService?: TaskService,
   taskTagService?: TaskTagService,
@@ -574,15 +611,24 @@ export function createBoardApp(
   });
 
   app.get('/api/board/updated-at', (c) => {
-    const stmt = database.prepare(`
+    const stmtBase = database.prepare(`
       SELECT MAX(updated_at) as max_updated_at FROM (
         SELECT updated_at FROM tasks
         UNION ALL
         SELECT updated_at FROM task_metadata
       )
     `);
-    const row = stmt.get() as { max_updated_at: string | null };
-    return c.json({ updatedAt: row.max_updated_at });
+    const baseRow = stmtBase.get() as { max_updated_at: string | null };
+
+    const stmtTags = database.prepare(`
+      SELECT MAX(created_at) as max_created_at, COUNT(*) as count FROM task_tags
+    `);
+    const tagsRow = stmtTags.get() as { max_created_at: string | null; count: number };
+
+    const fingerprint = `${baseRow.max_updated_at}|${tagsRow.max_created_at}|${tagsRow.count}`;
+    const updatedAt = baseRow.max_updated_at === null && tagsRow.max_created_at === null ? null : fingerprint;
+
+    return c.json({ updatedAt });
   });
 
   app.get('/api/tasks', (c) => {
@@ -625,42 +671,15 @@ export function createBoardApp(
     if (isNaN(id)) {
       return c.json({ error: 'Invalid task id' }, 400);
     }
-    const body = await c.req.json<{
-      title?: string;
-      body?: string | null;
-      status?: TaskStatus;
-      priority?: string | null;
-    }>();
-
-    const updateInput: { title?: string; body?: string; status?: TaskStatus; priority?: Priority | null } = {};
-
-    if (body.status !== undefined) {
-      if (!STATUSES.includes(body.status)) {
-        return c.json({ error: 'Invalid status' }, 400);
-      }
-      updateInput.status = body.status;
+    const body = await c.req.json<TaskPatchBody>();
+    const { input, error } = buildTaskUpdateInput(body);
+    if (error) {
+      return c.json({ error }, 400);
     }
-
-    if (body.title !== undefined) {
-      if (typeof body.title !== 'string' || !body.title.trim()) {
-        return c.json({ error: 'Title cannot be empty' }, 400);
-      }
-      updateInput.title = body.title.trim();
-    }
-
-    if (body.body !== undefined) {
-      updateInput.body = body.body ?? '';
-    }
-
-    if (body.priority !== undefined) {
-      updateInput.priority = body.priority && isPriority(body.priority) ? body.priority : null;
-    }
-
-    const task = ts.updateTask(id, updateInput);
+    const task = ts.updateTask(id, input);
     if (!task) {
       return c.json({ error: 'Task not found' }, 404);
     }
-
     return c.json(task);
   });
 
