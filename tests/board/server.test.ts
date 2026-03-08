@@ -111,9 +111,8 @@ describe('createBoardApp', () => {
       expect(cardHtml).not.toContain('card-tags');
     });
 
-    it('should render priority badge when a task has priority metadata', async () => {
-      const task = taskService.createTask({ title: 'High prio render', status: 'backlog' });
-      metadataService.setMetadata({ task_id: task.id, key: 'priority', value: 'high' });
+    it('should render priority badge when a task has priority set', async () => {
+      taskService.createTask({ title: 'High prio render', status: 'backlog', priority: 'high' });
 
       const app = createBoardApp(taskService, taskTagService, metadataService);
       const res = await app.fetch(new Request('http://localhost/'));
@@ -123,8 +122,7 @@ describe('createBoardApp', () => {
     });
 
     it('should render critical priority badge correctly', async () => {
-      const task = taskService.createTask({ title: 'Critical task render', status: 'ready' });
-      metadataService.setMetadata({ task_id: task.id, key: 'priority', value: 'critical' });
+      taskService.createTask({ title: 'Critical task render', status: 'ready', priority: 'critical' });
 
       const app = createBoardApp(taskService, taskTagService, metadataService);
       const res = await app.fetch(new Request('http://localhost/'));
@@ -152,10 +150,9 @@ describe('createBoardApp', () => {
     });
 
     it('should render both tag badges and priority badge on the same task', async () => {
-      const task = taskService.createTask({ title: 'Full badges task', status: 'in_progress' });
+      const task = taskService.createTask({ title: 'Full badges task', status: 'in_progress', priority: 'medium' });
       const tag = tagService.createTag({ name: 'ui' });
       taskTagService.addTagToTask({ task_id: task.id, tag_id: tag.id });
-      metadataService.setMetadata({ task_id: task.id, key: 'priority', value: 'medium' });
 
       const app = createBoardApp(taskService, taskTagService, metadataService);
       const res = await app.fetch(new Request('http://localhost/'));
@@ -170,16 +167,10 @@ describe('createBoardApp', () => {
     it('should sort tasks by priority: critical → high → medium → low → no priority', async () => {
       // Create tasks in non-sorted order within the same status column
       taskService.createTask({ title: 'No priority task', status: 'backlog' });
-      const tLow = taskService.createTask({ title: 'Low priority task', status: 'backlog' });
-      const tCritical = taskService.createTask({ title: 'Critical priority task', status: 'backlog' });
-      const tHigh = taskService.createTask({ title: 'High priority task', status: 'backlog' });
-      const tMedium = taskService.createTask({ title: 'Medium priority task', status: 'backlog' });
-
-      // Set priority metadata
-      metadataService.setMetadata({ task_id: tLow.id, key: 'priority', value: 'low' });
-      metadataService.setMetadata({ task_id: tCritical.id, key: 'priority', value: 'critical' });
-      metadataService.setMetadata({ task_id: tHigh.id, key: 'priority', value: 'high' });
-      metadataService.setMetadata({ task_id: tMedium.id, key: 'priority', value: 'medium' });
+      taskService.createTask({ title: 'Low priority task', status: 'backlog', priority: 'low' });
+      taskService.createTask({ title: 'Critical priority task', status: 'backlog', priority: 'critical' });
+      taskService.createTask({ title: 'High priority task', status: 'backlog', priority: 'high' });
+      taskService.createTask({ title: 'Medium priority task', status: 'backlog', priority: 'medium' });
 
       const app = createBoardApp(taskService, taskTagService, metadataService);
       const res = await app.fetch(new Request('http://localhost/'));
@@ -221,9 +212,7 @@ describe('createBoardApp', () => {
 
     it('should sort tasks with priority before tasks without priority', async () => {
       taskService.createTask({ title: 'Unprioritized task', status: 'backlog' });
-      const tLowPrio = taskService.createTask({ title: 'Low prio task', status: 'backlog' });
-
-      metadataService.setMetadata({ task_id: tLowPrio.id, key: 'priority', value: 'low' });
+      taskService.createTask({ title: 'Low prio task', status: 'backlog', priority: 'low' });
 
       const app = createBoardApp(taskService, taskTagService, metadataService);
       const res = await app.fetch(new Request('http://localhost/'));
@@ -302,7 +291,7 @@ describe('createBoardApp', () => {
       expect(data.error).toBe('Title is required');
     });
 
-    it('should set priority metadata when priority is provided', async () => {
+    it('should set priority on the task when priority is provided', async () => {
       const app = createBoardApp(taskService, taskTagService, metadataService);
       const res = await app.fetch(
         new Request('http://localhost/api/tasks', {
@@ -313,13 +302,14 @@ describe('createBoardApp', () => {
       );
 
       expect(res.status).toBe(201);
-      const data = (await res.json()) as { id: number };
-      const meta = metadataService.getMetadataByKey(data.id, 'priority');
-      expect(meta).not.toBeNull();
-      expect(meta?.value).toBe('high');
+      const data = (await res.json()) as { id: number; priority: string };
+      expect(data.priority).toBe('high');
+
+      const fetched = taskService.getTask(data.id);
+      expect(fetched?.priority).toBe('high');
     });
 
-    it('should not set priority metadata when priority is invalid', async () => {
+    it('should not set priority on the task when priority is invalid', async () => {
       const app = createBoardApp(taskService, taskTagService, metadataService);
       const res = await app.fetch(
         new Request('http://localhost/api/tasks', {
@@ -330,9 +320,11 @@ describe('createBoardApp', () => {
       );
 
       expect(res.status).toBe(201);
-      const data = (await res.json()) as { id: number };
-      const meta = metadataService.getMetadataByKey(data.id, 'priority');
-      expect(meta).toBeNull();
+      const data = (await res.json()) as { id: number; priority: string | null };
+      expect(data.priority).toBeNull();
+
+      const fetched = taskService.getTask(data.id);
+      expect(fetched?.priority).toBeNull();
     });
 
     it('should fallback to backlog when status is invalid', async () => {
@@ -586,9 +578,8 @@ describe('createBoardApp', () => {
       expect(fetched?.body).toBe('');
     });
 
-    it('should update priority metadata', async () => {
-      const task = taskService.createTask({ title: 'Task', status: 'backlog' });
-      metadataService.setMetadata({ task_id: task.id, key: 'priority', value: 'low' });
+    it('should update task priority', async () => {
+      const task = taskService.createTask({ title: 'Task', status: 'backlog', priority: 'low' });
 
       const app = createBoardApp(taskService, taskTagService, metadataService);
       const res = await app.fetch(
@@ -600,13 +591,12 @@ describe('createBoardApp', () => {
       );
 
       expect(res.status).toBe(200);
-      const meta = metadataService.getMetadataByKey(task.id, 'priority');
-      expect(meta?.value).toBe('high');
+      const fetched = taskService.getTask(task.id);
+      expect(fetched?.priority).toBe('high');
     });
 
-    it('should remove priority metadata when priority is null', async () => {
-      const task = taskService.createTask({ title: 'Task', status: 'backlog' });
-      metadataService.setMetadata({ task_id: task.id, key: 'priority', value: 'high' });
+    it('should clear task priority when priority is null', async () => {
+      const task = taskService.createTask({ title: 'Task', status: 'backlog', priority: 'high' });
 
       const app = createBoardApp(taskService, taskTagService, metadataService);
       const res = await app.fetch(
@@ -618,8 +608,8 @@ describe('createBoardApp', () => {
       );
 
       expect(res.status).toBe(200);
-      const meta = metadataService.getMetadataByKey(task.id, 'priority');
-      expect(meta).toBeNull();
+      const fetched = taskService.getTask(task.id);
+      expect(fetched?.priority).toBeNull();
     });
 
     it('should update multiple fields at once', async () => {
@@ -641,9 +631,7 @@ describe('createBoardApp', () => {
 
       const fetched = taskService.getTask(task.id);
       expect(fetched?.body).toBe('New body');
-
-      const meta = metadataService.getMetadataByKey(task.id, 'priority');
-      expect(meta?.value).toBe('critical');
+      expect(fetched?.priority).toBe('critical');
     });
 
     it('should return 400 when title is empty string', async () => {
@@ -680,9 +668,8 @@ describe('createBoardApp', () => {
       expect(data.error).toBe('Title cannot be empty');
     });
 
-    it('should ignore invalid priority values', async () => {
-      const task = taskService.createTask({ title: 'Task', status: 'backlog' });
-      metadataService.setMetadata({ task_id: task.id, key: 'priority', value: 'high' });
+    it('should clear priority when invalid priority value is sent', async () => {
+      const task = taskService.createTask({ title: 'Task', status: 'backlog', priority: 'high' });
 
       const app = createBoardApp(taskService, taskTagService, metadataService);
       const res = await app.fetch(
@@ -694,9 +681,9 @@ describe('createBoardApp', () => {
       );
 
       expect(res.status).toBe(200);
-      // Invalid priority should delete the existing priority
-      const meta = metadataService.getMetadataByKey(task.id, 'priority');
-      expect(meta).toBeNull();
+      // Invalid priority should clear the existing priority
+      const fetched = taskService.getTask(task.id);
+      expect(fetched?.priority).toBeNull();
     });
   });
 

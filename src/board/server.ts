@@ -3,8 +3,7 @@ import { serve } from '@hono/node-server';
 import { TaskService } from '../services/TaskService';
 import { TaskTagService } from '../services/TaskTagService';
 import { MetadataService } from '../services/MetadataService';
-import { Task, TaskStatus, PRIORITIES, PRIORITY_ORDER, isPriority } from '../models';
-import { TaskMetadata } from '../models/TaskMetadata';
+import { Task, TaskStatus, PRIORITIES, PRIORITY_ORDER, isPriority, Priority } from '../models';
 import { Tag } from '../models/Tag';
 import { getDatabase } from '../db/connection';
 import { StorageProvider } from '../db/types/storage';
@@ -40,8 +39,8 @@ function escapeHtml(text: string): string {
     .replace(/'/g, '&#039;');
 }
 
-function renderCard(task: Task, tags: Tag[], metadata: TaskMetadata[]): string {
-  const priority = metadata.find((m) => m.key === 'priority')?.value;
+function renderCard(task: Task, tags: Tag[]): string {
+  const priority = task.priority;
   const priorityBadge = priority
     ? `<span class="priority priority-${escapeHtml(priority)}">${escapeHtml(priority)}</span>`
     : '';
@@ -58,16 +57,12 @@ function renderCard(task: Task, tags: Tag[], metadata: TaskMetadata[]): string {
     </div>`;
 }
 
-function renderBoard(
-  tasksByStatus: Map<TaskStatus, Task[]>,
-  tagMap: Map<number, Tag[]>,
-  metaMap: Map<number, TaskMetadata[]>
-): string {
+function renderBoard(tasksByStatus: Map<TaskStatus, Task[]>, tagMap: Map<number, Tag[]>): string {
   const columns = STATUSES.map((status) => {
     const tasks = tasksByStatus.get(status) || [];
     const color = STATUS_COLORS[status];
     const label = STATUS_LABELS[status];
-    const cards = tasks.map((t) => renderCard(t, tagMap.get(t.id) || [], metaMap.get(t.id) || [])).join('');
+    const cards = tasks.map((t) => renderCard(t, tagMap.get(t.id) || [])).join('');
 
     return `
       <div class="column" data-status="${status}">
@@ -388,7 +383,6 @@ function renderBoard(
       const task = data.task;
       const tags = data.tags || [];
       const metadata = data.metadata || [];
-      const priority = metadata.find(m => m.key === 'priority');
 
       detailTaskId = task.id;
       detailPanelTitle.textContent = '#' + task.id + ' ' + task.title;
@@ -418,7 +412,7 @@ function renderBoard(
       html += '<select id="detail-edit-priority" class="detail-edit-select">';
       html += '<option value="">None</option>';
       allPriorities.forEach(p => {
-        const selected = priority && priority.value === p ? ' selected' : '';
+        const selected = task.priority === p ? ' selected' : '';
         html += '<option value="' + p + '"' + selected + '>' + p.charAt(0).toUpperCase() + p.slice(1) + '</option>';
       });
       html += '</select>';
@@ -540,12 +534,10 @@ function renderBoard(
 </html>`;
 }
 
-function sortByPriority(tasks: Task[], metaMap: Map<number, TaskMetadata[]>): Task[] {
+function sortByPriority(tasks: Task[]): Task[] {
   return [...tasks].sort((a, b) => {
-    const pa = metaMap.get(a.id)?.find((m) => m.key === 'priority')?.value;
-    const pb = metaMap.get(b.id)?.find((m) => m.key === 'priority')?.value;
-    const oa = pa && isPriority(pa) ? PRIORITY_ORDER[pa] : 4;
-    const ob = pb && isPriority(pb) ? PRIORITY_ORDER[pb] : 4;
+    const oa = a.priority ? PRIORITY_ORDER[a.priority] : 4;
+    const ob = b.priority ? PRIORITY_ORDER[b.priority] : 4;
     return oa - ob;
   });
 }
@@ -565,7 +557,6 @@ export function createBoardApp(
   app.get('/', (c) => {
     const tasks = ts.listTasks({}, 'id', 'asc');
     const tagMap = tts.getAllTaskTags();
-    const metaMap = ms.getAllTasksMetadata();
 
     const tasksByStatus = new Map<TaskStatus, Task[]>();
     for (const status of STATUSES) {
@@ -576,10 +567,10 @@ export function createBoardApp(
     }
 
     for (const [status, statusTasks] of tasksByStatus) {
-      tasksByStatus.set(status, sortByPriority(statusTasks, metaMap));
+      tasksByStatus.set(status, sortByPriority(statusTasks));
     }
 
-    return c.html(renderBoard(tasksByStatus, tagMap, metaMap));
+    return c.html(renderBoard(tasksByStatus, tagMap));
   });
 
   app.get('/api/board/updated-at', (c) => {
@@ -610,10 +601,8 @@ export function createBoardApp(
       return c.json({ error: 'Title is required' }, 400);
     }
     const status = body.status && STATUSES.includes(body.status) ? body.status : 'backlog';
-    const task = ts.createTask({ title: body.title.trim(), body: body.body || undefined, status });
-    if (body.priority && isPriority(body.priority)) {
-      ms.setMetadata({ task_id: task.id, key: 'priority', value: body.priority });
-    }
+    const priority = body.priority && isPriority(body.priority) ? body.priority : undefined;
+    const task = ts.createTask({ title: body.title.trim(), body: body.body || undefined, status, priority });
     return c.json(task, 201);
   });
 
@@ -643,7 +632,7 @@ export function createBoardApp(
       priority?: string | null;
     }>();
 
-    const updateInput: { title?: string; body?: string; status?: TaskStatus } = {};
+    const updateInput: { title?: string; body?: string; status?: TaskStatus; priority?: Priority | null } = {};
 
     if (body.status !== undefined) {
       if (!STATUSES.includes(body.status)) {
@@ -663,17 +652,13 @@ export function createBoardApp(
       updateInput.body = body.body ?? '';
     }
 
+    if (body.priority !== undefined) {
+      updateInput.priority = body.priority && isPriority(body.priority) ? body.priority : null;
+    }
+
     const task = ts.updateTask(id, updateInput);
     if (!task) {
       return c.json({ error: 'Task not found' }, 404);
-    }
-
-    if (body.priority !== undefined) {
-      if (body.priority && isPriority(body.priority)) {
-        ms.setMetadata({ task_id: id, key: 'priority', value: body.priority });
-      } else {
-        ms.deleteMetadata(id, 'priority');
-      }
     }
 
     return c.json(task);
