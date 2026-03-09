@@ -57,39 +57,12 @@ function renderCard(task: Task, tags: Tag[]): string {
     </div>`;
 }
 
-function renderBoard(tasksByStatus: Map<TaskStatus, Task[]>, tagMap: Map<number, Tag[]>): string {
-  const columns = STATUSES.map((status) => {
-    const tasks = tasksByStatus.get(status) || [];
-    const color = STATUS_COLORS[status];
-    const label = STATUS_LABELS[status];
-    const cards = tasks.map((t) => renderCard(t, tagMap.get(t.id) || [])).join('');
-
-    return `
-      <div class="column" data-status="${status}">
-        <div class="column-header" style="border-top-color:${color}">
-          <span class="column-title" style="color:${color}">${label}</span>
-          <span class="column-header-right">
-            <span class="column-count">${tasks.length}</span>
-            <button class="add-btn" data-status="${status}" title="Add task">+</button>
-          </span>
-        </div>
-        <div class="column-body" id="col-${status}">
-          ${cards}
-        </div>
-      </div>`;
-  }).join('');
-
-  return `<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>agkan board</title>
-  <style>
+const BOARD_STYLES = `
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f1f5f9; color: #1e293b; }
-    header { background: #1e293b; color: white; padding: 12px 20px; }
+    header { background: #1e293b; color: white; padding: 12px 20px; display: flex; align-items: center; justify-content: space-between; }
     header h1 { font-size: 18px; font-weight: 700; }
+    .board-title { font-size: 14px; font-weight: 400; opacity: 0.75; }
     .board { display: flex; gap: 12px; padding: 16px; overflow-x: auto; min-height: calc(100vh - 48px); align-items: flex-start; }
     .column { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; width: 240px; flex-shrink: 0; display: flex; flex-direction: column; border-top: 3px solid transparent; }
     .column-header { padding: 10px 12px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #e2e8f0; }
@@ -160,47 +133,9 @@ function renderBoard(tasksByStatus: Map<TaskStatus, Task[]>, tagMap: Map<number,
     .detail-edit-textarea { width: 100%; border: 1px solid #e2e8f0; border-radius: 6px; padding: 7px 10px; font-size: 13px; font-family: inherit; resize: vertical; min-height: 80px; background: white; color: #1e293b; }
     .detail-edit-textarea:focus { outline: none; border-color: #3b82f6; box-shadow: 0 0 0 2px rgba(59,130,246,0.2); }
     .detail-edit-select { width: 100%; border: 1px solid #e2e8f0; border-radius: 6px; padding: 7px 10px; font-size: 13px; font-family: inherit; background: white; color: #1e293b; }
-    .detail-edit-select:focus { outline: none; border-color: #3b82f6; box-shadow: 0 0 0 2px rgba(59,130,246,0.2); }
-  </style>
-</head>
-<body>
-  <header><h1>agkan board</h1></header>
-  <div class="board">${columns}</div>
-  <div class="modal-overlay" id="add-modal">
-    <div class="modal">
-      <h2>Add Task</h2>
-      <label for="add-title">Title</label>
-      <input type="text" id="add-title" placeholder="Task title">
-      <label for="add-body">Description</label>
-      <textarea id="add-body" placeholder="Optional"></textarea>
-      <label for="add-priority">Priority</label>
-      <select id="add-priority">
-        <option value="">None</option>
-        ${PRIORITIES.map((p) => `<option value="${p}">${p.charAt(0).toUpperCase() + p.slice(1)}</option>`).join('\n        ')}
-      </select>
-      <input type="hidden" id="add-status">
-      <div class="modal-actions">
-        <button id="add-cancel">Cancel</button>
-        <button id="add-submit" class="primary">Add</button>
-      </div>
-    </div>
-  </div>
-  <div class="context-menu" id="context-menu">
-    <div class="context-menu-item danger" id="ctx-delete">Delete task</div>
-  </div>
-  <div class="detail-panel" id="detail-panel">
-    <div class="detail-panel-resize-handle" id="detail-panel-resize-handle"></div>
-    <div class="detail-panel-header">
-      <h2 id="detail-panel-title">Task Detail</h2>
-      <button class="detail-panel-close" id="detail-panel-close" title="Close">&times;</button>
-    </div>
-    <div class="detail-panel-body" id="detail-panel-body"></div>
-    <div class="detail-panel-footer">
-      <button id="detail-save-btn">Save</button>
-    </div>
-  </div>
-  <div class="toast" id="toast">Failed to update task</div>
-  <script>
+    .detail-edit-select:focus { outline: none; border-color: #3b82f6; box-shadow: 0 0 0 2px rgba(59,130,246,0.2); }`;
+
+const BOARD_SCRIPT = `
     let draggedCard = null;
     let sourceBody = null;
 
@@ -574,8 +509,86 @@ function renderBoard(tasksByStatus: Map<TaskStatus, Task[]>, tagMap: Map<number,
       }
     }
     setInterval(pollBoardUpdates, 10000);
-    pollBoardUpdates();
-  </script>
+    pollBoardUpdates();`;
+
+function renderColumn(status: TaskStatus, tasks: Task[], tagMap: Map<number, Tag[]>): string {
+  const color = STATUS_COLORS[status];
+  const label = STATUS_LABELS[status];
+  const cards = tasks.map((t) => renderCard(t, tagMap.get(t.id) || [])).join('');
+
+  return `
+      <div class="column" data-status="${status}">
+        <div class="column-header" style="border-top-color:${color}">
+          <span class="column-title" style="color:${color}">${label}</span>
+          <span class="column-header-right">
+            <span class="column-count">${tasks.length}</span>
+            <button class="add-btn" data-status="${status}" title="Add task">+</button>
+          </span>
+        </div>
+        <div class="column-body" id="col-${status}">
+          ${cards}
+        </div>
+      </div>`;
+}
+
+const BOARD_PRIORITY_OPTIONS = PRIORITIES.map(
+  (p) => `<option value="${p}">${p.charAt(0).toUpperCase() + p.slice(1)}</option>`
+).join('\n        ');
+
+const BOARD_BODY_STATIC = `
+  <div class="modal-overlay" id="add-modal">
+    <div class="modal">
+      <h2>Add Task</h2>
+      <label for="add-title">Title</label>
+      <input type="text" id="add-title" placeholder="Task title">
+      <label for="add-body">Description</label>
+      <textarea id="add-body" placeholder="Optional"></textarea>
+      <label for="add-priority">Priority</label>
+      <select id="add-priority">
+        <option value="">None</option>
+        ${BOARD_PRIORITY_OPTIONS}
+      </select>
+      <input type="hidden" id="add-status">
+      <div class="modal-actions">
+        <button id="add-cancel">Cancel</button>
+        <button id="add-submit" class="primary">Add</button>
+      </div>
+    </div>
+  </div>
+  <div class="context-menu" id="context-menu">
+    <div class="context-menu-item danger" id="ctx-delete">Delete task</div>
+  </div>
+  <div class="detail-panel" id="detail-panel">
+    <div class="detail-panel-resize-handle" id="detail-panel-resize-handle"></div>
+    <div class="detail-panel-header">
+      <h2 id="detail-panel-title">Task Detail</h2>
+      <button class="detail-panel-close" id="detail-panel-close" title="Close">&times;</button>
+    </div>
+    <div class="detail-panel-body" id="detail-panel-body"></div>
+    <div class="detail-panel-footer">
+      <button id="detail-save-btn">Save</button>
+    </div>
+  </div>
+  <div class="toast" id="toast">Failed to update task</div>
+  <script>${BOARD_SCRIPT}
+  </script>`;
+
+function renderBoard(tasksByStatus: Map<TaskStatus, Task[]>, tagMap: Map<number, Tag[]>, boardTitle?: string): string {
+  const columns = STATUSES.map((status) => renderColumn(status, tasksByStatus.get(status) || [], tagMap)).join('');
+  const titleHtml = boardTitle ? `<span class="board-title">${escapeHtml(boardTitle)}</span>` : '';
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>agkan board</title>
+  <style>${BOARD_STYLES}
+  </style>
+</head>
+<body>
+  <header><h1>agkan board</h1>${titleHtml}</header>
+  <div class="board">${columns}</div>${BOARD_BODY_STATIC}
 </body>
 </html>`;
 }
@@ -625,63 +638,51 @@ function buildTaskUpdateInput(body: TaskPatchBody): { input: TaskUpdateInput; er
   return { input };
 }
 
-export function createBoardApp(
-  taskService?: TaskService,
-  taskTagService?: TaskTagService,
-  metadataService?: MetadataService,
-  db?: StorageProvider
-): Hono {
-  const app = new Hono();
-  const ts = taskService ?? new TaskService();
-  const tts = taskTagService ?? new TaskTagService();
-  const ms = metadataService ?? new MetadataService();
-  const database = db ?? getDatabase();
+type BoardServices = {
+  ts: TaskService;
+  tts: TaskTagService;
+  ms: MetadataService;
+  database: StorageProvider;
+  boardTitle?: string;
+};
 
-  app.get('/', (c) => {
-    const tasks = ts.listTasks({}, 'id', 'asc');
-    const tagMap = tts.getAllTaskTags();
+function buildTasksByStatus(tasks: Task[]): Map<TaskStatus, Task[]> {
+  const tasksByStatus = new Map<TaskStatus, Task[]>();
+  for (const status of STATUSES) {
+    tasksByStatus.set(status, []);
+  }
+  for (const task of tasks) {
+    tasksByStatus.get(task.status)?.push(task);
+  }
+  for (const [status, statusTasks] of tasksByStatus) {
+    tasksByStatus.set(status, sortByPriority(statusTasks));
+  }
+  return tasksByStatus;
+}
 
-    const tasksByStatus = new Map<TaskStatus, Task[]>();
-    for (const status of STATUSES) {
-      tasksByStatus.set(status, []);
-    }
-    for (const task of tasks) {
-      tasksByStatus.get(task.status)?.push(task);
-    }
+function getBoardUpdatedAt(database: StorageProvider): string | null {
+  const baseRow = database
+    .prepare(
+      `
+    SELECT MAX(updated_at) as max_updated_at FROM (
+      SELECT updated_at FROM tasks UNION ALL SELECT updated_at FROM task_metadata
+    )
+  `
+    )
+    .get() as { max_updated_at: string | null };
+  const tagsRow = database
+    .prepare(
+      `
+    SELECT MAX(created_at) as max_created_at, COUNT(*) as count FROM task_tags
+  `
+    )
+    .get() as { max_created_at: string | null; count: number };
+  if (baseRow.max_updated_at === null && tagsRow.max_created_at === null) return null;
+  return `${baseRow.max_updated_at}|${tagsRow.max_created_at}|${tagsRow.count}`;
+}
 
-    for (const [status, statusTasks] of tasksByStatus) {
-      tasksByStatus.set(status, sortByPriority(statusTasks));
-    }
-
-    return c.html(renderBoard(tasksByStatus, tagMap));
-  });
-
-  app.get('/api/board/updated-at', (c) => {
-    const stmtBase = database.prepare(`
-      SELECT MAX(updated_at) as max_updated_at FROM (
-        SELECT updated_at FROM tasks
-        UNION ALL
-        SELECT updated_at FROM task_metadata
-      )
-    `);
-    const baseRow = stmtBase.get() as { max_updated_at: string | null };
-
-    const stmtTags = database.prepare(`
-      SELECT MAX(created_at) as max_created_at, COUNT(*) as count FROM task_tags
-    `);
-    const tagsRow = stmtTags.get() as { max_created_at: string | null; count: number };
-
-    const fingerprint = `${baseRow.max_updated_at}|${tagsRow.max_created_at}|${tagsRow.count}`;
-    const updatedAt = baseRow.max_updated_at === null && tagsRow.max_created_at === null ? null : fingerprint;
-
-    return c.json({ updatedAt });
-  });
-
-  app.get('/api/tasks', (c) => {
-    const tasks = ts.listTasks({}, 'id', 'asc');
-    return c.json({ tasks });
-  });
-
+function registerTaskApiRoutes(app: Hono, { ts, tts, ms }: BoardServices): void {
+  app.get('/api/tasks', (c) => c.json({ tasks: ts.listTasks({}, 'id', 'asc') }));
   app.post('/api/tasks', async (c) => {
     const body = await c.req.json<{
       title: string;
@@ -694,59 +695,64 @@ export function createBoardApp(
     }
     const status = body.status && STATUSES.includes(body.status) ? body.status : 'backlog';
     const priority = body.priority && isPriority(body.priority) ? body.priority : undefined;
-    const task = ts.createTask({ title: body.title.trim(), body: body.body || undefined, status, priority });
-    return c.json(task, 201);
+    return c.json(ts.createTask({ title: body.title.trim(), body: body.body || undefined, status, priority }), 201);
   });
-
   app.get('/api/tasks/:id', (c) => {
     const id = Number(c.req.param('id'));
-    if (isNaN(id)) {
-      return c.json({ error: 'Invalid task id' }, 400);
-    }
+    if (isNaN(id)) return c.json({ error: 'Invalid task id' }, 400);
     const task = ts.getTask(id);
-    if (!task) {
-      return c.json({ error: 'Task not found' }, 404);
-    }
-    const tags = tts.getTagsForTask(id);
-    const metadata = ms.listMetadata(id);
-    return c.json({ task, tags, metadata });
+    if (!task) return c.json({ error: 'Task not found' }, 404);
+    return c.json({ task, tags: tts.getTagsForTask(id), metadata: ms.listMetadata(id) });
   });
-
   app.patch('/api/tasks/:id', async (c) => {
     const id = Number(c.req.param('id'));
-    if (isNaN(id)) {
-      return c.json({ error: 'Invalid task id' }, 400);
-    }
-    const body = await c.req.json<TaskPatchBody>();
-    const { input, error } = buildTaskUpdateInput(body);
-    if (error) {
-      return c.json({ error }, 400);
-    }
+    if (isNaN(id)) return c.json({ error: 'Invalid task id' }, 400);
+    const { input, error } = buildTaskUpdateInput(await c.req.json<TaskPatchBody>());
+    if (error) return c.json({ error }, 400);
     const task = ts.updateTask(id, input);
-    if (!task) {
-      return c.json({ error: 'Task not found' }, 404);
-    }
+    if (!task) return c.json({ error: 'Task not found' }, 404);
     return c.json(task);
   });
-
   app.delete('/api/tasks/:id', (c) => {
     const id = Number(c.req.param('id'));
-    if (isNaN(id)) {
-      return c.json({ error: 'Invalid task id' }, 400);
-    }
-    const task = ts.getTask(id);
-    if (!task) {
-      return c.json({ error: 'Task not found' }, 404);
-    }
+    if (isNaN(id)) return c.json({ error: 'Invalid task id' }, 400);
+    if (!ts.getTask(id)) return c.json({ error: 'Task not found' }, 404);
     ts.deleteTask(id);
     return c.json({ success: true });
   });
+}
 
+function registerBoardRoutes(app: Hono, services: BoardServices): void {
+  const { ts, tts, database, boardTitle } = services;
+  app.get('/', (c) => {
+    const tasksByStatus = buildTasksByStatus(ts.listTasks({}, 'id', 'asc'));
+    return c.html(renderBoard(tasksByStatus, tts.getAllTaskTags(), boardTitle));
+  });
+  app.get('/api/board/updated-at', (c) => c.json({ updatedAt: getBoardUpdatedAt(database) }));
+  registerTaskApiRoutes(app, services);
+}
+
+export function createBoardApp(
+  taskService?: TaskService,
+  taskTagService?: TaskTagService,
+  metadataService?: MetadataService,
+  db?: StorageProvider,
+  boardTitle?: string
+): Hono {
+  const app = new Hono();
+  const services: BoardServices = {
+    ts: taskService ?? new TaskService(),
+    tts: taskTagService ?? new TaskTagService(),
+    ms: metadataService ?? new MetadataService(),
+    database: db ?? getDatabase(),
+    boardTitle,
+  };
+  registerBoardRoutes(app, services);
   return app;
 }
 
-export function startBoardServer(port: number): void {
-  const app = createBoardApp();
+export function startBoardServer(port: number, boardTitle?: string): void {
+  const app = createBoardApp(undefined, undefined, undefined, undefined, boardTitle);
 
   serve({ fetch: app.fetch, port }, () => {
     console.log(`Board running at http://localhost:${port}`);
