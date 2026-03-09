@@ -832,12 +832,14 @@ describe('createBoardApp', () => {
       expect(html).toContain('draggedCard !== null');
     });
 
-    it('should skip reload when detail panel is open', async () => {
+    it('should refresh cards in-place when detail panel is open on update', async () => {
       const app = createBoardApp(taskService, taskTagService, metadataService);
       const res = await app.fetch(new Request('http://localhost/'));
       const html = await res.text();
 
       expect(html).toContain("detailPanel.classList.contains('open')");
+      expect(html).toContain('refreshBoardCards');
+      expect(html).toContain('/api/board/cards');
     });
   });
 
@@ -924,6 +926,79 @@ describe('createBoardApp', () => {
       expect(res.status).toBe(200);
       const data = (await res.json()) as { updatedAt: string | null };
       expect(data.updatedAt).toBeNull();
+    });
+  });
+
+  describe('GET /api/board/cards', () => {
+    it('should return columns for all statuses', async () => {
+      const app = createBoardApp(taskService, taskTagService, metadataService);
+      const res = await app.fetch(new Request('http://localhost/api/board/cards'));
+
+      expect(res.status).toBe(200);
+      const data = (await res.json()) as { columns: Array<{ status: string; html: string; count: number }> };
+      expect(data.columns).toHaveLength(7);
+      const statuses = data.columns.map((c) => c.status);
+      expect(statuses).toContain('icebox');
+      expect(statuses).toContain('backlog');
+      expect(statuses).toContain('ready');
+      expect(statuses).toContain('in_progress');
+      expect(statuses).toContain('review');
+      expect(statuses).toContain('done');
+      expect(statuses).toContain('closed');
+    });
+
+    it('should include card HTML and count for tasks in each column', async () => {
+      taskService.createTask({ title: 'Card task', status: 'backlog' });
+
+      const app = createBoardApp(taskService, taskTagService, metadataService);
+      const res = await app.fetch(new Request('http://localhost/api/board/cards'));
+
+      expect(res.status).toBe(200);
+      const data = (await res.json()) as { columns: Array<{ status: string; html: string; count: number }> };
+      const backlog = data.columns.find((c) => c.status === 'backlog');
+      expect(backlog).toBeDefined();
+      expect(backlog!.count).toBe(1);
+      expect(backlog!.html).toContain('Card task');
+      expect(backlog!.html).toContain('class="card"');
+    });
+
+    it('should return empty html and count 0 for columns with no tasks', async () => {
+      const app = createBoardApp(taskService, taskTagService, metadataService);
+      const res = await app.fetch(new Request('http://localhost/api/board/cards'));
+
+      expect(res.status).toBe(200);
+      const data = (await res.json()) as { columns: Array<{ status: string; html: string; count: number }> };
+      data.columns.forEach((col) => {
+        expect(col.count).toBe(0);
+        expect(col.html).toBe('');
+      });
+    });
+
+    it('should include tag badges in card HTML', async () => {
+      const task = taskService.createTask({ title: 'Tagged card', status: 'ready' });
+      const tag = tagService.createTag({ name: 'feature' });
+      taskTagService.addTagToTask({ task_id: task.id, tag_id: tag.id });
+
+      const app = createBoardApp(taskService, taskTagService, metadataService);
+      const res = await app.fetch(new Request('http://localhost/api/board/cards'));
+
+      expect(res.status).toBe(200);
+      const data = (await res.json()) as { columns: Array<{ status: string; html: string; count: number }> };
+      const ready = data.columns.find((c) => c.status === 'ready');
+      expect(ready!.html).toContain('<span class="tag">feature</span>');
+    });
+
+    it('should escape HTML in task titles in card HTML', async () => {
+      taskService.createTask({ title: '<script>xss</script>', status: 'backlog' });
+
+      const app = createBoardApp(taskService, taskTagService, metadataService);
+      const res = await app.fetch(new Request('http://localhost/api/board/cards'));
+
+      expect(res.status).toBe(200);
+      const data = (await res.json()) as { columns: Array<{ status: string; html: string; count: number }> };
+      const backlog = data.columns.find((c) => c.status === 'backlog');
+      expect(backlog!.html).not.toContain('<script>xss</script>');
+      expect(backlog!.html).toContain('&lt;script&gt;');
     });
   });
 
