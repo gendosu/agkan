@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.3.0] - 2026-03-09
+
+### Added
+- Add `-t/--title` option to `agkan board` command to display a title in the header (#127)
+
+### Fixed
+- Continue board polling while detail panel is open and refresh cards in-place (#129)
+
+### Changed
+- Increase description textarea height to 240px in task detail panel (#128)
+
 ## [2.2.0] - 2026-03-08
 
 ### Added
