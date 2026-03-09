@@ -271,6 +271,14 @@ describe('SQLiteAdapter Performance Baseline', () => {
     it('should have negligible overhead compared to direct usage', () => {
       const adapter = new SQLiteAdapter(db);
 
+      // Warmup: run both paths to allow JIT to stabilize before measuring
+      const warmupAdapterStmt = adapter.prepare('SELECT * FROM comparison WHERE id = ?');
+      const warmupDirectStmt = db.prepare('SELECT * FROM comparison WHERE id = ?');
+      for (let i = 1; i <= 20; i++) {
+        warmupAdapterStmt.get(i);
+        warmupDirectStmt.get(i);
+      }
+
       // Measure adapter operations
       const adapterStart = performance.now();
       const adapterStmt = adapter.prepare('SELECT * FROM comparison WHERE id = ?');
