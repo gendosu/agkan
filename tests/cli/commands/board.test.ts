@@ -41,14 +41,36 @@ describe('setupBoardCommand', () => {
     expect(portOption?.defaultValue).toBe('8080');
   });
 
+  it('should have a --title option', () => {
+    const boardCommand = program.commands.find((cmd) => cmd.name() === 'board');
+    expect(boardCommand).toBeDefined();
+    const titleOption = boardCommand?.options.find((o) => o.long === '--title');
+    expect(titleOption).toBeDefined();
+  });
+
   it('should call startBoardServer with default port 8080', async () => {
     await program.parseAsync(['node', 'test', 'board']);
-    expect(startBoardServer).toHaveBeenCalledWith(8080);
+    expect(startBoardServer).toHaveBeenCalledWith(8080, undefined);
   });
 
   it('should call startBoardServer with custom port', async () => {
     await program.parseAsync(['node', 'test', 'board', '--port', '3000']);
-    expect(startBoardServer).toHaveBeenCalledWith(3000);
+    expect(startBoardServer).toHaveBeenCalledWith(3000, undefined);
+  });
+
+  it('should call startBoardServer with title when --title is provided', async () => {
+    await program.parseAsync(['node', 'test', 'board', '--title', 'My Project']);
+    expect(startBoardServer).toHaveBeenCalledWith(8080, 'My Project');
+  });
+
+  it('should call startBoardServer with both custom port and title', async () => {
+    await program.parseAsync(['node', 'test', 'board', '--port', '3000', '--title', 'My Project']);
+    expect(startBoardServer).toHaveBeenCalledWith(3000, 'My Project');
+  });
+
+  it('should call startBoardServer with title when -t shorthand is used', async () => {
+    await program.parseAsync(['node', 'test', 'board', '-t', 'Short Title']);
+    expect(startBoardServer).toHaveBeenCalledWith(8080, 'Short Title');
   });
 
   it('should exit with code 1 for invalid port', async () => {

@@ -296,6 +296,51 @@ test_board_html_shows_task() {
     fi
 }
 
+test_board_title_option() {
+    print_test "--title option displays board title in header"
+    local title_port=$((BOARD_PORT + 1))
+    local title_pid=""
+
+    npx . board --port "$title_port" --title "My Project" &
+    title_pid=$!
+
+    # Wait for server to be ready
+    local retries=0
+    while ! curl -s "http://localhost:$title_port/" > /dev/null 2>&1; do
+        retries=$((retries + 1))
+        if [ $retries -ge 25 ]; then
+            print_error "--title option: server failed to start"
+            kill "$title_pid" 2>/dev/null
+            return 1
+        fi
+        sleep 0.2
+    done
+
+    local body
+    body=$(curl -s "http://localhost:$title_port/")
+
+    kill "$title_pid" 2>/dev/null
+    wait "$title_pid" 2>/dev/null
+
+    if echo "$body" | grep -q 'class="board-title"' && echo "$body" | grep -q "My Project"; then
+        print_success "--title option shows board title in header"
+    else
+        print_error "--title option did not show board title in header"
+    fi
+}
+
+test_board_no_title_option() {
+    print_test "No --title option does not show board-title element"
+    local body
+    body=$(curl -s "http://localhost:$BOARD_PORT/")
+
+    if echo "$body" | grep -q 'class="board-title"'; then
+        print_error "board-title element should not be present when --title is not provided"
+    else
+        print_success "No --title option: board-title element is absent"
+    fi
+}
+
 test_board() {
     print_section "Section: Board Server E2E Tests"
 
@@ -326,6 +371,8 @@ test_board() {
     test_board_api_delete_task
     test_board_api_delete_task_not_found
     test_board_html_shows_task
+    test_board_no_title_option
+    test_board_title_option
 
     stop_board_server
     trap - EXIT

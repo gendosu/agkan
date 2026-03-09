@@ -43,6 +43,47 @@ describe('createBoardApp', () => {
       expect(res.headers.get('content-type')).toContain('text/html');
     });
 
+    it('should not include board-title span when no title is provided', async () => {
+      const app = createBoardApp(taskService, taskTagService, metadataService);
+      const res = await app.fetch(new Request('http://localhost/'));
+      const html = await res.text();
+
+      expect(html).not.toContain('class="board-title"');
+    });
+
+    it('should include board-title span when title is provided', async () => {
+      const app = createBoardApp(taskService, taskTagService, metadataService, undefined, 'My Project');
+      const res = await app.fetch(new Request('http://localhost/'));
+      const html = await res.text();
+
+      expect(html).toContain('<span class="board-title">My Project</span>');
+    });
+
+    it('should escape HTML in board title', async () => {
+      const app = createBoardApp(
+        taskService,
+        taskTagService,
+        metadataService,
+        undefined,
+        '<script>alert("xss")</script>'
+      );
+      const res = await app.fetch(new Request('http://localhost/'));
+      const html = await res.text();
+
+      expect(html).not.toContain('<script>alert("xss")</script>');
+      expect(html).toContain('&lt;script&gt;');
+    });
+
+    it('should include flex layout CSS for header', async () => {
+      const app = createBoardApp(taskService, taskTagService, metadataService);
+      const res = await app.fetch(new Request('http://localhost/'));
+      const html = await res.text();
+
+      expect(html).toContain('display: flex');
+      expect(html).toContain('justify-content: space-between');
+      expect(html).toContain('.board-title');
+    });
+
     it('should include all status columns in HTML', async () => {
       const app = createBoardApp(taskService, taskTagService, metadataService);
       const res = await app.fetch(new Request('http://localhost/'));

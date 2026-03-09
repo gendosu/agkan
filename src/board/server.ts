@@ -57,7 +57,7 @@ function renderCard(task: Task, tags: Tag[]): string {
     </div>`;
 }
 
-function renderBoard(tasksByStatus: Map<TaskStatus, Task[]>, tagMap: Map<number, Tag[]>): string {
+function renderBoard(tasksByStatus: Map<TaskStatus, Task[]>, tagMap: Map<number, Tag[]>, boardTitle?: string): string {
   const columns = STATUSES.map((status) => {
     const tasks = tasksByStatus.get(status) || [];
     const color = STATUS_COLORS[status];
@@ -88,8 +88,9 @@ function renderBoard(tasksByStatus: Map<TaskStatus, Task[]>, tagMap: Map<number,
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f1f5f9; color: #1e293b; }
-    header { background: #1e293b; color: white; padding: 12px 20px; }
+    header { background: #1e293b; color: white; padding: 12px 20px; display: flex; align-items: center; justify-content: space-between; }
     header h1 { font-size: 18px; font-weight: 700; }
+    .board-title { font-size: 14px; font-weight: 400; opacity: 0.75; }
     .board { display: flex; gap: 12px; padding: 16px; overflow-x: auto; min-height: calc(100vh - 48px); align-items: flex-start; }
     .column { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; width: 240px; flex-shrink: 0; display: flex; flex-direction: column; border-top: 3px solid transparent; }
     .column-header { padding: 10px 12px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #e2e8f0; }
@@ -164,7 +165,7 @@ function renderBoard(tasksByStatus: Map<TaskStatus, Task[]>, tagMap: Map<number,
   </style>
 </head>
 <body>
-  <header><h1>agkan board</h1></header>
+  <header><h1>agkan board</h1>${boardTitle ? `<span class="board-title">${escapeHtml(boardTitle)}</span>` : ''}</header>
   <div class="board">${columns}</div>
   <div class="modal-overlay" id="add-modal">
     <div class="modal">
@@ -629,7 +630,8 @@ export function createBoardApp(
   taskService?: TaskService,
   taskTagService?: TaskTagService,
   metadataService?: MetadataService,
-  db?: StorageProvider
+  db?: StorageProvider,
+  boardTitle?: string
 ): Hono {
   const app = new Hono();
   const ts = taskService ?? new TaskService();
@@ -653,7 +655,7 @@ export function createBoardApp(
       tasksByStatus.set(status, sortByPriority(statusTasks));
     }
 
-    return c.html(renderBoard(tasksByStatus, tagMap));
+    return c.html(renderBoard(tasksByStatus, tagMap, boardTitle));
   });
 
   app.get('/api/board/updated-at', (c) => {
@@ -745,8 +747,8 @@ export function createBoardApp(
   return app;
 }
 
-export function startBoardServer(port: number): void {
-  const app = createBoardApp();
+export function startBoardServer(port: number, boardTitle?: string): void {
+  const app = createBoardApp(undefined, undefined, undefined, undefined, boardTitle);
 
   serve({ fetch: app.fetch, port }, () => {
     console.log(`Board running at http://localhost:${port}`);

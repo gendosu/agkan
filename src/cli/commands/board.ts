@@ -7,7 +7,8 @@ export function setupBoardCommand(program: Command): void {
     .command('board')
     .description('Start a local Kanban board viewer at localhost')
     .option('-p, --port <number>', 'Port to listen on', '8080')
-    .action((options: { port: string }) => {
+    .option('-t, --title <text>', 'Board title to display in the header')
+    .action((options: { port: string; title?: string }) => {
       try {
         const port = parseInt(options.port, 10);
         if (isNaN(port) || port < 1 || port > 65535) {
@@ -15,7 +16,7 @@ export function setupBoardCommand(program: Command): void {
           process.exit(1);
           return;
         }
-        startBoardServer(port);
+        startBoardServer(port, options.title);
       } catch (error) {
         handleError(error as Error, {});
       }
