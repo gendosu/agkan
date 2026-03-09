@@ -489,11 +489,54 @@ const BOARD_SCRIPT = `
       });
     });
 
-    // Board polling: reload when updated_at changes (skip during drag or detail panel open)
+    // Board polling: reload when updated_at changes (skip during drag)
     let lastUpdatedAt = null;
+    async function refreshBoardCards() {
+      try {
+        const res = await fetch('/api/board/cards');
+        if (!res.ok) return;
+        const data = await res.json();
+        const columns = data.columns;
+        columns.forEach(col => {
+          const body = document.getElementById('col-' + col.status);
+          if (!body) return;
+          body.innerHTML = col.html;
+          const colEl = body.closest('.column');
+          if (colEl) colEl.querySelector('.column-count').textContent = col.count;
+          // Re-attach drag event listeners to new cards
+          body.querySelectorAll('.card').forEach(card => {
+            card.addEventListener('dragstart', e => {
+              draggedCard = card;
+              sourceBody = card.parentElement;
+              card.classList.add('dragging');
+              e.dataTransfer.effectAllowed = 'move';
+            });
+            card.addEventListener('dragend', () => {
+              card.classList.remove('dragging');
+              draggedCard = null;
+              sourceBody = null;
+            });
+            card.addEventListener('click', async e => {
+              if (e.defaultPrevented) return;
+              const taskId = card.dataset.id;
+              try {
+                const res = await fetch('/api/tasks/' + taskId);
+                if (!res.ok) throw new Error('Server error');
+                const data = await res.json();
+                renderDetailPanel(data);
+                detailPanel.classList.add('open');
+              } catch {
+                showToast('Failed to load task details');
+              }
+            });
+          });
+        });
+      } catch {
+        // Ignore network errors during card refresh
+      }
+    }
     async function pollBoardUpdates() {
       if (draggedCard !== null) return;
-      if (detailPanel.classList.contains('open')) return;
       try {
         const res = await fetch('/api/board/updated-at');
         if (!res.ok) return;
@@ -502,7 +545,12 @@ const BOARD_SCRIPT = `
         if (lastUpdatedAt === null) {
           lastUpdatedAt = ts;
         } else if (ts !== lastUpdatedAt) {
-          location.reload();
+          lastUpdatedAt = ts;
+          if (detailPanel.classList.contains('open')) {
+            await refreshBoardCards();
+          } else {
+            location.reload();
+          }
         }
       } catch {
         // Ignore network errors during polling
@@ -722,6 +770,17 @@ function registerTaskApiRoutes(app: Hono, { ts, tts, ms }: BoardServices): void 
   });
 }
 
+function buildBoardCardsPayload(
+  tasksByStatus: Map<TaskStatus, Task[]>,
+  tagMap: Map<number, Tag[]>
+): { status: TaskStatus; html: string; count: number }[] {
+  return STATUSES.map((status) => {
+    const tasks = tasksByStatus.get(status) || [];
+    const html = tasks.map((t) => renderCard(t, tagMap.get(t.id) || [])).join('');
+    return { status, html, count: tasks.length };
+  });
+}
+
 function registerBoardRoutes(app: Hono, services: BoardServices): void {
   const { ts, tts, database, boardTitle } = services;
   app.get('/', (c) => {
@@ -729,6 +788,11 @@ function registerBoardRoutes(app: Hono, services: BoardServices): void {
     return c.html(renderBoard(tasksByStatus, tts.getAllTaskTags(), boardTitle));
   });
   app.get('/api/board/updated-at', (c) => c.json({ updatedAt: getBoardUpdatedAt(database) }));
+  app.get('/api/board/cards', (c) => {
+    const tasksByStatus = buildTasksByStatus(ts.listTasks({}, 'id', 'asc'));
+    const columns = buildBoardCardsPayload(tasksByStatus, tts.getAllTaskTags());
+    return c.json({ columns });
+  });
   registerTaskApiRoutes(app, services);
 }
 
