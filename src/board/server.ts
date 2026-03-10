@@ -313,6 +313,7 @@ const BOARD_SCRIPT = `
 
     function closeDetailPanel() {
       detailPanel.classList.remove('open');
+      detailPanel.style.width = '';
       detailTaskId = null;
     }
 
