@@ -1,6 +1,7 @@
 {
   "enabledPlugins": {
-    "agkan-skills@gendosu-claude-plugins": true
+    "agkan-skills@gendosu-claude-plugins": true,
+    "typescript-lsp@claude-plugins-official": true
   },
   "extraKnownMarketplaces": {
     "gendosu-claude-plugins": {
