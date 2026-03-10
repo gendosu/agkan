@@ -491,9 +491,11 @@ const BOARD_SCRIPT = `
           if (!res.ok) throw new Error('Server error');
           const data = await res.json();
           renderDetailPanel(data);
-          const preferredWidth = detailPanel.dataset.preferredWidth || PANEL_DEFAULT_WIDTH;
-          detailPanel.style.width = preferredWidth + 'px';
-          detailPanel.classList.add('open');
+          if (!detailPanel.classList.contains('open')) {
+            const preferredWidth = detailPanel.dataset.preferredWidth || PANEL_DEFAULT_WIDTH;
+            detailPanel.style.width = preferredWidth + 'px';
+            detailPanel.classList.add('open');
+          }
         } catch {
           showToast('Failed to load task details');
         }
@@ -535,9 +537,11 @@ const BOARD_SCRIPT = `
                 if (!res.ok) throw new Error('Server error');
                 const data = await res.json();
                 renderDetailPanel(data);
-                const preferredWidth = detailPanel.dataset.preferredWidth || PANEL_DEFAULT_WIDTH;
-                detailPanel.style.width = preferredWidth + 'px';
-                detailPanel.classList.add('open');
+                if (!detailPanel.classList.contains('open')) {
+                  const preferredWidth = detailPanel.dataset.preferredWidth || PANEL_DEFAULT_WIDTH;
+                  detailPanel.style.width = preferredWidth + 'px';
+                  detailPanel.classList.add('open');
+                }
               } catch {
                 showToast('Failed to load task details');
               }
