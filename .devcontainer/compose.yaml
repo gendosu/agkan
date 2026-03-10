@@ -6,6 +6,9 @@ services:
     volumes:
       - ..:/workspace:cached
       - /workspace/node_modules
+      - /workspace/dist
+      - /workspace/tmp
+      - /workspace/.eslintcache
       - node-home:/home/node
       - ~/.ssh:/home/node/.ssh:ro
     entrypoint: /workspace/.devcontainer/setup.sh
