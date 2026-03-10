@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.4.0] - 2026-03-10
+
+### Added
+- Change detail panel layout from overlay to side-by-side for improved usability (#56)
+
+### Fixed
+- Improve detail panel width management for side-by-side layout (#56)
+- Hide detail panel until card is clicked and fix resize behavior (#56)
+- Do not resize detail panel when already open on card click (#56)
+- Clear inline width style when closing detail panel (#56)
+
 ## [2.3.0] - 2026-03-09
 
 ### Added
