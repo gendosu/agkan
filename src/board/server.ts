@@ -63,7 +63,9 @@ const BOARD_STYLES = `
     header { background: #1e293b; color: white; padding: 12px 20px; display: flex; align-items: center; justify-content: space-between; }
     header h1 { font-size: 18px; font-weight: 700; }
     .board-title { font-size: 14px; font-weight: 400; opacity: 0.75; }
-    .board { display: flex; gap: 12px; padding: 16px; overflow-x: auto; min-height: calc(100vh - 48px); align-items: flex-start; }
+    .board-container { display: flex; width: 100%; height: calc(100vh - 48px); gap: 0; }
+    .board { display: flex; gap: 12px; padding: 16px; overflow-x: auto; flex: 1; align-items: flex-start; min-width: 0; }
+    .board.with-panel { padding-right: 0; }
     .column { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; width: 240px; flex-shrink: 0; display: flex; flex-direction: column; border-top: 3px solid transparent; }
     .column-header { padding: 10px 12px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #e2e8f0; }
     .column-title { font-size: 13px; font-weight: 700; }
@@ -106,10 +108,10 @@ const BOARD_STYLES = `
     .modal-actions button.primary:hover { background: #2563eb; }
     .toast { position: fixed; bottom: 20px; right: 20px; background: #ef4444; color: white; padding: 10px 16px; border-radius: 6px; font-size: 13px; opacity: 0; transition: opacity 0.3s; pointer-events: none; }
     .toast.show { opacity: 1; }
-    .detail-panel { position: fixed; top: 0; right: 0; width: 400px; height: 100vh; background: white; box-shadow: -4px 0 16px rgba(0,0,0,0.1); z-index: 1500; transform: translateX(100%); transition: transform 0.25s ease; display: flex; flex-direction: column; min-width: 280px; max-width: 800px; }
+    .detail-panel { position: relative; width: 0; height: calc(100vh - 48px); background: white; box-shadow: none; border-left: 1px solid #e2e8f0; display: flex; flex-direction: column; min-width: 280px; max-width: 800px; overflow: hidden; transition: width 0.25s ease; }
     .detail-panel-resize-handle { position: absolute; top: 0; left: 0; width: 6px; height: 100%; cursor: col-resize; z-index: 10; background: transparent; }
     .detail-panel-resize-handle:hover, .detail-panel-resize-handle.dragging { background: rgba(59,130,246,0.3); }
-    .detail-panel.open { transform: translateX(0); }
+    .detail-panel.open { width: 400px; }
     .detail-panel-header { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; border-bottom: 1px solid #e2e8f0; }
     .detail-panel-header h2 { font-size: 16px; font-weight: 700; color: #1e293b; margin: 0; }
     .detail-panel-close { background: none; border: none; font-size: 20px; color: #64748b; cursor: pointer; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; border-radius: 4px; }
@@ -299,7 +301,11 @@ const BOARD_SCRIPT = `
       }
     });
 
-    // Detail panel
+    // Detail panel - create and insert into board-container
+    const boardContainer = document.querySelector('.board-container');
+    const detailPanelHtml = '<div class="detail-panel" id="detail-panel"><div class="detail-panel-resize-handle" id="detail-panel-resize-handle"></div><div class="detail-panel-header"><h2 id="detail-panel-title">Task Detail</h2><button class="detail-panel-close" id="detail-panel-close" title="Close">&times;</button></div><div class="detail-panel-body" id="detail-panel-body"></div><div class="detail-panel-footer"><button id="detail-save-btn">Save</button></div></div>';
+    boardContainer.insertAdjacentHTML('beforeend', detailPanelHtml);
+
     const detailPanel = document.getElementById('detail-panel');
     const detailPanelTitle = document.getElementById('detail-panel-title');
     const detailPanelBody = document.getElementById('detail-panel-body');
@@ -316,6 +322,7 @@ const BOARD_SCRIPT = `
     const resizeHandle = document.getElementById('detail-panel-resize-handle');
     const PANEL_MIN_WIDTH = 280;
     const PANEL_MAX_WIDTH = 800;
+    const PANEL_DEFAULT_WIDTH = 400;
     const PANEL_WIDTH_KEY = 'detailPanelWidth';
 
     (function initPanelWidth() {
@@ -325,11 +332,14 @@ const BOARD_SCRIPT = `
         if (w >= PANEL_MIN_WIDTH && w <= PANEL_MAX_WIDTH) {
           detailPanel.style.width = w + 'px';
         }
+      } else {
+        detailPanel.style.width = PANEL_DEFAULT_WIDTH + 'px';
       }
     })();
 
     resizeHandle.addEventListener('mousedown', function(e) {
       e.preventDefault();
+      if (!detailPanel.classList.contains('open')) return;
       const startX = e.clientX;
       const startWidth = detailPanel.offsetWidth;
       resizeHandle.classList.add('dragging');
@@ -606,17 +616,6 @@ const BOARD_BODY_STATIC = `
   <div class="context-menu" id="context-menu">
     <div class="context-menu-item danger" id="ctx-delete">Delete task</div>
   </div>
-  <div class="detail-panel" id="detail-panel">
-    <div class="detail-panel-resize-handle" id="detail-panel-resize-handle"></div>
-    <div class="detail-panel-header">
-      <h2 id="detail-panel-title">Task Detail</h2>
-      <button class="detail-panel-close" id="detail-panel-close" title="Close">&times;</button>
-    </div>
-    <div class="detail-panel-body" id="detail-panel-body"></div>
-    <div class="detail-panel-footer">
-      <button id="detail-save-btn">Save</button>
-    </div>
-  </div>
   <div class="toast" id="toast">Failed to update task</div>
   <script>${BOARD_SCRIPT}
   </script>`;
@@ -636,7 +635,9 @@ function renderBoard(tasksByStatus: Map<TaskStatus, Task[]>, tagMap: Map<number,
 </head>
 <body>
   <header><h1>agkan board</h1>${titleHtml}</header>
-  <div class="board">${columns}</div>${BOARD_BODY_STATIC}
+  <div class="board-container">
+    <div class="board">${columns}</div>${BOARD_BODY_STATIC}
+  </div>
 </body>
 </html>`;
 }
