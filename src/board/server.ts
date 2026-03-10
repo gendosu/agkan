@@ -112,12 +112,12 @@ const BOARD_STYLES = `
     .detail-panel-resize-handle { position: absolute; top: 0; left: 0; width: 6px; height: 100%; cursor: col-resize; z-index: 10; background: transparent; }
     .detail-panel-resize-handle:hover, .detail-panel-resize-handle.dragging { background: rgba(59,130,246,0.3); }
     .detail-panel.open { width: 400px; }
-    .detail-panel-header { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; border-bottom: 1px solid #e2e8f0; }
-    .detail-panel-header h2 { font-size: 16px; font-weight: 700; color: #1e293b; margin: 0; }
-    .detail-panel-close { background: none; border: none; font-size: 20px; color: #64748b; cursor: pointer; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; border-radius: 4px; }
+    .detail-panel-header { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; border-bottom: 1px solid #e2e8f0; flex-shrink: 0; }
+    .detail-panel-header h2 { font-size: 16px; font-weight: 700; color: #1e293b; margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .detail-panel-close { background: none; border: none; font-size: 20px; color: #64748b; cursor: pointer; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; border-radius: 4px; flex-shrink: 0; }
     .detail-panel-close:hover { background: #f1f5f9; color: #1e293b; }
-    .detail-panel-body { flex: 1; overflow-y: auto; padding: 20px; }
-    .detail-field { margin-bottom: 16px; }
+    .detail-panel-body { flex: 1; overflow-y: auto; padding: 20px; min-width: 0; }
+    .detail-field { margin-bottom: 16px; word-wrap: break-word; }
     .detail-field-label { font-size: 11px; font-weight: 700; text-transform: uppercase; color: #94a3b8; margin-bottom: 4px; letter-spacing: 0.05em; }
     .detail-field-value { font-size: 13px; color: #1e293b; line-height: 1.5; }
     .detail-field-value.empty { color: #94a3b8; font-style: italic; }
@@ -127,7 +127,7 @@ const BOARD_STYLES = `
     .detail-meta-table td { padding: 4px 0; font-size: 12px; }
     .detail-meta-table td:first-child { color: #64748b; width: 100px; }
     .detail-meta-table td:last-child { color: #1e293b; }
-    .detail-panel-footer { padding: 12px 20px; border-top: 1px solid #e2e8f0; display: flex; justify-content: flex-end; }
+    .detail-panel-footer { padding: 12px 20px; border-top: 1px solid #e2e8f0; display: flex; justify-content: flex-end; flex-shrink: 0; }
     .detail-panel-footer button { padding: 7px 18px; border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer; border: 1px solid #3b82f6; background: #3b82f6; color: white; }
     .detail-panel-footer button:hover { background: #2563eb; border-color: #2563eb; }
     .detail-edit-input { width: 100%; border: 1px solid #e2e8f0; border-radius: 6px; padding: 7px 10px; font-size: 13px; font-family: inherit; background: white; color: #1e293b; }
