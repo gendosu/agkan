@@ -327,14 +327,11 @@ const BOARD_SCRIPT = `
 
     (function initPanelWidth() {
       const saved = localStorage.getItem(PANEL_WIDTH_KEY);
-      if (saved) {
-        const w = parseInt(saved, 10);
-        if (w >= PANEL_MIN_WIDTH && w <= PANEL_MAX_WIDTH) {
-          detailPanel.style.width = w + 'px';
-        }
-      } else {
-        detailPanel.style.width = PANEL_DEFAULT_WIDTH + 'px';
-      }
+      const targetWidth = (saved && /^\d+$/.test(saved))
+        ? Math.min(PANEL_MAX_WIDTH, Math.max(PANEL_MIN_WIDTH, parseInt(saved, 10)))
+        : PANEL_DEFAULT_WIDTH;
+      // Store the width for when panel opens (width is 0 when closed)
+      detailPanel.dataset.preferredWidth = String(targetWidth);
     })();
 
     resizeHandle.addEventListener('mousedown', function(e) {
@@ -492,6 +489,8 @@ const BOARD_SCRIPT = `
           if (!res.ok) throw new Error('Server error');
           const data = await res.json();
           renderDetailPanel(data);
+          const preferredWidth = detailPanel.dataset.preferredWidth || PANEL_DEFAULT_WIDTH;
+          detailPanel.style.width = preferredWidth + 'px';
           detailPanel.classList.add('open');
         } catch {
           showToast('Failed to load task details');
@@ -534,6 +533,8 @@ const BOARD_SCRIPT = `
                 if (!res.ok) throw new Error('Server error');
                 const data = await res.json();
                 renderDetailPanel(data);
+                const preferredWidth = detailPanel.dataset.preferredWidth || PANEL_DEFAULT_WIDTH;
+                detailPanel.style.width = preferredWidth + 'px';
                 detailPanel.classList.add('open');
               } catch {
                 showToast('Failed to load task details');
