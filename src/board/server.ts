@@ -108,10 +108,10 @@ const BOARD_STYLES = `
     .modal-actions button.primary:hover { background: #2563eb; }
     .toast { position: fixed; bottom: 20px; right: 20px; background: #ef4444; color: white; padding: 10px 16px; border-radius: 6px; font-size: 13px; opacity: 0; transition: opacity 0.3s; pointer-events: none; }
     .toast.show { opacity: 1; }
-    .detail-panel { position: relative; width: 0; height: calc(100vh - 48px); background: white; box-shadow: none; border-left: 1px solid #e2e8f0; display: flex; flex-direction: column; min-width: 280px; max-width: 800px; overflow: hidden; transition: width 0.25s ease; }
+    .detail-panel { position: relative; width: 0; height: calc(100vh - 48px); background: white; box-shadow: none; border-left: 0 solid #e2e8f0; display: flex; flex-direction: column; max-width: 800px; overflow: hidden; transition: width 0.25s ease; }
     .detail-panel-resize-handle { position: absolute; top: 0; left: 0; width: 6px; height: 100%; cursor: col-resize; z-index: 10; background: transparent; }
     .detail-panel-resize-handle:hover, .detail-panel-resize-handle.dragging { background: rgba(59,130,246,0.3); }
-    .detail-panel.open { width: 400px; }
+    .detail-panel.open { width: 400px; min-width: 280px; border-left-width: 1px; }
     .detail-panel-header { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; border-bottom: 1px solid #e2e8f0; flex-shrink: 0; }
     .detail-panel-header h2 { font-size: 16px; font-weight: 700; color: #1e293b; margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .detail-panel-close { background: none; border: none; font-size: 20px; color: #64748b; cursor: pointer; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; border-radius: 4px; flex-shrink: 0; }
@@ -342,6 +342,7 @@ const BOARD_SCRIPT = `
       resizeHandle.classList.add('dragging');
       document.body.style.userSelect = 'none';
       document.body.style.cursor = 'col-resize';
+      detailPanel.style.transition = 'none';
 
       function onMouseMove(e) {
         const delta = startX - e.clientX;
@@ -353,6 +354,7 @@ const BOARD_SCRIPT = `
         resizeHandle.classList.remove('dragging');
         document.body.style.userSelect = '';
         document.body.style.cursor = '';
+        detailPanel.style.transition = '';
         localStorage.setItem(PANEL_WIDTH_KEY, detailPanel.offsetWidth);
         document.removeEventListener('mousemove', onMouseMove);
         document.removeEventListener('mouseup', onMouseUp);
