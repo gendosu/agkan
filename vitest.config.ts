@@ -8,6 +8,7 @@ export default defineConfig({
     fileParallelism: false,
     maxConcurrency: 1,
     env: { NODE_ENV: 'test' },
+    exclude: ['node_modules/**', '.claude/worktrees/**'],
     coverage: {
       provider: 'v8',
       reporter: ['text', 'json', 'html'],

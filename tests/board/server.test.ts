@@ -84,6 +84,15 @@ describe('createBoardApp', () => {
       expect(html).toContain('.board-title');
     });
 
+    it('should include board-container wrapper for side-by-side layout', async () => {
+      const app = createBoardApp(taskService, taskTagService, metadataService);
+      const res = await app.fetch(new Request('http://localhost/'));
+      const html = await res.text();
+
+      expect(html).toContain('class="board-container"');
+      expect(html).toContain('class="board"');
+    });
+
     it('should include all status columns in HTML', async () => {
       const app = createBoardApp(taskService, taskTagService, metadataService);
       const res = await app.fetch(new Request('http://localhost/'));
@@ -474,6 +483,17 @@ describe('createBoardApp', () => {
       expect(html).toContain('id="detail-panel-close"');
       expect(html).toContain('id="detail-panel-body"');
       expect(html).toContain('class="detail-panel"');
+    });
+
+    it('should create detail panel dynamically inside board-container via JavaScript', async () => {
+      const app = createBoardApp(taskService, taskTagService, metadataService);
+      const res = await app.fetch(new Request('http://localhost/'));
+      const html = await res.text();
+
+      // Verify the JavaScript creates the detail panel dynamically
+      expect(html).toContain("querySelector('.board-container')");
+      expect(html).toContain('insertAdjacentHTML');
+      expect(html).toContain('detail-panel');
     });
 
     it('should include detail panel CSS styles', async () => {
