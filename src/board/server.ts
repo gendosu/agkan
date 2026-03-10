@@ -409,12 +409,6 @@ const BOARD_SCRIPT = `
       html += '</select>';
       html += '</div>';
 
-      // Body (editable)
-      html += '<div class="detail-field">';
-      html += '<div class="detail-field-label">Description</div>';
-      html += '<textarea id="detail-edit-body" class="detail-edit-textarea">' + escapeHtmlClient(task.body || '') + '</textarea>';
-      html += '</div>';
-
       // Tags (read-only)
       if (tags.length > 0) {
         html += '<div class="detail-field">';
@@ -444,6 +438,12 @@ const BOARD_SCRIPT = `
       html += '<div class="detail-field">';
       html += '<div class="detail-field-label">Updated</div>';
       html += '<div class="detail-field-value">' + escapeHtmlClient(task.updated_at) + '</div>';
+      html += '</div>';
+
+      // Body (editable)
+      html += '<div class="detail-field">';
+      html += '<div class="detail-field-label">Description</div>';
+      html += '<textarea id="detail-edit-body" class="detail-edit-textarea">' + escapeHtmlClient(task.body || '') + '</textarea>';
       html += '</div>';
 
       detailPanelBody.innerHTML = html;
