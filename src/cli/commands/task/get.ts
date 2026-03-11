@@ -4,7 +4,7 @@
 
 import { Command } from 'commander';
 import chalk from 'chalk';
-import { TaskService, TaskBlockService, TaskTagService } from '../../../services';
+import { TaskService, TaskBlockService, TaskTagService, CommentService } from '../../../services';
 import { handleError, validateNumberInput } from '../../utils/error-handler';
 import { getStatusColor, formatDate } from '../../../utils/format';
 import { createFormatter } from '../../utils/output-formatter';
@@ -28,6 +28,7 @@ export function setupTaskGetCommand(program: Command): void {
         const taskService = new TaskService();
         const taskBlockService = new TaskBlockService();
         const taskTagService = new TaskTagService();
+        const commentService = new CommentService();
 
         const taskId = validateNumberInput(id);
         if (taskId === null) {
@@ -126,6 +127,13 @@ export function setupTaskGetCommand(program: Command): void {
                 name: tag.name,
                 created_at: tag.created_at,
               })),
+              comments: commentService.listComments(task.id).map((comment) => ({
+                id: comment.id,
+                author: comment.author,
+                content: comment.content,
+                created_at: comment.created_at,
+                updated_at: comment.updated_at,
+              })),
             };
           },
           () => {
@@ -207,6 +215,19 @@ export function setupTaskGetCommand(program: Command): void {
               console.log(`${chalk.bold('Tags:')}`);
               tags.forEach((tag) => {
                 console.log(`  ${chalk.cyan('•')} ${chalk.cyan(`[${tag.id}]`)} ${tag.name}`);
+              });
+            }
+
+            // Display comments
+            const comments = commentService.listComments(task.id);
+            if (comments.length > 0) {
+              console.log(`${chalk.bold('Comments:')} ${comments.length} comment(s)`);
+              comments.forEach((comment) => {
+                const authorStr = comment.author ? comment.author : 'Anonymous';
+                console.log(
+                  `  ${chalk.cyan('•')} ${chalk.cyan(`[#${comment.id}]`)} ${authorStr} (${formatDate(comment.created_at)})`
+                );
+                console.log(`    ${comment.content}`);
               });
             }
 
