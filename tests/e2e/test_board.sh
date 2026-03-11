@@ -346,6 +346,11 @@ test_board() {
 
     BOARD_TASK_ID=""
 
+    # Reset database to ensure board tests start with empty state
+    if [ -f "$TEST_DB_PATH" ]; then
+        rm -f "$TEST_DB_PATH"
+    fi
+
     start_board_server
     if [ -z "$BOARD_PID" ]; then
         print_error "Skipping board tests - server failed to start"
