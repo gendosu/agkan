@@ -21,3 +21,6 @@ export type { TaskMetadata, CreateTaskMetadataInput, UpdateTaskMetadataInput } f
 // Priority model
 export type { Priority } from './Priority';
 export { PRIORITIES, PRIORITY_ORDER, isPriority } from './Priority';
+
+// TaskComment model
+export type { TaskComment, CreateTaskCommentInput } from './TaskComment';
