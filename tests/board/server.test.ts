@@ -552,6 +552,23 @@ describe('createBoardApp', () => {
       expect(html).toContain('mousemove');
       expect(html).toContain('mouseup');
     });
+
+    it('should include CSS for description field to expand to bottom of panel', async () => {
+      const app = createBoardApp(taskService, taskTagService, metadataService);
+      const res = await app.fetch(new Request('http://localhost/'));
+      const html = await res.text();
+
+      expect(html).toContain('.description-field-wrapper');
+      expect(html).toContain('description-field-wrapper');
+    });
+
+    it('should render description field with description-field-wrapper class in renderDetailPanel', async () => {
+      const app = createBoardApp(taskService, taskTagService, metadataService);
+      const res = await app.fetch(new Request('http://localhost/'));
+      const html = await res.text();
+
+      expect(html).toContain('description-field-wrapper');
+    });
   });
 
   describe('PATCH /api/tasks/:id', () => {
