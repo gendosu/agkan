@@ -199,6 +199,28 @@ export function runMigrations(db: Database.Database): void {
     CREATE INDEX IF NOT EXISTS idx_task_metadata_task_id ON task_metadata(task_id);
   `);
 
+  // Create task_comments table
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS task_comments (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      task_id INTEGER NOT NULL,
+      author TEXT,
+      content TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE
+    );
+  `);
+
+  // Create index on task_comments table
+  db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_task_comments_task_id ON task_comments(task_id);
+  `);
+
+  db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_task_comments_created_at ON task_comments(created_at);
+  `);
+
   // Add priority column to tasks table (migration)
   const priorityColumnExists = db
     .prepare(
