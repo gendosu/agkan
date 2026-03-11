@@ -9,3 +9,4 @@ export { TaskBlockService } from './TaskBlockService';
 export { TagService } from './TagService';
 export { TaskTagService } from './TaskTagService';
 export { MetadataService } from './MetadataService';
+export { CommentService } from './CommentService';
