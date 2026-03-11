@@ -1084,4 +1084,186 @@ describe('createBoardApp', () => {
       expect(data.error).toBe('Task not found');
     });
   });
+
+  describe('GET /api/tags', () => {
+    it('should return empty array when no tags exist', async () => {
+      const app = createBoardApp(taskService, taskTagService, metadataService);
+      const res = await app.fetch(new Request('http://localhost/api/tags'));
+
+      expect(res.status).toBe(200);
+      const data = (await res.json()) as { tags: unknown[] };
+      expect(data.tags).toEqual([]);
+    });
+
+    it('should return all tags', async () => {
+      tagService.createTag({ name: 'frontend' });
+      tagService.createTag({ name: 'backend' });
+
+      const app = createBoardApp(taskService, taskTagService, metadataService);
+      const res = await app.fetch(new Request('http://localhost/api/tags'));
+
+      expect(res.status).toBe(200);
+      const data = (await res.json()) as { tags: Array<{ id: number; name: string }> };
+      expect(data.tags).toHaveLength(2);
+      const names = data.tags.map((t) => t.name);
+      expect(names).toContain('frontend');
+      expect(names).toContain('backend');
+    });
+  });
+
+  describe('POST /api/tasks/:id/tags', () => {
+    it('should add a tag to a task', async () => {
+      const task = taskService.createTask({ title: 'Tag me', status: 'backlog' });
+      const tag = tagService.createTag({ name: 'test-tag' });
+
+      const app = createBoardApp(taskService, taskTagService, metadataService);
+      const res = await app.fetch(
+        new Request(`http://localhost/api/tasks/${task.id}/tags`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ tagId: tag.id }),
+        })
+      );
+
+      expect(res.status).toBe(201);
+      const data = (await res.json()) as { success: boolean };
+      expect(data.success).toBe(true);
+
+      const tagsForTask = taskTagService.getTagsForTask(task.id);
+      expect(tagsForTask).toHaveLength(1);
+      expect(tagsForTask[0].name).toBe('test-tag');
+    });
+
+    it('should return 400 for invalid task id', async () => {
+      const app = createBoardApp(taskService, taskTagService, metadataService);
+      const res = await app.fetch(
+        new Request('http://localhost/api/tasks/abc/tags', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ tagId: 1 }),
+        })
+      );
+
+      expect(res.status).toBe(400);
+      const data = (await res.json()) as { error: string };
+      expect(data.error).toBe('Invalid task id');
+    });
+
+    it('should return 400 for missing tagId', async () => {
+      const task = taskService.createTask({ title: 'Task', status: 'backlog' });
+
+      const app = createBoardApp(taskService, taskTagService, metadataService);
+      const res = await app.fetch(
+        new Request(`http://localhost/api/tasks/${task.id}/tags`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({}),
+        })
+      );
+
+      expect(res.status).toBe(400);
+      const data = (await res.json()) as { error: string };
+      expect(data.error).toBe('tagId is required');
+    });
+
+    it('should return 404 for non-existent task', async () => {
+      const tag = tagService.createTag({ name: 'orphan-tag' });
+
+      const app = createBoardApp(taskService, taskTagService, metadataService);
+      const res = await app.fetch(
+        new Request('http://localhost/api/tasks/9999/tags', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ tagId: tag.id }),
+        })
+      );
+
+      expect(res.status).toBe(404);
+      const data = (await res.json()) as { error: string };
+      expect(data.error).toBe('Task not found');
+    });
+
+    it('should return 404 for non-existent tag', async () => {
+      const task = taskService.createTask({ title: 'Task', status: 'backlog' });
+
+      const app = createBoardApp(taskService, taskTagService, metadataService);
+      const res = await app.fetch(
+        new Request(`http://localhost/api/tasks/${task.id}/tags`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ tagId: 9999 }),
+        })
+      );
+
+      expect(res.status).toBe(404);
+      const data = (await res.json()) as { error: string };
+      expect(data.error).toBe('Tag not found');
+    });
+  });
+
+  describe('DELETE /api/tasks/:id/tags/:tagId', () => {
+    it('should remove a tag from a task', async () => {
+      const task = taskService.createTask({ title: 'Task with tag', status: 'backlog' });
+      const tag = tagService.createTag({ name: 'remove-me' });
+      taskTagService.addTagToTask({ task_id: task.id, tag_id: tag.id });
+
+      const app = createBoardApp(taskService, taskTagService, metadataService);
+      const res = await app.fetch(
+        new Request(`http://localhost/api/tasks/${task.id}/tags/${tag.id}`, {
+          method: 'DELETE',
+        })
+      );
+
+      expect(res.status).toBe(200);
+      const data = (await res.json()) as { success: boolean };
+      expect(data.success).toBe(true);
+
+      const tagsForTask = taskTagService.getTagsForTask(task.id);
+      expect(tagsForTask).toHaveLength(0);
+    });
+
+    it('should return 400 for invalid task id', async () => {
+      const app = createBoardApp(taskService, taskTagService, metadataService);
+      const res = await app.fetch(
+        new Request('http://localhost/api/tasks/abc/tags/1', {
+          method: 'DELETE',
+        })
+      );
+
+      expect(res.status).toBe(400);
+      const data = (await res.json()) as { error: string };
+      expect(data.error).toBe('Invalid task id');
+    });
+
+    it('should return 400 for invalid tag id', async () => {
+      const task = taskService.createTask({ title: 'Task', status: 'backlog' });
+
+      const app = createBoardApp(taskService, taskTagService, metadataService);
+      const res = await app.fetch(
+        new Request(`http://localhost/api/tasks/${task.id}/tags/abc`, {
+          method: 'DELETE',
+        })
+      );
+
+      expect(res.status).toBe(400);
+      const data = (await res.json()) as { error: string };
+      expect(data.error).toBe('Invalid tag id');
+    });
+
+    it('should return 404 when association does not exist', async () => {
+      const task = taskService.createTask({ title: 'Task', status: 'backlog' });
+      const tag = tagService.createTag({ name: 'not-attached' });
+
+      const app = createBoardApp(taskService, taskTagService, metadataService);
+      const res = await app.fetch(
+        new Request(`http://localhost/api/tasks/${task.id}/tags/${tag.id}`, {
+          method: 'DELETE',
+        })
+      );
+
+      expect(res.status).toBe(404);
+      const data = (await res.json()) as { error: string };
+      expect(data.error).toBe('Tag not attached to task');
+    });
+  });
 });

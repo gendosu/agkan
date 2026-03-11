@@ -2,6 +2,7 @@ import { Hono } from 'hono';
 import { serve } from '@hono/node-server';
 import { TaskService } from '../services/TaskService';
 import { TaskTagService } from '../services/TaskTagService';
+import { TagService } from '../services/TagService';
 import { MetadataService } from '../services/MetadataService';
 import { Task, TaskStatus, PRIORITIES, PRIORITY_ORDER, isPriority, Priority } from '../models';
 import { Tag } from '../models/Tag';
@@ -137,7 +138,16 @@ const BOARD_STYLES = `
     .detail-edit-textarea:focus { outline: none; border-color: #3b82f6; box-shadow: 0 0 0 2px rgba(59,130,246,0.2); }
     .description-field-wrapper .detail-edit-textarea { flex: 1; resize: none; min-height: 0; }
     .detail-edit-select { width: 100%; border: 1px solid #e2e8f0; border-radius: 6px; padding: 7px 10px; font-size: 13px; font-family: inherit; background: white; color: #1e293b; }
-    .detail-edit-select:focus { outline: none; border-color: #3b82f6; box-shadow: 0 0 0 2px rgba(59,130,246,0.2); }`;
+    .detail-edit-select:focus { outline: none; border-color: #3b82f6; box-shadow: 0 0 0 2px rgba(59,130,246,0.2); }
+    .detail-tags-edit { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
+    .detail-tag-badge { background: #e0f2fe; color: #0369a1; font-size: 11px; font-weight: 600; padding: 2px 6px; border-radius: 10px; display: inline-flex; align-items: center; gap: 4px; }
+    .detail-tag-remove { background: none; border: none; color: #0369a1; cursor: pointer; font-size: 12px; line-height: 1; padding: 0; display: inline-flex; align-items: center; }
+    .detail-tag-remove:hover { color: #dc2626; }
+    .detail-tag-add { display: flex; align-items: center; gap: 6px; margin-top: 6px; }
+    .detail-tag-select { border: 1px solid #e2e8f0; border-radius: 6px; padding: 4px 8px; font-size: 12px; font-family: inherit; background: white; color: #1e293b; }
+    .detail-tag-select:focus { outline: none; border-color: #3b82f6; box-shadow: 0 0 0 2px rgba(59,130,246,0.2); }
+    .detail-tag-add-btn { background: #3b82f6; color: white; border: none; border-radius: 6px; padding: 4px 10px; font-size: 12px; font-weight: 600; cursor: pointer; }
+    .detail-tag-add-btn:hover { background: #2563eb; }`;
 
 const BOARD_SCRIPT = `
     let draggedCard = null;
@@ -372,6 +382,89 @@ const BOARD_SCRIPT = `
     const statusLabels = ${JSON.stringify(STATUS_LABELS)};
     const allPriorities = ${JSON.stringify(PRIORITIES)};
 
+    let allAvailableTags = [];
+
+    async function loadAllTags() {
+      try {
+        const res = await fetch('/api/tags');
+        if (!res.ok) return;
+        const data = await res.json();
+        allAvailableTags = data.tags || [];
+      } catch {
+        // Ignore errors loading tags
+      }
+    }
+
+    function renderTagsSection(currentTags) {
+      const container = document.getElementById('detail-tags-container');
+      if (!container) return;
+      const currentTagIds = new Set(currentTags.map(t => t.id));
+      const availableToAdd = allAvailableTags.filter(t => !currentTagIds.has(t.id));
+
+      let html = '<div class="detail-tags-edit">';
+      currentTags.forEach(t => {
+        html += '<span class="detail-tag-badge" data-tag-id="' + t.id + '">';
+        html += escapeHtmlClient(t.name);
+        html += '<button class="detail-tag-remove" data-tag-id="' + t.id + '" title="Remove tag">&times;</button>';
+        html += '</span>';
+      });
+      html += '</div>';
+
+      if (availableToAdd.length > 0) {
+        html += '<div class="detail-tag-add">';
+        html += '<select class="detail-tag-select" id="detail-tag-select">';
+        html += '<option value="">Add tag...</option>';
+        availableToAdd.forEach(t => {
+          html += '<option value="' + t.id + '">' + escapeHtmlClient(t.name) + '</option>';
+        });
+        html += '</select>';
+        html += '<button class="detail-tag-add-btn" id="detail-tag-add-btn">Add</button>';
+        html += '</div>';
+      }
+
+      container.innerHTML = html;
+
+      // Attach remove listeners
+      container.querySelectorAll('.detail-tag-remove').forEach(btn => {
+        btn.addEventListener('click', async e => {
+          e.stopPropagation();
+          const tagId = btn.dataset.tagId;
+          try {
+            const res = await fetch('/api/tasks/' + detailTaskId + '/tags/' + tagId, { method: 'DELETE' });
+            if (!res.ok) throw new Error('Server error');
+            const tagIdx = currentTags.findIndex(t => String(t.id) === String(tagId));
+            if (tagIdx !== -1) currentTags.splice(tagIdx, 1);
+            renderTagsSection(currentTags);
+          } catch {
+            showToast('Failed to remove tag');
+          }
+        });
+      });
+
+      // Attach add listener
+      const addBtn = document.getElementById('detail-tag-add-btn');
+      if (addBtn) {
+        addBtn.addEventListener('click', async () => {
+          const select = document.getElementById('detail-tag-select');
+          const tagId = select ? select.value : '';
+          if (!tagId) return;
+          try {
+            const res = await fetch('/api/tasks/' + detailTaskId + '/tags', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ tagId: Number(tagId) })
+            });
+            if (!res.ok) throw new Error('Server error');
+            const tag = allAvailableTags.find(t => String(t.id) === String(tagId));
+            if (tag) currentTags.push(tag);
+            renderTagsSection(currentTags);
+          } catch {
+            showToast('Failed to add tag');
+          }
+        });
+      }
+    }
+
     function renderDetailPanel(data) {
       const task = data.task;
       const tags = data.tags || [];
@@ -411,14 +504,11 @@ const BOARD_SCRIPT = `
       html += '</select>';
       html += '</div>';
 
-      // Tags (read-only)
-      if (tags.length > 0) {
-        html += '<div class="detail-field">';
-        html += '<div class="detail-field-label">Tags</div>';
-        html += '<div class="detail-field-value detail-tags">';
-        tags.forEach(t => { html += '<span class="tag">' + escapeHtmlClient(t.name) + '</span>'; });
-        html += '</div></div>';
-      }
+      // Tags (editable)
+      html += '<div class="detail-field">';
+      html += '<div class="detail-field-label">Tags</div>';
+      html += '<div id="detail-tags-container"></div>';
+      html += '</div>';
 
       // Metadata table (read-only, non-priority)
       const otherMeta = metadata.filter(m => m.key !== 'priority');
@@ -449,6 +539,9 @@ const BOARD_SCRIPT = `
       html += '</div>';
 
       detailPanelBody.innerHTML = html;
+
+      // Render tags section after DOM update
+      loadAllTags().then(() => renderTagsSection([...tags]));
     }
 
     function escapeHtmlClient(str) {
@@ -700,6 +793,7 @@ function buildTaskUpdateInput(body: TaskPatchBody): { input: TaskUpdateInput; er
 type BoardServices = {
   ts: TaskService;
   tts: TaskTagService;
+  tags: TagService;
   ms: MetadataService;
   database: StorageProvider;
   boardTitle?: string;
@@ -740,7 +834,7 @@ function getBoardUpdatedAt(database: StorageProvider): string | null {
   return `${baseRow.max_updated_at}|${tagsRow.max_created_at}|${tagsRow.count}`;
 }
 
-function registerTaskApiRoutes(app: Hono, { ts, tts, ms }: BoardServices): void {
+function registerTaskApiRoutes(app: Hono, { ts, tts, tags, ms }: BoardServices): void {
   app.get('/api/tasks', (c) => c.json({ tasks: ts.listTasks({}, 'id', 'asc') }));
   app.post('/api/tasks', async (c) => {
     const body = await c.req.json<{
@@ -779,6 +873,27 @@ function registerTaskApiRoutes(app: Hono, { ts, tts, ms }: BoardServices): void 
     ts.deleteTask(id);
     return c.json({ success: true });
   });
+  app.get('/api/tags', (c) => c.json({ tags: tags.listTags() }));
+  app.post('/api/tasks/:id/tags', async (c) => {
+    const id = Number(c.req.param('id'));
+    if (isNaN(id)) return c.json({ error: 'Invalid task id' }, 400);
+    const body = await c.req.json<{ tagId?: unknown }>();
+    if (body.tagId === undefined || body.tagId === null) return c.json({ error: 'tagId is required' }, 400);
+    const tagId = Number(body.tagId);
+    if (!ts.getTask(id)) return c.json({ error: 'Task not found' }, 404);
+    if (!tags.getTag(tagId)) return c.json({ error: 'Tag not found' }, 404);
+    tts.addTagToTask({ task_id: id, tag_id: tagId });
+    return c.json({ success: true }, 201);
+  });
+  app.delete('/api/tasks/:id/tags/:tagId', (c) => {
+    const id = Number(c.req.param('id'));
+    if (isNaN(id)) return c.json({ error: 'Invalid task id' }, 400);
+    const tagId = Number(c.req.param('tagId'));
+    if (isNaN(tagId)) return c.json({ error: 'Invalid tag id' }, 400);
+    const removed = tts.removeTagFromTask(id, tagId);
+    if (!removed) return c.json({ error: 'Tag not attached to task' }, 404);
+    return c.json({ success: true });
+  });
 }
 
 function buildBoardCardsPayload(
@@ -812,12 +927,14 @@ export function createBoardApp(
   taskTagService?: TaskTagService,
   metadataService?: MetadataService,
   db?: StorageProvider,
-  boardTitle?: string
+  boardTitle?: string,
+  tagService?: TagService
 ): Hono {
   const app = new Hono();
   const services: BoardServices = {
     ts: taskService ?? new TaskService(),
     tts: taskTagService ?? new TaskTagService(),
+    tags: tagService ?? new TagService(),
     ms: metadataService ?? new MetadataService(),
     database: db ?? getDatabase(),
     boardTitle,
