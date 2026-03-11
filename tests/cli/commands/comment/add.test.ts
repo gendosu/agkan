@@ -6,7 +6,7 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { Command } from 'commander';
 import { setupCommentAddCommand } from '../../../../src/cli/commands/comment/add';
 import { getDatabase } from '../../../../src/db/connection';
-import { TaskService } from '../../../../src/services';
+import { TaskService, CommentService } from '../../../../src/services';
 
 function resetDatabase() {
   const db = getDatabase();
@@ -16,6 +16,7 @@ function resetDatabase() {
   db.exec('DELETE FROM task_blocks');
   db.exec('DELETE FROM tasks');
   db.exec("DELETE FROM sqlite_sequence WHERE name='tasks'");
+  db.exec("DELETE FROM sqlite_sequence WHERE name='task_comments'");
 }
 
 describe('setupCommentAddCommand', () => {
@@ -54,7 +55,7 @@ describe('setupCommentAddCommand', () => {
     expect(optionNames).toContain('--author');
   });
 
-  it('should add a comment to a task', async () => {
+  it('should add a comment successfully', async () => {
     const taskService = new TaskService();
     const task = taskService.createTask({ title: 'Test task', status: 'ready' });
 
@@ -75,6 +76,11 @@ describe('setupCommentAddCommand', () => {
     const output = consoleLogs.join('\n');
     expect(output).toContain('My comment');
     expect(output).toContain('Comment added successfully');
+
+    const commentService = new CommentService();
+    const comments = commentService.listComments(task.id);
+    expect(comments).toHaveLength(1);
+    expect(comments[0].content).toBe('My comment');
   });
 
   it('should add a comment with author', async () => {
@@ -96,20 +102,22 @@ describe('setupCommentAddCommand', () => {
         'comment',
         'add',
         String(task.id),
-        'My comment',
+        'A note',
         '--author',
-        'testuser',
+        'alice',
       ]);
     } finally {
       console.log = originalLog;
       process.exit = originalExit;
     }
 
-    const output = consoleLogs.join('\n');
-    expect(output).toContain('testuser');
+    const commentService = new CommentService();
+    const comments = commentService.listComments(task.id);
+    expect(comments).toHaveLength(1);
+    expect(comments[0].author).toBe('alice');
   });
 
-  it('should output JSON on success', async () => {
+  it('should output JSON when --json flag is used', async () => {
     const taskService = new TaskService();
     const task = taskService.createTask({ title: 'Test task', status: 'ready' });
 
@@ -127,7 +135,8 @@ describe('setupCommentAddCommand', () => {
       process.exit = originalExit;
     }
 
-    const parsed = JSON.parse(consoleLogs[0]);
+    const output = consoleLogs.join('\n');
+    const parsed = JSON.parse(output);
     expect(parsed.success).toBe(true);
     expect(parsed.data.content).toBe('My comment');
     expect(parsed.data.task_id).toBe(task.id);
@@ -145,7 +154,7 @@ describe('setupCommentAddCommand', () => {
     }) as never;
 
     try {
-      await program.parseAsync(['node', 'test', 'task', 'comment', 'add', '999', 'My comment']);
+      await program.parseAsync(['node', 'test', 'task', 'comment', 'add', '99999', 'My comment']);
     } finally {
       console.log = originalLog;
       process.exit = originalExit;
@@ -153,7 +162,7 @@ describe('setupCommentAddCommand', () => {
 
     expect(exitCode).toBe(1);
     const output = consoleLogs.join('\n');
-    expect(output).toContain('999');
+    expect(output).toContain('99999');
   });
 
   it('should show error when task ID is not a number', async () => {

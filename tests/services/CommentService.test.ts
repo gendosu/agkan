@@ -14,57 +14,49 @@ describe('CommentService', () => {
   });
 
   describe('addComment', () => {
-    it('コメントを追加できる', () => {
-      const task = taskService.createTask({ title: 'テストタスク' });
-      const comment = commentService.addComment({
-        task_id: task.id,
-        content: 'テストコメント',
-      });
+    it('should add a comment to a task', () => {
+      const task = taskService.createTask({ title: 'Test task' });
+      const comment = commentService.addComment({ task_id: task.id, content: 'Hello world' });
 
       expect(comment).toBeDefined();
-      expect(comment.id).toBeDefined();
-      expect(typeof comment.id).toBe('number');
+      expect(comment.id).toBeGreaterThan(0);
       expect(comment.task_id).toBe(task.id);
-      expect(comment.content).toBe('テストコメント');
+      expect(comment.content).toBe('Hello world');
       expect(comment.author).toBeNull();
       expect(comment.created_at).toBeDefined();
       expect(comment.updated_at).toBeDefined();
     });
 
-    it('authorを指定してコメントを追加できる', () => {
-      const task = taskService.createTask({ title: 'テストタスク' });
-      const comment = commentService.addComment({
-        task_id: task.id,
-        author: 'testuser',
-        content: 'テストコメント',
-      });
+    it('should add a comment with an author', () => {
+      const task = taskService.createTask({ title: 'Test task' });
+      const comment = commentService.addComment({ task_id: task.id, content: 'Progress note', author: 'alice' });
 
-      expect(comment.author).toBe('testuser');
+      expect(comment.author).toBe('alice');
     });
 
-    it('contentが空の場合エラーが発生する', () => {
-      const task = taskService.createTask({ title: 'テストタスク' });
+    it('should throw when content is empty', () => {
+      const task = taskService.createTask({ title: 'Test task' });
       expect(() => {
         commentService.addComment({ task_id: task.id, content: '' });
       }).toThrow('Content is required');
     });
 
-    it('contentが空白のみの場合エラーが発生する', () => {
-      const task = taskService.createTask({ title: 'テストタスク' });
+    it('should throw when content is whitespace only', () => {
+      const task = taskService.createTask({ title: 'Test task' });
       expect(() => {
         commentService.addComment({ task_id: task.id, content: '   ' });
       }).toThrow('Content is required');
     });
 
-    it('contentが5000文字を超える場合エラーが発生する', () => {
-      const task = taskService.createTask({ title: 'テストタスク' });
+    it('should throw when content exceeds 5000 characters', () => {
+      const task = taskService.createTask({ title: 'Test task' });
       expect(() => {
         commentService.addComment({ task_id: task.id, content: 'a'.repeat(5001) });
       }).toThrow('Content must not exceed 5000 characters');
     });
 
-    it('authorが100文字を超える場合エラーが発生する', () => {
-      const task = taskService.createTask({ title: 'テストタスク' });
+    it('should throw when author exceeds 100 characters', () => {
+      const task = taskService.createTask({ title: 'Test task' });
       expect(() => {
         commentService.addComment({
           task_id: task.id,
@@ -76,114 +68,120 @@ describe('CommentService', () => {
   });
 
   describe('getComment', () => {
-    it('IDでコメントを取得できる', () => {
-      const task = taskService.createTask({ title: 'テストタスク' });
-      const created = commentService.addComment({ task_id: task.id, content: 'テストコメント' });
+    it('should get a comment by ID', () => {
+      const task = taskService.createTask({ title: 'Test task' });
+      const created = commentService.addComment({ task_id: task.id, content: 'Note' });
 
       const fetched = commentService.getComment(created.id);
-      expect(fetched).toBeDefined();
+      expect(fetched).not.toBeNull();
       expect(fetched!.id).toBe(created.id);
-      expect(fetched!.content).toBe('テストコメント');
+      expect(fetched!.content).toBe('Note');
     });
 
-    it('存在しないIDの場合nullを返す', () => {
-      const result = commentService.getComment(9999);
+    it('should return null for non-existent comment', () => {
+      const result = commentService.getComment(99999);
       expect(result).toBeNull();
     });
   });
 
   describe('listComments', () => {
-    it('タスクのコメント一覧を取得できる', () => {
-      const task = taskService.createTask({ title: 'テストタスク' });
-      commentService.addComment({ task_id: task.id, content: 'コメント1' });
-      commentService.addComment({ task_id: task.id, content: 'コメント2' });
-      commentService.addComment({ task_id: task.id, content: 'コメント3' });
+    it('should return an empty array when task has no comments', () => {
+      const task = taskService.createTask({ title: 'Test task' });
+      const comments = commentService.listComments(task.id);
+      expect(comments).toEqual([]);
+    });
+
+    it('should list comments ordered by created_at ASC', () => {
+      const task = taskService.createTask({ title: 'Test task' });
+      commentService.addComment({ task_id: task.id, content: 'First' });
+      commentService.addComment({ task_id: task.id, content: 'Second' });
+      commentService.addComment({ task_id: task.id, content: 'Third' });
 
       const comments = commentService.listComments(task.id);
       expect(comments).toHaveLength(3);
-      expect(comments[0].content).toBe('コメント1');
-      expect(comments[1].content).toBe('コメント2');
-      expect(comments[2].content).toBe('コメント3');
+      expect(comments[0].content).toBe('First');
+      expect(comments[1].content).toBe('Second');
+      expect(comments[2].content).toBe('Third');
     });
 
-    it('コメントがない場合空配列を返す', () => {
-      const task = taskService.createTask({ title: 'テストタスク' });
-      const comments = commentService.listComments(task.id);
-      expect(comments).toHaveLength(0);
-    });
+    it('should only return comments for the specified task', () => {
+      const task1 = taskService.createTask({ title: 'Task 1' });
+      const task2 = taskService.createTask({ title: 'Task 2' });
+      commentService.addComment({ task_id: task1.id, content: 'Comment for task 1' });
+      commentService.addComment({ task_id: task2.id, content: 'Comment for task 2' });
 
-    it('他のタスクのコメントは含まない', () => {
-      const task1 = taskService.createTask({ title: 'タスク1' });
-      const task2 = taskService.createTask({ title: 'タスク2' });
-      commentService.addComment({ task_id: task1.id, content: 'タスク1のコメント' });
-      commentService.addComment({ task_id: task2.id, content: 'タスク2のコメント' });
-
-      const comments = commentService.listComments(task1.id);
-      expect(comments).toHaveLength(1);
-      expect(comments[0].content).toBe('タスク1のコメント');
+      const commentsForTask1 = commentService.listComments(task1.id);
+      expect(commentsForTask1).toHaveLength(1);
+      expect(commentsForTask1[0].content).toBe('Comment for task 1');
     });
   });
 
   describe('deleteComment', () => {
-    it('コメントを削除できる', () => {
-      const task = taskService.createTask({ title: 'テストタスク' });
-      const comment = commentService.addComment({ task_id: task.id, content: 'テストコメント' });
+    it('should delete a comment by ID', () => {
+      const task = taskService.createTask({ title: 'Test task' });
+      const comment = commentService.addComment({ task_id: task.id, content: 'To delete' });
 
-      const result = commentService.deleteComment(comment.id);
-      expect(result).toBe(true);
+      const deleted = commentService.deleteComment(comment.id);
+      expect(deleted).toBe(true);
 
       const fetched = commentService.getComment(comment.id);
       expect(fetched).toBeNull();
     });
 
-    it('存在しないIDの場合falseを返す', () => {
-      const result = commentService.deleteComment(9999);
-      expect(result).toBe(false);
+    it('should return false when comment does not exist', () => {
+      const deleted = commentService.deleteComment(99999);
+      expect(deleted).toBe(false);
     });
   });
 
   describe('deleteAllComments', () => {
-    it('タスクの全コメントを削除できる', () => {
-      const task = taskService.createTask({ title: 'テストタスク' });
-      commentService.addComment({ task_id: task.id, content: 'コメント1' });
-      commentService.addComment({ task_id: task.id, content: 'コメント2' });
+    it('should delete all comments for a task', () => {
+      const task = taskService.createTask({ title: 'Test task' });
+      commentService.addComment({ task_id: task.id, content: 'Comment 1' });
+      commentService.addComment({ task_id: task.id, content: 'Comment 2' });
 
       const count = commentService.deleteAllComments(task.id);
       expect(count).toBe(2);
 
-      const comments = commentService.listComments(task.id);
-      expect(comments).toHaveLength(0);
+      const remaining = commentService.listComments(task.id);
+      expect(remaining).toHaveLength(0);
+    });
+
+    it('should return 0 when task has no comments', () => {
+      const task = taskService.createTask({ title: 'Test task' });
+      const count = commentService.deleteAllComments(task.id);
+      expect(count).toBe(0);
+    });
+  });
+
+  describe('getCommentsForTasks', () => {
+    it('should return an empty map for empty task IDs', () => {
+      const result = commentService.getCommentsForTasks([]);
+      expect(result.size).toBe(0);
+    });
+
+    it('should return comments grouped by task ID', () => {
+      const task1 = taskService.createTask({ title: 'Task 1' });
+      const task2 = taskService.createTask({ title: 'Task 2' });
+      commentService.addComment({ task_id: task1.id, content: 'C1 for task1' });
+      commentService.addComment({ task_id: task1.id, content: 'C2 for task1' });
+      commentService.addComment({ task_id: task2.id, content: 'C1 for task2' });
+
+      const result = commentService.getCommentsForTasks([task1.id, task2.id]);
+      expect(result.get(task1.id)).toHaveLength(2);
+      expect(result.get(task2.id)).toHaveLength(1);
     });
   });
 
   describe('CASCADE DELETE', () => {
-    it('タスク削除時にコメントも削除される', () => {
-      const task = taskService.createTask({ title: 'テストタスク' });
-      const comment = commentService.addComment({ task_id: task.id, content: 'テストコメント' });
+    it('should delete comments when the parent task is deleted', () => {
+      const task = taskService.createTask({ title: 'Test task' });
+      const comment = commentService.addComment({ task_id: task.id, content: 'Will be deleted' });
 
       taskService.deleteTask(task.id);
 
       const fetched = commentService.getComment(comment.id);
       expect(fetched).toBeNull();
-    });
-  });
-
-  describe('getCommentsForTasks', () => {
-    it('複数タスクのコメントを一度に取得できる', () => {
-      const task1 = taskService.createTask({ title: 'タスク1' });
-      const task2 = taskService.createTask({ title: 'タスク2' });
-      commentService.addComment({ task_id: task1.id, content: 'タスク1コメント1' });
-      commentService.addComment({ task_id: task1.id, content: 'タスク1コメント2' });
-      commentService.addComment({ task_id: task2.id, content: 'タスク2コメント1' });
-
-      const map = commentService.getCommentsForTasks([task1.id, task2.id]);
-      expect(map.get(task1.id)).toHaveLength(2);
-      expect(map.get(task2.id)).toHaveLength(1);
-    });
-
-    it('空配列の場合空のMapを返す', () => {
-      const map = commentService.getCommentsForTasks([]);
-      expect(map.size).toBe(0);
     });
   });
 });
