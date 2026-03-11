@@ -35,6 +35,11 @@ import { setupMetaGetCommand } from './commands/meta/get';
 import { setupMetaListCommand } from './commands/meta/list';
 import { setupMetaDeleteCommand } from './commands/meta/delete';
 
+// Comment command handlers
+import { setupCommentAddCommand } from './commands/comment/add';
+import { setupCommentListCommand } from './commands/comment/list';
+import { setupCommentDeleteCommand } from './commands/comment/delete';
+
 // Board command handler
 import { setupBoardCommand } from './commands/board';
 
@@ -85,6 +90,11 @@ setupMetaSetCommand(program);
 setupMetaGetCommand(program);
 setupMetaListCommand(program);
 setupMetaDeleteCommand(program);
+
+// Register comment commands
+setupCommentAddCommand(program);
+setupCommentListCommand(program);
+setupCommentDeleteCommand(program);
 
 // Register board command
 setupBoardCommand(program);
