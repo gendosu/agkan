@@ -4,7 +4,7 @@
 
 import { Command } from 'commander';
 import chalk from 'chalk';
-import { TaskService, TaskBlockService, TaskTagService } from '../../../services';
+import { TaskService, TaskBlockService, TaskTagService, CommentService } from '../../../services';
 import { handleError, validateNumberInput } from '../../utils/error-handler';
 import { getStatusColor, formatDate } from '../../../utils/format';
 import { createFormatter } from '../../utils/output-formatter';
@@ -28,6 +28,7 @@ export function setupTaskGetCommand(program: Command): void {
         const taskService = new TaskService();
         const taskBlockService = new TaskBlockService();
         const taskTagService = new TaskTagService();
+        const commentService = new CommentService();
 
         const taskId = validateNumberInput(id);
         if (taskId === null) {
@@ -56,6 +57,7 @@ export function setupTaskGetCommand(program: Command): void {
             const blockedIds = taskBlockService.getBlockedTaskIds(task.id);
             const blockedTasks = blockedIds.map((id) => taskService.getTask(id)).filter(filterNonNull);
             const tags = taskTagService.getTagsForTask(task.id);
+            const comments = commentService.listComments(task.id);
 
             return {
               success: true,
@@ -125,6 +127,14 @@ export function setupTaskGetCommand(program: Command): void {
                 id: tag.id,
                 name: tag.name,
                 created_at: tag.created_at,
+              })),
+              comments: comments.map((comment) => ({
+                id: comment.id,
+                task_id: comment.task_id,
+                author: comment.author,
+                content: comment.content,
+                created_at: comment.created_at,
+                updated_at: comment.updated_at,
               })),
             };
           },
@@ -208,6 +218,20 @@ export function setupTaskGetCommand(program: Command): void {
               tags.forEach((tag) => {
                 console.log(`  ${chalk.cyan('•')} ${chalk.cyan(`[${tag.id}]`)} ${tag.name}`);
               });
+            }
+
+            // Display comments
+            const comments = commentService.listComments(task.id);
+            if (comments.length > 0) {
+              console.log(`${chalk.bold('\nComments:')} ${comments.length} comment(s)`);
+              console.log(chalk.gray('─'.repeat(80)));
+              comments.forEach((comment) => {
+                const author = comment.author ? `[${comment.author}]` : '[anonymous]';
+                console.log(`${chalk.cyan(`#${comment.id}`)} ${author} ${formatDate(comment.created_at)}`);
+                console.log(comment.content);
+                console.log();
+              });
+              console.log(chalk.gray('─'.repeat(80)));
             }
 
             if (task.body) {
