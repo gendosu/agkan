@@ -24,7 +24,7 @@ export function setupCommentDeleteCommand(program: Command): void {
   commentCommand
     .command('delete')
     .argument('<comment-id>', 'Comment ID')
-    .description('Delete a comment')
+    .description('Delete a comment by ID')
     .option('--json', 'Output in JSON format')
     .action(async (commentId, options) => {
       const formatter = createFormatter(options);
