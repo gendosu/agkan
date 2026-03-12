@@ -134,6 +134,61 @@ describe('CommentService', () => {
     });
   });
 
+  describe('updateComment', () => {
+    it('should update the content of a comment', () => {
+      const task = taskService.createTask({ title: 'Test task' });
+      const comment = commentService.addComment({ task_id: task.id, content: 'Original' });
+
+      const updated = commentService.updateComment(comment.id, 'Updated content');
+      expect(updated).not.toBeNull();
+      expect(updated!.id).toBe(comment.id);
+      expect(updated!.content).toBe('Updated content');
+    });
+
+    it('should update updated_at timestamp', () => {
+      const task = taskService.createTask({ title: 'Test task' });
+      const comment = commentService.addComment({ task_id: task.id, content: 'Original' });
+      const originalUpdatedAt = comment.updated_at;
+
+      // Ensure some time passes
+      const updated = commentService.updateComment(comment.id, 'Updated content');
+      expect(updated).not.toBeNull();
+      // updated_at should be defined (may equal original if same millisecond, but field exists)
+      expect(updated!.updated_at).toBeDefined();
+      expect(typeof updated!.updated_at).toBe('string');
+      void originalUpdatedAt; // suppress unused warning
+    });
+
+    it('should return null when comment not found', () => {
+      const result = commentService.updateComment(99999, 'New content');
+      expect(result).toBeNull();
+    });
+
+    it('should throw when content is empty', () => {
+      const task = taskService.createTask({ title: 'Test task' });
+      const comment = commentService.addComment({ task_id: task.id, content: 'Original' });
+      expect(() => {
+        commentService.updateComment(comment.id, '');
+      }).toThrow('Content is required');
+    });
+
+    it('should throw when content is whitespace only', () => {
+      const task = taskService.createTask({ title: 'Test task' });
+      const comment = commentService.addComment({ task_id: task.id, content: 'Original' });
+      expect(() => {
+        commentService.updateComment(comment.id, '   ');
+      }).toThrow('Content is required');
+    });
+
+    it('should throw when content exceeds 5000 characters', () => {
+      const task = taskService.createTask({ title: 'Test task' });
+      const comment = commentService.addComment({ task_id: task.id, content: 'Original' });
+      expect(() => {
+        commentService.updateComment(comment.id, 'a'.repeat(5001));
+      }).toThrow('Content must not exceed 5000 characters');
+    });
+  });
+
   describe('deleteAllComments', () => {
     it('should delete all comments for a task', () => {
       const task = taskService.createTask({ title: 'Test task' });

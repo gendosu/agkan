@@ -95,6 +95,36 @@ export class CommentService {
   }
 
   /**
+   * Update a comment's content
+   * @param id - Comment ID
+   * @param content - New content
+   * @returns Updated comment object or null if not found
+   */
+  updateComment(id: number, content: string): TaskComment | null {
+    const errors = validateCommentInput({ task_id: 0, content });
+    if (errors.length > 0) {
+      throw new Error(errors[0].message);
+    }
+
+    const db = this.db;
+    const now = new Date().toISOString();
+
+    const stmt = db.prepare(`
+      UPDATE task_comments
+      SET content = ?, updated_at = ?
+      WHERE id = ?
+    `);
+
+    const result = stmt.run(content, now, id);
+
+    if (result.changes === 0) {
+      return null;
+    }
+
+    return this.getComment(id);
+  }
+
+  /**
    * Delete all comments for a task
    * @param taskId - Task ID
    * @returns Number of deleted comments

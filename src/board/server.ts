@@ -4,6 +4,7 @@ import { TaskService } from '../services/TaskService';
 import { TaskTagService } from '../services/TaskTagService';
 import { TagService } from '../services/TagService';
 import { MetadataService } from '../services/MetadataService';
+import { CommentService } from '../services/CommentService';
 import { Task, TaskStatus, PRIORITIES, PRIORITY_ORDER, isPriority, Priority } from '../models';
 import { Tag } from '../models/Tag';
 import { getDatabase } from '../db/connection';
@@ -151,7 +152,26 @@ const BOARD_STYLES = `
     .tag-select-dropdown.open { display: block; }
     .tag-select-option { padding: 6px 10px; font-size: 12px; cursor: pointer; color: #1e293b; }
     .tag-select-option:hover, .tag-select-option.focused { background: #eff6ff; color: #0369a1; }
-    .tag-select-no-options { padding: 6px 10px; font-size: 12px; color: #94a3b8; font-style: italic; }`;
+    .tag-select-no-options { padding: 6px 10px; font-size: 12px; color: #94a3b8; font-style: italic; }
+    .comments-section { margin-top: 16px; }
+    .comments-section-title { font-size: 11px; font-weight: 700; text-transform: uppercase; color: #94a3b8; margin-bottom: 8px; letter-spacing: 0.05em; }
+    .comment-item { border: 1px solid #e2e8f0; border-radius: 6px; padding: 10px 12px; margin-bottom: 8px; background: #f8fafc; }
+    .comment-meta { display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; }
+    .comment-author { font-size: 11px; font-weight: 600; color: #64748b; }
+    .comment-date { font-size: 11px; color: #94a3b8; }
+    .comment-content { font-size: 13px; color: #1e293b; line-height: 1.5; white-space: pre-wrap; }
+    .comment-actions { display: flex; gap: 6px; margin-top: 6px; }
+    .comment-btn { background: none; border: 1px solid #e2e8f0; border-radius: 4px; font-size: 11px; font-weight: 600; padding: 2px 8px; cursor: pointer; color: #64748b; }
+    .comment-btn:hover { background: #f1f5f9; }
+    .comment-btn.danger:hover { background: #fef2f2; color: #dc2626; border-color: #fca5a5; }
+    .comment-edit-area { width: 100%; border: 1px solid #e2e8f0; border-radius: 6px; padding: 7px 10px; font-size: 13px; font-family: inherit; resize: vertical; min-height: 60px; background: white; color: #1e293b; margin-top: 6px; }
+    .comment-edit-area:focus { outline: none; border-color: #3b82f6; box-shadow: 0 0 0 2px rgba(59,130,246,0.2); }
+    .comment-edit-actions { display: flex; gap: 6px; margin-top: 6px; }
+    .add-comment-form { margin-top: 10px; }
+    .add-comment-textarea { width: 100%; border: 1px solid #e2e8f0; border-radius: 6px; padding: 7px 10px; font-size: 13px; font-family: inherit; resize: vertical; min-height: 60px; background: white; color: #1e293b; }
+    .add-comment-textarea:focus { outline: none; border-color: #3b82f6; box-shadow: 0 0 0 2px rgba(59,130,246,0.2); }
+    .add-comment-submit { margin-top: 6px; padding: 5px 14px; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer; border: 1px solid #3b82f6; background: #3b82f6; color: white; }
+    .add-comment-submit:hover { background: #2563eb; border-color: #2563eb; }`;
 
 const BOARD_SCRIPT = `
     let draggedCard = null;
@@ -636,10 +656,16 @@ const BOARD_SCRIPT = `
       html += '<textarea id="detail-edit-body" class="detail-edit-textarea">' + escapeHtmlClient(task.body || '') + '</textarea>';
       html += '</div>';
 
+      // Comments section placeholder
+      html += '<div class="comments-section" id="comments-section"></div>';
+
       detailPanelBody.innerHTML = html;
 
       // Render tags section after DOM update
       loadAllTags().then(() => renderTagsSection([...tags]));
+
+      // Load comments
+      loadComments(task.id);
     }
 
     function escapeHtmlClient(str) {
@@ -767,8 +793,121 @@ const BOARD_SCRIPT = `
         // Ignore network errors during polling
       }
     }
-    setInterval(pollBoardUpdates, 5000);
-    pollBoardUpdates();`;
+    setInterval(pollBoardUpdates, 10000);
+    pollBoardUpdates();
+
+    async function loadComments(taskId) {
+      const section = document.getElementById('comments-section');
+      if (!section) return;
+      try {
+        const res = await fetch('/api/tasks/' + taskId + '/comments');
+        if (!res.ok) throw new Error('Server error');
+        const data = await res.json();
+        renderComments(taskId, data.comments || []);
+      } catch {
+        section.innerHTML = '<div class="comments-section-title">Comments</div><div style="font-size:12px;color:#94a3b8;">Failed to load comments</div>';
+      }
+    }
+
+    function renderComments(taskId, comments) {
+      const section = document.getElementById('comments-section');
+      if (!section) return;
+
+      let html = '<div class="comments-section-title">Comments (' + comments.length + ')</div>';
+
+      comments.forEach(function(comment) {
+        const authorText = comment.author ? escapeHtmlClient(comment.author) : 'Anonymous';
+        const dateText = escapeHtmlClient(comment.created_at);
+        const contentText = escapeHtmlClient(comment.content);
+        html += '<div class="comment-item" data-comment-id="' + comment.id + '">';
+        html += '<div class="comment-meta">';
+        html += '<span class="comment-author">' + authorText + '</span>';
+        html += '<span class="comment-date">' + dateText + '</span>';
+        html += '</div>';
+        html += '<div class="comment-content" id="comment-content-' + comment.id + '">' + contentText + '</div>';
+        html += '<div class="comment-edit-wrapper" id="comment-edit-' + comment.id + '" style="display:none;">';
+        html += '<textarea class="comment-edit-area" id="comment-edit-area-' + comment.id + '">' + contentText + '</textarea>';
+        html += '<div class="comment-edit-actions">';
+        html += '<button class="comment-btn" onclick="saveCommentEdit(' + comment.id + ',' + taskId + ')">Save</button>';
+        html += '<button class="comment-btn" onclick="cancelCommentEdit(' + comment.id + ')">Cancel</button>';
+        html += '</div></div>';
+        html += '<div class="comment-actions">';
+        html += '<button class="comment-btn" onclick="startCommentEdit(' + comment.id + ')">Edit</button>';
+        html += '<button class="comment-btn danger" onclick="deleteComment(' + comment.id + ',' + taskId + ')">Delete</button>';
+        html += '</div>';
+        html += '</div>';
+      });
+
+      html += '<div class="add-comment-form">';
+      html += '<textarea class="add-comment-textarea" id="add-comment-text" placeholder="Add a comment..."></textarea>';
+      html += '<button class="add-comment-submit" onclick="submitComment(' + taskId + ')">Add Comment</button>';
+      html += '</div>';
+
+      section.innerHTML = html;
+    }
+
+    function startCommentEdit(commentId) {
+      const contentEl = document.getElementById('comment-content-' + commentId);
+      const editWrapper = document.getElementById('comment-edit-' + commentId);
+      if (contentEl) contentEl.style.display = 'none';
+      if (editWrapper) editWrapper.style.display = 'block';
+      const area = document.getElementById('comment-edit-area-' + commentId);
+      if (area) area.focus();
+    }
+
+    function cancelCommentEdit(commentId) {
+      const contentEl = document.getElementById('comment-content-' + commentId);
+      const editWrapper = document.getElementById('comment-edit-' + commentId);
+      if (contentEl) contentEl.style.display = '';
+      if (editWrapper) editWrapper.style.display = 'none';
+    }
+
+    async function saveCommentEdit(commentId, taskId) {
+      const area = document.getElementById('comment-edit-area-' + commentId);
+      if (!area) return;
+      const content = area.value.trim();
+      if (!content) { area.focus(); return; }
+      try {
+        const res = await fetch('/api/comments/' + commentId, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ content })
+        });
+        if (!res.ok) throw new Error('Server error');
+        await loadComments(taskId);
+      } catch {
+        showToast('Failed to update comment');
+      }
+    }
+
+    async function deleteComment(commentId, taskId) {
+      if (!confirm('Delete this comment?')) return;
+      try {
+        const res = await fetch('/api/comments/' + commentId, { method: 'DELETE' });
+        if (!res.ok) throw new Error('Server error');
+        await loadComments(taskId);
+      } catch {
+        showToast('Failed to delete comment');
+      }
+    }
+
+    async function submitComment(taskId) {
+      const textarea = document.getElementById('add-comment-text');
+      if (!textarea) return;
+      const content = textarea.value.trim();
+      if (!content) { textarea.focus(); return; }
+      try {
+        const res = await fetch('/api/tasks/' + taskId + '/comments', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ content })
+        });
+        if (!res.ok) throw new Error('Server error');
+        await loadComments(taskId);
+      } catch {
+        showToast('Failed to add comment');
+      }
+    }`;
 
 function renderColumn(status: TaskStatus, tasks: Task[], tagMap: Map<number, Tag[]>): string {
   const color = STATUS_COLORS[status];
@@ -893,6 +1032,7 @@ type BoardServices = {
   tts: TaskTagService;
   tags: TagService;
   ms: MetadataService;
+  cs: CommentService;
   database: StorageProvider;
   boardTitle?: string;
 };
@@ -932,7 +1072,7 @@ function getBoardUpdatedAt(database: StorageProvider): string | null {
   return `${baseRow.max_updated_at}|${tagsRow.max_created_at}|${tagsRow.count}`;
 }
 
-function registerTaskApiRoutes(app: Hono, { ts, tts, tags, ms }: BoardServices): void {
+function registerTaskApiRoutes(app: Hono, { ts, tts, tags, ms, cs }: BoardServices): void {
   app.get('/api/tasks', (c) => c.json({ tasks: ts.listTasks({}, 'id', 'asc') }));
   app.post('/api/tasks', async (c) => {
     const body = await c.req.json<{
@@ -992,6 +1132,49 @@ function registerTaskApiRoutes(app: Hono, { ts, tts, tags, ms }: BoardServices):
     if (!removed) return c.json({ error: 'Tag not attached to task' }, 404);
     return c.json({ success: true });
   });
+  app.get('/api/tasks/:id/comments', (c) => {
+    const id = Number(c.req.param('id'));
+    if (isNaN(id)) return c.json({ error: 'Invalid task id' }, 400);
+    if (!ts.getTask(id)) return c.json({ error: 'Task not found' }, 404);
+    return c.json({ comments: cs.listComments(id) });
+  });
+  app.post('/api/tasks/:id/comments', async (c) => {
+    const id = Number(c.req.param('id'));
+    if (isNaN(id)) return c.json({ error: 'Invalid task id' }, 400);
+    if (!ts.getTask(id)) return c.json({ error: 'Task not found' }, 404);
+    const body = await c.req.json<{ content?: string; author?: string }>();
+    if (!body.content || typeof body.content !== 'string') {
+      return c.json({ error: 'Content is required' }, 400);
+    }
+    try {
+      const comment = cs.addComment({ task_id: id, content: body.content, author: body.author });
+      return c.json(comment, 201);
+    } catch (e) {
+      return c.json({ error: e instanceof Error ? e.message : 'Invalid input' }, 400);
+    }
+  });
+  app.delete('/api/comments/:id', (c) => {
+    const id = Number(c.req.param('id'));
+    if (isNaN(id)) return c.json({ error: 'Invalid comment id' }, 400);
+    const deleted = cs.deleteComment(id);
+    if (!deleted) return c.json({ error: 'Comment not found' }, 404);
+    return c.json({ success: true });
+  });
+  app.patch('/api/comments/:id', async (c) => {
+    const id = Number(c.req.param('id'));
+    if (isNaN(id)) return c.json({ error: 'Invalid comment id' }, 400);
+    const body = await c.req.json<{ content?: string }>();
+    if (!body.content || typeof body.content !== 'string') {
+      return c.json({ error: 'Content is required' }, 400);
+    }
+    try {
+      const comment = cs.updateComment(id, body.content);
+      if (!comment) return c.json({ error: 'Comment not found' }, 404);
+      return c.json(comment);
+    } catch (e) {
+      return c.json({ error: e instanceof Error ? e.message : 'Invalid input' }, 400);
+    }
+  });
 }
 
 function buildBoardCardsPayload(
@@ -1026,7 +1209,8 @@ export function createBoardApp(
   metadataService?: MetadataService,
   db?: StorageProvider,
   boardTitle?: string,
-  tagService?: TagService
+  tagService?: TagService,
+  commentService?: CommentService
 ): Hono {
   const app = new Hono();
   const services: BoardServices = {
@@ -1034,6 +1218,7 @@ export function createBoardApp(
     tts: taskTagService ?? new TaskTagService(),
     tags: tagService ?? new TagService(),
     ms: metadataService ?? new MetadataService(),
+    cs: commentService ?? new CommentService(),
     database: db ?? getDatabase(),
     boardTitle,
   };
