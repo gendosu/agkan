@@ -2,6 +2,7 @@ import { Hono } from 'hono';
 import { serve } from '@hono/node-server';
 import { TaskService } from '../services/TaskService';
 import { TaskTagService } from '../services/TaskTagService';
+import { TagService } from '../services/TagService';
 import { MetadataService } from '../services/MetadataService';
 import { Task, TaskStatus, PRIORITIES, PRIORITY_ORDER, isPriority, Priority } from '../models';
 import { Tag } from '../models/Tag';
@@ -137,7 +138,20 @@ const BOARD_STYLES = `
     .detail-edit-textarea:focus { outline: none; border-color: #3b82f6; box-shadow: 0 0 0 2px rgba(59,130,246,0.2); }
     .description-field-wrapper .detail-edit-textarea { flex: 1; resize: none; min-height: 0; }
     .detail-edit-select { width: 100%; border: 1px solid #e2e8f0; border-radius: 6px; padding: 7px 10px; font-size: 13px; font-family: inherit; background: white; color: #1e293b; }
-    .detail-edit-select:focus { outline: none; border-color: #3b82f6; box-shadow: 0 0 0 2px rgba(59,130,246,0.2); }`;
+    .detail-edit-select:focus { outline: none; border-color: #3b82f6; box-shadow: 0 0 0 2px rgba(59,130,246,0.2); }
+    .tag-select-wrapper { position: relative; }
+    .tag-select-control { border: 1px solid #e2e8f0; border-radius: 6px; padding: 4px 8px; min-height: 36px; cursor: text; display: flex; flex-wrap: wrap; gap: 4px; align-items: center; background: white; }
+    .tag-select-control:focus-within { border-color: #3b82f6; box-shadow: 0 0 0 2px rgba(59,130,246,0.2); }
+    .tag-pill { background: #e0f2fe; color: #0369a1; font-size: 11px; font-weight: 600; padding: 2px 4px 2px 8px; border-radius: 10px; display: inline-flex; align-items: center; gap: 3px; }
+    .tag-pill-remove { background: none; border: none; color: #0369a1; cursor: pointer; font-size: 13px; line-height: 1; padding: 0 2px; display: inline-flex; align-items: center; border-radius: 50%; }
+    .tag-pill-remove:hover { color: #dc2626; background: rgba(220,38,38,0.1); }
+    .tag-select-input { border: none; outline: none; font-size: 12px; font-family: inherit; min-width: 80px; flex: 1; background: transparent; padding: 2px 0; color: #1e293b; }
+    .tag-select-input::placeholder { color: #94a3b8; }
+    .tag-select-dropdown { position: absolute; top: calc(100% + 2px); left: 0; right: 0; background: white; border: 1px solid #e2e8f0; border-radius: 6px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); z-index: 100; max-height: 180px; overflow-y: auto; display: none; }
+    .tag-select-dropdown.open { display: block; }
+    .tag-select-option { padding: 6px 10px; font-size: 12px; cursor: pointer; color: #1e293b; }
+    .tag-select-option:hover, .tag-select-option.focused { background: #eff6ff; color: #0369a1; }
+    .tag-select-no-options { padding: 6px 10px; font-size: 12px; color: #94a3b8; font-style: italic; }`;
 
 const BOARD_SCRIPT = `
     let draggedCard = null;
@@ -372,6 +386,183 @@ const BOARD_SCRIPT = `
     const statusLabels = ${JSON.stringify(STATUS_LABELS)};
     const allPriorities = ${JSON.stringify(PRIORITIES)};
 
+    let allAvailableTags = [];
+
+    async function loadAllTags() {
+      try {
+        const res = await fetch('/api/tags');
+        if (!res.ok) return;
+        const data = await res.json();
+        allAvailableTags = data.tags || [];
+      } catch {
+        // Ignore errors loading tags
+      }
+    }
+
+    function renderTagsSection(currentTags) {
+      const container = document.getElementById('detail-tags-container');
+      if (!container) return;
+
+      container.innerHTML = '<div class="tag-select-wrapper"><div class="tag-select-control" id="tag-select-control"></div><div class="tag-select-dropdown" id="tag-select-dropdown"></div></div>';
+
+      const control = document.getElementById('tag-select-control');
+      const dropdown = document.getElementById('tag-select-dropdown');
+      let focusedOptionIndex = -1;
+      let inputValue = '';
+
+      function getFilteredTags() {
+        const currentTagIds = new Set(currentTags.map(t => t.id));
+        const available = allAvailableTags.filter(t => !currentTagIds.has(t.id));
+        if (!inputValue.trim()) return available;
+        const q = inputValue.toLowerCase();
+        return available.filter(t => t.name.toLowerCase().includes(q));
+      }
+
+      const input = document.createElement('input');
+      input.className = 'tag-select-input';
+      input.type = 'text';
+      input.autocomplete = 'off';
+      control.appendChild(input);
+
+      function renderPills() {
+        control.querySelectorAll('.tag-pill').forEach(p => p.remove());
+        currentTags.forEach(t => {
+          const pill = document.createElement('span');
+          pill.className = 'tag-pill';
+          pill.dataset.tagId = t.id;
+          const label = document.createTextNode(t.name);
+          const removeBtn = document.createElement('button');
+          removeBtn.className = 'tag-pill-remove';
+          removeBtn.title = 'Remove tag';
+          removeBtn.setAttribute('data-tag-id', t.id);
+          removeBtn.innerHTML = '&times;';
+          removeBtn.addEventListener('click', async e => {
+            e.stopPropagation();
+            try {
+              const res = await fetch('/api/tasks/' + detailTaskId + '/tags/' + t.id, { method: 'DELETE' });
+              if (!res.ok) throw new Error('Server error');
+              const idx = currentTags.findIndex(x => String(x.id) === String(t.id));
+              if (idx !== -1) currentTags.splice(idx, 1);
+              renderPills();
+              renderDropdown();
+            } catch {
+              showToast('Failed to remove tag');
+            }
+          });
+          pill.appendChild(label);
+          pill.appendChild(removeBtn);
+          control.insertBefore(pill, input);
+        });
+        input.placeholder = currentTags.length === 0 ? 'Add tags...' : '';
+      }
+
+      function renderDropdown() {
+        const filtered = getFilteredTags();
+        dropdown.innerHTML = '';
+        focusedOptionIndex = -1;
+        if (filtered.length === 0) {
+          const noOpt = document.createElement('div');
+          noOpt.className = 'tag-select-no-options';
+          noOpt.textContent = inputValue ? 'No matching tags' : 'No tags available';
+          dropdown.appendChild(noOpt);
+        } else {
+          filtered.forEach((t, i) => {
+            const opt = document.createElement('div');
+            opt.className = 'tag-select-option';
+            opt.dataset.tagId = t.id;
+            opt.textContent = t.name;
+            opt.addEventListener('mouseover', () => setFocusedOption(i));
+            opt.addEventListener('mousedown', async e => {
+              e.preventDefault();
+              await addTag(t.id);
+            });
+            dropdown.appendChild(opt);
+          });
+        }
+      }
+
+      function setFocusedOption(index) {
+        const opts = dropdown.querySelectorAll('.tag-select-option');
+        opts.forEach((o, i) => o.classList.toggle('focused', i === index));
+        focusedOptionIndex = index;
+      }
+
+      function openDropdown() {
+        renderDropdown();
+        dropdown.classList.add('open');
+      }
+
+      function closeDropdown() {
+        dropdown.classList.remove('open');
+        focusedOptionIndex = -1;
+      }
+
+      async function addTag(tagId) {
+        try {
+          const res = await fetch('/api/tasks/' + detailTaskId + '/tags', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ tagId: Number(tagId) })
+          });
+          if (!res.ok) throw new Error('Server error');
+          const tag = allAvailableTags.find(t => String(t.id) === String(tagId));
+          if (tag) currentTags.push(tag);
+          input.value = '';
+          inputValue = '';
+          renderPills();
+          renderDropdown();
+        } catch {
+          showToast('Failed to add tag');
+        }
+      }
+
+      control.addEventListener('click', () => input.focus());
+
+      input.addEventListener('focus', () => openDropdown());
+
+      input.addEventListener('blur', () => setTimeout(() => closeDropdown(), 150));
+
+      input.addEventListener('input', () => {
+        inputValue = input.value;
+        renderDropdown();
+        if (!dropdown.classList.contains('open')) openDropdown();
+      });
+
+      input.addEventListener('keydown', async e => {
+        const filtered = getFilteredTags();
+        const opts = dropdown.querySelectorAll('.tag-select-option');
+        if (e.key === 'ArrowDown') {
+          e.preventDefault();
+          setFocusedOption(Math.min(focusedOptionIndex + 1, opts.length - 1));
+        } else if (e.key === 'ArrowUp') {
+          e.preventDefault();
+          setFocusedOption(Math.max(focusedOptionIndex - 1, 0));
+        } else if (e.key === 'Enter') {
+          e.preventDefault();
+          if (focusedOptionIndex >= 0 && filtered[focusedOptionIndex]) {
+            await addTag(filtered[focusedOptionIndex].id);
+          }
+        } else if (e.key === 'Escape') {
+          closeDropdown();
+          input.blur();
+        } else if (e.key === 'Backspace' && input.value === '' && currentTags.length > 0) {
+          e.preventDefault();
+          const last = currentTags[currentTags.length - 1];
+          try {
+            const res = await fetch('/api/tasks/' + detailTaskId + '/tags/' + last.id, { method: 'DELETE' });
+            if (!res.ok) throw new Error('Server error');
+            currentTags.splice(currentTags.length - 1, 1);
+            renderPills();
+            renderDropdown();
+          } catch {
+            showToast('Failed to remove tag');
+          }
+        }
+      });
+
+      renderPills();
+    }
+
     function renderDetailPanel(data) {
       const task = data.task;
       const tags = data.tags || [];
@@ -411,14 +602,11 @@ const BOARD_SCRIPT = `
       html += '</select>';
       html += '</div>';
 
-      // Tags (read-only)
-      if (tags.length > 0) {
-        html += '<div class="detail-field">';
-        html += '<div class="detail-field-label">Tags</div>';
-        html += '<div class="detail-field-value detail-tags">';
-        tags.forEach(t => { html += '<span class="tag">' + escapeHtmlClient(t.name) + '</span>'; });
-        html += '</div></div>';
-      }
+      // Tags (editable)
+      html += '<div class="detail-field">';
+      html += '<div class="detail-field-label">Tags</div>';
+      html += '<div id="detail-tags-container"></div>';
+      html += '</div>';
 
       // Metadata table (read-only, non-priority)
       const otherMeta = metadata.filter(m => m.key !== 'priority');
@@ -449,6 +637,9 @@ const BOARD_SCRIPT = `
       html += '</div>';
 
       detailPanelBody.innerHTML = html;
+
+      // Render tags section after DOM update
+      loadAllTags().then(() => renderTagsSection([...tags]));
     }
 
     function escapeHtmlClient(str) {
@@ -700,6 +891,7 @@ function buildTaskUpdateInput(body: TaskPatchBody): { input: TaskUpdateInput; er
 type BoardServices = {
   ts: TaskService;
   tts: TaskTagService;
+  tags: TagService;
   ms: MetadataService;
   database: StorageProvider;
   boardTitle?: string;
@@ -740,7 +932,7 @@ function getBoardUpdatedAt(database: StorageProvider): string | null {
   return `${baseRow.max_updated_at}|${tagsRow.max_created_at}|${tagsRow.count}`;
 }
 
-function registerTaskApiRoutes(app: Hono, { ts, tts, ms }: BoardServices): void {
+function registerTaskApiRoutes(app: Hono, { ts, tts, tags, ms }: BoardServices): void {
   app.get('/api/tasks', (c) => c.json({ tasks: ts.listTasks({}, 'id', 'asc') }));
   app.post('/api/tasks', async (c) => {
     const body = await c.req.json<{
@@ -779,6 +971,27 @@ function registerTaskApiRoutes(app: Hono, { ts, tts, ms }: BoardServices): void 
     ts.deleteTask(id);
     return c.json({ success: true });
   });
+  app.get('/api/tags', (c) => c.json({ tags: tags.listTags() }));
+  app.post('/api/tasks/:id/tags', async (c) => {
+    const id = Number(c.req.param('id'));
+    if (isNaN(id)) return c.json({ error: 'Invalid task id' }, 400);
+    const body = await c.req.json<{ tagId?: unknown }>();
+    if (body.tagId === undefined || body.tagId === null) return c.json({ error: 'tagId is required' }, 400);
+    const tagId = Number(body.tagId);
+    if (!ts.getTask(id)) return c.json({ error: 'Task not found' }, 404);
+    if (!tags.getTag(tagId)) return c.json({ error: 'Tag not found' }, 404);
+    tts.addTagToTask({ task_id: id, tag_id: tagId });
+    return c.json({ success: true }, 201);
+  });
+  app.delete('/api/tasks/:id/tags/:tagId', (c) => {
+    const id = Number(c.req.param('id'));
+    if (isNaN(id)) return c.json({ error: 'Invalid task id' }, 400);
+    const tagId = Number(c.req.param('tagId'));
+    if (isNaN(tagId)) return c.json({ error: 'Invalid tag id' }, 400);
+    const removed = tts.removeTagFromTask(id, tagId);
+    if (!removed) return c.json({ error: 'Tag not attached to task' }, 404);
+    return c.json({ success: true });
+  });
 }
 
 function buildBoardCardsPayload(
@@ -812,12 +1025,14 @@ export function createBoardApp(
   taskTagService?: TaskTagService,
   metadataService?: MetadataService,
   db?: StorageProvider,
-  boardTitle?: string
+  boardTitle?: string,
+  tagService?: TagService
 ): Hono {
   const app = new Hono();
   const services: BoardServices = {
     ts: taskService ?? new TaskService(),
     tts: taskTagService ?? new TaskTagService(),
+    tags: tagService ?? new TagService(),
     ms: metadataService ?? new MetadataService(),
     database: db ?? getDatabase(),
     boardTitle,
