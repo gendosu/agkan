@@ -858,7 +858,7 @@ describe('createBoardApp', () => {
       expect(html).toContain('pollBoardUpdates');
       expect(html).toContain('/api/board/updated-at');
       expect(html).toContain('setInterval');
-      expect(html).toContain('10000');
+      expect(html).toContain('5000');
     });
 
     it('should skip reload when draggedCard is not null', async () => {
