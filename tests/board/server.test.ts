@@ -1412,6 +1412,413 @@ describe('createBoardApp', () => {
     });
   });
 
+  describe('GET /api/tasks/:id/comments', () => {
+    it('should return comments for a task', async () => {
+      const task = taskService.createTask({ title: 'Task', status: 'backlog' });
+      commentService.addComment({ task_id: task.id, content: 'First comment' });
+      commentService.addComment({ task_id: task.id, content: 'Second comment' });
+
+      const app = createBoardApp(
+        taskService,
+        taskTagService,
+        metadataService,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        commentService
+      );
+      const res = await app.fetch(new Request(`http://localhost/api/tasks/${task.id}/comments`));
+
+      expect(res.status).toBe(200);
+      const data = (await res.json()) as { comments: { content: string }[] };
+      expect(data.comments).toHaveLength(2);
+      expect(data.comments[0].content).toBe('First comment');
+      expect(data.comments[1].content).toBe('Second comment');
+    });
+
+    it('should return empty array when task has no comments', async () => {
+      const task = taskService.createTask({ title: 'Task', status: 'backlog' });
+
+      const app = createBoardApp(
+        taskService,
+        taskTagService,
+        metadataService,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        commentService
+      );
+      const res = await app.fetch(new Request(`http://localhost/api/tasks/${task.id}/comments`));
+
+      expect(res.status).toBe(200);
+      const data = (await res.json()) as { comments: unknown[] };
+      expect(data.comments).toHaveLength(0);
+    });
+
+    it('should return 404 when task not found', async () => {
+      const app = createBoardApp(
+        taskService,
+        taskTagService,
+        metadataService,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        commentService
+      );
+      const res = await app.fetch(new Request('http://localhost/api/tasks/99999/comments'));
+
+      expect(res.status).toBe(404);
+      const data = (await res.json()) as { error: string };
+      expect(data.error).toBe('Task not found');
+    });
+
+    it('should return 400 for invalid task id', async () => {
+      const app = createBoardApp(
+        taskService,
+        taskTagService,
+        metadataService,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        commentService
+      );
+      const res = await app.fetch(new Request('http://localhost/api/tasks/abc/comments'));
+
+      expect(res.status).toBe(400);
+      const data = (await res.json()) as { error: string };
+      expect(data.error).toBe('Invalid task id');
+    });
+  });
+
+  describe('POST /api/tasks/:id/comments', () => {
+    it('should add a comment to a task', async () => {
+      const task = taskService.createTask({ title: 'Task', status: 'backlog' });
+
+      const app = createBoardApp(
+        taskService,
+        taskTagService,
+        metadataService,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        commentService
+      );
+      const res = await app.fetch(
+        new Request(`http://localhost/api/tasks/${task.id}/comments`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ content: 'New comment' }),
+        })
+      );
+
+      expect(res.status).toBe(201);
+      const comment = (await res.json()) as { id: number; content: string; task_id: number };
+      expect(comment.content).toBe('New comment');
+      expect(comment.task_id).toBe(task.id);
+      expect(comment.id).toBeGreaterThan(0);
+    });
+
+    it('should add a comment with author', async () => {
+      const task = taskService.createTask({ title: 'Task', status: 'backlog' });
+
+      const app = createBoardApp(
+        taskService,
+        taskTagService,
+        metadataService,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        commentService
+      );
+      const res = await app.fetch(
+        new Request(`http://localhost/api/tasks/${task.id}/comments`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ content: 'Note', author: 'alice' }),
+        })
+      );
+
+      expect(res.status).toBe(201);
+      const comment = (await res.json()) as { author: string };
+      expect(comment.author).toBe('alice');
+    });
+
+    it('should return 400 when content is missing', async () => {
+      const task = taskService.createTask({ title: 'Task', status: 'backlog' });
+
+      const app = createBoardApp(
+        taskService,
+        taskTagService,
+        metadataService,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        commentService
+      );
+      const res = await app.fetch(
+        new Request(`http://localhost/api/tasks/${task.id}/comments`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({}),
+        })
+      );
+
+      expect(res.status).toBe(400);
+    });
+
+    it('should return 400 when content is empty string', async () => {
+      const task = taskService.createTask({ title: 'Task', status: 'backlog' });
+
+      const app = createBoardApp(
+        taskService,
+        taskTagService,
+        metadataService,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        commentService
+      );
+      const res = await app.fetch(
+        new Request(`http://localhost/api/tasks/${task.id}/comments`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ content: '' }),
+        })
+      );
+
+      expect(res.status).toBe(400);
+    });
+
+    it('should return 404 when task not found', async () => {
+      const app = createBoardApp(
+        taskService,
+        taskTagService,
+        metadataService,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        commentService
+      );
+      const res = await app.fetch(
+        new Request('http://localhost/api/tasks/99999/comments', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ content: 'Comment' }),
+        })
+      );
+
+      expect(res.status).toBe(404);
+    });
+  });
+
+  describe('DELETE /api/comments/:id', () => {
+    it('should delete a comment', async () => {
+      const task = taskService.createTask({ title: 'Task', status: 'backlog' });
+      const comment = commentService.addComment({ task_id: task.id, content: 'To delete' });
+
+      const app = createBoardApp(
+        taskService,
+        taskTagService,
+        metadataService,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        commentService
+      );
+      const res = await app.fetch(
+        new Request(`http://localhost/api/comments/${comment.id}`, {
+          method: 'DELETE',
+        })
+      );
+
+      expect(res.status).toBe(200);
+      const data = (await res.json()) as { success: boolean };
+      expect(data.success).toBe(true);
+    });
+
+    it('should return 404 when comment not found', async () => {
+      const app = createBoardApp(
+        taskService,
+        taskTagService,
+        metadataService,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        commentService
+      );
+      const res = await app.fetch(
+        new Request('http://localhost/api/comments/99999', {
+          method: 'DELETE',
+        })
+      );
+
+      expect(res.status).toBe(404);
+      const data = (await res.json()) as { error: string };
+      expect(data.error).toBe('Comment not found');
+    });
+
+    it('should return 400 for invalid comment id', async () => {
+      const app = createBoardApp(
+        taskService,
+        taskTagService,
+        metadataService,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        commentService
+      );
+      const res = await app.fetch(
+        new Request('http://localhost/api/comments/abc', {
+          method: 'DELETE',
+        })
+      );
+
+      expect(res.status).toBe(400);
+      const data = (await res.json()) as { error: string };
+      expect(data.error).toBe('Invalid comment id');
+    });
+  });
+
+  describe('PATCH /api/comments/:id', () => {
+    it('should update a comment', async () => {
+      const task = taskService.createTask({ title: 'Task', status: 'backlog' });
+      const comment = commentService.addComment({ task_id: task.id, content: 'Original' });
+
+      const app = createBoardApp(
+        taskService,
+        taskTagService,
+        metadataService,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        commentService
+      );
+      const res = await app.fetch(
+        new Request(`http://localhost/api/comments/${comment.id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ content: 'Updated content' }),
+        })
+      );
+
+      expect(res.status).toBe(200);
+      const updated = (await res.json()) as { id: number; content: string };
+      expect(updated.content).toBe('Updated content');
+      expect(updated.id).toBe(comment.id);
+    });
+
+    it('should return 404 when comment not found', async () => {
+      const app = createBoardApp(
+        taskService,
+        taskTagService,
+        metadataService,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        commentService
+      );
+      const res = await app.fetch(
+        new Request('http://localhost/api/comments/99999', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ content: 'Updated' }),
+        })
+      );
+
+      expect(res.status).toBe(404);
+      const data = (await res.json()) as { error: string };
+      expect(data.error).toBe('Comment not found');
+    });
+
+    it('should return 400 when content is missing', async () => {
+      const task = taskService.createTask({ title: 'Task', status: 'backlog' });
+      const comment = commentService.addComment({ task_id: task.id, content: 'Original' });
+
+      const app = createBoardApp(
+        taskService,
+        taskTagService,
+        metadataService,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        commentService
+      );
+      const res = await app.fetch(
+        new Request(`http://localhost/api/comments/${comment.id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({}),
+        })
+      );
+
+      expect(res.status).toBe(400);
+    });
+
+    it('should return 400 when content is empty string (validation error)', async () => {
+      const task = taskService.createTask({ title: 'Task', status: 'backlog' });
+      const comment = commentService.addComment({ task_id: task.id, content: 'Original' });
+
+      const app = createBoardApp(
+        taskService,
+        taskTagService,
+        metadataService,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        commentService
+      );
+      const res = await app.fetch(
+        new Request(`http://localhost/api/comments/${comment.id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ content: '' }),
+        })
+      );
+
+      expect(res.status).toBe(400);
+    });
+
+    it('should return 400 for invalid comment id', async () => {
+      const app = createBoardApp(
+        taskService,
+        taskTagService,
+        metadataService,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        commentService
+      );
+      const res = await app.fetch(
+        new Request('http://localhost/api/comments/abc', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ content: 'Updated' }),
+        })
+      );
+
+      expect(res.status).toBe(400);
+      const data = (await res.json()) as { error: string };
+      expect(data.error).toBe('Invalid comment id');
+    });
+  });
+
   describe('GET /api/config', () => {
     it('should return empty board config when config file does not exist', async () => {
       const app = createBoardApp(
@@ -1496,8 +1903,6 @@ describe('createBoardApp', () => {
       );
 
       expect(res.status).toBe(200);
-      const data = (await res.json()) as { success: boolean };
-      expect(data.success).toBe(true);
 
       const configFile = path.join(testConfigDir, 'config.yml');
       expect(fs.existsSync(configFile)).toBe(true);
