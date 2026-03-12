@@ -294,7 +294,7 @@ function printTreeNodeLine(
 }
 
 /**
- * Recursively display dependency tree (blocker -> blocked).
+ * Recursively display dependency tree (blocker -> blocked and parent -> child).
  */
 function displayDependencyTree(
   task: { id: number; title: string; status: string },
@@ -303,9 +303,10 @@ function displayDependencyTree(
   allTasksMetadata: MetadataMap,
   prefix: string,
   isLast: boolean,
-  visited: Set<number>
+  visited: Set<number>,
+  relationshipLabel?: '[blocks]' | '[child]'
 ): void {
-  printTreeNodeLine(task, allTasksMetadata, prefix, isLast);
+  printTreeNodeLine(task, allTasksMetadata, prefix, isLast, relationshipLabel);
 
   if (visited.has(task.id)) {
     return;
@@ -313,19 +314,24 @@ function displayDependencyTree(
   visited.add(task.id);
 
   const blockedIds = blockMap.get(task.id) || [];
+  const childTasks = taskService.getChildTasks(task.id);
+  const allChildren = [...blockedIds.map((id) => ({ id, type: 'blocks' as const })), ...childTasks.map((t) => ({ id: t.id, type: 'child' as const }))];
+
   const newPrefix = prefix + (isLast ? '    ' : '\u2502   ');
-  blockedIds.forEach((blockedId, index) => {
-    const blockedTask = taskService.getTask(blockedId);
-    if (blockedTask) {
-      const isChildLast = index === blockedIds.length - 1;
+  allChildren.forEach((child, index) => {
+    const childTask = taskService.getTask(child.id);
+    if (childTask && !visited.has(child.id)) {
+      const isChildLast = index === allChildren.length - 1;
+      const label = child.type === 'blocks' ? '[blocks]' : '[child]';
       displayDependencyTree(
-        blockedTask,
+        childTask,
         taskService,
         blockMap,
         allTasksMetadata,
         newPrefix,
         isChildLast,
-        new Set(visited)
+        new Set(visited),
+        label as '[blocks]' | '[child]'
       );
     }
   });
