@@ -3,4 +3,5 @@
 - When creating plans in plan mode, use checklist format
 - Tags should be applied to the main branch
 - Load agkan
+- Use agkan for task management
 - Write commit messages in English
