@@ -236,6 +236,7 @@ type DepTreeNode = {
   tags: Array<{ id: number; name: string }>;
   metadata: Array<{ key: string; value: string }>;
   blocks: Array<DepTreeNode>;
+  children: Array<DepTreeNode>;
 };
 
 /**
