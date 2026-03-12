@@ -1081,7 +1081,7 @@ describe('setupTaskListCommand', () => {
     const taskService = new TaskService();
 
     const parentTask = taskService.createTask({ title: 'Parent Task', status: 'ready' });
-    const childTask = taskService.createTask({
+    taskService.createTask({
       title: 'Child Task',
       status: 'backlog',
       parent_id: parentTask.id,
@@ -1112,7 +1112,7 @@ describe('setupTaskListCommand', () => {
 
     const taskA = taskService.createTask({ title: 'Task A (blocker)', status: 'ready' });
     const taskB = taskService.createTask({ title: 'Task B (blocked)', status: 'ready' });
-    const taskA1 = taskService.createTask({
+    taskService.createTask({
       title: 'Task A-1 (child)',
       status: 'backlog',
       parent_id: taskA.id,
@@ -1147,7 +1147,7 @@ describe('setupTaskListCommand', () => {
 
     const taskA = taskService.createTask({ title: 'Task A Root', status: 'ready' });
     const taskB = taskService.createTask({ title: 'Task B Blocked', status: 'ready' });
-    const taskA1 = taskService.createTask({
+    taskService.createTask({
       title: 'Task A-1 Child',
       status: 'backlog',
       parent_id: taskA.id,
@@ -1183,7 +1183,7 @@ describe('setupTaskListCommand', () => {
     const taskService = new TaskService();
 
     const parentTask = taskService.createTask({ title: 'Root Parent', status: 'ready' });
-    const childTask = taskService.createTask({
+    taskService.createTask({
       title: 'Non-Root Child',
       status: 'backlog',
       parent_id: parentTask.id,
