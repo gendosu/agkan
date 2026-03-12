@@ -16,6 +16,7 @@ function resetDatabase() {
   db.exec('DELETE FROM task_blocks');
   db.exec('DELETE FROM tasks');
   db.exec("DELETE FROM sqlite_sequence WHERE name='tasks'");
+  db.exec("DELETE FROM sqlite_sequence WHERE name='task_comments'");
 }
 
 describe('setupCommentListCommand', () => {
@@ -52,13 +53,12 @@ describe('setupCommentListCommand', () => {
     expect(optionNames).toContain('--json');
   });
 
-  it('should list all comments for a task', async () => {
+  it('should list comments for a task', async () => {
     const taskService = new TaskService();
-    const task = taskService.createTask({ title: 'Test task', status: 'ready' });
-
     const commentService = new CommentService();
-    commentService.addComment({ task_id: task.id, content: 'First comment' });
-    commentService.addComment({ task_id: task.id, content: 'Second comment' });
+    const task = taskService.createTask({ title: 'Test task', status: 'ready' });
+    commentService.addComment({ task_id: task.id, content: 'First note', author: 'alice' });
+    commentService.addComment({ task_id: task.id, content: 'Second note' });
 
     const consoleLogs: string[] = [];
     const originalLog = console.log;
@@ -75,15 +75,15 @@ describe('setupCommentListCommand', () => {
     }
 
     const output = consoleLogs.join('\n');
-    expect(output).toContain('First comment');
-    expect(output).toContain('Second comment');
+    expect(output).toContain('First note');
+    expect(output).toContain('Second note');
+    expect(output).toContain('alice');
   });
 
   it('should output JSON with comments array', async () => {
     const taskService = new TaskService();
-    const task = taskService.createTask({ title: 'Test task', status: 'ready' });
-
     const commentService = new CommentService();
+    const task = taskService.createTask({ title: 'Test task', status: 'ready' });
     commentService.addComment({ task_id: task.id, content: 'First comment' });
     commentService.addComment({ task_id: task.id, content: 'Second comment' });
 
@@ -101,7 +101,8 @@ describe('setupCommentListCommand', () => {
       process.exit = originalExit;
     }
 
-    const parsed = JSON.parse(consoleLogs[0]);
+    const output = consoleLogs.join('\n');
+    const parsed = JSON.parse(output);
     expect(parsed.success).toBe(true);
     expect(parsed.data).toHaveLength(2);
     const contents = parsed.data.map((c: { content: string }) => c.content);
@@ -149,7 +150,8 @@ describe('setupCommentListCommand', () => {
       process.exit = originalExit;
     }
 
-    const parsed = JSON.parse(consoleLogs[0]);
+    const output = consoleLogs.join('\n');
+    const parsed = JSON.parse(output);
     expect(parsed.success).toBe(true);
     expect(parsed.data).toHaveLength(0);
   });
@@ -166,7 +168,7 @@ describe('setupCommentListCommand', () => {
     }) as never;
 
     try {
-      await program.parseAsync(['node', 'test', 'task', 'comment', 'list', '999']);
+      await program.parseAsync(['node', 'test', 'task', 'comment', 'list', '99999']);
     } finally {
       console.log = originalLog;
       process.exit = originalExit;
@@ -174,7 +176,7 @@ describe('setupCommentListCommand', () => {
 
     expect(exitCode).toBe(1);
     const output = consoleLogs.join('\n');
-    expect(output).toContain('999');
+    expect(output).toContain('99999');
   });
 
   it('should show error when task ID is not a number', async () => {

@@ -173,7 +173,7 @@ export function validateCommentInput(input: CreateTaskCommentInput): ValidationE
   }
 
   // Validate author (optional, max 100 chars)
-  if (input.author && input.author.length > 100) {
+  if (input.author !== undefined && input.author !== null && input.author.length > 100) {
     errors.push({
       field: 'author',
       message: 'Author must not exceed 100 characters',

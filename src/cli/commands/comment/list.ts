@@ -56,8 +56,8 @@ export function setupCommentListCommand(program: Command): void {
             } else {
               console.log(chalk.green(`\n✓ Comments for task #${parsedTaskId}\n`));
               comments.forEach((comment) => {
-                const author = comment.author ? `[${comment.author}]` : '[anonymous]';
-                console.log(`#${comment.id} ${author} ${formatDate(comment.created_at)}`);
+                const authorStr = comment.author ? `${comment.author}` : 'Anonymous';
+                console.log(`[#${comment.id}] ${authorStr} (${formatDate(comment.created_at)})`);
                 console.log(`  ${comment.content}`);
                 console.log();
               });

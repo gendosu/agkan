@@ -16,6 +16,7 @@ function resetDatabase() {
   db.exec('DELETE FROM task_blocks');
   db.exec('DELETE FROM tasks');
   db.exec("DELETE FROM sqlite_sequence WHERE name='tasks'");
+  db.exec("DELETE FROM sqlite_sequence WHERE name='task_comments'");
 }
 
 describe('setupCommentDeleteCommand', () => {
@@ -39,7 +40,7 @@ describe('setupCommentDeleteCommand', () => {
 
     const deleteCommand = commentCommand?.commands.find((cmd) => cmd.name() === 'delete');
     expect(deleteCommand).toBeDefined();
-    expect(deleteCommand?.description()).toBe('Delete a comment');
+    expect(deleteCommand?.description()).toBe('Delete a comment by ID');
   });
 
   it('should have --json option', () => {
@@ -52,12 +53,11 @@ describe('setupCommentDeleteCommand', () => {
     expect(optionNames).toContain('--json');
   });
 
-  it('should delete a comment', async () => {
+  it('should delete a comment successfully', async () => {
     const taskService = new TaskService();
-    const task = taskService.createTask({ title: 'Test task', status: 'ready' });
-
     const commentService = new CommentService();
-    const comment = commentService.addComment({ task_id: task.id, content: 'Test comment' });
+    const task = taskService.createTask({ title: 'Test task', status: 'ready' });
+    const comment = commentService.addComment({ task_id: task.id, content: 'To delete' });
 
     const consoleLogs: string[] = [];
     const originalLog = console.log;
@@ -76,17 +76,15 @@ describe('setupCommentDeleteCommand', () => {
     const output = consoleLogs.join('\n');
     expect(output).toContain('Comment deleted successfully');
 
-    // Verify the comment is deleted
     const fetched = commentService.getComment(comment.id);
     expect(fetched).toBeNull();
   });
 
-  it('should output JSON on success', async () => {
+  it('should output JSON when --json flag is used', async () => {
     const taskService = new TaskService();
-    const task = taskService.createTask({ title: 'Test task', status: 'ready' });
-
     const commentService = new CommentService();
-    const comment = commentService.addComment({ task_id: task.id, content: 'Test comment' });
+    const task = taskService.createTask({ title: 'Test task', status: 'ready' });
+    const comment = commentService.addComment({ task_id: task.id, content: 'JSON delete' });
 
     const consoleLogs: string[] = [];
     const originalLog = console.log;
@@ -102,7 +100,8 @@ describe('setupCommentDeleteCommand', () => {
       process.exit = originalExit;
     }
 
-    const parsed = JSON.parse(consoleLogs[0]);
+    const output = consoleLogs.join('\n');
+    const parsed = JSON.parse(output);
     expect(parsed.success).toBe(true);
     expect(parsed.message).toBe('Comment deleted');
   });
@@ -119,7 +118,7 @@ describe('setupCommentDeleteCommand', () => {
     }) as never;
 
     try {
-      await program.parseAsync(['node', 'test', 'task', 'comment', 'delete', '999']);
+      await program.parseAsync(['node', 'test', 'task', 'comment', 'delete', '99999']);
     } finally {
       console.log = originalLog;
       process.exit = originalExit;
@@ -127,7 +126,7 @@ describe('setupCommentDeleteCommand', () => {
 
     expect(exitCode).toBe(1);
     const output = consoleLogs.join('\n');
-    expect(output).toContain('999');
+    expect(output).toContain('99999');
   });
 
   it('should show error when comment ID is not a number', async () => {
