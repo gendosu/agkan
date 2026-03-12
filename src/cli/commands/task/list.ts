@@ -267,19 +267,21 @@ function collectAllBlockedIds(blockMap: BlockMap): Set<number> {
 }
 
 /**
- * Display a single task node line with optional metadata.
+ * Display a single task node line with optional metadata and relationship label.
  */
 function printTreeNodeLine(
   task: { id: number; title: string; status: string },
   allTasksMetadata: MetadataMap,
   prefix: string,
-  isLast: boolean
+  isLast: boolean,
+  relationshipLabel?: '[blocks]' | '[child]'
 ): void {
   const statusColor = getStatusColor(task.status as TaskStatus);
   const connector = isLast ? '\u2514\u2500\u2500 ' : '\u251c\u2500\u2500 ';
 
+  const labelStr = relationshipLabel ? `${chalk.gray(relationshipLabel)} ` : '';
   console.log(
-    `${prefix}${connector}${chalk.bold.cyan(`[${task.id}]`)} ${chalk.bold(task.title)} ` +
+    `${prefix}${connector}${labelStr}${chalk.bold.cyan(`[${task.id}]`)} ${chalk.bold(task.title)} ` +
       `${chalk[statusColor](`(${task.status})`)}`
   );
 
