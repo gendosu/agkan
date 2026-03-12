@@ -1,5 +1,6 @@
 import type { CreateTaskInput, UpdateTaskInput, TaskStatus } from '../models/Task';
 import type { CreateTagInput } from '../models/Tag';
+import type { CreateTaskCommentInput } from '../models/TaskComment';
 
 /**
  * Input validation utility functions
@@ -145,6 +146,38 @@ export function validateMultipleStatuses(statuses: string[]): ValidationError[] 
         message: `Invalid status: ${status}. Valid statuses: ${VALID_STATUSES.join(', ')}`,
       });
     }
+  }
+
+  return errors;
+}
+
+/**
+ * Validate comment input for security and length constraints
+ * @param input - Comment creation input to validate
+ * @returns Array of validation errors (empty if valid)
+ */
+export function validateCommentInput(input: CreateTaskCommentInput): ValidationError[] {
+  const errors: ValidationError[] = [];
+
+  // Validate content (required, max 5000 chars)
+  if (!input.content || input.content.trim().length === 0) {
+    errors.push({
+      field: 'content',
+      message: 'Content is required',
+    });
+  } else if (input.content.length > 5000) {
+    errors.push({
+      field: 'content',
+      message: 'Content must not exceed 5000 characters',
+    });
+  }
+
+  // Validate author (optional, max 100 chars)
+  if (input.author && input.author.length > 100) {
+    errors.push({
+      field: 'author',
+      message: 'Author must not exceed 100 characters',
+    });
   }
 
   return errors;

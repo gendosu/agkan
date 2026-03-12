@@ -32,8 +32,13 @@ describe('services/index', () => {
     expect(typeof servicesIndex.MetadataService).toBe('function');
   });
 
-  it('should export exactly 6 named exports', () => {
+  it('should export CommentService', () => {
+    expect(servicesIndex.CommentService).toBeDefined();
+    expect(typeof servicesIndex.CommentService).toBe('function');
+  });
+
+  it('should export exactly 7 named exports', () => {
     const exportedKeys = Object.keys(servicesIndex);
-    expect(exportedKeys).toHaveLength(6);
+    expect(exportedKeys).toHaveLength(7);
   });
 });
