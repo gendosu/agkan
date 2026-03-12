@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.5.0] - 2026-03-12
+
+### Added
+- Add task comment feature: `task comment add`, `task comment list`, `task comment delete` commands (#79)
+- Display comments in `task get` output (#79)
+- Implement react-select style tag editing in task detail panel (#134)
+- Expand description textarea to fill bottom of detail panel (#135)
+
+### Fixed
+- Reset database before server start in e2e board test (#137)
+
+### Changed
+- Add agkan task management instruction to documentation (#65)
+
 ## [2.4.0] - 2026-03-10
 
 ### Added
