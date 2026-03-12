@@ -116,8 +116,9 @@ const BOARD_STYLES = `
     .detail-panel-header h2 { font-size: 16px; font-weight: 700; color: #1e293b; margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .detail-panel-close { background: none; border: none; font-size: 20px; color: #64748b; cursor: pointer; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; border-radius: 4px; flex-shrink: 0; }
     .detail-panel-close:hover { background: #f1f5f9; color: #1e293b; }
-    .detail-panel-body { flex: 1; overflow-y: auto; padding: 20px; min-width: 0; }
+    .detail-panel-body { flex: 1; overflow-y: auto; padding: 20px; min-width: 0; display: flex; flex-direction: column; }
     .detail-field { margin-bottom: 16px; word-wrap: break-word; }
+    .description-field-wrapper { flex: 1; display: flex; flex-direction: column; min-height: 0; margin-bottom: 0; }
     .detail-field-label { font-size: 11px; font-weight: 700; text-transform: uppercase; color: #94a3b8; margin-bottom: 4px; letter-spacing: 0.05em; }
     .detail-field-value { font-size: 13px; color: #1e293b; line-height: 1.5; }
     .detail-field-value.empty { color: #94a3b8; font-style: italic; }
@@ -134,6 +135,7 @@ const BOARD_STYLES = `
     .detail-edit-input:focus { outline: none; border-color: #3b82f6; box-shadow: 0 0 0 2px rgba(59,130,246,0.2); }
     .detail-edit-textarea { width: 100%; border: 1px solid #e2e8f0; border-radius: 6px; padding: 7px 10px; font-size: 13px; font-family: inherit; resize: vertical; min-height: 240px; background: white; color: #1e293b; }
     .detail-edit-textarea:focus { outline: none; border-color: #3b82f6; box-shadow: 0 0 0 2px rgba(59,130,246,0.2); }
+    .description-field-wrapper .detail-edit-textarea { flex: 1; resize: none; min-height: 0; }
     .detail-edit-select { width: 100%; border: 1px solid #e2e8f0; border-radius: 6px; padding: 7px 10px; font-size: 13px; font-family: inherit; background: white; color: #1e293b; }
     .detail-edit-select:focus { outline: none; border-color: #3b82f6; box-shadow: 0 0 0 2px rgba(59,130,246,0.2); }`;
 
@@ -441,7 +443,7 @@ const BOARD_SCRIPT = `
       html += '</div>';
 
       // Body (editable)
-      html += '<div class="detail-field">';
+      html += '<div class="detail-field description-field-wrapper">';
       html += '<div class="detail-field-label">Description</div>';
       html += '<textarea id="detail-edit-body" class="detail-edit-textarea">' + escapeHtmlClient(task.body || '') + '</textarea>';
       html += '</div>';
