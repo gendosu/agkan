@@ -345,6 +345,7 @@ function buildDepTreeNode(
   const tags = allTaskTags.get(task.id);
   const metadata = allTasksMetadata.get(task.id);
   const blockedIds = blockMap.get(task.id) || [];
+  const childTasks = taskService.getChildTasks(task.id);
 
   visited.add(task.id);
 
@@ -357,6 +358,15 @@ function buildDepTreeNode(
           buildDepTreeNode(blockedTask, taskService, blockMap, allTaskTags, allTasksMetadata, new Set(visited))
         );
       }
+    }
+  }
+
+  const children: DepTreeNode[] = [];
+  for (const childTask of childTasks) {
+    if (!visited.has(childTask.id)) {
+      children.push(
+        buildDepTreeNode(childTask, taskService, blockMap, allTaskTags, allTasksMetadata, new Set(visited))
+      );
     }
   }
 
@@ -373,6 +383,7 @@ function buildDepTreeNode(
     tags: tags ? tags.map((tag) => ({ id: tag.id, name: tag.name })) : [],
     metadata: metadata ? metadata.map((m) => ({ key: m.key, value: m.value })) : [],
     blocks,
+    children,
   };
 }
 
