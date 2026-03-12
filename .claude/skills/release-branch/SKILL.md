@@ -98,7 +98,19 @@ git add package.json package-lock.json CHANGELOG.md
 git commit -m "chore: release v<NEW_VERSION>"
 ```
 
-### 8. Ask user to merge the release branch
+### 8. Push the branch and create a pull request
+
+```bash
+git push -u origin HEAD
+```
+
+Then create a pull request:
+
+```
+/pull-request
+```
+
+### 9. Ask user to merge the release branch
 
 Ask the user to merge the release branch into main, then wait for confirmation before proceeding:
 
