@@ -406,7 +406,9 @@ function buildDepTreeJsonOutput(
   allTasksMetadata: MetadataMap
 ): object {
   const allBlockedIds = collectAllBlockedIds(blockMap);
-  const rootTasks = displayTasks.filter((task) => !allBlockedIds.has(task.id));
+  const rootTasks = displayTasks.filter(
+    (task) => !allBlockedIds.has(task.id) && !task.parent_id
+  );
 
   return {
     totalCount: displayTasks.length,
