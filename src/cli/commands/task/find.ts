@@ -6,7 +6,7 @@
 import { Command } from 'commander';
 import chalk from 'chalk';
 import { TaskService, TaskTagService } from '../../../services';
-import { TaskStatus } from '../../../models';
+import type { TaskStatus } from '../../../models';
 import { getStatusColor, formatDate } from '../../../utils/format';
 import { createFormatter } from '../../utils/output-formatter';
 
