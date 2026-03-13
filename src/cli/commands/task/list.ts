@@ -236,6 +236,7 @@ type DepTreeNode = {
   tags: Array<{ id: number; name: string }>;
   metadata: Array<{ key: string; value: string }>;
   blocks: Array<DepTreeNode>;
+  children: Array<DepTreeNode>;
 };
 
 /**
@@ -266,19 +267,21 @@ function collectAllBlockedIds(blockMap: BlockMap): Set<number> {
 }
 
 /**
- * Display a single task node line with optional metadata.
+ * Display a single task node line with optional metadata and relationship label.
  */
 function printTreeNodeLine(
   task: { id: number; title: string; status: string },
   allTasksMetadata: MetadataMap,
   prefix: string,
-  isLast: boolean
+  isLast: boolean,
+  relationshipLabel?: '[blocks]' | '[child]'
 ): void {
   const statusColor = getStatusColor(task.status as TaskStatus);
   const connector = isLast ? '\u2514\u2500\u2500 ' : '\u251c\u2500\u2500 ';
 
+  const labelStr = relationshipLabel ? `${chalk.gray(relationshipLabel)} ` : '';
   console.log(
-    `${prefix}${connector}${chalk.bold.cyan(`[${task.id}]`)} ${chalk.bold(task.title)} ` +
+    `${prefix}${connector}${labelStr}${chalk.bold.cyan(`[${task.id}]`)} ${chalk.bold(task.title)} ` +
       `${chalk[statusColor](`(${task.status})`)}`
   );
 
@@ -291,7 +294,7 @@ function printTreeNodeLine(
 }
 
 /**
- * Recursively display dependency tree (blocker -> blocked).
+ * Recursively display dependency tree (blocker -> blocked and parent -> child).
  */
 function displayDependencyTree(
   task: { id: number; title: string; status: string },
@@ -300,9 +303,10 @@ function displayDependencyTree(
   allTasksMetadata: MetadataMap,
   prefix: string,
   isLast: boolean,
-  visited: Set<number>
+  visited: Set<number>,
+  relationshipLabel?: '[blocks]' | '[child]'
 ): void {
-  printTreeNodeLine(task, allTasksMetadata, prefix, isLast);
+  printTreeNodeLine(task, allTasksMetadata, prefix, isLast, relationshipLabel);
 
   if (visited.has(task.id)) {
     return;
@@ -310,19 +314,27 @@ function displayDependencyTree(
   visited.add(task.id);
 
   const blockedIds = blockMap.get(task.id) || [];
+  const childTasks = taskService.getChildTasks(task.id);
+  const allChildren = [
+    ...blockedIds.map((id) => ({ id, type: 'blocks' as const })),
+    ...childTasks.map((t) => ({ id: t.id, type: 'child' as const })),
+  ];
+
   const newPrefix = prefix + (isLast ? '    ' : '\u2502   ');
-  blockedIds.forEach((blockedId, index) => {
-    const blockedTask = taskService.getTask(blockedId);
-    if (blockedTask) {
-      const isChildLast = index === blockedIds.length - 1;
+  allChildren.forEach((child, index) => {
+    const childTask = taskService.getTask(child.id);
+    if (childTask && !visited.has(child.id)) {
+      const isChildLast = index === allChildren.length - 1;
+      const label = child.type === 'blocks' ? '[blocks]' : '[child]';
       displayDependencyTree(
-        blockedTask,
+        childTask,
         taskService,
         blockMap,
         allTasksMetadata,
         newPrefix,
         isChildLast,
-        new Set(visited)
+        new Set(visited),
+        label as '[blocks]' | '[child]'
       );
     }
   });
@@ -342,6 +354,7 @@ function buildDepTreeNode(
   const tags = allTaskTags.get(task.id);
   const metadata = allTasksMetadata.get(task.id);
   const blockedIds = blockMap.get(task.id) || [];
+  const childTasks = taskService.getChildTasks(task.id);
 
   visited.add(task.id);
 
@@ -354,6 +367,15 @@ function buildDepTreeNode(
           buildDepTreeNode(blockedTask, taskService, blockMap, allTaskTags, allTasksMetadata, new Set(visited))
         );
       }
+    }
+  }
+
+  const children: DepTreeNode[] = [];
+  for (const childTask of childTasks) {
+    if (!visited.has(childTask.id)) {
+      children.push(
+        buildDepTreeNode(childTask, taskService, blockMap, allTaskTags, allTasksMetadata, new Set(visited))
+      );
     }
   }
 
@@ -370,6 +392,7 @@ function buildDepTreeNode(
     tags: tags ? tags.map((tag) => ({ id: tag.id, name: tag.name })) : [],
     metadata: metadata ? metadata.map((m) => ({ key: m.key, value: m.value })) : [],
     blocks,
+    children,
   };
 }
 
@@ -386,7 +409,7 @@ function buildDepTreeJsonOutput(
   allTasksMetadata: MetadataMap
 ): object {
   const allBlockedIds = collectAllBlockedIds(blockMap);
-  const rootTasks = displayTasks.filter((task) => !allBlockedIds.has(task.id));
+  const rootTasks = displayTasks.filter((task) => !allBlockedIds.has(task.id) && !task.parent_id);
 
   return {
     totalCount: displayTasks.length,
