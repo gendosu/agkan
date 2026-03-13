@@ -793,7 +793,7 @@ const BOARD_SCRIPT = `
         // Ignore network errors during polling
       }
     }
-    setInterval(pollBoardUpdates, 10000);
+    setInterval(pollBoardUpdates, 5000);
     pollBoardUpdates();
 
     async function loadComments(taskId) {
