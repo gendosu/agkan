@@ -105,8 +105,13 @@ export function setupTaskFindCommand(program: Command): void {
               return;
             }
 
-            const excludeMessage = options.all ? '' : chalk.gray(' (excluding done/closed)');
-            console.log(chalk.bold(`\nFound ${tasks.length} task(s) matching "${keyword}"${excludeMessage}:\n`));
+            let filterMessage = '';
+            if (statusFilter) {
+              filterMessage = chalk.gray(` (filtered by status: ${statusFilter.join(', ')})`);
+            } else if (!options.all) {
+              filterMessage = chalk.gray(' (excluding done/closed)');
+            }
+            console.log(chalk.bold(`\nFound ${tasks.length} task(s) matching "${keyword}"${filterMessage}:\n`));
             console.log(chalk.bold('─'.repeat(80)));
 
             tasks.forEach((task, index) => {
