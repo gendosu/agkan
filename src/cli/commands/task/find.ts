@@ -6,6 +6,7 @@
 import { Command } from 'commander';
 import chalk from 'chalk';
 import { TaskService, TaskTagService } from '../../../services';
+import { TaskStatus } from '../../../models';
 import { getStatusColor, formatDate } from '../../../utils/format';
 import { createFormatter } from '../../utils/output-formatter';
 
@@ -19,6 +20,7 @@ export function setupTaskFindCommand(program: Command): void {
     .command('find')
     .argument('<keyword>', 'Search keyword for title and body (LIKE search)')
     .option('--all', 'Include done and closed tasks in search results')
+    .option('--status <statuses>', 'Filter by status (comma-separated: e.g. ready,in_progress)')
     .option('--json', 'Output in JSON format')
     .description('Search tasks by keyword (excludes done/closed by default)')
     .action(async (keyword, options) => {
@@ -34,17 +36,32 @@ export function setupTaskFindCommand(program: Command): void {
           process.exit(1);
         }
 
-        const tasks = taskService.searchTasks(keyword, options.all || false);
+        // Parse status filter from comma-separated string
+        let statusFilter: TaskStatus[] | undefined;
+        if (options.status) {
+          const statuses = options.status.split(',').map((s: string) => s.trim());
+          statusFilter = statuses as TaskStatus[];
+        }
+
+        const tasks = taskService.searchTasks(keyword, options.all || false, statusFilter);
 
         formatter.output(
           () => {
+            const jsonOutput: Record<string, unknown> = {
+              keyword: keyword,
+              totalCount: tasks.length,
+              tasks: [],
+            };
+
+            // Add statusFilter if provided, otherwise add excludeDoneClosed
+            if (statusFilter) {
+              jsonOutput.statusFilter = statusFilter.join(',');
+            } else {
+              jsonOutput.excludeDoneClosed = !options.all;
+            }
+
             if (tasks.length === 0) {
-              return {
-                keyword: keyword,
-                excludeDoneClosed: !options.all,
-                totalCount: 0,
-                tasks: [],
-              };
+              return jsonOutput;
             }
 
             // Fetch all task tags at once to avoid N+1 problem
@@ -79,12 +96,8 @@ export function setupTaskFindCommand(program: Command): void {
               };
             });
 
-            return {
-              keyword: keyword,
-              excludeDoneClosed: !options.all,
-              totalCount: tasks.length,
-              tasks: tasksWithRelations,
-            };
+            jsonOutput.tasks = tasksWithRelations;
+            return jsonOutput;
           },
           () => {
             if (tasks.length === 0) {
