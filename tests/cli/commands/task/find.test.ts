@@ -208,4 +208,140 @@ describe('setupTaskFindCommand', () => {
     const output = consoleLogs.join('\n');
     expect(output).toContain('Task title');
   });
+
+  it('should have --status option', () => {
+    const taskCommand = program.commands.find((cmd) => cmd.name() === 'task');
+    const findCommand = taskCommand?.commands.find((cmd) => cmd.name() === 'find');
+
+    const options = findCommand?.options || [];
+    const optionNames = options.map((opt) => opt.long);
+
+    expect(optionNames).toContain('--status');
+  });
+
+  it('should filter tasks by single status', async () => {
+    const taskService = new TaskService();
+    taskService.createTask({ title: 'Ready task', status: 'ready' });
+    taskService.createTask({ title: 'In progress task', status: 'in_progress' });
+    taskService.createTask({ title: 'Backlog task', status: 'backlog' });
+
+    const consoleLogs: string[] = [];
+    const originalLog = console.log;
+    console.log = (...args: unknown[]) => consoleLogs.push(args.join(' '));
+
+    const originalExit = process.exit;
+    process.exit = (() => {}) as never;
+
+    try {
+      await program.parseAsync(['node', 'test', 'task', 'find', 'task', '--status', 'in_progress']);
+    } finally {
+      console.log = originalLog;
+      process.exit = originalExit;
+    }
+
+    const output = consoleLogs.join('\n');
+    expect(output).toContain('In progress task');
+    expect(output).not.toContain('Ready task');
+    expect(output).not.toContain('Backlog task');
+  });
+
+  it('should filter tasks by multiple statuses', async () => {
+    const taskService = new TaskService();
+    taskService.createTask({ title: 'Ready task', status: 'ready' });
+    taskService.createTask({ title: 'In progress task', status: 'in_progress' });
+    taskService.createTask({ title: 'Backlog task', status: 'backlog' });
+
+    const consoleLogs: string[] = [];
+    const originalLog = console.log;
+    console.log = (...args: unknown[]) => consoleLogs.push(args.join(' '));
+
+    const originalExit = process.exit;
+    process.exit = (() => {}) as never;
+
+    try {
+      await program.parseAsync(['node', 'test', 'task', 'find', 'task', '--status', 'ready,in_progress']);
+    } finally {
+      console.log = originalLog;
+      process.exit = originalExit;
+    }
+
+    const output = consoleLogs.join('\n');
+    expect(output).toContain('Ready task');
+    expect(output).toContain('In progress task');
+    expect(output).not.toContain('Backlog task');
+  });
+
+  it('should include done/closed tasks with --status even without --all', async () => {
+    const taskService = new TaskService();
+    taskService.createTask({ title: 'Done task', status: 'done' });
+    taskService.createTask({ title: 'Active task', status: 'ready' });
+
+    const consoleLogs: string[] = [];
+    const originalLog = console.log;
+    console.log = (...args: unknown[]) => consoleLogs.push(args.join(' '));
+
+    const originalExit = process.exit;
+    process.exit = (() => {}) as never;
+
+    try {
+      await program.parseAsync(['node', 'test', 'task', 'find', 'task', '--status', 'done']);
+    } finally {
+      console.log = originalLog;
+      process.exit = originalExit;
+    }
+
+    const output = consoleLogs.join('\n');
+    expect(output).toContain('Done task');
+    expect(output).not.toContain('Active task');
+  });
+
+  it('should return JSON with statusFilter when using --status with --json', async () => {
+    const taskService = new TaskService();
+    taskService.createTask({ title: 'In progress task', status: 'in_progress' });
+
+    const consoleLogs: string[] = [];
+    const originalLog = console.log;
+    console.log = (...args: unknown[]) => consoleLogs.push(args.join(' '));
+
+    const originalExit = process.exit;
+    process.exit = (() => {}) as never;
+
+    try {
+      await program.parseAsync(['node', 'test', 'task', 'find', 'task', '--status', 'in_progress', '--json']);
+    } finally {
+      console.log = originalLog;
+      process.exit = originalExit;
+    }
+
+    const parsed = JSON.parse(consoleLogs[0]);
+    expect(parsed.totalCount).toBe(1);
+    expect(parsed.tasks[0].title).toBe('In progress task');
+    expect(parsed.statusFilter).toBe('in_progress');
+  });
+
+  it('should prefer --status over --all when both are provided', async () => {
+    const taskService = new TaskService();
+    taskService.createTask({ title: 'Ready task', status: 'ready' });
+    taskService.createTask({ title: 'Done task', status: 'done' });
+    taskService.createTask({ title: 'In progress task', status: 'in_progress' });
+
+    const consoleLogs: string[] = [];
+    const originalLog = console.log;
+    console.log = (...args: unknown[]) => consoleLogs.push(args.join(' '));
+
+    const originalExit = process.exit;
+    process.exit = (() => {}) as never;
+
+    try {
+      await program.parseAsync(['node', 'test', 'task', 'find', 'task', '--status', 'in_progress', '--all']);
+    } finally {
+      console.log = originalLog;
+      process.exit = originalExit;
+    }
+
+    const output = consoleLogs.join('\n');
+    expect(output).toContain('In progress task');
+    expect(output).not.toContain('Ready task');
+    expect(output).not.toContain('Done task');
+  });
 });

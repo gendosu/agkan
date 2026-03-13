@@ -339,15 +339,22 @@ export class TaskService {
    * Search tasks
    * @param keyword - Search keyword (LIKE search on title and body)
    * @param includeAll - If true, include done/closed tasks in search (default: false)
+   * @param statuses - Optional array of statuses to filter by (overrides includeAll)
    * @returns Array of matched tasks
    */
-  searchTasks(keyword: string, includeAll: boolean = false): Task[] {
+  searchTasks(keyword: string, includeAll: boolean = false, statuses?: TaskStatus[]): Task[] {
     const db = this.db;
 
     let query = 'SELECT * FROM tasks WHERE (title LIKE ? OR body LIKE ?)';
-    const params: string[] = [`%${keyword}%`, `%${keyword}%`];
+    const params: (string | number)[] = [`%${keyword}%`, `%${keyword}%`];
 
-    if (!includeAll) {
+    if (statuses && statuses.length > 0) {
+      // If specific statuses are provided, filter by those statuses
+      const placeholders = statuses.map(() => '?').join(', ');
+      query += ` AND status IN (${placeholders})`;
+      params.push(...statuses);
+    } else if (!includeAll) {
+      // Otherwise, exclude done/closed/icebox if includeAll is false
       query += ' AND status NOT IN (?, ?, ?)';
       params.push('icebox', 'done', 'closed');
     }
