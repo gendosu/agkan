@@ -315,7 +315,10 @@ function displayDependencyTree(
 
   const blockedIds = blockMap.get(task.id) || [];
   const childTasks = taskService.getChildTasks(task.id);
-  const allChildren = [...blockedIds.map((id) => ({ id, type: 'blocks' as const })), ...childTasks.map((t) => ({ id: t.id, type: 'child' as const }))];
+  const allChildren = [
+    ...blockedIds.map((id) => ({ id, type: 'blocks' as const })),
+    ...childTasks.map((t) => ({ id: t.id, type: 'child' as const })),
+  ];
 
   const newPrefix = prefix + (isLast ? '    ' : '\u2502   ');
   allChildren.forEach((child, index) => {
@@ -406,9 +409,7 @@ function buildDepTreeJsonOutput(
   allTasksMetadata: MetadataMap
 ): object {
   const allBlockedIds = collectAllBlockedIds(blockMap);
-  const rootTasks = displayTasks.filter(
-    (task) => !allBlockedIds.has(task.id) && !task.parent_id
-  );
+  const rootTasks = displayTasks.filter((task) => !allBlockedIds.has(task.id) && !task.parent_id);
 
   return {
     totalCount: displayTasks.length,
