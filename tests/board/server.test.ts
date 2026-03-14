@@ -1037,6 +1037,87 @@ describe('createBoardApp', () => {
       expect(backlog!.html).not.toContain('<script>xss</script>');
       expect(backlog!.html).toContain('&lt;script&gt;');
     });
+
+    it('should return all tasks when no filter params are provided', async () => {
+      taskService.createTask({ title: 'High task', status: 'backlog', priority: 'high' });
+      taskService.createTask({ title: 'Low task', status: 'ready', priority: 'low' });
+
+      const app = createBoardApp(taskService, taskTagService, metadataService);
+      const res = await app.fetch(new Request('http://localhost/api/board/cards'));
+
+      expect(res.status).toBe(200);
+      const data = (await res.json()) as { columns: Array<{ status: string; html: string; count: number }> };
+      const totalCount = data.columns.reduce((sum, col) => sum + col.count, 0);
+      expect(totalCount).toBe(2);
+    });
+
+    it('should filter by single priority', async () => {
+      taskService.createTask({ title: 'High task', status: 'backlog', priority: 'high' });
+      taskService.createTask({ title: 'Low task', status: 'backlog', priority: 'low' });
+      taskService.createTask({ title: 'No priority task', status: 'backlog' });
+
+      const app = createBoardApp(taskService, taskTagService, metadataService);
+      const res = await app.fetch(new Request('http://localhost/api/board/cards?priority=high'));
+
+      expect(res.status).toBe(200);
+      const data = (await res.json()) as { columns: Array<{ status: string; html: string; count: number }> };
+      const backlog = data.columns.find((c) => c.status === 'backlog');
+      expect(backlog!.count).toBe(1);
+      expect(backlog!.html).toContain('High task');
+      expect(backlog!.html).not.toContain('Low task');
+      expect(backlog!.html).not.toContain('No priority task');
+    });
+
+    it('should filter by multiple priorities', async () => {
+      taskService.createTask({ title: 'Critical task', status: 'backlog', priority: 'critical' });
+      taskService.createTask({ title: 'High task', status: 'backlog', priority: 'high' });
+      taskService.createTask({ title: 'Low task', status: 'backlog', priority: 'low' });
+
+      const app = createBoardApp(taskService, taskTagService, metadataService);
+      const res = await app.fetch(new Request('http://localhost/api/board/cards?priority=critical,high'));
+
+      expect(res.status).toBe(200);
+      const data = (await res.json()) as { columns: Array<{ status: string; html: string; count: number }> };
+      const backlog = data.columns.find((c) => c.status === 'backlog');
+      expect(backlog!.count).toBe(2);
+      expect(backlog!.html).toContain('Critical task');
+      expect(backlog!.html).toContain('High task');
+      expect(backlog!.html).not.toContain('Low task');
+    });
+
+    it('should filter by tag id', async () => {
+      const task1 = taskService.createTask({ title: 'Tagged task', status: 'backlog' });
+      const task2 = taskService.createTask({ title: 'Untagged task', status: 'backlog' });
+      const tag = tagService.createTag({ name: 'feature' });
+      taskTagService.addTagToTask({ task_id: task1.id, tag_id: tag.id });
+
+      const app = createBoardApp(taskService, taskTagService, metadataService);
+      const res = await app.fetch(new Request(`http://localhost/api/board/cards?tags=${tag.id}`));
+
+      expect(res.status).toBe(200);
+      const data = (await res.json()) as { columns: Array<{ status: string; html: string; count: number }> };
+      const backlog = data.columns.find((c) => c.status === 'backlog');
+      expect(backlog!.count).toBe(1);
+      expect(backlog!.html).toContain('Tagged task');
+      expect(backlog!.html).not.toContain('Untagged task');
+
+      void task2;
+    });
+
+    it('should filter by assignee substring match', async () => {
+      taskService.createTask({ title: 'Alice task', status: 'backlog', assignees: 'alice' });
+      taskService.createTask({ title: 'Bob task', status: 'backlog', assignees: 'bob' });
+
+      const app = createBoardApp(taskService, taskTagService, metadataService);
+      const res = await app.fetch(new Request('http://localhost/api/board/cards?assignee=alice'));
+
+      expect(res.status).toBe(200);
+      const data = (await res.json()) as { columns: Array<{ status: string; html: string; count: number }> };
+      const backlog = data.columns.find((c) => c.status === 'backlog');
+      expect(backlog!.count).toBe(1);
+      expect(backlog!.html).toContain('Alice task');
+      expect(backlog!.html).not.toContain('Bob task');
+    });
   });
 
   describe('DELETE /api/tasks/:id', () => {
