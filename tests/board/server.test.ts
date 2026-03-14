@@ -880,6 +880,39 @@ describe('createBoardApp', () => {
     });
   });
 
+  describe('GET / (detail panel polling refresh)', () => {
+    it('should refresh detail panel after refreshBoardCards when detailTaskId is set', async () => {
+      const app = createBoardApp(taskService, taskTagService, metadataService);
+      const res = await app.fetch(new Request('http://localhost/'));
+      const html = await res.text();
+
+      expect(html).toContain('detailTaskId !== null');
+      expect(html).toContain("/api/tasks/' + detailTaskId");
+      expect(html).toContain('renderDetailPanel(taskData)');
+    });
+
+    it('should show warning when user is editing during polling update', async () => {
+      const app = createBoardApp(taskService, taskTagService, metadataService);
+      const res = await app.fetch(new Request('http://localhost/'));
+      const html = await res.text();
+
+      expect(html).toContain('detail-panel-update-warning');
+      expect(html).toContain('isEditing');
+      expect(html).toContain('document.activeElement');
+    });
+
+    it('should skip detail panel refresh when user is editing', async () => {
+      const app = createBoardApp(taskService, taskTagService, metadataService);
+      const res = await app.fetch(new Request('http://localhost/'));
+      const html = await res.text();
+
+      expect(html).toContain('detail-edit-title');
+      expect(html).toContain('detail-edit-body');
+      expect(html).toContain('detail-edit-status');
+      expect(html).toContain('detail-edit-priority');
+    });
+  });
+
   describe('GET /api/board/updated-at', () => {
     it('should return 200 with an updatedAt timestamp when no tasks exist', async () => {
       const app = createBoardApp(taskService, taskTagService, metadataService);
