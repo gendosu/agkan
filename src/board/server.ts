@@ -64,7 +64,7 @@ const BOARD_STYLES = `
     header { background: #1e293b; color: white; padding: 12px 20px; display: flex; align-items: center; justify-content: space-between; }
     header h1 { font-size: 18px; font-weight: 700; }
     .board-title { font-size: 14px; font-weight: 400; opacity: 0.75; }
-    .board-container { display: flex; width: 100%; height: calc(100vh - 48px); gap: 0; }
+    .board-container { display: flex; width: 100%; height: calc(100vh - 92px); gap: 0; }
     .board { display: flex; gap: 12px; padding: 16px; overflow-x: auto; flex: 1; align-items: flex-start; min-width: 0; }
     .board.with-panel { padding-right: 0; }
     .column { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; width: 240px; flex-shrink: 0; display: flex; flex-direction: column; border-top: 3px solid transparent; }
@@ -109,7 +109,7 @@ const BOARD_STYLES = `
     .modal-actions button.primary:hover { background: #2563eb; }
     .toast { position: fixed; bottom: 20px; right: 20px; background: #ef4444; color: white; padding: 10px 16px; border-radius: 6px; font-size: 13px; opacity: 0; transition: opacity 0.3s; pointer-events: none; }
     .toast.show { opacity: 1; }
-    .detail-panel { position: relative; width: 0; height: calc(100vh - 48px); background: white; box-shadow: none; border-left: 0 solid #e2e8f0; display: flex; flex-direction: column; max-width: 800px; overflow: hidden; transition: width 0.25s ease; }
+    .detail-panel { position: relative; width: 0; height: calc(100vh - 92px); background: white; box-shadow: none; border-left: 0 solid #e2e8f0; display: flex; flex-direction: column; max-width: 800px; overflow: hidden; transition: width 0.25s ease; }
     .detail-panel-resize-handle { position: absolute; top: 0; left: 0; width: 6px; height: 100%; cursor: col-resize; z-index: 10; background: transparent; }
     .detail-panel-resize-handle:hover, .detail-panel-resize-handle.dragging { background: rgba(59,130,246,0.3); }
     .detail-panel.open { width: 400px; min-width: 280px; border-left-width: 1px; }
@@ -151,7 +151,32 @@ const BOARD_STYLES = `
     .tag-select-dropdown.open { display: block; }
     .tag-select-option { padding: 6px 10px; font-size: 12px; cursor: pointer; color: #1e293b; }
     .tag-select-option:hover, .tag-select-option.focused { background: #eff6ff; color: #0369a1; }
-    .tag-select-no-options { padding: 6px 10px; font-size: 12px; color: #94a3b8; font-style: italic; }`;
+    .tag-select-no-options { padding: 6px 10px; font-size: 12px; color: #94a3b8; font-style: italic; }
+    .filter-bar { display: flex; align-items: center; gap: 16px; height: 44px; background: #f8fafc; border-bottom: 1px solid #e2e8f0; padding: 0 16px; flex-shrink: 0; overflow-x: auto; }
+    .filter-group { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+    .filter-label { font-size: 10px; font-weight: 700; text-transform: uppercase; color: #94a3b8; letter-spacing: 0.05em; white-space: nowrap; }
+    .filter-priority-btn { border: 1px solid #e2e8f0; background: white; border-radius: 4px; padding: 2px 8px; font-size: 11px; font-weight: 600; cursor: pointer; text-transform: uppercase; color: #64748b; }
+    .filter-priority-btn:hover { background: #f1f5f9; }
+    .filter-priority-btn.active[data-priority="critical"] { background: #fee2e2; color: #dc2626; border-color: #fca5a5; }
+    .filter-priority-btn.active[data-priority="high"] { background: #fee2e2; color: #dc2626; border-color: #fca5a5; }
+    .filter-priority-btn.active[data-priority="medium"] { background: #fef9c3; color: #ca8a04; border-color: #fde047; }
+    .filter-priority-btn.active[data-priority="low"] { background: #dcfce7; color: #16a34a; border-color: #86efac; }
+    .filter-assignee-input { border: 1px solid #e2e8f0; border-radius: 4px; padding: 3px 8px; font-size: 12px; font-family: inherit; background: white; color: #1e293b; width: 120px; }
+    .filter-assignee-input:focus { outline: none; border-color: #3b82f6; box-shadow: 0 0 0 2px rgba(59,130,246,0.2); }
+    .filter-tag-pill { background: #e0f2fe; color: #0369a1; font-size: 11px; font-weight: 600; padding: 2px 4px 2px 8px; border-radius: 10px; display: inline-flex; align-items: center; gap: 3px; flex-shrink: 0; }
+    .filter-tag-pill-remove { background: none; border: none; color: #0369a1; cursor: pointer; font-size: 13px; line-height: 1; padding: 0 2px; display: inline-flex; align-items: center; border-radius: 50%; }
+    .filter-tag-pill-remove:hover { color: #dc2626; background: rgba(220,38,38,0.1); }
+    .filter-tag-dropdown-wrapper { position: relative; flex-shrink: 0; }
+    .filter-tag-add-btn { border: 1px dashed #cbd5e1; background: white; border-radius: 4px; padding: 2px 8px; font-size: 11px; color: #64748b; cursor: pointer; white-space: nowrap; }
+    .filter-tag-add-btn:hover { background: #f1f5f9; border-color: #94a3b8; }
+    .filter-tag-dropdown { position: absolute; top: calc(100% + 2px); left: 0; background: white; border: 1px solid #e2e8f0; border-radius: 6px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); z-index: 200; max-height: 180px; overflow-y: auto; display: none; min-width: 140px; }
+    .filter-tag-dropdown.open { display: block; }
+    .filter-tag-dropdown-option { padding: 6px 10px; font-size: 12px; cursor: pointer; color: #1e293b; white-space: nowrap; }
+    .filter-tag-dropdown-option:hover { background: #eff6ff; color: #0369a1; }
+    .filter-tag-dropdown-empty { padding: 6px 10px; font-size: 12px; color: #94a3b8; font-style: italic; }
+    .filter-clear-btn { border: 1px solid #e2e8f0; background: white; border-radius: 4px; padding: 2px 10px; font-size: 11px; font-weight: 600; cursor: pointer; color: #64748b; display: none; flex-shrink: 0; margin-left: auto; }
+    .filter-clear-btn:hover { background: #fee2e2; border-color: #fca5a5; color: #dc2626; }
+    .filter-clear-btn.visible { display: block; }`;
 
 const BOARD_SCRIPT = `
     let draggedCard = null;
@@ -696,11 +721,30 @@ const BOARD_SCRIPT = `
       });
     });
 
+    // Filter state (defined before refreshBoardCards so it can use them)
+    let activeFilters = { tagIds: [], priorities: [], assignee: '' };
+
+    function buildFilterParams() {
+      const params = new URLSearchParams();
+      if (activeFilters.priorities.length > 0) {
+        params.set('priority', activeFilters.priorities.join(','));
+      }
+      if (activeFilters.tagIds.length > 0) {
+        params.set('tags', activeFilters.tagIds.join(','));
+      }
+      if (activeFilters.assignee) {
+        params.set('assignee', activeFilters.assignee);
+      }
+      return params;
+    }
+
     // Board polling: reload when updated_at changes (skip during drag)
     let lastUpdatedAt = null;
     async function refreshBoardCards() {
+      const filterParams = buildFilterParams();
+      const url = '/api/board/cards' + (filterParams.toString() ? '?' + filterParams.toString() : '');
       try {
-        const res = await fetch('/api/board/cards');
+        const res = await fetch(url);
         if (!res.ok) return;
         const data = await res.json();
         const columns = data.columns;
@@ -768,7 +812,159 @@ const BOARD_SCRIPT = `
       }
     }
     setInterval(pollBoardUpdates, 5000);
-    pollBoardUpdates();`;
+    pollBoardUpdates();
+
+    function isFiltersActive() {
+      return activeFilters.priorities.length > 0 || activeFilters.tagIds.length > 0 || activeFilters.assignee !== '';
+    }
+
+    function applyFilters() {
+      const clearBtn = document.getElementById('filter-clear');
+      if (clearBtn) {
+        if (isFiltersActive()) {
+          clearBtn.classList.add('visible');
+        } else {
+          clearBtn.classList.remove('visible');
+        }
+      }
+      refreshBoardCards();
+    }
+
+    function renderFilterTagPills() {
+      const container = document.getElementById('filter-tags-control');
+      if (!container) return;
+      // Remove existing pills
+      container.querySelectorAll('.filter-tag-pill').forEach(p => p.remove());
+      // Add pills for active tag filters
+      activeFilters.tagIds.forEach(tagId => {
+        const tag = allAvailableTags.find(t => t.id === tagId);
+        if (!tag) return;
+        const pill = document.createElement('span');
+        pill.className = 'filter-tag-pill';
+        const label = document.createTextNode(tag.name);
+        const removeBtn = document.createElement('button');
+        removeBtn.className = 'filter-tag-pill-remove';
+        removeBtn.title = 'Remove tag filter';
+        removeBtn.innerHTML = '&times;';
+        removeBtn.addEventListener('click', () => {
+          const idx = activeFilters.tagIds.indexOf(tagId);
+          if (idx !== -1) activeFilters.tagIds.splice(idx, 1);
+          renderFilterTagPills();
+          applyFilters();
+        });
+        pill.appendChild(label);
+        pill.appendChild(removeBtn);
+        container.insertBefore(pill, container.querySelector('.filter-tag-dropdown-wrapper'));
+      });
+    }
+
+    function initFilterBar() {
+      // Priority toggle buttons
+      document.querySelectorAll('.filter-priority-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const priority = btn.dataset.priority;
+          const idx = activeFilters.priorities.indexOf(priority);
+          if (idx === -1) {
+            activeFilters.priorities.push(priority);
+            btn.classList.add('active');
+          } else {
+            activeFilters.priorities.splice(idx, 1);
+            btn.classList.remove('active');
+          }
+          applyFilters();
+        });
+      });
+
+      // Assignee input with debounce
+      const assigneeInput = document.getElementById('filter-assignee');
+      let assigneeTimer = null;
+      if (assigneeInput) {
+        assigneeInput.addEventListener('input', () => {
+          clearTimeout(assigneeTimer);
+          assigneeTimer = setTimeout(() => {
+            activeFilters.assignee = assigneeInput.value.trim();
+            applyFilters();
+          }, 300);
+        });
+      }
+
+      // Clear button
+      const clearBtn = document.getElementById('filter-clear');
+      if (clearBtn) {
+        clearBtn.addEventListener('click', () => {
+          activeFilters.tagIds = [];
+          activeFilters.priorities = [];
+          activeFilters.assignee = '';
+          document.querySelectorAll('.filter-priority-btn').forEach(btn => btn.classList.remove('active'));
+          if (assigneeInput) assigneeInput.value = '';
+          renderFilterTagPills();
+          applyFilters();
+        });
+      }
+
+      // Tag filter dropdown
+      const tagsControl = document.getElementById('filter-tags-control');
+      if (tagsControl) {
+        const dropdownWrapper = document.createElement('div');
+        dropdownWrapper.className = 'filter-tag-dropdown-wrapper';
+
+        const addBtn = document.createElement('button');
+        addBtn.className = 'filter-tag-add-btn';
+        addBtn.textContent = '+ Tag';
+
+        const dropdown = document.createElement('div');
+        dropdown.className = 'filter-tag-dropdown';
+
+        dropdownWrapper.appendChild(addBtn);
+        dropdownWrapper.appendChild(dropdown);
+        tagsControl.appendChild(dropdownWrapper);
+
+        function renderTagDropdown() {
+          dropdown.innerHTML = '';
+          const available = allAvailableTags.filter(t => !activeFilters.tagIds.includes(t.id));
+          if (available.length === 0) {
+            const empty = document.createElement('div');
+            empty.className = 'filter-tag-dropdown-empty';
+            empty.textContent = 'No tags available';
+            dropdown.appendChild(empty);
+          } else {
+            available.forEach(tag => {
+              const opt = document.createElement('div');
+              opt.className = 'filter-tag-dropdown-option';
+              opt.textContent = tag.name;
+              opt.addEventListener('mousedown', (e) => {
+                e.preventDefault();
+                activeFilters.tagIds.push(tag.id);
+                dropdown.classList.remove('open');
+                renderFilterTagPills();
+                applyFilters();
+              });
+              dropdown.appendChild(opt);
+            });
+          }
+        }
+
+        addBtn.addEventListener('click', () => {
+          if (dropdown.classList.contains('open')) {
+            dropdown.classList.remove('open');
+          } else {
+            renderTagDropdown();
+            dropdown.classList.add('open');
+          }
+        });
+
+        document.addEventListener('click', (e) => {
+          if (!dropdownWrapper.contains(e.target)) {
+            dropdown.classList.remove('open');
+          }
+        });
+      }
+    }
+
+    // Initialize filter bar after tags are loaded
+    loadAllTags().then(() => {
+      initFilterBar();
+    });`;
 
 function renderColumn(status: TaskStatus, tasks: Task[], tagMap: Map<number, Tag[]>): string {
   const color = STATUS_COLORS[status];
@@ -836,6 +1032,24 @@ function renderBoard(tasksByStatus: Map<TaskStatus, Task[]>, tagMap: Map<number,
 </head>
 <body>
   <header><h1>agkan board</h1>${titleHtml}</header>
+  <div class="filter-bar" id="filter-bar">
+    <div class="filter-group">
+      <span class="filter-label">Priority</span>
+      <button class="filter-priority-btn" data-priority="critical">critical</button>
+      <button class="filter-priority-btn" data-priority="high">high</button>
+      <button class="filter-priority-btn" data-priority="medium">medium</button>
+      <button class="filter-priority-btn" data-priority="low">low</button>
+    </div>
+    <div class="filter-group">
+      <span class="filter-label">Tags</span>
+      <div id="filter-tags-control" style="display:flex;align-items:center;gap:4px;flex-wrap:nowrap;"></div>
+    </div>
+    <div class="filter-group">
+      <span class="filter-label">Assignee</span>
+      <input type="text" id="filter-assignee" class="filter-assignee-input" placeholder="Filter by assignee">
+    </div>
+    <button class="filter-clear-btn" id="filter-clear">Clear filters</button>
+  </div>
   <div class="board-container">
     <div class="board">${columns}</div>${BOARD_BODY_STATIC}
   </div>
@@ -1005,6 +1219,30 @@ function buildBoardCardsPayload(
   });
 }
 
+type BoardCardFilters = { tagIds?: number[]; priority?: string[]; assignees?: string };
+
+function parseBoardCardFilters(query: { tags?: string; priority?: string; assignee?: string }): BoardCardFilters {
+  const filters: BoardCardFilters = {};
+  if (query.tags) {
+    const tagIds = query.tags
+      .split(',')
+      .map((s) => Number(s.trim()))
+      .filter((n) => !isNaN(n) && n > 0);
+    if (tagIds.length > 0) filters.tagIds = tagIds;
+  }
+  if (query.priority) {
+    const priorities = query.priority
+      .split(',')
+      .map((s) => s.trim())
+      .filter((s) => s.length > 0);
+    if (priorities.length > 0) filters.priority = priorities;
+  }
+  if (query.assignee && query.assignee.trim()) {
+    filters.assignees = query.assignee.trim();
+  }
+  return filters;
+}
+
 function registerBoardRoutes(app: Hono, services: BoardServices): void {
   const { ts, tts, database, boardTitle } = services;
   app.get('/', (c) => {
@@ -1013,7 +1251,12 @@ function registerBoardRoutes(app: Hono, services: BoardServices): void {
   });
   app.get('/api/board/updated-at', (c) => c.json({ updatedAt: getBoardUpdatedAt(database) }));
   app.get('/api/board/cards', (c) => {
-    const tasksByStatus = buildTasksByStatus(ts.listTasks({}, 'id', 'asc'));
+    const filters = parseBoardCardFilters({
+      tags: c.req.query('tags'),
+      priority: c.req.query('priority'),
+      assignee: c.req.query('assignee'),
+    });
+    const tasksByStatus = buildTasksByStatus(ts.listTasks(filters, 'id', 'asc'));
     const columns = buildBoardCardsPayload(tasksByStatus, tts.getAllTaskTags());
     return c.json({ columns });
   });
