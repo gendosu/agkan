@@ -786,6 +786,31 @@ const BOARD_SCRIPT = `
             });
           });
         });
+        // If detail panel is open, refresh its content if the task was updated
+        if (detailTaskId !== null) {
+          const editableFields = ['detail-edit-title', 'detail-edit-body', 'detail-edit-status', 'detail-edit-priority'];
+          const isEditing = editableFields.some(id => document.activeElement && document.activeElement.id === id);
+          if (isEditing) {
+            const warning = document.getElementById('detail-panel-update-warning');
+            if (!warning) {
+              const warningEl = document.createElement('div');
+              warningEl.id = 'detail-panel-update-warning';
+              warningEl.style.cssText = 'color: red; font-size: 0.85em; padding: 4px 8px; background: #fff0f0; border: 1px solid #ffcccc; border-radius: 4px; margin-bottom: 8px;';
+              warningEl.textContent = 'This task has been updated in the database. Save or discard your changes to see the latest version.';
+              detailPanelBody.insertBefore(warningEl, detailPanelBody.firstChild);
+            }
+          } else {
+            try {
+              const taskRes = await fetch('/api/tasks/' + detailTaskId);
+              if (taskRes.ok) {
+                const taskData = await taskRes.json();
+                renderDetailPanel(taskData);
+              }
+            } catch {
+              // Ignore network errors during detail panel refresh
+            }
+          }
+        }
       } catch {
         // Ignore network errors during card refresh
       }
