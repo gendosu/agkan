@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.6.0] - 2026-03-15
+
+### Added
+- Add `--status` filter to `task find` command (#121)
+- Add filter query params (status, priority, tag) to `GET /api/board/cards` endpoint (#157)
+- Add task comment CLI commands: `task comment add`, `task comment list`, `task comment delete` (#135)
+- Display parent-child relationships in dependency tree view (#136)
+- Refresh detail panel on board polling update (#159)
+
+### Fixed
+- Resolve board filter tag dropdown clipping due to overflow-x: auto (#158)
+- Update board test to use `task.priority` field instead of metadata array (#80)
+
+### Changed
+- Change board polling interval from 10s to 5s (#146)
+
 ## [2.5.0] - 2026-03-12
 
 ### Added
