@@ -126,7 +126,7 @@ test_board_api_post_task_with_priority() {
         # Verify priority via detail endpoint
         local detail
         detail=$(curl -s "http://localhost:$BOARD_PORT/api/tasks/$task_id")
-        if echo "$detail" | jq -e '.metadata[] | select(.key == "priority" and .value == "high")' > /dev/null 2>&1; then
+        if echo "$detail" | jq -e '.task.priority == "high"' > /dev/null 2>&1; then
             print_success "POST /api/tasks with priority stores priority metadata"
         else
             print_error "POST /api/tasks priority metadata not found in detail"
