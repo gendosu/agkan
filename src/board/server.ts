@@ -166,10 +166,10 @@ const BOARD_STYLES = `
     .filter-tag-pill { background: #e0f2fe; color: #0369a1; font-size: 11px; font-weight: 600; padding: 2px 4px 2px 8px; border-radius: 10px; display: inline-flex; align-items: center; gap: 3px; flex-shrink: 0; }
     .filter-tag-pill-remove { background: none; border: none; color: #0369a1; cursor: pointer; font-size: 13px; line-height: 1; padding: 0 2px; display: inline-flex; align-items: center; border-radius: 50%; }
     .filter-tag-pill-remove:hover { color: #dc2626; background: rgba(220,38,38,0.1); }
-    .filter-tag-dropdown-wrapper { position: relative; flex-shrink: 0; }
+    .filter-tag-dropdown-wrapper { flex-shrink: 0; }
     .filter-tag-add-btn { border: 1px dashed #cbd5e1; background: white; border-radius: 4px; padding: 2px 8px; font-size: 11px; color: #64748b; cursor: pointer; white-space: nowrap; }
     .filter-tag-add-btn:hover { background: #f1f5f9; border-color: #94a3b8; }
-    .filter-tag-dropdown { position: absolute; top: calc(100% + 2px); left: 0; background: white; border: 1px solid #e2e8f0; border-radius: 6px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); z-index: 200; max-height: 180px; overflow-y: auto; display: none; min-width: 140px; }
+    .filter-tag-dropdown { position: fixed; background: white; border: 1px solid #e2e8f0; border-radius: 6px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); z-index: 200; max-height: 180px; overflow-y: auto; display: none; min-width: 140px; }
     .filter-tag-dropdown.open { display: block; }
     .filter-tag-dropdown-option { padding: 6px 10px; font-size: 12px; cursor: pointer; color: #1e293b; white-space: nowrap; }
     .filter-tag-dropdown-option:hover { background: #eff6ff; color: #0369a1; }
@@ -949,6 +949,9 @@ const BOARD_SCRIPT = `
             dropdown.classList.remove('open');
           } else {
             renderTagDropdown();
+            const rect = addBtn.getBoundingClientRect();
+            dropdown.style.top = (rect.bottom + 2) + 'px';
+            dropdown.style.left = rect.left + 'px';
             dropdown.classList.add('open');
           }
         });
