@@ -695,7 +695,14 @@ const BOARD_SCRIPT = `
           })
         });
         if (!res.ok) throw new Error('Server error');
-        location.reload();
+        // Fetch updated task data and refresh detail panel instead of reloading
+        const getRes = await fetch('/api/tasks/' + detailTaskId);
+        if (!getRes.ok) throw new Error('Failed to fetch updated task');
+        const data = await getRes.json();
+        renderDetailPanel(data);
+        showToast('Task saved successfully');
+        // Refresh board cards in the background
+        refreshBoardCards();
       } catch {
         showToast('Failed to update task');
       }
