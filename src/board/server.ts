@@ -1,5 +1,6 @@
 import { Hono } from 'hono';
 import { serve } from '@hono/node-server';
+import path from 'path';
 import { TaskService } from '../services/TaskService';
 import { TaskTagService } from '../services/TaskTagService';
 import { TagService } from '../services/TagService';
@@ -8,6 +9,8 @@ import { Task, TaskStatus, PRIORITIES, PRIORITY_ORDER, isPriority, Priority } fr
 import { Tag } from '../models/Tag';
 import { getDatabase } from '../db/connection';
 import { StorageProvider } from '../db/types/storage';
+import { getDefaultDirName } from '../db/config';
+import { readBoardConfig, writeBoardConfig, DETAIL_PANE_MAX_WIDTH } from './boardConfig';
 
 const STATUSES: TaskStatus[] = ['icebox', 'backlog', 'ready', 'in_progress', 'review', 'done', 'closed'];
 
@@ -365,13 +368,22 @@ const BOARD_SCRIPT = `
     const PANEL_MIN_WIDTH = 280;
     const PANEL_MAX_WIDTH = 800;
     const PANEL_DEFAULT_WIDTH = 400;
-    const PANEL_WIDTH_KEY = 'detailPanelWidth';
 
-    (function initPanelWidth() {
-      const saved = localStorage.getItem(PANEL_WIDTH_KEY);
-      const targetWidth = (saved && /^\d+$/.test(saved))
-        ? Math.min(PANEL_MAX_WIDTH, Math.max(PANEL_MIN_WIDTH, parseInt(saved, 10)))
-        : PANEL_DEFAULT_WIDTH;
+    // Initialize panel width from server config (async)
+    (async function initPanelWidth() {
+      let targetWidth = PANEL_DEFAULT_WIDTH;
+      try {
+        const res = await fetch('/api/config');
+        if (res.ok) {
+          const data = await res.json();
+          const savedWidth = data && data.board && data.board.detailPaneWidth;
+          if (typeof savedWidth === 'number' && savedWidth >= PANEL_MIN_WIDTH && savedWidth <= PANEL_MAX_WIDTH) {
+            targetWidth = savedWidth;
+          }
+        }
+      } catch {
+        // Ignore errors, use default width
+      }
       // Store the width for when panel opens (width is 0 when closed)
       detailPanel.dataset.preferredWidth = String(targetWidth);
     })();
@@ -397,7 +409,15 @@ const BOARD_SCRIPT = `
         document.body.style.userSelect = '';
         document.body.style.cursor = '';
         detailPanel.style.transition = '';
-        localStorage.setItem(PANEL_WIDTH_KEY, detailPanel.offsetWidth);
+        const currentWidth = detailPanel.offsetWidth;
+        detailPanel.dataset.preferredWidth = String(currentWidth);
+        fetch('/api/config', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ board: { detailPaneWidth: currentWidth } })
+        }).catch(function() {
+          // Ignore errors when saving panel width
+        });
         document.removeEventListener('mousemove', onMouseMove);
         document.removeEventListener('mouseup', onMouseUp);
       }
@@ -1144,6 +1164,7 @@ type BoardServices = {
   ms: MetadataService;
   database: StorageProvider;
   boardTitle?: string;
+  configDir: string;
 };
 
 function buildTasksByStatus(tasks: Task[]): Map<TaskStatus, Task[]> {
@@ -1278,8 +1299,33 @@ function parseBoardCardFilters(query: { tags?: string; priority?: string; assign
   return filters;
 }
 
+function registerConfigApiRoutes(app: Hono, configDir: string): void {
+  app.get('/api/config', (c) => {
+    const boardConfig = readBoardConfig(configDir);
+    return c.json({ board: boardConfig });
+  });
+
+  app.put('/api/config', async (c) => {
+    const body = await c.req.json<{ board?: { detailPaneWidth?: unknown } }>();
+    const boardBody = body?.board ?? {};
+
+    if (boardBody.detailPaneWidth !== undefined) {
+      const width = boardBody.detailPaneWidth;
+      if (typeof width !== 'number' || !Number.isFinite(width)) {
+        return c.json({ error: 'detailPaneWidth must be a number' }, 400);
+      }
+      if (width > DETAIL_PANE_MAX_WIDTH) {
+        return c.json({ error: `detailPaneWidth must not exceed ${DETAIL_PANE_MAX_WIDTH}` }, 400);
+      }
+      writeBoardConfig(configDir, { detailPaneWidth: width });
+    }
+
+    return c.json({ success: true });
+  });
+}
+
 function registerBoardRoutes(app: Hono, services: BoardServices): void {
-  const { ts, tts, database, boardTitle } = services;
+  const { ts, tts, database, boardTitle, configDir } = services;
   app.get('/', (c) => {
     const tasksByStatus = buildTasksByStatus(ts.listTasks({}, 'id', 'asc'));
     return c.html(renderBoard(tasksByStatus, tts.getAllTaskTags(), boardTitle));
@@ -1296,6 +1342,7 @@ function registerBoardRoutes(app: Hono, services: BoardServices): void {
     return c.json({ columns });
   });
   registerTaskApiRoutes(app, services);
+  registerConfigApiRoutes(app, configDir);
 }
 
 export function createBoardApp(
@@ -1304,9 +1351,11 @@ export function createBoardApp(
   metadataService?: MetadataService,
   db?: StorageProvider,
   boardTitle?: string,
-  tagService?: TagService
+  tagService?: TagService,
+  configDir?: string
 ): Hono {
   const app = new Hono();
+  const resolvedConfigDir = configDir ?? path.join(process.cwd(), getDefaultDirName());
   const services: BoardServices = {
     ts: taskService ?? new TaskService(),
     tts: taskTagService ?? new TaskTagService(),
@@ -1314,6 +1363,7 @@ export function createBoardApp(
     ms: metadataService ?? new MetadataService(),
     database: db ?? getDatabase(),
     boardTitle,
+    configDir: resolvedConfigDir,
   };
   registerBoardRoutes(app, services);
   return app;

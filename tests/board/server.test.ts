@@ -2,13 +2,17 @@
  * Tests for board server
  */
 
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import fs from 'fs';
+import path from 'path';
+import yaml from 'js-yaml';
 import { createBoardApp } from '../../src/board/server';
 import { getDatabase } from '../../src/db/connection';
 import { TaskService } from '../../src/services/TaskService';
 import { TaskTagService } from '../../src/services/TaskTagService';
 import { MetadataService } from '../../src/services/MetadataService';
 import { TagService } from '../../src/services/TagService';
+import { DETAIL_PANE_MAX_WIDTH } from '../../src/board/boardConfig';
 
 function resetDatabase(): void {
   const db = getDatabase();
@@ -25,6 +29,7 @@ describe('createBoardApp', () => {
   let taskTagService: TaskTagService;
   let metadataService: MetadataService;
   let tagService: TagService;
+  const testConfigDir = path.join(process.cwd(), '.agkan-test-server-' + process.pid);
 
   beforeEach(() => {
     resetDatabase();
@@ -32,6 +37,16 @@ describe('createBoardApp', () => {
     tagService = new TagService();
     taskTagService = new TaskTagService();
     metadataService = new MetadataService();
+    // Clean up test config dir
+    if (fs.existsSync(testConfigDir)) {
+      fs.rmSync(testConfigDir, { recursive: true });
+    }
+  });
+
+  afterEach(() => {
+    if (fs.existsSync(testConfigDir)) {
+      fs.rmSync(testConfigDir, { recursive: true });
+    }
   });
 
   describe('GET /', () => {
@@ -538,16 +553,15 @@ describe('createBoardApp', () => {
       expect(html).toContain('max-width: 800px');
     });
 
-    it('should include resize JavaScript with localStorage support', async () => {
+    it('should include resize JavaScript with API-based persistence', async () => {
       const app = createBoardApp(taskService, taskTagService, metadataService);
       const res = await app.fetch(new Request('http://localhost/'));
       const html = await res.text();
 
       expect(html).toContain('PANEL_MIN_WIDTH');
       expect(html).toContain('PANEL_MAX_WIDTH');
-      expect(html).toContain('PANEL_WIDTH_KEY');
-      expect(html).toContain('localStorage.getItem');
-      expect(html).toContain('localStorage.setItem');
+      expect(html).toContain('/api/config');
+      expect(html).toContain('detailPaneWidth');
       expect(html).toContain('mousedown');
       expect(html).toContain('mousemove');
       expect(html).toContain('mouseup');
@@ -1378,6 +1392,175 @@ describe('createBoardApp', () => {
       expect(res.status).toBe(404);
       const data = (await res.json()) as { error: string };
       expect(data.error).toBe('Tag not attached to task');
+    });
+  });
+
+  describe('GET /api/config', () => {
+    it('should return empty board config when config file does not exist', async () => {
+      const app = createBoardApp(
+        taskService,
+        taskTagService,
+        metadataService,
+        undefined,
+        undefined,
+        undefined,
+        testConfigDir
+      );
+      const res = await app.fetch(new Request('http://localhost/api/config'));
+
+      expect(res.status).toBe(200);
+      const data = (await res.json()) as { board: { detailPaneWidth?: number } };
+      expect(data.board).toBeDefined();
+      expect(data.board.detailPaneWidth).toBeUndefined();
+    });
+
+    it('should return detailPaneWidth from config file when it exists', async () => {
+      fs.mkdirSync(testConfigDir, { recursive: true });
+      fs.writeFileSync(path.join(testConfigDir, 'config.yml'), yaml.dump({ board: { detailPaneWidth: 500 } }), 'utf8');
+
+      const app = createBoardApp(
+        taskService,
+        taskTagService,
+        metadataService,
+        undefined,
+        undefined,
+        undefined,
+        testConfigDir
+      );
+      const res = await app.fetch(new Request('http://localhost/api/config'));
+
+      expect(res.status).toBe(200);
+      const data = (await res.json()) as { board: { detailPaneWidth?: number } };
+      expect(data.board.detailPaneWidth).toBe(500);
+    });
+
+    it('should not return detailPaneWidth exceeding DETAIL_PANE_MAX_WIDTH', async () => {
+      fs.mkdirSync(testConfigDir, { recursive: true });
+      fs.writeFileSync(
+        path.join(testConfigDir, 'config.yml'),
+        yaml.dump({ board: { detailPaneWidth: DETAIL_PANE_MAX_WIDTH + 100 } }),
+        'utf8'
+      );
+
+      const app = createBoardApp(
+        taskService,
+        taskTagService,
+        metadataService,
+        undefined,
+        undefined,
+        undefined,
+        testConfigDir
+      );
+      const res = await app.fetch(new Request('http://localhost/api/config'));
+
+      expect(res.status).toBe(200);
+      const data = (await res.json()) as { board: { detailPaneWidth?: number } };
+      expect(data.board.detailPaneWidth).toBeUndefined();
+    });
+  });
+
+  describe('PUT /api/config', () => {
+    it('should save detailPaneWidth to config file', async () => {
+      const app = createBoardApp(
+        taskService,
+        taskTagService,
+        metadataService,
+        undefined,
+        undefined,
+        undefined,
+        testConfigDir
+      );
+      const res = await app.fetch(
+        new Request('http://localhost/api/config', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ board: { detailPaneWidth: 450 } }),
+        })
+      );
+
+      expect(res.status).toBe(200);
+      const data = (await res.json()) as { success: boolean };
+      expect(data.success).toBe(true);
+
+      const configFile = path.join(testConfigDir, 'config.yml');
+      expect(fs.existsSync(configFile)).toBe(true);
+      const saved = yaml.load(fs.readFileSync(configFile, 'utf8')) as { board?: { detailPaneWidth?: number } };
+      expect(saved.board?.detailPaneWidth).toBe(450);
+    });
+
+    it('should return 400 when detailPaneWidth exceeds DETAIL_PANE_MAX_WIDTH', async () => {
+      const app = createBoardApp(
+        taskService,
+        taskTagService,
+        metadataService,
+        undefined,
+        undefined,
+        undefined,
+        testConfigDir
+      );
+      const res = await app.fetch(
+        new Request('http://localhost/api/config', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ board: { detailPaneWidth: DETAIL_PANE_MAX_WIDTH + 1 } }),
+        })
+      );
+
+      expect(res.status).toBe(400);
+      const data = (await res.json()) as { error: string };
+      expect(data.error).toContain('detailPaneWidth');
+    });
+
+    it('should return 400 when detailPaneWidth is not a number', async () => {
+      const app = createBoardApp(
+        taskService,
+        taskTagService,
+        metadataService,
+        undefined,
+        undefined,
+        undefined,
+        testConfigDir
+      );
+      const res = await app.fetch(
+        new Request('http://localhost/api/config', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ board: { detailPaneWidth: 'not-a-number' } }),
+        })
+      );
+
+      expect(res.status).toBe(400);
+      const data = (await res.json()) as { error: string };
+      expect(data.error).toContain('detailPaneWidth');
+    });
+
+    it('should create config directory if it does not exist', async () => {
+      const newDir = path.join(process.cwd(), '.agkan-test-newdir-' + Date.now());
+      try {
+        const app = createBoardApp(
+          taskService,
+          taskTagService,
+          metadataService,
+          undefined,
+          undefined,
+          undefined,
+          newDir
+        );
+        const res = await app.fetch(
+          new Request('http://localhost/api/config', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ board: { detailPaneWidth: 400 } }),
+          })
+        );
+
+        expect(res.status).toBe(200);
+        expect(fs.existsSync(newDir)).toBe(true);
+      } finally {
+        if (fs.existsSync(newDir)) {
+          fs.rmSync(newDir, { recursive: true });
+        }
+      }
     });
   });
 });
