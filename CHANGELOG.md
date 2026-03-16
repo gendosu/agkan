@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.7.0] - 2026-03-16
+
+### Added
+- Keep detail pane open after saving task on board (#160)
+
+### Fixed
+- Improve board server test reliability (#83)
+
 ## [2.6.0] - 2026-03-15
 
 ### Added
