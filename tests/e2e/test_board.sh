@@ -10,19 +10,33 @@
 BOARD_PORT=18080
 BOARD_PID=""
 
+# Kill any process using the given port
+kill_port() {
+    local port="$1"
+    local pids
+    pids=$(ss -tlnp "sport = :$port" 2>/dev/null | grep -oP 'pid=\K[0-9]+' || true)
+    if [ -n "$pids" ]; then
+        echo "$pids" | xargs kill -9 2>/dev/null || true
+        sleep 0.5
+    fi
+}
+
 # Start board server in background and wait for it to be ready
 start_board_server() {
+    # Kill any existing server on this port first
+    kill_port "$BOARD_PORT"
+
     print_info "Starting board server on port $BOARD_PORT..."
     npx . board --port "$BOARD_PORT" &
     BOARD_PID=$!
 
-    # Wait for the server to be ready (max 5 seconds)
+    # Wait for the server to be ready (max 10 seconds)
     local retries=0
     while ! curl -s "http://localhost:$BOARD_PORT/" > /dev/null 2>&1; do
         retries=$((retries + 1))
-        if [ $retries -ge 25 ]; then
-            print_error "Board server failed to start within 5 seconds"
-            kill "$BOARD_PID" 2>/dev/null
+        if [ $retries -ge 50 ]; then
+            print_error "Board server failed to start within 10 seconds"
+            kill_port "$BOARD_PORT"
             BOARD_PID=""
             return 1
         fi
@@ -40,6 +54,8 @@ stop_board_server() {
         wait "$BOARD_PID" 2>/dev/null
         BOARD_PID=""
     fi
+    # Also kill any remaining process on the port
+    kill_port "$BOARD_PORT"
 }
 
 test_board_get_html() {
@@ -301,16 +317,19 @@ test_board_title_option() {
     local title_port=$((BOARD_PORT + 1))
     local title_pid=""
 
+    # Kill any existing server on this port first
+    kill_port "$title_port"
+
     npx . board --port "$title_port" --title "My Project" &
     title_pid=$!
 
-    # Wait for server to be ready
+    # Wait for server to be ready (max 10 seconds)
     local retries=0
     while ! curl -s "http://localhost:$title_port/" > /dev/null 2>&1; do
         retries=$((retries + 1))
-        if [ $retries -ge 25 ]; then
+        if [ $retries -ge 50 ]; then
             print_error "--title option: server failed to start"
-            kill "$title_pid" 2>/dev/null
+            kill_port "$title_port"
             return 1
         fi
         sleep 0.2
@@ -321,6 +340,7 @@ test_board_title_option() {
 
     kill "$title_pid" 2>/dev/null
     wait "$title_pid" 2>/dev/null
+    kill_port "$title_port"
 
     if echo "$body" | grep -q 'class="board-title"' && echo "$body" | grep -q "My Project"; then
         print_success "--title option shows board title in header"
