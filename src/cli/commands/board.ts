@@ -20,11 +20,10 @@ export function setupBoardCommand(program: Command): void {
         if (isNaN(port) || port < 1 || port > 65535) {
           console.error('Invalid port number');
           process.exit(1);
-          return;
+        } else {
+          const title = options.title ?? configTitle;
+          startBoardServer(port, title);
         }
-
-        const title = options.title ?? configTitle;
-        startBoardServer(port, title);
       } catch (error) {
         handleError(error as Error, {});
       }
