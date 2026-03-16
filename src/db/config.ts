@@ -7,6 +7,30 @@ import yaml from 'js-yaml';
  */
 export interface Config {
   path?: string;
+  board?: {
+    port?: number;
+    title?: string;
+  };
+}
+
+/**
+ * Load and parse the configuration file.
+ * Returns the parsed Config object, or an empty object if the file does not exist or is invalid.
+ */
+export function loadConfig(): Config {
+  const configFileName = getConfigFileName();
+  const configPath = path.join(process.cwd(), configFileName);
+
+  if (fs.existsSync(configPath)) {
+    try {
+      const configContent = fs.readFileSync(configPath, 'utf8');
+      return (yaml.load(configContent) as Config) ?? {};
+    } catch {
+      return {};
+    }
+  }
+
+  return {};
 }
 
 /**

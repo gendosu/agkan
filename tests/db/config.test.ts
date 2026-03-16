@@ -18,7 +18,7 @@ import yaml from 'js-yaml';
 
 // Import functions that will be implemented in Phase 2.2
 // These imports will fail until src/db/config.ts is created
-import { resolveDatabasePath, isTestMode, getConfigFileName, getDefaultDirName } from '../../src/db/config';
+import { resolveDatabasePath, isTestMode, getConfigFileName, getDefaultDirName, loadConfig } from '../../src/db/config';
 
 describe('Database Path Resolution', () => {
   const originalEnv = process.env;
@@ -356,6 +356,69 @@ describe('Database Path Resolution', () => {
       expect(result).toContain('.agkan-test');
       expect(warnSpy).not.toHaveBeenCalled();
       warnSpy.mockRestore();
+    });
+  });
+
+  describe('loadConfig', () => {
+    beforeEach(() => {
+      process.env.NODE_ENV = 'test';
+    });
+
+    it('should return empty object when config file does not exist', () => {
+      const config = loadConfig();
+      expect(config).toEqual({});
+    });
+
+    it('should return parsed config with path field', () => {
+      const configPath = path.join(process.cwd(), testConfigFileTest);
+      fs.writeFileSync(configPath, yaml.dump({ path: '/some/path.db' }));
+
+      const config = loadConfig();
+      expect(config.path).toBe('/some/path.db');
+    });
+
+    it('should return parsed config with board.port field', () => {
+      const configPath = path.join(process.cwd(), testConfigFileTest);
+      fs.writeFileSync(configPath, yaml.dump({ board: { port: 9090 } }));
+
+      const config = loadConfig();
+      expect(config.board?.port).toBe(9090);
+    });
+
+    it('should return parsed config with board.title field', () => {
+      const configPath = path.join(process.cwd(), testConfigFileTest);
+      fs.writeFileSync(configPath, yaml.dump({ board: { title: 'My Board' } }));
+
+      const config = loadConfig();
+      expect(config.board?.title).toBe('My Board');
+    });
+
+    it('should return parsed config with both board.port and board.title', () => {
+      const configPath = path.join(process.cwd(), testConfigFileTest);
+      fs.writeFileSync(configPath, yaml.dump({ board: { port: 4000, title: 'Project Board' } }));
+
+      const config = loadConfig();
+      expect(config.board?.port).toBe(4000);
+      expect(config.board?.title).toBe('Project Board');
+    });
+
+    it('should return empty object when config file is corrupted', () => {
+      const configPath = path.join(process.cwd(), testConfigFileTest);
+      fs.writeFileSync(configPath, 'invalid: yaml: content:\n  - broken');
+
+      const config = loadConfig();
+      expect(config).toEqual({});
+    });
+
+    it('should use test config file (.agkan-test.yml) in test mode', () => {
+      const normalConfigPath = path.join(process.cwd(), testConfigFile);
+      const testConfigPath = path.join(process.cwd(), testConfigFileTest);
+
+      fs.writeFileSync(normalConfigPath, yaml.dump({ board: { port: 1111 } }));
+      fs.writeFileSync(testConfigPath, yaml.dump({ board: { port: 2222 } }));
+
+      const config = loadConfig();
+      expect(config.board?.port).toBe(2222);
     });
   });
 
