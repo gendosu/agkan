@@ -46,6 +46,9 @@ import { setupBoardCommand } from './commands/board';
 // Agent guide command handler
 import { setupAgentGuideCommand } from './commands/agent-guide';
 
+// Init command handler
+import { setupInitCommand } from './commands/init';
+
 const program = new Command();
 
 // Load version from package.json
@@ -101,6 +104,9 @@ setupBoardCommand(program);
 
 // Register agent-guide command
 setupAgentGuideCommand(program);
+
+// Register init command
+setupInitCommand(program);
 
 // Execute program
 program.parse(process.argv);
