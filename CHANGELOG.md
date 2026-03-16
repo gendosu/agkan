@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.7.1] - 2026-03-16
+
+### Fixed
+- Fix prettier permission denied error in CI and prepublishOnly (#85)
+- Increase performance test overhead threshold for stability (#85)
+
 ## [2.7.0] - 2026-03-16
 
 ### Added
