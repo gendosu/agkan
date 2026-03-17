@@ -236,7 +236,6 @@ type DepTreeNode = {
   tags: Array<{ id: number; name: string }>;
   metadata: Array<{ key: string; value: string }>;
   blocks: Array<DepTreeNode>;
-  children: Array<DepTreeNode>;
 };
 
 /**
@@ -274,7 +273,7 @@ function printTreeNodeLine(
   allTasksMetadata: MetadataMap,
   prefix: string,
   isLast: boolean,
-  relationshipLabel?: '[blocks]' | '[child]'
+  relationshipLabel?: '[blocks]'
 ): void {
   const statusColor = getStatusColor(task.status as TaskStatus);
   const connector = isLast ? '\u2514\u2500\u2500 ' : '\u251c\u2500\u2500 ';
@@ -294,7 +293,7 @@ function printTreeNodeLine(
 }
 
 /**
- * Recursively display dependency tree (blocker -> blocked and parent -> child).
+ * Recursively display dependency tree (blocker -> blocked only).
  */
 function displayDependencyTree(
   task: { id: number; title: string; status: string },
@@ -304,7 +303,7 @@ function displayDependencyTree(
   prefix: string,
   isLast: boolean,
   visited: Set<number>,
-  relationshipLabel?: '[blocks]' | '[child]'
+  relationshipLabel?: '[blocks]'
 ): void {
   printTreeNodeLine(task, allTasksMetadata, prefix, isLast, relationshipLabel);
 
@@ -314,18 +313,12 @@ function displayDependencyTree(
   visited.add(task.id);
 
   const blockedIds = blockMap.get(task.id) || [];
-  const childTasks = taskService.getChildTasks(task.id);
-  const allChildren = [
-    ...blockedIds.map((id) => ({ id, type: 'blocks' as const })),
-    ...childTasks.map((t) => ({ id: t.id, type: 'child' as const })),
-  ];
 
   const newPrefix = prefix + (isLast ? '    ' : '\u2502   ');
-  allChildren.forEach((child, index) => {
-    const childTask = taskService.getTask(child.id);
-    if (childTask && !visited.has(child.id)) {
-      const isChildLast = index === allChildren.length - 1;
-      const label = child.type === 'blocks' ? '[blocks]' : '[child]';
+  blockedIds.forEach((blockedId, index) => {
+    const childTask = taskService.getTask(blockedId);
+    if (childTask && !visited.has(blockedId)) {
+      const isChildLast = index === blockedIds.length - 1;
       displayDependencyTree(
         childTask,
         taskService,
@@ -334,14 +327,14 @@ function displayDependencyTree(
         newPrefix,
         isChildLast,
         new Set(visited),
-        label as '[blocks]' | '[child]'
+        '[blocks]'
       );
     }
   });
 }
 
 /**
- * Build a dependency tree node recursively.
+ * Build a dependency tree node recursively (blocking relationships only).
  */
 function buildDepTreeNode(
   task: TaskRecord,
@@ -354,7 +347,6 @@ function buildDepTreeNode(
   const tags = allTaskTags.get(task.id);
   const metadata = allTasksMetadata.get(task.id);
   const blockedIds = blockMap.get(task.id) || [];
-  const childTasks = taskService.getChildTasks(task.id);
 
   visited.add(task.id);
 
@@ -367,15 +359,6 @@ function buildDepTreeNode(
           buildDepTreeNode(blockedTask, taskService, blockMap, allTaskTags, allTasksMetadata, new Set(visited))
         );
       }
-    }
-  }
-
-  const children: DepTreeNode[] = [];
-  for (const childTask of childTasks) {
-    if (!visited.has(childTask.id)) {
-      children.push(
-        buildDepTreeNode(childTask, taskService, blockMap, allTaskTags, allTasksMetadata, new Set(visited))
-      );
     }
   }
 
@@ -392,7 +375,6 @@ function buildDepTreeNode(
     tags: tags ? tags.map((tag) => ({ id: tag.id, name: tag.name })) : [],
     metadata: metadata ? metadata.map((m) => ({ key: m.key, value: m.value })) : [],
     blocks,
-    children,
   };
 }
 
@@ -409,7 +391,7 @@ function buildDepTreeJsonOutput(
   allTasksMetadata: MetadataMap
 ): object {
   const allBlockedIds = collectAllBlockedIds(blockMap);
-  const rootTasks = displayTasks.filter((task) => !allBlockedIds.has(task.id) && !task.parent_id);
+  const rootTasks = displayTasks.filter((task) => !allBlockedIds.has(task.id));
 
   return {
     totalCount: displayTasks.length,
