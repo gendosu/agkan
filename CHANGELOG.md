@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.8.0] - 2026-03-17
+
+### Added
+- Add `agkan init` command to initialize configuration (#162)
+- Add `board.port` and `board.title` settings to `.agkan.yml` configuration
+- Persist detail pane width in `.agkan/config.yml`
+
+### Fixed
+- Use else branch to avoid unreachable code after process.exit
+
 ## [2.7.1] - 2026-03-16
 
 ### Fixed
