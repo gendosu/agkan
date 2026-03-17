@@ -889,6 +889,43 @@ EOF
 
 This enables independent task management for each project.
 
+### Board Settings
+
+The `board` section in `.agkan.yml` allows you to customize the behavior of the `agkan board` command.
+
+#### Available Fields
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `board.port` | number | `3000` | Port number for the board web server |
+| `board.title` | string | `"agkan Board"` | Title displayed in the board UI |
+
+#### Configuration Example
+
+```yaml
+# Path to database file
+path: ./.agkan/data.db
+
+# Board settings
+board:
+  port: 8080
+  title: "My Project Board"
+```
+
+#### Field Details
+
+- **`board.port`**: Specifies the TCP port on which the board web server listens. Useful when the default port `3000` is already in use.
+  ```yaml
+  board:
+    port: 8080
+  ```
+
+- **`board.title`**: Sets the title shown in the board UI. Helps distinguish boards when managing multiple projects.
+  ```yaml
+  board:
+    title: "My Project Board"
+  ```
+
 ## Planned Features
 
 ### Task Attachments

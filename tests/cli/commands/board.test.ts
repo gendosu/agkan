@@ -10,7 +10,14 @@ vi.mock('../../../src/board/server', () => ({
   startBoardServer: vi.fn(),
 }));
 
+vi.mock('../../../src/db/config', () => ({
+  loadConfig: vi.fn(() => ({})),
+}));
+
 import { startBoardServer } from '../../../src/board/server';
+import { loadConfig } from '../../../src/db/config';
+
+const mockLoadConfig = vi.mocked(loadConfig);
 
 function createProgram(): Command {
   const prog = new Command();
@@ -24,6 +31,7 @@ describe('setupBoardCommand', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    mockLoadConfig.mockReturnValue({});
     program = createProgram();
   });
 
@@ -33,12 +41,11 @@ describe('setupBoardCommand', () => {
     expect(boardCommand?.description()).toBe('Start a local Kanban board viewer at localhost');
   });
 
-  it('should have a --port option defaulting to 8080', () => {
+  it('should have a --port option', () => {
     const boardCommand = program.commands.find((cmd) => cmd.name() === 'board');
     expect(boardCommand).toBeDefined();
     const portOption = boardCommand?.options.find((o) => o.long === '--port');
     expect(portOption).toBeDefined();
-    expect(portOption?.defaultValue).toBe('8080');
   });
 
   it('should have a --title option', () => {
@@ -48,7 +55,8 @@ describe('setupBoardCommand', () => {
     expect(titleOption).toBeDefined();
   });
 
-  it('should call startBoardServer with default port 8080', async () => {
+  it('should call startBoardServer with default port 8080 when no config', async () => {
+    mockLoadConfig.mockReturnValue({});
     await program.parseAsync(['node', 'test', 'board']);
     expect(startBoardServer).toHaveBeenCalledWith(8080, undefined);
   });
@@ -93,5 +101,49 @@ describe('setupBoardCommand', () => {
 
     expect(exitCode).toBe(1);
     expect(startBoardServer).not.toHaveBeenCalled();
+  });
+
+  describe('config file integration', () => {
+    it('should use port from config when --port flag is not provided', async () => {
+      mockLoadConfig.mockReturnValue({ board: { port: 9090 } });
+      program = createProgram();
+      await program.parseAsync(['node', 'test', 'board']);
+      expect(startBoardServer).toHaveBeenCalledWith(9090, undefined);
+    });
+
+    it('should use title from config when --title flag is not provided', async () => {
+      mockLoadConfig.mockReturnValue({ board: { title: 'Config Title' } });
+      program = createProgram();
+      await program.parseAsync(['node', 'test', 'board']);
+      expect(startBoardServer).toHaveBeenCalledWith(8080, 'Config Title');
+    });
+
+    it('should use both port and title from config', async () => {
+      mockLoadConfig.mockReturnValue({ board: { port: 4000, title: 'My Board' } });
+      program = createProgram();
+      await program.parseAsync(['node', 'test', 'board']);
+      expect(startBoardServer).toHaveBeenCalledWith(4000, 'My Board');
+    });
+
+    it('should prefer CLI --port flag over config port', async () => {
+      mockLoadConfig.mockReturnValue({ board: { port: 9090 } });
+      program = createProgram();
+      await program.parseAsync(['node', 'test', 'board', '--port', '3000']);
+      expect(startBoardServer).toHaveBeenCalledWith(3000, undefined);
+    });
+
+    it('should prefer CLI --title flag over config title', async () => {
+      mockLoadConfig.mockReturnValue({ board: { title: 'Config Title' } });
+      program = createProgram();
+      await program.parseAsync(['node', 'test', 'board', '--title', 'CLI Title']);
+      expect(startBoardServer).toHaveBeenCalledWith(8080, 'CLI Title');
+    });
+
+    it('should prefer CLI flags over all config values', async () => {
+      mockLoadConfig.mockReturnValue({ board: { port: 9090, title: 'Config Title' } });
+      program = createProgram();
+      await program.parseAsync(['node', 'test', 'board', '--port', '3000', '--title', 'CLI Title']);
+      expect(startBoardServer).toHaveBeenCalledWith(3000, 'CLI Title');
+    });
   });
 });
