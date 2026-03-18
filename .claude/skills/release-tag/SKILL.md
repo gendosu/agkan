@@ -15,7 +15,14 @@ Run this after the release branch has been merged into main (i.e., after `/relea
 
 ## Workflow
 
-### 1. Determine the version to tag
+### 1. Fetch and switch to latest main
+
+```bash
+git checkout main
+git pull origin main
+```
+
+### 2. Determine the version to tag
 
 Read the current version from package.json:
 
@@ -23,13 +30,6 @@ Read the current version from package.json:
 node -p "require('./package.json').version"
 # Example output: 2.5.0
 NEW_VERSION=<version>
-```
-
-### 2. Fetch and switch to latest main
-
-```bash
-git checkout main
-git pull origin main
 ```
 
 ### 3. Create git tag
