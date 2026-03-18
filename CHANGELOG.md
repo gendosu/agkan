@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.10.1] - 2026-03-19
+
+### Fixed
+- Remove unreachable return statements after process.exit(1) (#95)
+- Make --file alone trigger flag mode in task update command (#95)
+
 ## [2.10.0] - 2026-03-18
 
 ### Added
