@@ -1077,7 +1077,7 @@ describe('setupTaskListCommand', () => {
     expect(blocked).toBeUndefined();
   });
 
-  it('should display parent-child relationships in dep-tree with [child] label', async () => {
+  it('should NOT display [child] label in dep-tree', async () => {
     const taskService = new TaskService();
 
     const parentTask = taskService.createTask({ title: 'Parent Task', status: 'ready' });
@@ -1102,11 +1102,10 @@ describe('setupTaskListCommand', () => {
 
     const output = consoleLogs.join('\n');
     expect(output).toContain('Parent Task');
-    expect(output).toContain('Child Task');
-    expect(output).toContain('[child]');
+    expect(output).not.toContain('[child]');
   });
 
-  it('should display both blocking and child relationships in dep-tree', async () => {
+  it('should display only [blocks] relationships in dep-tree (not [child])', async () => {
     const taskService = new TaskService();
     const taskBlockService = new TaskBlockService();
 
@@ -1136,12 +1135,11 @@ describe('setupTaskListCommand', () => {
     const output = consoleLogs.join('\n');
     expect(output).toContain('Task A (blocker)');
     expect(output).toContain('Task B (blocked)');
-    expect(output).toContain('Task A-1 (child)');
     expect(output).toContain('[blocks]');
-    expect(output).toContain('[child]');
+    expect(output).not.toContain('[child]');
   });
 
-  it('should output combined blocking and child relationships in dep-tree JSON', async () => {
+  it('should output only blocking relationships in dep-tree JSON (no children field)', async () => {
     const taskService = new TaskService();
     const taskBlockService = new TaskBlockService();
 
@@ -1175,16 +1173,15 @@ describe('setupTaskListCommand', () => {
     expect(rootTask).toBeDefined();
     expect(rootTask.blocks).toHaveLength(1);
     expect(rootTask.blocks[0].title).toBe('Task B Blocked');
-    expect(rootTask.children).toHaveLength(1);
-    expect(rootTask.children[0].title).toBe('Task A-1 Child');
+    expect(rootTask.children).toBeUndefined();
   });
 
-  it('should exclude tasks with parent_id from root level in dep-tree', async () => {
+  it('should show tasks with parent_id at root level in dep-tree if not blocked', async () => {
     const taskService = new TaskService();
 
     const parentTask = taskService.createTask({ title: 'Root Parent', status: 'ready' });
     taskService.createTask({
-      title: 'Non-Root Child',
+      title: 'Child Task With Parent',
       status: 'backlog',
       parent_id: parentTask.id,
     });
@@ -1203,12 +1200,14 @@ describe('setupTaskListCommand', () => {
     }
 
     const parsed = JSON.parse(consoleLogs[0]);
-    // Only parent should be at root level
-    expect(parsed.tasks).toHaveLength(1);
-    expect(parsed.tasks[0].title).toBe('Root Parent');
-    // Child should be in children array
-    expect(parsed.tasks[0].children).toHaveLength(1);
-    expect(parsed.tasks[0].children[0].title).toBe('Non-Root Child');
+    // Both parent and child should be at root level since neither is blocked by another task
+    const titles = parsed.tasks.map((t: { title: string }) => t.title);
+    expect(titles).toContain('Root Parent');
+    expect(titles).toContain('Child Task With Parent');
+    // No children field on dep-tree nodes
+    parsed.tasks.forEach((t: { children?: unknown }) => {
+      expect(t.children).toBeUndefined();
+    });
   });
 
   it('should have --priority option', () => {
