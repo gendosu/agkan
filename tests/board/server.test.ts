@@ -861,6 +861,16 @@ describe('createBoardApp', () => {
       expect(html).toContain('detail-save-btn');
       expect(html).toContain('detailTaskId');
     });
+
+    it('should sync lastUpdatedAt after save to prevent false conflict warning from polling', async () => {
+      const app = createBoardApp(taskService, taskTagService, metadataService);
+      const res = await app.fetch(new Request('http://localhost/'));
+      const html = await res.text();
+
+      // After saving, the script should fetch the latest board timestamp and update lastUpdatedAt
+      // so that polling does not treat the user's own save as an external update
+      expect(html).toContain('lastUpdatedAt = tsData.updatedAt');
+    });
   });
 
   describe('GET / (board polling script)', () => {
