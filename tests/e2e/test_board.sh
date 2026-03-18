@@ -27,7 +27,8 @@ start_board_server() {
     kill_port "$BOARD_PORT"
 
     print_info "Starting board server on port $BOARD_PORT..."
-    npx . board --port "$BOARD_PORT" &
+    # Use setsid to create a new process group so we can kill all child processes
+    setsid node "$SCRIPT_DIR/bin/agkan" board --port "$BOARD_PORT" &
     BOARD_PID=$!
 
     # Wait for the server to be ready (max 10 seconds)
@@ -36,6 +37,7 @@ start_board_server() {
         retries=$((retries + 1))
         if [ $retries -ge 50 ]; then
             print_error "Board server failed to start within 10 seconds"
+            kill -- -"$BOARD_PID" 2>/dev/null || true
             kill_port "$BOARD_PORT"
             BOARD_PID=""
             return 1
@@ -50,8 +52,8 @@ start_board_server() {
 stop_board_server() {
     if [ -n "$BOARD_PID" ]; then
         print_info "Stopping board server (PID: $BOARD_PID)..."
-        kill "$BOARD_PID" 2>/dev/null
-        wait "$BOARD_PID" 2>/dev/null
+        # Kill the entire process group (setsid makes BOARD_PID the group leader)
+        kill -- -"$BOARD_PID" 2>/dev/null || kill "$BOARD_PID" 2>/dev/null || true
         BOARD_PID=""
     fi
     # Also kill any remaining process on the port
@@ -320,7 +322,7 @@ test_board_title_option() {
     # Kill any existing server on this port first
     kill_port "$title_port"
 
-    npx . board --port "$title_port" --title "My Project" &
+    setsid node "$SCRIPT_DIR/bin/agkan" board --port "$title_port" --title "My Project" &
     title_pid=$!
 
     # Wait for server to be ready (max 10 seconds)
@@ -329,6 +331,7 @@ test_board_title_option() {
         retries=$((retries + 1))
         if [ $retries -ge 50 ]; then
             print_error "--title option: server failed to start"
+            kill -- -"$title_pid" 2>/dev/null || true
             kill_port "$title_port"
             return 1
         fi
@@ -338,8 +341,7 @@ test_board_title_option() {
     local body
     body=$(curl -s "http://localhost:$title_port/")
 
-    kill "$title_pid" 2>/dev/null
-    wait "$title_pid" 2>/dev/null
+    kill -- -"$title_pid" 2>/dev/null || kill "$title_pid" 2>/dev/null || true
     kill_port "$title_port"
 
     if echo "$body" | grep -q 'class="board-title"' && echo "$body" | grep -q "My Project"; then
