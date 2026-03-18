@@ -721,6 +721,16 @@ const BOARD_SCRIPT = `
         const data = await getRes.json();
         renderDetailPanel(data);
         showToast('Task saved successfully');
+        // Update lastUpdatedAt so polling doesn't treat our own save as an external update
+        try {
+          const tsRes = await fetch('/api/board/updated-at');
+          if (tsRes.ok) {
+            const tsData = await tsRes.json();
+            lastUpdatedAt = tsData.updatedAt;
+          }
+        } catch {
+          // Ignore errors when syncing timestamp
+        }
         // Refresh board cards in the background
         refreshBoardCards();
       } catch {
