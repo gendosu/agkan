@@ -783,6 +783,31 @@ describe('setupTaskUpdateCommand', () => {
       }
     });
 
+    it('should update body from file using --file alone in flag mode (without positional args)', async () => {
+      const fs = await import('fs');
+      const os = await import('os');
+      const path = await import('path');
+
+      const taskService = new TaskService();
+      taskService.createTask({ title: 'Test', status: 'backlog' });
+      const task = taskService.listTasks()[0];
+
+      const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'task-update-flag-'));
+      const filePath = path.join(tmpDir, 'body.md');
+      fs.writeFileSync(filePath, '# Body from file only');
+
+      try {
+        // --file alone (no positional args, no --body) should set body from file
+        const { exitCode } = await runCommand(program, ['task', 'update', String(task.id), '--file', filePath]);
+        expect(exitCode).toBeUndefined();
+
+        const updatedTask = taskService.getTask(task.id);
+        expect(updatedTask?.body).toBe('# Body from file only');
+      } finally {
+        fs.rmSync(tmpDir, { recursive: true, force: true });
+      }
+    });
+
     it('should maintain backward compatibility with positional syntax', async () => {
       const taskService = new TaskService();
       taskService.createTask({ title: 'Compat test', status: 'backlog' });
