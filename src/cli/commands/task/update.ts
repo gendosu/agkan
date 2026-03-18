@@ -58,7 +58,7 @@ export function setupTaskUpdateCommand(program: Command): void {
           assignees: options.assignees,
           priority: options.priority,
         };
-        const hasFlagFields = Object.values(flagFields).some((v) => v !== undefined);
+        const hasFlagFields = Object.values(flagFields).some((v) => v !== undefined) || (!!options.file && !field);
 
         const updateInput: Record<string, string> = {};
 
