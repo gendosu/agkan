@@ -122,8 +122,9 @@ restore_env_vars() {
 }
 
 # Execute CLI command and capture output
+# Use bin/agkan directly (avoids npx overhead of ~2s per call)
 run_cli() {
-    npx . "$@" 2>&1
+    node "$SCRIPT_DIR/bin/agkan" "$@" 2>&1
 }
 
 # Assert CLI command succeeds with expected output
