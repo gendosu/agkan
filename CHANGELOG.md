@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.10.0] - 2026-03-18
+
+### Added
+- `agkan init` now outputs full configuration template with all options commented (#93)
+
 ## [2.9.0] - 2026-03-18
 
 ### Added
