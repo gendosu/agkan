@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.9.0] - 2026-03-18
+
+### Added
+- Remove parent-child relationship display from dependency tree view (`--dep-tree`) (#89)
+
+### Fixed
+- Sync `lastUpdatedAt` after detail pane save to prevent false conflict error (#90)
+- Fix board server cleanup using setsid and process group kill in E2E tests (#91)
+
 ## [2.8.0] - 2026-03-17
 
 ### Added
