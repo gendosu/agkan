@@ -80,7 +80,6 @@ export function setupTaskUpdateCommand(program: Command): void {
                 console.log(chalk.red(`\n✗ Error: ${msg}\n`));
               });
               process.exit(1);
-              return;
             }
           }
 
@@ -153,7 +152,6 @@ export function setupTaskUpdateCommand(program: Command): void {
                 console.log(chalk.red(`\n✗ Error: ${msg}\n`));
               });
               process.exit(1);
-              return;
             }
           }
 
