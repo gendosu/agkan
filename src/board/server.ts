@@ -13,6 +13,8 @@ import { getDatabase } from '../db/connection';
 import { StorageProvider } from '../db/types/storage';
 import { getDefaultDirName } from '../db/config';
 import { readBoardConfig, writeBoardConfig, DETAIL_PANE_MAX_WIDTH } from './boardConfig';
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const { version: APP_VERSION } = require('../../package.json') as { version: string };
 
 const STATUSES: TaskStatus[] = ['icebox', 'backlog', 'ready', 'in_progress', 'review', 'done', 'closed'];
 
@@ -219,7 +221,17 @@ const BOARD_STYLES = `
     .add-comment-submit { margin-top: 6px; padding: 5px 14px; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer; border: 1px solid #3b82f6; background: #3b82f6; color: white; }
     .add-comment-submit:hover { background: #2563eb; border-color: #2563eb; }
     .add-comment-cancel { margin-top: 6px; margin-left: 6px; padding: 5px 10px; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer; border: 1px solid #e2e8f0; background: white; color: #64748b; }
-    .add-comment-cancel:hover { background: #f1f5f9; }`;
+    .add-comment-cancel:hover { background: #f1f5f9; }
+    .burger-menu-wrapper { position: relative; }
+    .burger-menu-btn { background: none; border: none; color: white; cursor: pointer; padding: 4px 6px; border-radius: 4px; display: flex; flex-direction: column; gap: 4px; align-items: center; justify-content: center; opacity: 0.8; }
+    .burger-menu-btn:hover { opacity: 1; background: rgba(255,255,255,0.1); }
+    .burger-menu-btn span { display: block; width: 18px; height: 2px; background: white; border-radius: 1px; }
+    .burger-menu-dropdown { position: absolute; right: 0; top: calc(100% + 6px); background: white; border: 1px solid #e2e8f0; border-radius: 6px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); padding: 4px 0; z-index: 1000; display: none; min-width: 180px; }
+    .burger-menu-dropdown.open { display: block; }
+    .burger-menu-item { padding: 8px 14px; font-size: 13px; cursor: pointer; display: flex; align-items: center; gap: 8px; color: #1e293b; white-space: nowrap; }
+    .burger-menu-item:hover { background: #f1f5f9; }
+    .burger-menu-item.danger { color: #dc2626; }
+    .burger-menu-item.danger:hover { background: #fef2f2; }`;
 
 const BOARD_SCRIPT = `
     let draggedCard = null;
@@ -1386,6 +1398,84 @@ const BOARD_SCRIPT = `
     // Initialize filter bar after tags are loaded
     loadAllTags().then(() => {
       initFilterBar();
+    });
+
+    // Burger menu
+    const burgerBtn = document.getElementById('burger-menu-btn');
+    const burgerDropdown = document.getElementById('burger-menu-dropdown');
+
+    burgerBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      burgerDropdown.classList.toggle('open');
+    });
+
+    document.addEventListener('click', (e) => {
+      if (!burgerDropdown.contains(e.target) && e.target !== burgerBtn) {
+        burgerDropdown.classList.remove('open');
+      }
+    });
+
+    // Purge tasks
+    const purgeModal = document.getElementById('purge-confirm-modal');
+    const purgeConfirmBtn = document.getElementById('purge-confirm-btn');
+    const purgeCancelBtn = document.getElementById('purge-cancel-btn');
+    const purgeResultEl = document.getElementById('purge-result');
+
+    document.getElementById('burger-purge-tasks').addEventListener('click', () => {
+      burgerDropdown.classList.remove('open');
+      purgeResultEl.textContent = '';
+      purgeModal.classList.add('show');
+    });
+
+    purgeCancelBtn.addEventListener('click', () => {
+      purgeModal.classList.remove('show');
+    });
+
+    purgeConfirmBtn.addEventListener('click', async () => {
+      purgeConfirmBtn.disabled = true;
+      purgeConfirmBtn.textContent = 'Purging...';
+      try {
+        const res = await fetch('/api/tasks/purge', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({})
+        });
+        const data = await res.json();
+        if (res.ok) {
+          purgeResultEl.textContent = 'Purged ' + data.count + ' task(s).';
+          setTimeout(() => { purgeModal.classList.remove('show'); }, 1500);
+          refreshBoard();
+        } else {
+          purgeResultEl.textContent = 'Error: ' + (data.error || 'Unknown error');
+        }
+      } catch {
+        purgeResultEl.textContent = 'Failed to purge tasks.';
+      } finally {
+        purgeConfirmBtn.disabled = false;
+        purgeConfirmBtn.textContent = 'Purge';
+      }
+    });
+
+    // Version info
+    const versionModal = document.getElementById('version-info-modal');
+    const versionCloseBtn = document.getElementById('version-info-close');
+    const versionTextEl = document.getElementById('version-info-text');
+
+    document.getElementById('burger-version-info').addEventListener('click', async () => {
+      burgerDropdown.classList.remove('open');
+      versionTextEl.textContent = 'Loading...';
+      versionModal.classList.add('show');
+      try {
+        const res = await fetch('/api/version');
+        const data = await res.json();
+        versionTextEl.textContent = 'agkan v' + data.version;
+      } catch {
+        versionTextEl.textContent = 'Failed to load version.';
+      }
+    });
+
+    versionCloseBtn.addEventListener('click', () => {
+      versionModal.classList.remove('show');
     });`;
 
 function renderColumn(status: TaskStatus, tasks: Task[], tagMap: Map<number, Tag[]>): string {
@@ -1436,6 +1526,26 @@ const BOARD_BODY_STATIC = `
     <div class="context-menu-item danger" id="ctx-delete">Delete task</div>
   </div>
   <div class="toast" id="toast">Failed to update task</div>
+  <div class="modal-overlay" id="purge-confirm-modal">
+    <div class="modal">
+      <h2>Purge Tasks</h2>
+      <p style="font-size:13px;color:#64748b;margin-bottom:16px;">Delete all done/closed tasks older than 3 days. This action cannot be undone.</p>
+      <p id="purge-result" style="font-size:13px;color:#16a34a;min-height:18px;margin-bottom:8px;"></p>
+      <div class="modal-actions">
+        <button id="purge-cancel-btn">Cancel</button>
+        <button id="purge-confirm-btn" class="primary" style="background:#dc2626;border-color:#dc2626;">Purge</button>
+      </div>
+    </div>
+  </div>
+  <div class="modal-overlay" id="version-info-modal">
+    <div class="modal" style="width:320px;">
+      <h2>Version Info</h2>
+      <p id="version-info-text" style="font-size:14px;color:#1e293b;margin-bottom:16px;"></p>
+      <div class="modal-actions">
+        <button id="version-info-close">Close</button>
+      </div>
+    </div>
+  </div>
   <script>${BOARD_SCRIPT}
   </script>`;
 
@@ -1453,7 +1563,7 @@ function renderBoard(tasksByStatus: Map<TaskStatus, Task[]>, tagMap: Map<number,
   </style>
 </head>
 <body>
-  <header><h1>agkan board</h1>${titleHtml}</header>
+  <header><h1>agkan board</h1>${titleHtml}<div class="burger-menu-wrapper"><button class="burger-menu-btn" id="burger-menu-btn" title="Menu" aria-label="Menu"><span></span><span></span><span></span></button><div class="burger-menu-dropdown" id="burger-menu-dropdown"><div class="burger-menu-item danger" id="burger-purge-tasks">&#128465; Purge Tasks</div><div class="burger-menu-item" id="burger-version-info">&#8505; Version Info</div></div></div></header>
   <div class="filter-bar" id="filter-bar">
     <div class="filter-group">
       <span class="filter-label">Priority</span>
@@ -1679,6 +1789,29 @@ function registerTaskApiRoutes(app: Hono, { ts, tts, tags, ms, cs, tbs }: BoardS
       return c.json({ error: e instanceof Error ? e.message : 'Invalid input' }, 400);
     }
   });
+
+  app.post('/api/tasks/purge', async (c) => {
+    const body = (await c.req.json().catch(() => ({}))) as { beforeDate?: string };
+    let beforeDate: string;
+    if (body.beforeDate !== undefined) {
+      const parsed = new Date(body.beforeDate);
+      if (isNaN(parsed.getTime())) {
+        return c.json({ error: 'Invalid beforeDate. Use ISO 8601 format.' }, 400);
+      }
+      beforeDate = parsed.toISOString();
+    } else {
+      const d = new Date();
+      d.setDate(d.getDate() - 3);
+      beforeDate = d.toISOString();
+    }
+    const tasks = ts.purgeTasksBefore(beforeDate, ['done', 'closed'], false);
+    return c.json({
+      count: tasks.length,
+      tasks: tasks.map((t) => ({ id: t.id, title: t.title, status: t.status, updated_at: t.updated_at })),
+    });
+  });
+
+  app.get('/api/version', (c) => c.json({ version: APP_VERSION }));
 }
 
 function buildBoardCardsPayload(
