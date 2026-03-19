@@ -95,32 +95,18 @@ export class CommentService {
   }
 
   /**
-   * Delete all comments for a task
-   * @param taskId - Task ID
-   * @returns Number of deleted comments
-   */
-  deleteAllComments(taskId: number): number {
-    const db = this.db;
-
-    const stmt = db.prepare(`
-      DELETE FROM task_comments
-      WHERE task_id = ?
-    `);
-
-    const result = stmt.run(taskId);
-
-    return result.changes;
-  }
-
-  /**
    * Update a comment's content
    * @param id - Comment ID
    * @param content - New content
-   * @returns Updated comment object, or null if not found
+   * @returns Updated comment object or null if not found
    */
   updateComment(id: number, content: string): TaskComment | null {
-    const db = this.db;
+    const errors = validateCommentInput({ task_id: 0, content });
+    if (errors.length > 0) {
+      throw new Error(errors[0].message);
+    }
 
+    const db = this.db;
     const now = new Date().toISOString();
 
     const stmt = db.prepare(`
@@ -136,6 +122,24 @@ export class CommentService {
     }
 
     return this.getComment(id);
+  }
+
+  /**
+   * Delete all comments for a task
+   * @param taskId - Task ID
+   * @returns Number of deleted comments
+   */
+  deleteAllComments(taskId: number): number {
+    const db = this.db;
+
+    const stmt = db.prepare(`
+      DELETE FROM task_comments
+      WHERE task_id = ?
+    `);
+
+    const result = stmt.run(taskId);
+
+    return result.changes;
   }
 
   /**

@@ -1120,6 +1120,119 @@ const BOARD_SCRIPT = `
     setInterval(pollBoardUpdates, 5000);
     pollBoardUpdates();
 
+    async function loadComments(taskId) {
+      const section = document.getElementById('comments-section');
+      if (!section) return;
+      try {
+        const res = await fetch('/api/tasks/' + taskId + '/comments');
+        if (!res.ok) throw new Error('Server error');
+        const data = await res.json();
+        renderComments(taskId, data.comments || []);
+      } catch {
+        section.innerHTML = '<div class="comments-section-title">Comments</div><div style="font-size:12px;color:#94a3b8;">Failed to load comments</div>';
+      }
+    }
+
+    function renderComments(taskId, comments) {
+      const section = document.getElementById('comments-section');
+      if (!section) return;
+
+      let html = '<div class="comments-section-title">Comments (' + comments.length + ')</div>';
+
+      comments.forEach(function(comment) {
+        const authorText = comment.author ? escapeHtmlClient(comment.author) : 'Anonymous';
+        const dateText = escapeHtmlClient(comment.created_at);
+        const contentText = escapeHtmlClient(comment.content);
+        html += '<div class="comment-item" data-comment-id="' + comment.id + '">';
+        html += '<div class="comment-meta">';
+        html += '<span class="comment-author">' + authorText + '</span>';
+        html += '<span class="comment-date">' + dateText + '</span>';
+        html += '</div>';
+        html += '<div class="comment-content" id="comment-content-' + comment.id + '">' + contentText + '</div>';
+        html += '<div class="comment-edit-wrapper" id="comment-edit-' + comment.id + '" style="display:none;">';
+        html += '<textarea class="comment-edit-area" id="comment-edit-area-' + comment.id + '">' + contentText + '</textarea>';
+        html += '<div class="comment-edit-actions">';
+        html += '<button class="comment-btn" onclick="saveCommentEdit(' + comment.id + ',' + taskId + ')">Save</button>';
+        html += '<button class="comment-btn" onclick="cancelCommentEdit(' + comment.id + ')">Cancel</button>';
+        html += '</div></div>';
+        html += '<div class="comment-actions">';
+        html += '<button class="comment-btn" onclick="startCommentEdit(' + comment.id + ')">Edit</button>';
+        html += '<button class="comment-btn danger" onclick="deleteComment(' + comment.id + ',' + taskId + ')">Delete</button>';
+        html += '</div>';
+        html += '</div>';
+      });
+
+      html += '<div class="add-comment-form">';
+      html += '<textarea class="add-comment-textarea" id="add-comment-text" placeholder="Add a comment..."></textarea>';
+      html += '<button class="add-comment-submit" onclick="submitComment(' + taskId + ')">Add Comment</button>';
+      html += '</div>';
+
+      section.innerHTML = html;
+    }
+
+    function startCommentEdit(commentId) {
+      const contentEl = document.getElementById('comment-content-' + commentId);
+      const editWrapper = document.getElementById('comment-edit-' + commentId);
+      if (contentEl) contentEl.style.display = 'none';
+      if (editWrapper) editWrapper.style.display = 'block';
+      const area = document.getElementById('comment-edit-area-' + commentId);
+      if (area) area.focus();
+    }
+
+    function cancelCommentEdit(commentId) {
+      const contentEl = document.getElementById('comment-content-' + commentId);
+      const editWrapper = document.getElementById('comment-edit-' + commentId);
+      if (contentEl) contentEl.style.display = '';
+      if (editWrapper) editWrapper.style.display = 'none';
+    }
+
+    async function saveCommentEdit(commentId, taskId) {
+      const area = document.getElementById('comment-edit-area-' + commentId);
+      if (!area) return;
+      const content = area.value.trim();
+      if (!content) { area.focus(); return; }
+      try {
+        const res = await fetch('/api/comments/' + commentId, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ content })
+        });
+        if (!res.ok) throw new Error('Server error');
+        await loadComments(taskId);
+      } catch {
+        showToast('Failed to update comment');
+      }
+    }
+
+    async function deleteComment(commentId, taskId) {
+      if (!confirm('Delete this comment?')) return;
+      try {
+        const res = await fetch('/api/comments/' + commentId, { method: 'DELETE' });
+        if (!res.ok) throw new Error('Server error');
+        await loadComments(taskId);
+      } catch {
+        showToast('Failed to delete comment');
+      }
+    }
+
+    async function submitComment(taskId) {
+      const textarea = document.getElementById('add-comment-text');
+      if (!textarea) return;
+      const content = textarea.value.trim();
+      if (!content) { textarea.focus(); return; }
+      try {
+        const res = await fetch('/api/tasks/' + taskId + '/comments', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ content })
+        });
+        if (!res.ok) throw new Error('Server error');
+        await loadComments(taskId);
+      } catch {
+        showToast('Failed to add comment');
+      }
+    }
+
     function isFiltersActive() {
       return activeFilters.priorities.length > 0 || activeFilters.tagIds.length > 0 || activeFilters.assignee !== '';
     }
