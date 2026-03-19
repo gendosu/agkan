@@ -1076,8 +1076,27 @@ const BOARD_SCRIPT = `
             if (!warning) {
               const warningEl = document.createElement('div');
               warningEl.id = 'detail-panel-update-warning';
-              warningEl.style.cssText = 'color: red; font-size: 0.85em; padding: 4px 8px; background: #fff0f0; border: 1px solid #ffcccc; border-radius: 4px; margin-bottom: 8px;';
-              warningEl.textContent = 'This task has been updated in the database. Save or discard your changes to see the latest version.';
+              warningEl.style.cssText = 'display: flex; align-items: center; gap: 8px; color: red; font-size: 0.85em; padding: 4px 8px; background: #fff0f0; border: 1px solid #ffcccc; border-radius: 4px; margin-bottom: 8px;';
+              const msgSpan = document.createElement('span');
+              msgSpan.style.cssText = 'flex: 1;';
+              msgSpan.textContent = 'This task has been updated in the database. Save or discard your changes to see the latest version.';
+              const reloadBtn = document.createElement('button');
+              reloadBtn.title = 'Reload latest data';
+              reloadBtn.textContent = '↺';
+              reloadBtn.style.cssText = 'background: none; border: none; cursor: pointer; font-size: 1.1em; color: red; padding: 0 2px; line-height: 1; flex-shrink: 0;';
+              reloadBtn.addEventListener('click', async () => {
+                try {
+                  const taskRes = await fetch('/api/tasks/' + detailTaskId);
+                  if (taskRes.ok) {
+                    const taskData = await taskRes.json();
+                    renderDetailPanel(taskData);
+                  }
+                } catch {
+                  // Ignore network errors
+                }
+              });
+              warningEl.appendChild(msgSpan);
+              warningEl.appendChild(reloadBtn);
               detailPanelBody.insertBefore(warningEl, detailPanelBody.firstChild);
             }
           } else {
