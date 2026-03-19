@@ -2408,5 +2408,185 @@ describe('createBoardApp', () => {
 
       expect(html).toContain('width: 520px');
     });
+
+    it('should include burger menu button in header', async () => {
+      const app = createBoardApp(taskService, taskTagService, metadataService);
+      const res = await app.fetch(new Request('http://localhost/'));
+      const html = await res.text();
+
+      expect(html).toContain('id="burger-menu-btn"');
+    });
+
+    it('should include burger menu dropdown in HTML', async () => {
+      const app = createBoardApp(taskService, taskTagService, metadataService);
+      const res = await app.fetch(new Request('http://localhost/'));
+      const html = await res.text();
+
+      expect(html).toContain('id="burger-menu-dropdown"');
+    });
+
+    it('should include purge tasks menu item in burger menu', async () => {
+      const app = createBoardApp(taskService, taskTagService, metadataService);
+      const res = await app.fetch(new Request('http://localhost/'));
+      const html = await res.text();
+
+      expect(html).toContain('id="burger-purge-tasks"');
+    });
+
+    it('should include version info menu item in burger menu', async () => {
+      const app = createBoardApp(taskService, taskTagService, metadataService);
+      const res = await app.fetch(new Request('http://localhost/'));
+      const html = await res.text();
+
+      expect(html).toContain('id="burger-version-info"');
+    });
+
+    it('should include burger menu CSS styles', async () => {
+      const app = createBoardApp(taskService, taskTagService, metadataService);
+      const res = await app.fetch(new Request('http://localhost/'));
+      const html = await res.text();
+
+      expect(html).toContain('.burger-menu-btn');
+      expect(html).toContain('.burger-menu-dropdown');
+    });
+
+    it('should include burger menu JavaScript', async () => {
+      const app = createBoardApp(taskService, taskTagService, metadataService);
+      const res = await app.fetch(new Request('http://localhost/'));
+      const html = await res.text();
+
+      expect(html).toContain('burger-menu-btn');
+      expect(html).toContain('burger-menu-dropdown');
+    });
+
+    it('should include purge confirmation dialog in HTML', async () => {
+      const app = createBoardApp(taskService, taskTagService, metadataService);
+      const res = await app.fetch(new Request('http://localhost/'));
+      const html = await res.text();
+
+      expect(html).toContain('id="purge-confirm-modal"');
+    });
+
+    it('should include version info modal in HTML', async () => {
+      const app = createBoardApp(taskService, taskTagService, metadataService);
+      const res = await app.fetch(new Request('http://localhost/'));
+      const html = await res.text();
+
+      expect(html).toContain('id="version-info-modal"');
+    });
+  });
+
+  describe('POST /api/tasks/purge', () => {
+    it('should purge done/closed tasks older than the given date', async () => {
+      const oldDate = new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString();
+      const task1 = taskService.createTask({ title: 'Old done task', status: 'done' });
+      const task2 = taskService.createTask({ title: 'Old closed task', status: 'closed' });
+      // Manually set updated_at to be old
+      const db = getDatabase();
+      db.prepare('UPDATE tasks SET updated_at = ? WHERE id IN (?, ?)').run(oldDate, task1.id, task2.id);
+
+      const app = createBoardApp(taskService, taskTagService, metadataService);
+      const res = await app.fetch(
+        new Request('http://localhost/api/tasks/purge', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({}),
+        })
+      );
+
+      expect(res.status).toBe(200);
+      const json = await res.json<{ count: number; tasks: unknown[] }>();
+      expect(json.count).toBe(2);
+      expect(json.tasks).toHaveLength(2);
+    });
+
+    it('should not purge tasks that are not done/closed', async () => {
+      const oldDate = new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString();
+      const task = taskService.createTask({ title: 'Active task', status: 'in_progress' });
+      const db = getDatabase();
+      db.prepare('UPDATE tasks SET updated_at = ? WHERE id = ?').run(oldDate, task.id);
+
+      const app = createBoardApp(taskService, taskTagService, metadataService);
+      const res = await app.fetch(
+        new Request('http://localhost/api/tasks/purge', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({}),
+        })
+      );
+
+      expect(res.status).toBe(200);
+      const json = await res.json<{ count: number; tasks: unknown[] }>();
+      expect(json.count).toBe(0);
+    });
+
+    it('should not purge recent done/closed tasks', async () => {
+      taskService.createTask({ title: 'Recent done task', status: 'done' });
+
+      const app = createBoardApp(taskService, taskTagService, metadataService);
+      const res = await app.fetch(
+        new Request('http://localhost/api/tasks/purge', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({}),
+        })
+      );
+
+      expect(res.status).toBe(200);
+      const json = await res.json<{ count: number; tasks: unknown[] }>();
+      expect(json.count).toBe(0);
+    });
+
+    it('should accept custom beforeDate parameter', async () => {
+      const task = taskService.createTask({ title: 'Old done task', status: 'done' });
+      const db = getDatabase();
+      const tenDaysAgo = new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString();
+      db.prepare('UPDATE tasks SET updated_at = ? WHERE id = ?').run(tenDaysAgo, task.id);
+
+      const futureDate = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+      const app = createBoardApp(taskService, taskTagService, metadataService);
+      const res = await app.fetch(
+        new Request('http://localhost/api/tasks/purge', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ beforeDate: futureDate }),
+        })
+      );
+
+      expect(res.status).toBe(200);
+      const json = await res.json<{ count: number; tasks: unknown[] }>();
+      expect(json.count).toBe(1);
+    });
+
+    it('should return 400 for invalid beforeDate', async () => {
+      const app = createBoardApp(taskService, taskTagService, metadataService);
+      const res = await app.fetch(
+        new Request('http://localhost/api/tasks/purge', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ beforeDate: 'not-a-date' }),
+        })
+      );
+
+      expect(res.status).toBe(400);
+    });
+  });
+
+  describe('GET /api/version', () => {
+    it('should return 200 with version information', async () => {
+      const app = createBoardApp(taskService, taskTagService, metadataService);
+      const res = await app.fetch(new Request('http://localhost/api/version'));
+
+      expect(res.status).toBe(200);
+    });
+
+    it('should return version string in response', async () => {
+      const app = createBoardApp(taskService, taskTagService, metadataService);
+      const res = await app.fetch(new Request('http://localhost/api/version'));
+      const json = await res.json<{ version: string }>();
+
+      expect(typeof json.version).toBe('string');
+      expect(json.version.length).toBeGreaterThan(0);
+    });
   });
 });
