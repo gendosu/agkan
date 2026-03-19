@@ -5,6 +5,8 @@ import { TaskService } from '../services/TaskService';
 import { TaskTagService } from '../services/TaskTagService';
 import { TagService } from '../services/TagService';
 import { MetadataService } from '../services/MetadataService';
+import { CommentService } from '../services/CommentService';
+import { TaskBlockService } from '../services/TaskBlockService';
 import { Task, TaskStatus, PRIORITIES, PRIORITY_ORDER, isPriority, Priority } from '../models';
 import { Tag } from '../models/Tag';
 import { getDatabase } from '../db/connection';
@@ -120,7 +122,7 @@ const BOARD_STYLES = `
     .detail-panel-header h2 { font-size: 16px; font-weight: 700; color: #1e293b; margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .detail-panel-close { background: none; border: none; font-size: 20px; color: #64748b; cursor: pointer; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; border-radius: 4px; flex-shrink: 0; }
     .detail-panel-close:hover { background: #f1f5f9; color: #1e293b; }
-    .detail-panel-body { flex: 1; overflow-y: auto; padding: 20px; min-width: 0; display: flex; flex-direction: column; }
+    .detail-panel-body { flex: 1; overflow: hidden; min-width: 0; display: flex; flex-direction: column; }
     .detail-field { margin-bottom: 16px; word-wrap: break-word; }
     .description-field-wrapper { flex: 1; display: flex; flex-direction: column; min-height: 0; margin-bottom: 0; }
     .detail-field-label { font-size: 11px; font-weight: 700; text-transform: uppercase; color: #94a3b8; margin-bottom: 4px; letter-spacing: 0.05em; }
@@ -179,7 +181,45 @@ const BOARD_STYLES = `
     .filter-tag-dropdown-empty { padding: 6px 10px; font-size: 12px; color: #94a3b8; font-style: italic; }
     .filter-clear-btn { border: 1px solid #e2e8f0; background: white; border-radius: 4px; padding: 2px 10px; font-size: 11px; font-weight: 600; cursor: pointer; color: #64748b; display: none; flex-shrink: 0; margin-left: auto; }
     .filter-clear-btn:hover { background: #fee2e2; border-color: #fca5a5; color: #dc2626; }
-    .filter-clear-btn.visible { display: block; }`;
+    .filter-clear-btn.visible { display: block; }
+    .detail-tabs { display: flex; gap: 0; border-bottom: 1px solid #e2e8f0; flex-shrink: 0; padding: 0 20px; background: white; }
+    .detail-tab { padding: 8px 14px; font-size: 12px; font-weight: 600; color: #94a3b8; cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; background: none; border-top: none; border-left: none; border-right: none; }
+    .detail-tab:hover { color: #64748b; }
+    .detail-tab.active { color: #3b82f6; border-bottom-color: #3b82f6; }
+    .detail-tab-content { display: none; flex: 1; overflow-y: auto; min-height: 0; }
+    .detail-tab-content.active { display: flex; flex-direction: column; }
+    .detail-relations { font-size: 12px; color: #64748b; padding: 6px 0; border-bottom: 1px solid #f1f5f9; margin-bottom: 12px; }
+    .detail-relation-row { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; }
+    .detail-relation-label { font-size: 11px; font-weight: 700; text-transform: uppercase; color: #94a3b8; width: 80px; flex-shrink: 0; letter-spacing: 0.05em; }
+    .detail-relation-ids { display: flex; flex-wrap: wrap; gap: 4px; }
+    .detail-relation-id { font-size: 11px; color: #3b82f6; background: #eff6ff; border-radius: 10px; padding: 1px 7px; font-weight: 600; }
+    .detail-timestamp { font-size: 11px; color: #94a3b8; margin-top: 8px; padding-top: 8px; border-top: 1px solid #f1f5f9; }
+    .comment-item { position: relative; padding: 6px 0 6px 10px; border-left: 2px solid #e2e8f0; margin-bottom: 10px; }
+    .comment-item:hover { border-left-color: #3b82f6; }
+    .comment-meta { display: flex; align-items: center; gap: 6px; margin-bottom: 3px; }
+    .comment-author { font-size: 11px; font-weight: 600; color: #64748b; }
+    .comment-date { font-size: 11px; color: #94a3b8; }
+    .comment-actions { display: none; margin-left: auto; gap: 4px; }
+    .comment-item:hover .comment-actions { display: flex; }
+    .comment-action-btn { background: none; border: none; padding: 1px 4px; cursor: pointer; color: #94a3b8; font-size: 12px; border-radius: 3px; }
+    .comment-action-btn:hover { color: #1e293b; background: #f1f5f9; }
+    .comment-action-btn.danger:hover { color: #dc2626; background: #fef2f2; }
+    .comment-content { font-size: 13px; color: #1e293b; line-height: 1.5; white-space: pre-wrap; }
+    .comment-edit-area { width: 100%; border: 1px solid #e2e8f0; border-radius: 6px; padding: 7px 10px; font-size: 13px; font-family: inherit; resize: vertical; min-height: 60px; background: white; color: #1e293b; margin-top: 4px; }
+    .comment-edit-area:focus { outline: none; border-color: #3b82f6; box-shadow: 0 0 0 2px rgba(59,130,246,0.2); }
+    .comment-edit-actions { display: flex; gap: 6px; margin-top: 4px; }
+    .comment-btn { background: none; border: 1px solid #e2e8f0; border-radius: 4px; font-size: 11px; font-weight: 600; padding: 2px 8px; cursor: pointer; color: #64748b; }
+    .comment-btn:hover { background: #f1f5f9; }
+    .add-comment-trigger { background: none; border: 1px dashed #cbd5e1; border-radius: 6px; padding: 8px 12px; font-size: 12px; color: #94a3b8; cursor: pointer; width: 100%; text-align: left; margin-top: 4px; }
+    .add-comment-trigger:hover { border-color: #94a3b8; color: #64748b; background: #f8fafc; }
+    .add-comment-form { margin-top: 4px; display: none; }
+    .add-comment-form.open { display: block; }
+    .add-comment-textarea { width: 100%; border: 1px solid #e2e8f0; border-radius: 6px; padding: 7px 10px; font-size: 13px; font-family: inherit; resize: vertical; min-height: 72px; background: white; color: #1e293b; }
+    .add-comment-textarea:focus { outline: none; border-color: #3b82f6; box-shadow: 0 0 0 2px rgba(59,130,246,0.2); }
+    .add-comment-submit { margin-top: 6px; padding: 5px 14px; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer; border: 1px solid #3b82f6; background: #3b82f6; color: white; }
+    .add-comment-submit:hover { background: #2563eb; border-color: #2563eb; }
+    .add-comment-cancel { margin-top: 6px; margin-left: 6px; padding: 5px 10px; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer; border: 1px solid #e2e8f0; background: white; color: #64748b; }
+    .add-comment-cancel:hover { background: #f1f5f9; }`;
 
 const BOARD_SCRIPT = `
     let draggedCard = null;
@@ -347,13 +387,14 @@ const BOARD_SCRIPT = `
 
     // Detail panel - create and insert into board-container
     const boardContainer = document.querySelector('.board-container');
-    const detailPanelHtml = '<div class="detail-panel" id="detail-panel"><div class="detail-panel-resize-handle" id="detail-panel-resize-handle"></div><div class="detail-panel-header"><h2 id="detail-panel-title">Task Detail</h2><button class="detail-panel-close" id="detail-panel-close" title="Close">&times;</button></div><div class="detail-panel-body" id="detail-panel-body"></div><div class="detail-panel-footer"><button id="detail-save-btn">Save</button></div></div>';
+    const detailPanelHtml = '<div class="detail-panel" id="detail-panel"><div class="detail-panel-resize-handle" id="detail-panel-resize-handle"></div><div class="detail-panel-header"><h2 id="detail-panel-title">Task Detail</h2><button class="detail-panel-close" id="detail-panel-close" title="Close">&times;</button></div><div class="detail-tabs" id="detail-tabs"><button class="detail-tab active" data-tab="details">Details</button><button class="detail-tab" data-tab="comments" id="detail-tab-comments">Comments</button></div><div class="detail-panel-body" id="detail-panel-body"><div class="detail-tab-content active" id="detail-tab-content-details"></div><div class="detail-tab-content" id="detail-tab-content-comments"></div></div><div class="detail-panel-footer" id="detail-panel-footer"><button id="detail-save-btn">Save</button></div></div>';
     boardContainer.insertAdjacentHTML('beforeend', detailPanelHtml);
 
     const detailPanel = document.getElementById('detail-panel');
     const detailPanelTitle = document.getElementById('detail-panel-title');
     const detailPanelBody = document.getElementById('detail-panel-body');
     let detailTaskId = null;
+    let lastTab = 'details';
 
     function closeDetailPanel() {
       detailPanel.classList.remove('open');
@@ -362,6 +403,25 @@ const BOARD_SCRIPT = `
     }
 
     document.getElementById('detail-panel-close').addEventListener('click', closeDetailPanel);
+
+    // Tab switching
+    function switchTab(tabName) {
+      lastTab = tabName;
+      document.querySelectorAll('.detail-tab').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.tab === tabName);
+      });
+      document.querySelectorAll('.detail-tab-content').forEach(el => {
+        el.classList.toggle('active', el.id === 'detail-tab-content-' + tabName);
+      });
+      const footer = document.getElementById('detail-panel-footer');
+      if (footer) footer.style.display = tabName === 'details' ? '' : 'none';
+    }
+
+    document.getElementById('detail-tabs').addEventListener('click', e => {
+      const btn = e.target.closest('.detail-tab');
+      if (!btn) return;
+      switchTab(btn.dataset.tab);
+    });
 
     // Detail panel resize
     const resizeHandle = document.getElementById('detail-panel-resize-handle');
@@ -608,21 +668,34 @@ const BOARD_SCRIPT = `
       renderPills();
     }
 
+    function relativeTime(isoStr) {
+      if (!isoStr) return '';
+      const diff = Date.now() - new Date(isoStr).getTime();
+      const sec = Math.floor(diff / 1000);
+      if (sec < 60) return 'just now';
+      const min = Math.floor(sec / 60);
+      if (min < 60) return min + 'm ago';
+      const hr = Math.floor(min / 60);
+      if (hr < 24) return hr + 'h ago';
+      const day = Math.floor(hr / 24);
+      if (day < 30) return day + 'd ago';
+      const mo = Math.floor(day / 30);
+      if (mo < 12) return mo + 'mo ago';
+      return Math.floor(mo / 12) + 'y ago';
+    }
+
     function renderDetailPanel(data) {
       const task = data.task;
       const tags = data.tags || [];
       const metadata = data.metadata || [];
+      const blockedBy = data.blockedBy || [];
+      const blocking = data.blocking || [];
+      const parent = data.parent || null;
 
       detailTaskId = task.id;
-      detailPanelTitle.textContent = '#' + task.id + ' ' + task.title;
+      detailPanelTitle.textContent = '#' + task.id;
 
       let html = '';
-
-      // Title (editable)
-      html += '<div class="detail-field">';
-      html += '<div class="detail-field-label">Title</div>';
-      html += '<input id="detail-edit-title" class="detail-edit-input" type="text" value="' + escapeHtmlClient(task.title) + '">';
-      html += '</div>';
 
       // Status (editable)
       html += '<div class="detail-field">';
@@ -653,6 +726,45 @@ const BOARD_SCRIPT = `
       html += '<div id="detail-tags-container"></div>';
       html += '</div>';
 
+      // Relations: parent, blockedBy, blocking
+      const hasRelations = parent || blockedBy.length > 0 || blocking.length > 0;
+      if (hasRelations) {
+        html += '<div class="detail-relations">';
+        if (parent) {
+          html += '<div class="detail-relation-row">';
+          html += '<span class="detail-relation-label">Parent</span>';
+          html += '<div class="detail-relation-ids"><span class="detail-relation-id">#' + parent.id + ' ' + escapeHtmlClient(parent.title) + '</span></div>';
+          html += '</div>';
+        }
+        if (blockedBy.length > 0) {
+          html += '<div class="detail-relation-row">';
+          html += '<span class="detail-relation-label">Blocked by</span>';
+          html += '<div class="detail-relation-ids">';
+          blockedBy.forEach(t => { html += '<span class="detail-relation-id">#' + t.id + '</span>'; });
+          html += '</div></div>';
+        }
+        if (blocking.length > 0) {
+          html += '<div class="detail-relation-row">';
+          html += '<span class="detail-relation-label">Blocking</span>';
+          html += '<div class="detail-relation-ids">';
+          blocking.forEach(t => { html += '<span class="detail-relation-id">#' + t.id + '</span>'; });
+          html += '</div></div>';
+        }
+        html += '</div>';
+      }
+
+      // Title (editable)
+      html += '<div class="detail-field">';
+      html += '<div class="detail-field-label">Title</div>';
+      html += '<input id="detail-edit-title" class="detail-edit-input" type="text" value="' + escapeHtmlClient(task.title) + '">';
+      html += '</div>';
+
+      // Body (editable)
+      html += '<div class="detail-field description-field-wrapper">';
+      html += '<div class="detail-field-label">Description</div>';
+      html += '<textarea id="detail-edit-body" class="detail-edit-textarea">' + escapeHtmlClient(task.body || '') + '</textarea>';
+      html += '</div>';
+
       // Metadata table (read-only, non-priority)
       const otherMeta = metadata.filter(m => m.key !== 'priority');
       if (otherMeta.length > 0) {
@@ -665,26 +777,23 @@ const BOARD_SCRIPT = `
         html += '</table></div>';
       }
 
-      // Timestamps (read-only)
-      html += '<div class="detail-field">';
-      html += '<div class="detail-field-label">Created</div>';
-      html += '<div class="detail-field-value">' + escapeHtmlClient(task.created_at) + '</div>';
-      html += '</div>';
-      html += '<div class="detail-field">';
-      html += '<div class="detail-field-label">Updated</div>';
-      html += '<div class="detail-field-value">' + escapeHtmlClient(task.updated_at) + '</div>';
-      html += '</div>';
+      // Timestamps compressed to one line
+      html += '<div class="detail-timestamp">created ' + relativeTime(task.created_at) + ' &middot; updated ' + relativeTime(task.updated_at) + '</div>';
 
-      // Body (editable)
-      html += '<div class="detail-field description-field-wrapper">';
-      html += '<div class="detail-field-label">Description</div>';
-      html += '<textarea id="detail-edit-body" class="detail-edit-textarea">' + escapeHtmlClient(task.body || '') + '</textarea>';
-      html += '</div>';
-
-      detailPanelBody.innerHTML = html;
+      const detailsPane = document.getElementById('detail-tab-content-details');
+      if (detailsPane) {
+        detailsPane.innerHTML = html;
+        detailsPane.style.padding = '20px';
+      }
 
       // Render tags section after DOM update
       loadAllTags().then(() => renderTagsSection([...tags]));
+
+      // Load comments into the comments tab
+      loadComments(task.id);
+
+      // Restore last tab
+      switchTab(lastTab);
     }
 
     function escapeHtmlClient(str) {
@@ -692,6 +801,141 @@ const BOARD_SCRIPT = `
       const div = document.createElement('div');
       div.textContent = String(str);
       return div.innerHTML;
+    }
+
+    async function loadComments(taskId) {
+      const tabBtn = document.getElementById('detail-tab-comments');
+      const pane = document.getElementById('detail-tab-content-comments');
+      if (!pane) return;
+      try {
+        const res = await fetch('/api/tasks/' + taskId + '/comments');
+        if (!res.ok) throw new Error('Server error');
+        const data = await res.json();
+        const comments = data.comments || [];
+        if (tabBtn) tabBtn.textContent = 'Comments (' + comments.length + ')';
+        renderComments(taskId, comments);
+      } catch {
+        if (pane) pane.innerHTML = '<div style="padding:20px;font-size:12px;color:#94a3b8;">Failed to load comments</div>';
+      }
+    }
+
+    function renderComments(taskId, comments) {
+      const pane = document.getElementById('detail-tab-content-comments');
+      if (!pane) return;
+      pane.style.padding = '16px 20px';
+
+      let html = '';
+
+      comments.forEach(function(comment) {
+        const authorText = comment.author ? escapeHtmlClient(comment.author) : 'Anonymous';
+        const dateRel = relativeTime(comment.created_at);
+        const dateAbs = escapeHtmlClient(comment.created_at);
+        const contentText = escapeHtmlClient(comment.content);
+        html += '<div class="comment-item" data-comment-id="' + comment.id + '">';
+        html += '<div class="comment-meta">';
+        html += '<span class="comment-author">' + authorText + '</span>';
+        html += '<span class="comment-date" title="' + dateAbs + '">' + dateRel + '</span>';
+        html += '<span class="comment-actions">';
+        html += '<button class="comment-action-btn" title="Edit" onclick="startCommentEdit(' + comment.id + ')">&#9998;</button>';
+        html += '<button class="comment-action-btn danger" title="Delete" onclick="deleteComment(' + comment.id + ',' + taskId + ')">&#128465;</button>';
+        html += '</span>';
+        html += '</div>';
+        html += '<div class="comment-content" id="comment-content-' + comment.id + '">' + contentText + '</div>';
+        html += '<div id="comment-edit-' + comment.id + '" style="display:none;">';
+        html += '<textarea class="comment-edit-area" id="comment-edit-area-' + comment.id + '">' + contentText + '</textarea>';
+        html += '<div class="comment-edit-actions">';
+        html += '<button class="comment-btn" onclick="saveCommentEdit(' + comment.id + ',' + taskId + ')">Save</button>';
+        html += '<button class="comment-btn" onclick="cancelCommentEdit(' + comment.id + ')">Cancel</button>';
+        html += '</div></div>';
+        html += '</div>';
+      });
+
+      html += '<button class="add-comment-trigger" id="add-comment-trigger" onclick="openAddCommentForm()">+ Add comment...</button>';
+      html += '<div class="add-comment-form" id="add-comment-form">';
+      html += '<textarea class="add-comment-textarea" id="add-comment-text" placeholder="Write a comment..."></textarea>';
+      html += '<div>';
+      html += '<button class="add-comment-submit" onclick="submitComment(' + taskId + ')">Add Comment</button>';
+      html += '<button class="add-comment-cancel" onclick="closeAddCommentForm()">Cancel</button>';
+      html += '</div></div>';
+
+      pane.innerHTML = html;
+    }
+
+    function openAddCommentForm() {
+      const trigger = document.getElementById('add-comment-trigger');
+      const form = document.getElementById('add-comment-form');
+      if (trigger) trigger.style.display = 'none';
+      if (form) { form.classList.add('open'); form.querySelector('textarea').focus(); }
+    }
+
+    function closeAddCommentForm() {
+      const trigger = document.getElementById('add-comment-trigger');
+      const form = document.getElementById('add-comment-form');
+      if (trigger) trigger.style.display = '';
+      if (form) { form.classList.remove('open'); form.querySelector('textarea').value = ''; }
+    }
+
+    function startCommentEdit(commentId) {
+      const contentEl = document.getElementById('comment-content-' + commentId);
+      const editWrapper = document.getElementById('comment-edit-' + commentId);
+      if (contentEl) contentEl.style.display = 'none';
+      if (editWrapper) editWrapper.style.display = 'block';
+      const area = document.getElementById('comment-edit-area-' + commentId);
+      if (area) area.focus();
+    }
+
+    function cancelCommentEdit(commentId) {
+      const contentEl = document.getElementById('comment-content-' + commentId);
+      const editWrapper = document.getElementById('comment-edit-' + commentId);
+      if (contentEl) contentEl.style.display = '';
+      if (editWrapper) editWrapper.style.display = 'none';
+    }
+
+    async function saveCommentEdit(commentId, taskId) {
+      const area = document.getElementById('comment-edit-area-' + commentId);
+      if (!area) return;
+      const content = area.value.trim();
+      if (!content) { area.focus(); return; }
+      try {
+        const res = await fetch('/api/comments/' + commentId, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ content })
+        });
+        if (!res.ok) throw new Error('Server error');
+        await loadComments(taskId);
+      } catch {
+        showToast('Failed to update comment');
+      }
+    }
+
+    async function deleteComment(commentId, taskId) {
+      if (!confirm('Delete this comment?')) return;
+      try {
+        const res = await fetch('/api/comments/' + commentId, { method: 'DELETE' });
+        if (!res.ok) throw new Error('Server error');
+        await loadComments(taskId);
+      } catch {
+        showToast('Failed to delete comment');
+      }
+    }
+
+    async function submitComment(taskId) {
+      const textarea = document.getElementById('add-comment-text');
+      if (!textarea) return;
+      const content = textarea.value.trim();
+      if (!content) { textarea.focus(); return; }
+      try {
+        const res = await fetch('/api/tasks/' + taskId + '/comments', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ content })
+        });
+        if (!res.ok) throw new Error('Server error');
+        await loadComments(taskId);
+      } catch {
+        showToast('Failed to add comment');
+      }
     }
 
     document.getElementById('detail-save-btn').addEventListener('click', async () => {
@@ -1172,6 +1416,8 @@ type BoardServices = {
   tts: TaskTagService;
   tags: TagService;
   ms: MetadataService;
+  cs: CommentService;
+  tbs: TaskBlockService;
   database: StorageProvider;
   boardTitle?: string;
   configDir: string;
@@ -1212,7 +1458,7 @@ function getBoardUpdatedAt(database: StorageProvider): string | null {
   return `${baseRow.max_updated_at}|${tagsRow.max_created_at}|${tagsRow.count}`;
 }
 
-function registerTaskApiRoutes(app: Hono, { ts, tts, tags, ms }: BoardServices): void {
+function registerTaskApiRoutes(app: Hono, { ts, tts, tags, ms, cs, tbs }: BoardServices): void {
   app.get('/api/tasks', (c) => c.json({ tasks: ts.listTasks({}, 'id', 'asc') }));
   app.post('/api/tasks', async (c) => {
     const body = await c.req.json<{
@@ -1233,7 +1479,12 @@ function registerTaskApiRoutes(app: Hono, { ts, tts, tags, ms }: BoardServices):
     if (isNaN(id)) return c.json({ error: 'Invalid task id' }, 400);
     const task = ts.getTask(id);
     if (!task) return c.json({ error: 'Task not found' }, 404);
-    return c.json({ task, tags: tts.getTagsForTask(id), metadata: ms.listMetadata(id) });
+    const parent = task.parent_id ? ts.getTask(task.parent_id) : null;
+    const blockedByIds = tbs.getBlockerTaskIds(id);
+    const blockingIds = tbs.getBlockedTaskIds(id);
+    const blockedBy = blockedByIds.map((bid) => ts.getTask(bid)).filter(Boolean);
+    const blocking = blockingIds.map((bid) => ts.getTask(bid)).filter(Boolean);
+    return c.json({ task, tags: tts.getTagsForTask(id), metadata: ms.listMetadata(id), parent, blockedBy, blocking });
   });
   app.patch('/api/tasks/:id', async (c) => {
     const id = Number(c.req.param('id'));
@@ -1271,6 +1522,49 @@ function registerTaskApiRoutes(app: Hono, { ts, tts, tags, ms }: BoardServices):
     const removed = tts.removeTagFromTask(id, tagId);
     if (!removed) return c.json({ error: 'Tag not attached to task' }, 404);
     return c.json({ success: true });
+  });
+  app.get('/api/tasks/:id/comments', (c) => {
+    const id = Number(c.req.param('id'));
+    if (isNaN(id)) return c.json({ error: 'Invalid task id' }, 400);
+    if (!ts.getTask(id)) return c.json({ error: 'Task not found' }, 404);
+    return c.json({ comments: cs.listComments(id) });
+  });
+  app.post('/api/tasks/:id/comments', async (c) => {
+    const id = Number(c.req.param('id'));
+    if (isNaN(id)) return c.json({ error: 'Invalid task id' }, 400);
+    if (!ts.getTask(id)) return c.json({ error: 'Task not found' }, 404);
+    const body = await c.req.json<{ content?: string; author?: string }>();
+    if (!body.content || typeof body.content !== 'string') {
+      return c.json({ error: 'Content is required' }, 400);
+    }
+    try {
+      const comment = cs.addComment({ task_id: id, content: body.content, author: body.author });
+      return c.json(comment, 201);
+    } catch (e) {
+      return c.json({ error: e instanceof Error ? e.message : 'Invalid input' }, 400);
+    }
+  });
+  app.delete('/api/comments/:id', (c) => {
+    const id = Number(c.req.param('id'));
+    if (isNaN(id)) return c.json({ error: 'Invalid comment id' }, 400);
+    const deleted = cs.deleteComment(id);
+    if (!deleted) return c.json({ error: 'Comment not found' }, 404);
+    return c.json({ success: true });
+  });
+  app.patch('/api/comments/:id', async (c) => {
+    const id = Number(c.req.param('id'));
+    if (isNaN(id)) return c.json({ error: 'Invalid comment id' }, 400);
+    const body = await c.req.json<{ content?: string }>();
+    if (!body.content || typeof body.content !== 'string') {
+      return c.json({ error: 'Content is required' }, 400);
+    }
+    try {
+      const comment = cs.updateComment(id, body.content);
+      if (!comment) return c.json({ error: 'Comment not found' }, 404);
+      return c.json(comment);
+    } catch (e) {
+      return c.json({ error: e instanceof Error ? e.message : 'Invalid input' }, 400);
+    }
   });
 }
 
@@ -1362,16 +1656,21 @@ export function createBoardApp(
   db?: StorageProvider,
   boardTitle?: string,
   tagService?: TagService,
-  configDir?: string
+  configDir?: string,
+  commentService?: CommentService,
+  taskBlockService?: TaskBlockService
 ): Hono {
   const app = new Hono();
   const resolvedConfigDir = configDir ?? path.join(process.cwd(), getDefaultDirName());
+  const resolvedDb = db ?? getDatabase();
   const services: BoardServices = {
     ts: taskService ?? new TaskService(),
     tts: taskTagService ?? new TaskTagService(),
     tags: tagService ?? new TagService(),
     ms: metadataService ?? new MetadataService(),
-    database: db ?? getDatabase(),
+    cs: commentService ?? new CommentService(resolvedDb),
+    tbs: taskBlockService ?? new TaskBlockService(resolvedDb),
+    database: resolvedDb,
     boardTitle,
     configDir: resolvedConfigDir,
   };

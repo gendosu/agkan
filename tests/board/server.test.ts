@@ -12,10 +12,13 @@ import { TaskService } from '../../src/services/TaskService';
 import { TaskTagService } from '../../src/services/TaskTagService';
 import { MetadataService } from '../../src/services/MetadataService';
 import { TagService } from '../../src/services/TagService';
+import { CommentService } from '../../src/services/CommentService';
+import { TaskBlockService } from '../../src/services/TaskBlockService';
 import { DETAIL_PANE_MAX_WIDTH } from '../../src/board/boardConfig';
 
 function resetDatabase(): void {
   const db = getDatabase();
+  db.exec('DELETE FROM task_comments');
   db.exec('DELETE FROM task_tags');
   db.exec('DELETE FROM task_metadata');
   db.exec('DELETE FROM task_blocks');
@@ -29,6 +32,8 @@ describe('createBoardApp', () => {
   let taskTagService: TaskTagService;
   let metadataService: MetadataService;
   let tagService: TagService;
+  let commentService: CommentService;
+  let taskBlockService: TaskBlockService;
   const testConfigDir = path.join(process.cwd(), '.agkan-test-server-' + process.pid);
 
   beforeEach(() => {
@@ -37,6 +42,8 @@ describe('createBoardApp', () => {
     tagService = new TagService();
     taskTagService = new TaskTagService();
     metadataService = new MetadataService();
+    commentService = new CommentService();
+    taskBlockService = new TaskBlockService();
     // Clean up test config dir
     if (fs.existsSync(testConfigDir)) {
       fs.rmSync(testConfigDir, { recursive: true });
@@ -1571,6 +1578,422 @@ describe('createBoardApp', () => {
           fs.rmSync(newDir, { recursive: true });
         }
       }
+    });
+  });
+
+  describe('GET /api/tasks/:id (with relations)', () => {
+    it('should return parent, blockedBy, blocking in task detail response', async () => {
+      const parent = taskService.createTask({ title: 'Parent task', status: 'backlog' });
+      const task = taskService.createTask({ title: 'Child task', status: 'backlog', parent_id: parent.id });
+      const blocker = taskService.createTask({ title: 'Blocker task', status: 'backlog' });
+      taskBlockService.addBlock({ blocker_task_id: blocker.id, blocked_task_id: task.id });
+
+      const app = createBoardApp(
+        taskService,
+        taskTagService,
+        metadataService,
+        undefined,
+        undefined,
+        tagService,
+        undefined,
+        commentService,
+        taskBlockService
+      );
+      const res = await app.fetch(new Request(`http://localhost/api/tasks/${task.id}`));
+
+      expect(res.status).toBe(200);
+      const data = (await res.json()) as {
+        task: { id: number; title: string };
+        parent: { id: number; title: string } | null;
+        blockedBy: Array<{ id: number; title: string }>;
+        blocking: Array<{ id: number; title: string }>;
+      };
+      expect(data.parent).not.toBeNull();
+      expect(data.parent!.id).toBe(parent.id);
+      expect(data.blockedBy).toHaveLength(1);
+      expect(data.blockedBy[0].id).toBe(blocker.id);
+      expect(data.blocking).toHaveLength(0);
+    });
+
+    it('should return null parent and empty arrays when no relations exist', async () => {
+      const task = taskService.createTask({ title: 'Standalone task', status: 'backlog' });
+
+      const app = createBoardApp(
+        taskService,
+        taskTagService,
+        metadataService,
+        undefined,
+        undefined,
+        tagService,
+        undefined,
+        commentService,
+        taskBlockService
+      );
+      const res = await app.fetch(new Request(`http://localhost/api/tasks/${task.id}`));
+
+      expect(res.status).toBe(200);
+      const data = (await res.json()) as {
+        parent: null;
+        blockedBy: [];
+        blocking: [];
+      };
+      expect(data.parent).toBeNull();
+      expect(data.blockedBy).toHaveLength(0);
+      expect(data.blocking).toHaveLength(0);
+    });
+  });
+
+  describe('GET /api/tasks/:id/comments', () => {
+    it('should return empty comments list for a task with no comments', async () => {
+      const task = taskService.createTask({ title: 'Task', status: 'backlog' });
+
+      const app = createBoardApp(
+        taskService,
+        taskTagService,
+        metadataService,
+        undefined,
+        undefined,
+        tagService,
+        undefined,
+        commentService,
+        taskBlockService
+      );
+      const res = await app.fetch(new Request(`http://localhost/api/tasks/${task.id}/comments`));
+
+      expect(res.status).toBe(200);
+      const data = (await res.json()) as { comments: [] };
+      expect(data.comments).toHaveLength(0);
+    });
+
+    it('should return comments for a task', async () => {
+      const task = taskService.createTask({ title: 'Task', status: 'backlog' });
+      commentService.addComment({ task_id: task.id, content: 'First comment', author: 'alice' });
+      commentService.addComment({ task_id: task.id, content: 'Second comment', author: 'bob' });
+
+      const app = createBoardApp(
+        taskService,
+        taskTagService,
+        metadataService,
+        undefined,
+        undefined,
+        tagService,
+        undefined,
+        commentService,
+        taskBlockService
+      );
+      const res = await app.fetch(new Request(`http://localhost/api/tasks/${task.id}/comments`));
+
+      expect(res.status).toBe(200);
+      const data = (await res.json()) as { comments: Array<{ content: string; author: string }> };
+      expect(data.comments).toHaveLength(2);
+      expect(data.comments[0].content).toBe('First comment');
+      expect(data.comments[0].author).toBe('alice');
+      expect(data.comments[1].content).toBe('Second comment');
+    });
+
+    it('should return 404 for non-existent task', async () => {
+      const app = createBoardApp(
+        taskService,
+        taskTagService,
+        metadataService,
+        undefined,
+        undefined,
+        tagService,
+        undefined,
+        commentService,
+        taskBlockService
+      );
+      const res = await app.fetch(new Request('http://localhost/api/tasks/9999/comments'));
+
+      expect(res.status).toBe(404);
+    });
+
+    it('should return 400 for invalid task id', async () => {
+      const app = createBoardApp(
+        taskService,
+        taskTagService,
+        metadataService,
+        undefined,
+        undefined,
+        tagService,
+        undefined,
+        commentService,
+        taskBlockService
+      );
+      const res = await app.fetch(new Request('http://localhost/api/tasks/abc/comments'));
+
+      expect(res.status).toBe(400);
+    });
+  });
+
+  describe('POST /api/tasks/:id/comments', () => {
+    it('should create a comment and return 201', async () => {
+      const task = taskService.createTask({ title: 'Task', status: 'backlog' });
+
+      const app = createBoardApp(
+        taskService,
+        taskTagService,
+        metadataService,
+        undefined,
+        undefined,
+        tagService,
+        undefined,
+        commentService,
+        taskBlockService
+      );
+      const res = await app.fetch(
+        new Request(`http://localhost/api/tasks/${task.id}/comments`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ content: 'New comment', author: 'alice' }),
+        })
+      );
+
+      expect(res.status).toBe(201);
+      const data = (await res.json()) as { id: number; content: string; author: string };
+      expect(data.content).toBe('New comment');
+      expect(data.author).toBe('alice');
+    });
+
+    it('should return 400 when content is missing', async () => {
+      const task = taskService.createTask({ title: 'Task', status: 'backlog' });
+
+      const app = createBoardApp(
+        taskService,
+        taskTagService,
+        metadataService,
+        undefined,
+        undefined,
+        tagService,
+        undefined,
+        commentService,
+        taskBlockService
+      );
+      const res = await app.fetch(
+        new Request(`http://localhost/api/tasks/${task.id}/comments`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ author: 'alice' }),
+        })
+      );
+
+      expect(res.status).toBe(400);
+    });
+
+    it('should return 404 for non-existent task', async () => {
+      const app = createBoardApp(
+        taskService,
+        taskTagService,
+        metadataService,
+        undefined,
+        undefined,
+        tagService,
+        undefined,
+        commentService,
+        taskBlockService
+      );
+      const res = await app.fetch(
+        new Request('http://localhost/api/tasks/9999/comments', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ content: 'Hello' }),
+        })
+      );
+
+      expect(res.status).toBe(404);
+    });
+  });
+
+  describe('PATCH /api/comments/:id', () => {
+    it('should update a comment content', async () => {
+      const task = taskService.createTask({ title: 'Task', status: 'backlog' });
+      const comment = commentService.addComment({ task_id: task.id, content: 'Original', author: 'alice' });
+
+      const app = createBoardApp(
+        taskService,
+        taskTagService,
+        metadataService,
+        undefined,
+        undefined,
+        tagService,
+        undefined,
+        commentService,
+        taskBlockService
+      );
+      const res = await app.fetch(
+        new Request(`http://localhost/api/comments/${comment.id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ content: 'Updated content' }),
+        })
+      );
+
+      expect(res.status).toBe(200);
+      const data = (await res.json()) as { id: number; content: string };
+      expect(data.content).toBe('Updated content');
+    });
+
+    it('should return 404 for non-existent comment', async () => {
+      const app = createBoardApp(
+        taskService,
+        taskTagService,
+        metadataService,
+        undefined,
+        undefined,
+        tagService,
+        undefined,
+        commentService,
+        taskBlockService
+      );
+      const res = await app.fetch(
+        new Request('http://localhost/api/comments/9999', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ content: 'Hello' }),
+        })
+      );
+
+      expect(res.status).toBe(404);
+    });
+
+    it('should return 400 when content is missing', async () => {
+      const task = taskService.createTask({ title: 'Task', status: 'backlog' });
+      const comment = commentService.addComment({ task_id: task.id, content: 'Original' });
+
+      const app = createBoardApp(
+        taskService,
+        taskTagService,
+        metadataService,
+        undefined,
+        undefined,
+        tagService,
+        undefined,
+        commentService,
+        taskBlockService
+      );
+      const res = await app.fetch(
+        new Request(`http://localhost/api/comments/${comment.id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({}),
+        })
+      );
+
+      expect(res.status).toBe(400);
+    });
+  });
+
+  describe('DELETE /api/comments/:id', () => {
+    it('should delete a comment', async () => {
+      const task = taskService.createTask({ title: 'Task', status: 'backlog' });
+      const comment = commentService.addComment({ task_id: task.id, content: 'To delete' });
+
+      const app = createBoardApp(
+        taskService,
+        taskTagService,
+        metadataService,
+        undefined,
+        undefined,
+        tagService,
+        undefined,
+        commentService,
+        taskBlockService
+      );
+      const res = await app.fetch(new Request(`http://localhost/api/comments/${comment.id}`, { method: 'DELETE' }));
+
+      expect(res.status).toBe(200);
+      const data = (await res.json()) as { success: boolean };
+      expect(data.success).toBe(true);
+    });
+
+    it('should return 404 for non-existent comment', async () => {
+      const app = createBoardApp(
+        taskService,
+        taskTagService,
+        metadataService,
+        undefined,
+        undefined,
+        tagService,
+        undefined,
+        commentService,
+        taskBlockService
+      );
+      const res = await app.fetch(new Request('http://localhost/api/comments/9999', { method: 'DELETE' }));
+
+      expect(res.status).toBe(404);
+    });
+
+    it('should return 400 for invalid comment id', async () => {
+      const app = createBoardApp(
+        taskService,
+        taskTagService,
+        metadataService,
+        undefined,
+        undefined,
+        tagService,
+        undefined,
+        commentService,
+        taskBlockService
+      );
+      const res = await app.fetch(new Request('http://localhost/api/comments/abc', { method: 'DELETE' }));
+
+      expect(res.status).toBe(400);
+    });
+  });
+
+  describe('GET / (tab UI)', () => {
+    it('should include tab navigation in the detail panel HTML', async () => {
+      const app = createBoardApp(taskService, taskTagService, metadataService);
+      const res = await app.fetch(new Request('http://localhost/'));
+      const html = await res.text();
+
+      expect(html).toContain('detail-tabs');
+      expect(html).toContain('data-tab="details"');
+      expect(html).toContain('data-tab="comments"');
+    });
+
+    it('should include tab switching CSS styles', async () => {
+      const app = createBoardApp(taskService, taskTagService, metadataService);
+      const res = await app.fetch(new Request('http://localhost/'));
+      const html = await res.text();
+
+      expect(html).toContain('.detail-tab');
+      expect(html).toContain('.detail-tab-content');
+    });
+
+    it('should include comment item CSS styles', async () => {
+      const app = createBoardApp(taskService, taskTagService, metadataService);
+      const res = await app.fetch(new Request('http://localhost/'));
+      const html = await res.text();
+
+      expect(html).toContain('.comment-item');
+      expect(html).toContain('.add-comment-trigger');
+    });
+
+    it('should include loadComments and renderComments functions in script', async () => {
+      const app = createBoardApp(taskService, taskTagService, metadataService);
+      const res = await app.fetch(new Request('http://localhost/'));
+      const html = await res.text();
+
+      expect(html).toContain('loadComments');
+      expect(html).toContain('renderComments');
+    });
+
+    it('should include switchTab function in script', async () => {
+      const app = createBoardApp(taskService, taskTagService, metadataService);
+      const res = await app.fetch(new Request('http://localhost/'));
+      const html = await res.text();
+
+      expect(html).toContain('switchTab');
+      expect(html).toContain('lastTab');
+    });
+
+    it('should include relativeTime function in script', async () => {
+      const app = createBoardApp(taskService, taskTagService, metadataService);
+      const res = await app.fetch(new Request('http://localhost/'));
+      const html = await res.text();
+
+      expect(html).toContain('relativeTime');
     });
   });
 });

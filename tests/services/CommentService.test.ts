@@ -184,4 +184,34 @@ describe('CommentService', () => {
       expect(fetched).toBeNull();
     });
   });
+
+  describe('updateComment', () => {
+    it('should update a comment content', () => {
+      const task = taskService.createTask({ title: 'Test task' });
+      const comment = commentService.addComment({ task_id: task.id, content: 'Original content' });
+
+      const updated = commentService.updateComment(comment.id, 'Updated content');
+
+      expect(updated).not.toBeNull();
+      expect(updated!.id).toBe(comment.id);
+      expect(updated!.content).toBe('Updated content');
+      expect(updated!.updated_at).not.toBe(comment.updated_at);
+    });
+
+    it('should return null for non-existent comment id', () => {
+      const result = commentService.updateComment(9999, 'New content');
+
+      expect(result).toBeNull();
+    });
+
+    it('should persist the update', () => {
+      const task = taskService.createTask({ title: 'Test task' });
+      const comment = commentService.addComment({ task_id: task.id, content: 'Original' });
+
+      commentService.updateComment(comment.id, 'Changed');
+      const fetched = commentService.getComment(comment.id);
+
+      expect(fetched!.content).toBe('Changed');
+    });
+  });
 });

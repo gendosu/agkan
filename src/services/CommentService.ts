@@ -113,6 +113,32 @@ export class CommentService {
   }
 
   /**
+   * Update a comment's content
+   * @param id - Comment ID
+   * @param content - New content
+   * @returns Updated comment object, or null if not found
+   */
+  updateComment(id: number, content: string): TaskComment | null {
+    const db = this.db;
+
+    const now = new Date().toISOString();
+
+    const stmt = db.prepare(`
+      UPDATE task_comments
+      SET content = ?, updated_at = ?
+      WHERE id = ?
+    `);
+
+    const result = stmt.run(content, now, id);
+
+    if (result.changes === 0) {
+      return null;
+    }
+
+    return this.getComment(id);
+  }
+
+  /**
    * Get all comments for multiple tasks at once
    * Avoids the N+1 problem by fetching all comments in a single query
    * @param taskIds - Array of task IDs
