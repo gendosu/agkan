@@ -6,6 +6,7 @@ import { Command } from 'commander';
 import fs from 'fs';
 import path from 'path';
 import { getConfigFileName, getDefaultDirName } from '../../db/config';
+import { TagService } from '../../services';
 
 const DEFAULT_CONFIG_CONTENT = `# agkan configuration file
 #
@@ -32,6 +33,26 @@ const DEFAULT_CONFIG_CONTENT = `# agkan configuration file
 #   # title: Agent Kanban
 `;
 
+const DEFAULT_TAGS = ['bug', 'security', 'improvement', 'test', 'performance', 'refactor', 'docs'];
+
+function createDefaultTags(): void {
+  const tagService = new TagService();
+
+  for (const tagName of DEFAULT_TAGS) {
+    try {
+      // Only create if tag doesn't already exist
+      if (!tagService.getTagByName(tagName)) {
+        tagService.createTag({ name: tagName });
+      }
+    } catch (error) {
+      // Silently ignore if tag already exists (handles race conditions)
+      if (!(error instanceof Error) || !error.message.includes('already exists')) {
+        throw error;
+      }
+    }
+  }
+}
+
 export function setupInitCommand(program: Command): void {
   program
     .command('init')
@@ -57,6 +78,16 @@ export function setupInitCommand(program: Command): void {
       } else {
         fs.mkdirSync(dirPath, { recursive: true });
         console.log(`Created: ${dirName}/ directory`);
+      }
+
+      // Create default tags
+      try {
+        createDefaultTags();
+      } catch (error) {
+        // Tags creation is non-critical, so we log but don't fail init
+        if (error instanceof Error) {
+          console.error(`Warning: Failed to create default tags: ${error.message}`);
+        }
       }
     });
 }
