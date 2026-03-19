@@ -8,10 +8,14 @@ import fs from 'fs';
 import path from 'path';
 import { setupInitCommand } from '../../../src/cli/commands/init';
 
-vi.mock('../../../src/db/config', () => ({
-  getConfigFileName: vi.fn(() => '.agkan.yml'),
-  getDefaultDirName: vi.fn(() => '.agkan'),
-}));
+vi.mock('../../../src/db/config', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../../src/db/config')>();
+  return {
+    ...actual,
+    getConfigFileName: vi.fn(() => '.agkan.yml'),
+    getDefaultDirName: vi.fn(() => '.agkan'),
+  };
+});
 
 import { getConfigFileName, getDefaultDirName } from '../../../src/db/config';
 
@@ -125,5 +129,49 @@ describe('setupInitCommand', () => {
     await program.parseAsync(['node', 'test', 'init']);
 
     expect(logs.some((l) => l.includes('skip') || l.includes('Skip') || l.includes('already'))).toBe(true);
+  });
+
+  it('should create common tags on first init', async () => {
+    await program.parseAsync(['node', 'test', 'init']);
+
+    // Verify database was initialized and can be accessed
+    const { getDatabase } = await import('../../../src/db/connection');
+    const db = getDatabase();
+
+    const stmt = db.prepare('SELECT COUNT(*) as count FROM tags');
+    const result = stmt.get() as { count: number };
+
+    expect(result.count).toBeGreaterThanOrEqual(7);
+  });
+
+  it('should create specific default tags', async () => {
+    await program.parseAsync(['node', 'test', 'init']);
+
+    const { getDatabase } = await import('../../../src/db/connection');
+    const db = getDatabase();
+
+    const expectedTags = ['bug', 'security', 'improvement', 'test', 'performance', 'refactor', 'docs'];
+    const checkStmt = db.prepare('SELECT COUNT(*) as count FROM tags WHERE name = ?');
+
+    for (const tagName of expectedTags) {
+      const result = checkStmt.get(tagName) as { count: number };
+      expect(result.count).toBe(1);
+    }
+  });
+
+  it('should not duplicate tags if init is run again', async () => {
+    await program.parseAsync(['node', 'test', 'init']);
+
+    const { getDatabase } = await import('../../../src/db/connection');
+    const db = getDatabase();
+
+    const countBefore = (db.prepare('SELECT COUNT(*) as count FROM tags').get() as { count: number }).count;
+
+    // Run init again
+    await program.parseAsync(['node', 'test', 'init']);
+
+    const countAfter = (db.prepare('SELECT COUNT(*) as count FROM tags').get() as { count: number }).count;
+
+    expect(countAfter).toBe(countBefore);
   });
 });
