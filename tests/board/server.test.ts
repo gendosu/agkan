@@ -932,6 +932,16 @@ describe('createBoardApp', () => {
       expect(html).toContain('document.activeElement');
     });
 
+    it('should include reload button in DB update warning', async () => {
+      const app = createBoardApp(taskService, taskTagService, metadataService);
+      const res = await app.fetch(new Request('http://localhost/'));
+      const html = await res.text();
+
+      expect(html).toContain('detail-panel-update-warning');
+      expect(html).toContain('Reload latest data');
+      expect(html).toContain('↺');
+    });
+
     it('should skip detail panel refresh when user is editing', async () => {
       const app = createBoardApp(taskService, taskTagService, metadataService);
       const res = await app.fetch(new Request('http://localhost/'));
