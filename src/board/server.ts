@@ -101,7 +101,7 @@ const BOARD_STYLES = `
     .context-menu-item.danger:hover { background: #fef2f2; }
     .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 2000; display: none; align-items: center; justify-content: center; }
     .modal-overlay.show { display: flex; }
-    .modal { background: white; border-radius: 8px; padding: 20px; width: 360px; box-shadow: 0 8px 24px rgba(0,0,0,0.2); }
+    .modal { background: white; border-radius: 8px; padding: 24px; width: 520px; box-shadow: 0 8px 24px rgba(0,0,0,0.2); }
     .modal h2 { font-size: 16px; margin-bottom: 14px; }
     .modal label { display: block; font-size: 12px; font-weight: 600; color: #64748b; margin-bottom: 4px; }
     .modal input, .modal textarea, .modal select { width: 100%; border: 1px solid #e2e8f0; border-radius: 6px; padding: 8px 10px; font-size: 13px; font-family: inherit; margin-bottom: 12px; background: white; }
