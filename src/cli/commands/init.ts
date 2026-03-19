@@ -25,12 +25,10 @@ const DEFAULT_CONFIG_CONTENT = `# agkan configuration file
 # Settings for the web-based board interface
 # board:
 #   # Port number for the board server
-#   # Default: 3000
-#   # port: 3000
+#   port: 3000
 #
 #   # Title displayed in the board UI
-#   # Default: Agent Kanban
-#   # title: Agent Kanban
+#   title: Agent Kanban
 `;
 
 const DEFAULT_TAGS = ['bug', 'security', 'improvement', 'test', 'performance', 'refactor', 'docs'];
