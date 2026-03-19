@@ -1995,5 +1995,13 @@ describe('createBoardApp', () => {
 
       expect(html).toContain('relativeTime');
     });
+
+    it('should render add task modal with width 520px', async () => {
+      const app = createBoardApp(taskService, taskTagService, metadataService);
+      const res = await app.fetch(new Request('http://localhost/'));
+      const html = await res.text();
+
+      expect(html).toContain('width: 520px');
+    });
   });
 });
