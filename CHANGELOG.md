@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.11.0] - 2026-03-19
+
+### Added
+- Add board comment UI with display, add, delete, and edit functionality (#70)
+- Increase add task modal width from 360px to 520px (#101)
+- Pre-create common tags on `agkan init` (#99)
+- Redesign board detail pane with tab UI and comment support (#98)
+
+### Fixed
+- Remove double comments in `.agkan.yml` config template (#100)
+
 ## [2.10.1] - 2026-03-19
 
 ### Fixed
