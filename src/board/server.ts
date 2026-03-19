@@ -72,16 +72,16 @@ const BOARD_STYLES = `
     header h1 { font-size: 18px; font-weight: 700; }
     .board-title { font-size: 14px; font-weight: 400; opacity: 0.75; }
     .board-container { display: flex; width: 100%; height: calc(100vh - 92px); gap: 0; }
-    .board { display: flex; gap: 12px; padding: 16px; overflow-x: auto; flex: 1; align-items: flex-start; min-width: 0; }
+    .board { display: flex; gap: 12px; padding: 16px; overflow-x: auto; flex: 1; align-items: stretch; min-width: 0; }
     .board.with-panel { padding-right: 0; }
     .column { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; width: 240px; flex-shrink: 0; display: flex; flex-direction: column; border-top: 3px solid transparent; }
-    .column-header { padding: 10px 12px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #e2e8f0; }
+    .column-header { padding: 10px 12px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #e2e8f0; flex-shrink: 0; }
     .column-title { font-size: 13px; font-weight: 700; }
     .column-header-right { display: flex; align-items: center; gap: 6px; }
     .column-count { background: #e2e8f0; color: #64748b; border-radius: 10px; font-size: 11px; font-weight: 600; padding: 2px 7px; }
     .add-btn { background: none; border: 1px solid #cbd5e1; color: #64748b; border-radius: 4px; width: 22px; height: 22px; font-size: 14px; line-height: 1; cursor: pointer; display: flex; align-items: center; justify-content: center; }
     .add-btn:hover { background: #e2e8f0; color: #1e293b; }
-    .column-body { padding: 8px; min-height: 60px; }
+    .column-body { padding: 8px; min-height: 60px; flex: 1; overflow-y: auto; min-height: 0; }
     .column.drag-over .column-body { background: #eff6ff; border-radius: 6px; }
     .card { background: white; border: 1px solid #e2e8f0; border-radius: 6px; padding: 10px; margin-bottom: 6px; cursor: grab; transition: box-shadow 0.15s; }
     .card:hover { box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
@@ -259,6 +259,59 @@ const BOARD_SCRIPT = `
       col.addEventListener('dragleave', () => col.classList.remove('drag-over'));
       col.addEventListener('drop', e => handleDrop(e, col.dataset.status, col));
     });
+
+    // Auto-scroll during drag within column bodies
+    let autoScrollRAF = null;
+    let autoScrollBody = null;
+    let autoScrollDir = 0;
+    const AUTO_SCROLL_ZONE = 60;
+    const AUTO_SCROLL_SPEED = 8;
+
+    function stopAutoScroll() {
+      if (autoScrollRAF !== null) {
+        cancelAnimationFrame(autoScrollRAF);
+        autoScrollRAF = null;
+      }
+      autoScrollBody = null;
+      autoScrollDir = 0;
+    }
+
+    function startAutoScroll() {
+      if (autoScrollRAF !== null) return;
+      function step() {
+        if (autoScrollBody && autoScrollDir !== 0) {
+          autoScrollBody.scrollTop += autoScrollDir * AUTO_SCROLL_SPEED;
+          autoScrollRAF = requestAnimationFrame(step);
+        } else {
+          autoScrollRAF = null;
+        }
+      }
+      autoScrollRAF = requestAnimationFrame(step);
+    }
+
+    function attachAutoScrollToBody(body) {
+      body.addEventListener('dragover', e => {
+        const rect = body.getBoundingClientRect();
+        const y = e.clientY - rect.top;
+        if (y < AUTO_SCROLL_ZONE) {
+          autoScrollBody = body;
+          autoScrollDir = -1;
+          startAutoScroll();
+        } else if (y > rect.height - AUTO_SCROLL_ZONE) {
+          autoScrollBody = body;
+          autoScrollDir = 1;
+          startAutoScroll();
+        } else {
+          stopAutoScroll();
+        }
+      });
+      body.addEventListener('dragleave', stopAutoScroll);
+      body.addEventListener('drop', stopAutoScroll);
+    }
+
+    document.querySelectorAll('.column-body').forEach(attachAutoScrollToBody);
+
+    document.addEventListener('dragend', stopAutoScroll);
 
     async function handleDrop(e, newStatus, colEl) {
       e.preventDefault();
