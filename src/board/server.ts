@@ -1791,7 +1791,7 @@ function registerTaskApiRoutes(app: Hono, { ts, tts, tags, ms, cs, tbs }: BoardS
   });
 
   app.post('/api/tasks/purge', async (c) => {
-    const body = await c.req.json<{ beforeDate?: string }>().catch(() => ({ beforeDate: undefined }));
+    const body = (await c.req.json().catch(() => ({}))) as { beforeDate?: string };
     let beforeDate: string;
     if (body.beforeDate !== undefined) {
       const parsed = new Date(body.beforeDate);

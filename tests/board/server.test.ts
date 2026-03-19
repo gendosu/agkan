@@ -2495,7 +2495,7 @@ describe('createBoardApp', () => {
       );
 
       expect(res.status).toBe(200);
-      const json = await res.json<{ count: number; tasks: unknown[] }>();
+      const json = (await res.json()) as { count: number; tasks: unknown[] };
       expect(json.count).toBe(2);
       expect(json.tasks).toHaveLength(2);
     });
@@ -2516,7 +2516,7 @@ describe('createBoardApp', () => {
       );
 
       expect(res.status).toBe(200);
-      const json = await res.json<{ count: number; tasks: unknown[] }>();
+      const json = (await res.json()) as { count: number; tasks: unknown[] };
       expect(json.count).toBe(0);
     });
 
@@ -2533,7 +2533,7 @@ describe('createBoardApp', () => {
       );
 
       expect(res.status).toBe(200);
-      const json = await res.json<{ count: number; tasks: unknown[] }>();
+      const json = (await res.json()) as { count: number; tasks: unknown[] };
       expect(json.count).toBe(0);
     });
 
@@ -2554,7 +2554,7 @@ describe('createBoardApp', () => {
       );
 
       expect(res.status).toBe(200);
-      const json = await res.json<{ count: number; tasks: unknown[] }>();
+      const json = (await res.json()) as { count: number; tasks: unknown[] };
       expect(json.count).toBe(1);
     });
 
@@ -2583,7 +2583,7 @@ describe('createBoardApp', () => {
     it('should return version string in response', async () => {
       const app = createBoardApp(taskService, taskTagService, metadataService);
       const res = await app.fetch(new Request('http://localhost/api/version'));
-      const json = await res.json<{ version: string }>();
+      const json = (await res.json()) as { version: string };
 
       expect(typeof json.version).toBe('string');
       expect(json.version.length).toBeGreaterThan(0);
