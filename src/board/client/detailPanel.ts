@@ -44,7 +44,8 @@ async function loadComments(taskId: number): Promise<void> {
     const comments = data.comments || [];
     if (tabBtn) tabBtn.textContent = 'Comments (' + comments.length + ')';
     renderComments(taskId, comments);
-  } catch {
+  } catch (err) {
+    console.error('[agkan] loadComments failed for task', taskId, err);
     if (pane) pane.innerHTML = '<div style="padding:20px;font-size:12px;color:#94a3b8;">Failed to load comments</div>';
   }
 }
@@ -331,8 +332,8 @@ export function renderDetailPanel(data: TaskDetail): void {
   // Render tags section after DOM update
   loadAllTags()
     .then(() => renderTagsSection([...tags]))
-    .catch(() => {
-      // Ignore errors loading tags section
+    .catch((err) => {
+      console.error('[agkan] renderDetailPanel tags failed', err);
     });
 
   // Load comments into the comments tab
@@ -355,7 +356,8 @@ export async function openTaskDetail(taskId: string): Promise<void> {
       detailPanel.style.width = preferredWidth + 'px';
       detailPanel.classList.add('open');
     }
-  } catch {
+  } catch (err) {
+    console.error('[agkan] openTaskDetail failed for task', taskId, err);
     showToast('Failed to load task details');
   }
 }
