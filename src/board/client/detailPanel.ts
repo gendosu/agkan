@@ -1,6 +1,6 @@
 // Detail panel functionality
 
-import { TaskDetail } from './types';
+import type { TaskDetail } from './types';
 import { escapeHtmlClient, relativeTime, showToast } from './utils';
 import { loadAllTags, renderTagsSection, registerGetDetailTaskId } from './tags';
 import { refreshBoardCards, setLastUpdatedAt, registerDetailPanelCallbacks } from './boardPolling';
