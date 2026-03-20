@@ -1,8 +1,9 @@
+import * as fs from 'fs';
+import * as path from 'path';
 import { Task, TaskStatus, PRIORITIES, PRIORITY_ORDER } from '../models';
 import { Tag } from '../models/Tag';
 import { StorageProvider } from '../db/types/storage';
 import { BOARD_STYLES } from './boardStyles';
-import { BOARD_SCRIPT } from './boardScript';
 
 export const STATUSES: TaskStatus[] = ['icebox', 'backlog', 'ready', 'in_progress', 'review', 'done', 'closed'];
 
@@ -132,13 +133,30 @@ function getPurgeAndVersionModals(): string {
   </div>`;
 }
 
+function loadClientBundle(): string {
+  // Try resolved path (works in compiled dist/ and in development)
+  const candidates = [
+    path.join(__dirname, 'client', 'board.js'),
+    path.join(__dirname, '..', '..', 'dist', 'board', 'client', 'board.js'),
+  ];
+  for (const bundlePath of candidates) {
+    try {
+      return fs.readFileSync(bundlePath, 'utf8');
+    } catch {
+      // Try next candidate
+    }
+  }
+  throw new Error(`Client bundle not found. Tried: ${candidates.join(', ')}. Run 'npm run build' to generate it.`);
+}
+
 function getBoardBodyStatic(): string {
+  const clientBundle = loadClientBundle();
   const script = `
     const statusColors = ${JSON.stringify(STATUS_COLORS)};
     const allStatuses = ${JSON.stringify(STATUSES)};
     const statusLabels = ${JSON.stringify(STATUS_LABELS)};
     const allPriorities = ${JSON.stringify(PRIORITIES)};
-    ${BOARD_SCRIPT}`;
+    ${clientBundle}`;
 
   return `${getAddTaskModal()}${getContextMenuAndToast()}${getPurgeAndVersionModals()}
   <script>${script}
