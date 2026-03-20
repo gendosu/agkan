@@ -6,6 +6,10 @@ if [ -d /workspace/node_modules ] && [ "$(stat -c '%U' /workspace/node_modules)"
   sudo chown -R node:node /workspace/node_modules
 fi
 
+# Create directories that would otherwise be created as root-owned
+mkdir -p /workspace/dist /workspace/tmp
+touch /workspace/.eslintcache
+
 npm install
 sudo npm link
 
