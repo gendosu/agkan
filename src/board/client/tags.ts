@@ -30,8 +30,8 @@ export function renderTagsSection(currentTags: Tag[]): void {
   container.innerHTML =
     '<div class="tag-select-wrapper"><div class="tag-select-control" id="tag-select-control"></div><div class="tag-select-dropdown" id="tag-select-dropdown"></div></div>';
 
-  const control = document.getElementById('tag-select-control') as HTMLElement | null;
-  const dropdown = document.getElementById('tag-select-dropdown') as HTMLElement | null;
+  const control = document.getElementById('tag-select-control') as HTMLElement;
+  const dropdown = document.getElementById('tag-select-dropdown') as HTMLElement;
   if (!control || !dropdown) return;
 
   let focusedOptionIndex = -1;
