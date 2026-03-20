@@ -252,6 +252,347 @@ describe('renderDetailPanel - metadata and relations', () => {
   });
 });
 
+describe('comment event delegation - no global window functions', () => {
+  beforeEach(() => {
+    vi.resetModules();
+    setupMinimalBoardDOM();
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('does not expose openAddCommentForm as a global window function', async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ comments: [] }),
+    });
+
+    await import('../../../src/board/client/detailPanel');
+
+    expect((window as unknown as Record<string, unknown>).openAddCommentForm).toBeUndefined();
+  });
+
+  it('does not expose closeAddCommentForm as a global window function', async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ comments: [] }),
+    });
+
+    await import('../../../src/board/client/detailPanel');
+
+    expect((window as unknown as Record<string, unknown>).closeAddCommentForm).toBeUndefined();
+  });
+
+  it('does not expose startCommentEdit as a global window function', async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ comments: [] }),
+    });
+
+    await import('../../../src/board/client/detailPanel');
+
+    expect((window as unknown as Record<string, unknown>).startCommentEdit).toBeUndefined();
+  });
+
+  it('does not expose cancelCommentEdit as a global window function', async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ comments: [] }),
+    });
+
+    await import('../../../src/board/client/detailPanel');
+
+    expect((window as unknown as Record<string, unknown>).cancelCommentEdit).toBeUndefined();
+  });
+
+  it('does not expose saveCommentEdit as a global window function', async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ comments: [] }),
+    });
+
+    await import('../../../src/board/client/detailPanel');
+
+    expect((window as unknown as Record<string, unknown>).saveCommentEdit).toBeUndefined();
+  });
+
+  it('does not expose deleteComment as a global window function', async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ comments: [] }),
+    });
+
+    await import('../../../src/board/client/detailPanel');
+
+    expect((window as unknown as Record<string, unknown>).deleteComment).toBeUndefined();
+  });
+
+  it('does not expose submitComment as a global window function', async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ comments: [] }),
+    });
+
+    await import('../../../src/board/client/detailPanel');
+
+    expect((window as unknown as Record<string, unknown>).submitComment).toBeUndefined();
+  });
+});
+
+describe('comment event delegation - rendered HTML uses data-action', () => {
+  beforeEach(() => {
+    vi.resetModules();
+    setupMinimalBoardDOM();
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('renders add-comment trigger button with data-action instead of onclick', async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ comments: [] }),
+    });
+
+    const { renderDetailPanel } = await import('../../../src/board/client/detailPanel');
+    renderDetailPanel(makeTaskDetail());
+
+    await new Promise((resolve) => setTimeout(resolve, 50));
+
+    const trigger = document.getElementById('add-comment-trigger');
+    expect(trigger).not.toBeNull();
+    expect(trigger?.getAttribute('onclick')).toBeNull();
+    expect(trigger?.dataset.action).toBe('open-add-comment');
+  });
+
+  it('renders add-comment cancel button with data-action instead of onclick', async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ comments: [] }),
+    });
+
+    const { renderDetailPanel } = await import('../../../src/board/client/detailPanel');
+    renderDetailPanel(makeTaskDetail());
+
+    await new Promise((resolve) => setTimeout(resolve, 50));
+
+    const cancelBtn = document.querySelector('.add-comment-cancel') as HTMLButtonElement | null;
+    expect(cancelBtn).not.toBeNull();
+    expect(cancelBtn?.getAttribute('onclick')).toBeNull();
+    expect(cancelBtn?.dataset.action).toBe('close-add-comment');
+  });
+
+  it('renders add-comment submit button with data-action instead of onclick', async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ comments: [] }),
+    });
+
+    const { renderDetailPanel } = await import('../../../src/board/client/detailPanel');
+    renderDetailPanel(makeTaskDetail());
+
+    await new Promise((resolve) => setTimeout(resolve, 50));
+
+    const submitBtn = document.querySelector('.add-comment-submit') as HTMLButtonElement | null;
+    expect(submitBtn).not.toBeNull();
+    expect(submitBtn?.getAttribute('onclick')).toBeNull();
+    expect(submitBtn?.dataset.action).toBe('submit-comment');
+  });
+
+  it('renders comment edit button with data-action and data-comment-id instead of onclick', async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: () =>
+        Promise.resolve({
+          comments: [{ id: 42, content: 'Hello', author: 'Alice', created_at: '2026-01-01T00:00:00.000Z' }],
+        }),
+    });
+
+    const { renderDetailPanel } = await import('../../../src/board/client/detailPanel');
+    renderDetailPanel(makeTaskDetail());
+
+    await new Promise((resolve) => setTimeout(resolve, 50));
+
+    const editBtn = document.querySelector('[data-action="start-comment-edit"]') as HTMLElement | null;
+    expect(editBtn).not.toBeNull();
+    expect(editBtn?.getAttribute('onclick')).toBeNull();
+    expect(editBtn?.dataset.commentId).toBe('42');
+  });
+
+  it('renders comment delete button with data-action and data-comment-id instead of onclick', async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: () =>
+        Promise.resolve({
+          comments: [{ id: 42, content: 'Hello', author: 'Alice', created_at: '2026-01-01T00:00:00.000Z' }],
+        }),
+    });
+
+    const { renderDetailPanel } = await import('../../../src/board/client/detailPanel');
+    renderDetailPanel(makeTaskDetail());
+
+    await new Promise((resolve) => setTimeout(resolve, 50));
+
+    const deleteBtn = document.querySelector('[data-action="delete-comment"]') as HTMLElement | null;
+    expect(deleteBtn).not.toBeNull();
+    expect(deleteBtn?.getAttribute('onclick')).toBeNull();
+    expect(deleteBtn?.dataset.commentId).toBe('42');
+  });
+
+  it('renders comment save button with data-action and data-comment-id instead of onclick', async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: () =>
+        Promise.resolve({
+          comments: [{ id: 42, content: 'Hello', author: 'Alice', created_at: '2026-01-01T00:00:00.000Z' }],
+        }),
+    });
+
+    const { renderDetailPanel } = await import('../../../src/board/client/detailPanel');
+    renderDetailPanel(makeTaskDetail());
+
+    await new Promise((resolve) => setTimeout(resolve, 50));
+
+    const saveBtn = document.querySelector('[data-action="save-comment-edit"]') as HTMLElement | null;
+    expect(saveBtn).not.toBeNull();
+    expect(saveBtn?.getAttribute('onclick')).toBeNull();
+    expect(saveBtn?.dataset.commentId).toBe('42');
+  });
+
+  it('renders comment cancel-edit button with data-action and data-comment-id instead of onclick', async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: () =>
+        Promise.resolve({
+          comments: [{ id: 42, content: 'Hello', author: 'Alice', created_at: '2026-01-01T00:00:00.000Z' }],
+        }),
+    });
+
+    const { renderDetailPanel } = await import('../../../src/board/client/detailPanel');
+    renderDetailPanel(makeTaskDetail());
+
+    await new Promise((resolve) => setTimeout(resolve, 50));
+
+    const cancelEditBtn = document.querySelector('[data-action="cancel-comment-edit"]') as HTMLElement | null;
+    expect(cancelEditBtn).not.toBeNull();
+    expect(cancelEditBtn?.getAttribute('onclick')).toBeNull();
+    expect(cancelEditBtn?.dataset.commentId).toBe('42');
+  });
+});
+
+describe('comment event delegation - interactions via data-action', () => {
+  beforeEach(() => {
+    vi.resetModules();
+    setupMinimalBoardDOM();
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('clicking open-add-comment trigger shows the form', async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ comments: [] }),
+    });
+
+    const { renderDetailPanel } = await import('../../../src/board/client/detailPanel');
+    renderDetailPanel(makeTaskDetail());
+    await new Promise((resolve) => setTimeout(resolve, 50));
+
+    const trigger = document.getElementById('add-comment-trigger') as HTMLElement;
+    const form = document.getElementById('add-comment-form') as HTMLElement;
+
+    expect(trigger).not.toBeNull();
+    expect(form).not.toBeNull();
+
+    trigger.click();
+
+    expect(trigger.style.display).toBe('none');
+    expect(form.classList.contains('open')).toBe(true);
+  });
+
+  it('clicking close-add-comment hides the form', async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ comments: [] }),
+    });
+
+    const { renderDetailPanel } = await import('../../../src/board/client/detailPanel');
+    renderDetailPanel(makeTaskDetail());
+    await new Promise((resolve) => setTimeout(resolve, 50));
+
+    const trigger = document.getElementById('add-comment-trigger') as HTMLElement;
+    const form = document.getElementById('add-comment-form') as HTMLElement;
+    const cancelBtn = document.querySelector('[data-action="close-add-comment"]') as HTMLElement;
+
+    // First open the form
+    trigger.click();
+    expect(form.classList.contains('open')).toBe(true);
+
+    // Now close it
+    cancelBtn.click();
+    expect(form.classList.contains('open')).toBe(false);
+    expect(trigger.style.display).toBe('');
+  });
+
+  it('clicking start-comment-edit shows edit area', async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: () =>
+        Promise.resolve({
+          comments: [{ id: 99, content: 'Test', author: 'Bob', created_at: '2026-01-01T00:00:00.000Z' }],
+        }),
+    });
+
+    const { renderDetailPanel } = await import('../../../src/board/client/detailPanel');
+    renderDetailPanel(makeTaskDetail());
+    await new Promise((resolve) => setTimeout(resolve, 50));
+
+    const editBtn = document.querySelector('[data-action="start-comment-edit"]') as HTMLElement;
+    expect(editBtn).not.toBeNull();
+
+    editBtn.click();
+
+    const contentEl = document.getElementById('comment-content-99');
+    const editWrapper = document.getElementById('comment-edit-99');
+
+    expect(contentEl?.style.display).toBe('none');
+    expect(editWrapper?.style.display).toBe('block');
+  });
+
+  it('clicking cancel-comment-edit hides edit area', async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: () =>
+        Promise.resolve({
+          comments: [{ id: 99, content: 'Test', author: 'Bob', created_at: '2026-01-01T00:00:00.000Z' }],
+        }),
+    });
+
+    const { renderDetailPanel } = await import('../../../src/board/client/detailPanel');
+    renderDetailPanel(makeTaskDetail());
+    await new Promise((resolve) => setTimeout(resolve, 50));
+
+    // First start editing
+    const editBtn = document.querySelector('[data-action="start-comment-edit"]') as HTMLElement;
+    editBtn.click();
+
+    const contentEl = document.getElementById('comment-content-99');
+    const editWrapper = document.getElementById('comment-edit-99');
+    expect(editWrapper?.style.display).toBe('block');
+
+    // Now cancel
+    const cancelEditBtn = document.querySelector('[data-action="cancel-comment-edit"]') as HTMLElement;
+    cancelEditBtn.click();
+
+    expect(contentEl?.style.display).toBe('');
+    expect(editWrapper?.style.display).toBe('none');
+  });
+});
+
 describe('closeDetailPanel', () => {
   beforeEach(() => {
     vi.resetModules();
