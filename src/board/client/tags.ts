@@ -32,6 +32,8 @@ export function renderTagsSection(currentTags: Tag[]): void {
 
   const control = document.getElementById('tag-select-control') as HTMLElement;
   const dropdown = document.getElementById('tag-select-dropdown') as HTMLElement;
+  if (!control || !dropdown) return;
+
   let focusedOptionIndex = -1;
   let inputValue = '';
 

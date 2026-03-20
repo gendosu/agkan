@@ -329,7 +329,11 @@ export function renderDetailPanel(data: TaskDetail): void {
   }
 
   // Render tags section after DOM update
-  loadAllTags().then(() => renderTagsSection([...tags]));
+  loadAllTags()
+    .then(() => renderTagsSection([...tags]))
+    .catch(() => {
+      // Ignore errors loading tags section
+    });
 
   // Load comments into the comments tab
   loadComments(task.id);
