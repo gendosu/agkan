@@ -33,13 +33,13 @@ function setupMinimalBoardDOM(): void {
   `;
 
   // Set up window globals expected by renderDetailPanel
-  (window as Record<string, unknown>).allStatuses = ['pending', 'in_progress', 'completed'];
-  (window as Record<string, unknown>).statusLabels = {
+  (window as unknown as Record<string, unknown>).allStatuses = ['pending', 'in_progress', 'completed'];
+  (window as unknown as Record<string, unknown>).statusLabels = {
     pending: 'Pending',
     in_progress: 'In Progress',
     completed: 'Completed',
   };
-  (window as Record<string, unknown>).allPriorities = ['low', 'medium', 'high'];
+  (window as unknown as Record<string, unknown>).allPriorities = ['low', 'medium', 'high'];
 }
 
 function makeTaskDetail(overrides = {}) {
