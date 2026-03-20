@@ -14,7 +14,7 @@ BOARD_PID=""
 kill_port() {
     local port="$1"
     local pids
-    pids=$(ss -tlnp "sport = :$port" 2>/dev/null | grep -oP 'pid=\K[0-9]+' || true)
+    pids=$(lsof -ti tcp:$port 2>/dev/null || true)
     if [ -n "$pids" ]; then
         echo "$pids" | xargs kill -9 2>/dev/null || true
         sleep 0.5
