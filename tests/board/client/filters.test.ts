@@ -6,7 +6,7 @@
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { isFiltersActive, applyFilters, renderFilterTagPills } from '../../../src/board/client/filters';
-import { activeFilters } from '../../../src/board/client/boardPolling';
+import { activeFilters, buildFilterParams } from '../../../src/board/client/boardPolling';
 
 // Mock boardPolling.refreshBoardCards to avoid actual fetch calls
 vi.mock('../../../src/board/client/boardPolling', async (importOriginal) => {
@@ -42,6 +42,7 @@ beforeEach(() => {
   activeFilters.tagIds = [];
   activeFilters.priorities = [];
   activeFilters.assignee = '';
+  activeFilters.searchText = '';
   setupDOM();
 });
 
@@ -69,6 +70,30 @@ describe('isFiltersActive', () => {
     activeFilters.priorities = ['high'];
     activeFilters.priorities = [];
     expect(isFiltersActive()).toBe(false);
+  });
+
+  it('returns true when searchText is set', () => {
+    activeFilters.searchText = 'login';
+    expect(isFiltersActive()).toBe(true);
+  });
+
+  it('returns false when searchText is empty string', () => {
+    activeFilters.searchText = '';
+    expect(isFiltersActive()).toBe(false);
+  });
+});
+
+describe('buildFilterParams with search', () => {
+  it('includes search param when searchText is set', () => {
+    activeFilters.searchText = 'login';
+    const params = buildFilterParams();
+    expect(params.get('search')).toBe('login');
+  });
+
+  it('does not include search param when searchText is empty', () => {
+    activeFilters.searchText = '';
+    const params = buildFilterParams();
+    expect(params.has('search')).toBe(false);
   });
 });
 

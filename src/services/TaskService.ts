@@ -111,7 +111,13 @@ export class TaskService {
   private applyListFilters(
     query: string,
     params: (string | number)[],
-    filters: { status?: TaskStatus | TaskStatus[]; author?: string; assignees?: string; priority?: string | string[] }
+    filters: {
+      status?: TaskStatus | TaskStatus[];
+      author?: string;
+      assignees?: string;
+      priority?: string | string[];
+      search?: string;
+    }
   ): { query: string; params: (string | number)[] } {
     if (filters.status) {
       const statuses = Array.isArray(filters.status) ? filters.status : [filters.status];
@@ -137,6 +143,12 @@ export class TaskService {
         query += ` AND priority IN (${priorities.map(() => '?').join(', ')})`;
         params.push(...priorities);
       }
+    }
+
+    if (filters.search) {
+      query += ' AND (title LIKE ? OR body LIKE ?)';
+      const pattern = `%${filters.search}%`;
+      params.push(pattern, pattern);
     }
 
     return { query, params };
@@ -171,6 +183,7 @@ export class TaskService {
       assignees?: string;
       tagIds?: number[];
       priority?: string | string[];
+      search?: string;
     },
     sort?: SortField,
     order?: SortOrder

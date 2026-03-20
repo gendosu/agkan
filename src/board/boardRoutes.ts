@@ -251,9 +251,14 @@ export function registerConfigApiRoutes(app: Hono, configDir: string): void {
   });
 }
 
-type BoardCardFilters = { tagIds?: number[]; priority?: string[]; assignees?: string };
+type BoardCardFilters = { tagIds?: number[]; priority?: string[]; assignees?: string; search?: string };
 
-function parseBoardCardFilters(query: { tags?: string; priority?: string; assignee?: string }): BoardCardFilters {
+function parseBoardCardFilters(query: {
+  tags?: string;
+  priority?: string;
+  assignee?: string;
+  search?: string;
+}): BoardCardFilters {
   const filters: BoardCardFilters = {};
   if (query.tags) {
     const tagIds = query.tags
@@ -272,6 +277,9 @@ function parseBoardCardFilters(query: { tags?: string; priority?: string; assign
   if (query.assignee && query.assignee.trim()) {
     filters.assignees = query.assignee.trim();
   }
+  if (query.search && query.search.trim()) {
+    filters.search = query.search.trim();
+  }
   return filters;
 }
 
@@ -287,6 +295,7 @@ export function registerBoardRoutes(app: Hono, services: BoardServices): void {
       tags: c.req.query('tags'),
       priority: c.req.query('priority'),
       assignee: c.req.query('assignee'),
+      search: c.req.query('search'),
     });
     const tasksByStatus = buildTasksByStatus(ts.listTasks(filters, 'id', 'asc'));
     const columns = buildBoardCardsPayload(tasksByStatus, tts.getAllTaskTags());

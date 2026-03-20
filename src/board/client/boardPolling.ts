@@ -14,7 +14,7 @@ export function setLastUpdatedAt(val: string | null): void {
   lastUpdatedAt = val;
 }
 
-export const activeFilters: ActiveFilters = { tagIds: [], priorities: [], assignee: '' };
+export const activeFilters: ActiveFilters = { tagIds: [], priorities: [], assignee: '', searchText: '' };
 
 export function buildFilterParams(): URLSearchParams {
   const params = new URLSearchParams();
@@ -26,6 +26,9 @@ export function buildFilterParams(): URLSearchParams {
   }
   if (activeFilters.assignee) {
     params.set('assignee', activeFilters.assignee);
+  }
+  if (activeFilters.searchText) {
+    params.set('search', activeFilters.searchText);
   }
   return params;
 }

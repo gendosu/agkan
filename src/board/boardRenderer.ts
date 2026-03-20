@@ -185,6 +185,9 @@ export function renderBoard(
   <header><h1>agkan board</h1>${titleHtml}<div class="burger-menu-wrapper"><button class="burger-menu-btn" id="burger-menu-btn" title="Menu" aria-label="Menu"><span></span><span></span><span></span></button><div class="burger-menu-dropdown" id="burger-menu-dropdown"><div class="burger-menu-item danger" id="burger-purge-tasks">&#128465; Purge Tasks</div><div class="burger-menu-item" id="burger-version-info">&#8505; Version Info</div></div></div></header>
   <div class="filter-bar" id="filter-bar">
     <div class="filter-group">
+      <input type="search" id="filter-search" class="filter-search-input" placeholder="Search tasks...">
+    </div>
+    <div class="filter-group">
       <span class="filter-label">Priority</span>
       <button class="filter-priority-btn" data-priority="critical">critical</button>
       <button class="filter-priority-btn" data-priority="high">high</button>

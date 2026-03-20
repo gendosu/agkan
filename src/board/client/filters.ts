@@ -4,7 +4,12 @@ import { activeFilters, refreshBoardCards } from './boardPolling';
 import { allAvailableTags, loadAllTags } from './tags';
 
 export function isFiltersActive(): boolean {
-  return activeFilters.priorities.length > 0 || activeFilters.tagIds.length > 0 || activeFilters.assignee !== '';
+  return (
+    activeFilters.priorities.length > 0 ||
+    activeFilters.tagIds.length > 0 ||
+    activeFilters.assignee !== '' ||
+    activeFilters.searchText !== ''
+  );
 }
 
 export function applyFilters(): void {
@@ -64,6 +69,19 @@ export function initFilterBar(): void {
     });
   });
 
+  // Search text input with debounce
+  const searchInput = document.getElementById('filter-search') as HTMLInputElement | null;
+  let searchTimer: ReturnType<typeof setTimeout> | null = null;
+  if (searchInput) {
+    searchInput.addEventListener('input', () => {
+      if (searchTimer) clearTimeout(searchTimer);
+      searchTimer = setTimeout(() => {
+        activeFilters.searchText = searchInput.value.trim();
+        applyFilters();
+      }, 300);
+    });
+  }
+
   // Assignee input with debounce
   const assigneeInput = document.getElementById('filter-assignee') as HTMLInputElement | null;
   let assigneeTimer: ReturnType<typeof setTimeout> | null = null;
@@ -84,9 +102,11 @@ export function initFilterBar(): void {
       activeFilters.tagIds = [];
       activeFilters.priorities = [];
       activeFilters.assignee = '';
+      activeFilters.searchText = '';
       document
         .querySelectorAll<HTMLButtonElement>('.filter-priority-btn')
         .forEach((btn) => btn.classList.remove('active'));
+      if (searchInput) searchInput.value = '';
       if (assigneeInput) assigneeInput.value = '';
       renderFilterTagPills();
       applyFilters();
