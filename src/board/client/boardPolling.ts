@@ -49,6 +49,50 @@ export function registerDetailPanelCallbacks(callbacks: {
   _getDetailTaskId = callbacks.getDetailTaskId;
 }
 
+function attachCardListeners(body: HTMLElement): void {
+  body.querySelectorAll<HTMLElement>('.card').forEach((card) => {
+    attachDragListeners(card);
+    card.addEventListener('click', async (e: MouseEvent) => {
+      if (e.defaultPrevented) return;
+      if (_openTaskDetail) await _openTaskDetail(card.dataset.id!);
+    });
+  });
+}
+
+function updateColumnHtml(col: { status: string; html: string; count: number }): void {
+  const body = document.getElementById('col-' + col.status);
+  if (!body) return;
+  body.innerHTML = col.html;
+  const colEl = body.closest('.column');
+  if (colEl) {
+    const countEl = colEl.querySelector('.column-count');
+    if (countEl) countEl.textContent = String(col.count);
+  }
+  attachCardListeners(body);
+  attachAutoScrollToBody(body);
+}
+
+function isEditingDetailPanel(): boolean {
+  const editableFields = ['detail-edit-title', 'detail-edit-body', 'detail-edit-status', 'detail-edit-priority'];
+  return editableFields.some((id) => document.activeElement && document.activeElement.id === id);
+}
+
+async function refreshOpenDetailPanel(detailTaskId: number): Promise<void> {
+  if (isEditingDetailPanel()) {
+    if (_showUpdateWarning) _showUpdateWarning();
+    return;
+  }
+  try {
+    const taskRes = await fetch('/api/tasks/' + detailTaskId);
+    if (taskRes.ok) {
+      const taskData = (await taskRes.json()) as TaskDetail;
+      if (_renderDetailPanel) _renderDetailPanel(taskData);
+    }
+  } catch {
+    // Ignore network errors during detail panel refresh
+  }
+}
+
 export async function refreshBoardCards(): Promise<void> {
   const filterParams = buildFilterParams();
   const url = '/api/board/cards' + (filterParams.toString() ? '?' + filterParams.toString() : '');
@@ -56,46 +100,12 @@ export async function refreshBoardCards(): Promise<void> {
     const res = await fetch(url);
     if (!res.ok) return;
     const data = (await res.json()) as { columns: Array<{ status: string; html: string; count: number }> };
-    const columns: Array<{ status: string; html: string; count: number }> = data.columns;
-    columns.forEach((col) => {
-      const body = document.getElementById('col-' + col.status);
-      if (!body) return;
-      body.innerHTML = col.html;
-      const colEl = body.closest('.column');
-      if (colEl) {
-        const countEl = colEl.querySelector('.column-count');
-        if (countEl) countEl.textContent = String(col.count);
-      }
-      // Re-attach drag event listeners to new cards
-      body.querySelectorAll<HTMLElement>('.card').forEach((card) => {
-        attachDragListeners(card);
-        card.addEventListener('click', async (e: MouseEvent) => {
-          if (e.defaultPrevented) return;
-          if (_openTaskDetail) await _openTaskDetail(card.dataset.id!);
-        });
-      });
-      // Re-attach auto-scroll
-      attachAutoScrollToBody(body);
-    });
+    data.columns.forEach(updateColumnHtml);
 
     // If detail panel is open, refresh its content if the task was updated
     const detailTaskId = _getDetailTaskId ? _getDetailTaskId() : null;
     if (detailTaskId !== null) {
-      const editableFields = ['detail-edit-title', 'detail-edit-body', 'detail-edit-status', 'detail-edit-priority'];
-      const isEditing = editableFields.some((id) => document.activeElement && document.activeElement.id === id);
-      if (isEditing) {
-        if (_showUpdateWarning) _showUpdateWarning();
-      } else {
-        try {
-          const taskRes = await fetch('/api/tasks/' + detailTaskId);
-          if (taskRes.ok) {
-            const taskData = (await taskRes.json()) as TaskDetail;
-            if (_renderDetailPanel) _renderDetailPanel(taskData);
-          }
-        } catch {
-          // Ignore network errors during detail panel refresh
-        }
-      }
+      await refreshOpenDetailPanel(detailTaskId);
     }
   } catch {
     // Ignore network errors during card refresh

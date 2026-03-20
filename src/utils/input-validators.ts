@@ -16,50 +16,63 @@ export interface ValidationError {
 }
 
 /**
+ * Validate the title field (required, max 200 chars)
+ */
+function validateTitleField(title: string): ValidationError | null {
+  if (!title || title.trim().length === 0) {
+    return { field: 'title', message: 'Title is required' };
+  }
+  if (title.length > 200) {
+    return { field: 'title', message: 'Title must not exceed 200 characters' };
+  }
+  return null;
+}
+
+/**
+ * Validate the body field (optional, max 10000 chars)
+ */
+function validateBodyField(body: string | null | undefined): ValidationError | null {
+  if (body && body.length > 10000) {
+    return { field: 'body', message: 'Body must not exceed 10000 characters' };
+  }
+  return null;
+}
+
+/**
+ * Validate the author field (optional, max 100 chars)
+ */
+function validateAuthorField(author: string | null | undefined): ValidationError | null {
+  if (author && author.length > 100) {
+    return { field: 'author', message: 'Author must not exceed 100 characters' };
+  }
+  return null;
+}
+
+/**
+ * Validate the assignees field (optional, max 500 chars)
+ */
+function validateAssigneesField(assignees: string | null | undefined): ValidationError | null {
+  if (assignees && assignees.length > 500) {
+    return { field: 'assignees', message: 'Assignees must not exceed 500 characters' };
+  }
+  return null;
+}
+
+/**
  * Validate task input for security and length constraints
  * @param input - Task creation input to validate
  * @returns Array of validation errors (empty if valid)
  */
 export function validateTaskInput(input: CreateTaskInput): ValidationError[] {
   const errors: ValidationError[] = [];
-
-  // Validate title (required, max 200 chars)
-  if (!input.title || input.title.trim().length === 0) {
-    errors.push({
-      field: 'title',
-      message: 'Title is required',
-    });
-  } else if (input.title.length > 200) {
-    errors.push({
-      field: 'title',
-      message: 'Title must not exceed 200 characters',
-    });
-  }
-
-  // Validate body (optional, max 10000 chars)
-  if (input.body && input.body.length > 10000) {
-    errors.push({
-      field: 'body',
-      message: 'Body must not exceed 10000 characters',
-    });
-  }
-
-  // Validate author (optional, max 100 chars)
-  if (input.author && input.author.length > 100) {
-    errors.push({
-      field: 'author',
-      message: 'Author must not exceed 100 characters',
-    });
-  }
-
-  // Validate assignees (optional, max 500 chars)
-  if (input.assignees && input.assignees.length > 500) {
-    errors.push({
-      field: 'assignees',
-      message: 'Assignees must not exceed 500 characters',
-    });
-  }
-
+  const titleError = validateTitleField(input.title);
+  if (titleError) errors.push(titleError);
+  const bodyError = validateBodyField(input.body);
+  if (bodyError) errors.push(bodyError);
+  const authorError = validateAuthorField(input.author);
+  if (authorError) errors.push(authorError);
+  const assigneesError = validateAssigneesField(input.assignees);
+  if (assigneesError) errors.push(assigneesError);
   return errors;
 }
 
@@ -70,46 +83,16 @@ export function validateTaskInput(input: CreateTaskInput): ValidationError[] {
  */
 export function validateTaskUpdateInput(input: UpdateTaskInput): ValidationError[] {
   const errors: ValidationError[] = [];
-
-  // Validate title if being updated (required when provided, max 200 chars)
   if (input.title !== undefined) {
-    if (!input.title || input.title.trim().length === 0) {
-      errors.push({
-        field: 'title',
-        message: 'Title is required',
-      });
-    } else if (input.title.length > 200) {
-      errors.push({
-        field: 'title',
-        message: 'Title must not exceed 200 characters',
-      });
-    }
+    const titleError = validateTitleField(input.title);
+    if (titleError) errors.push(titleError);
   }
-
-  // Validate body if being updated (optional, max 10000 chars)
-  if (input.body !== undefined && input.body !== null && input.body.length > 10000) {
-    errors.push({
-      field: 'body',
-      message: 'Body must not exceed 10000 characters',
-    });
-  }
-
-  // Validate author if being updated (optional, max 100 chars)
-  if (input.author !== undefined && input.author !== null && input.author.length > 100) {
-    errors.push({
-      field: 'author',
-      message: 'Author must not exceed 100 characters',
-    });
-  }
-
-  // Validate assignees if being updated (optional, max 500 chars)
-  if (input.assignees !== undefined && input.assignees !== null && input.assignees.length > 500) {
-    errors.push({
-      field: 'assignees',
-      message: 'Assignees must not exceed 500 characters',
-    });
-  }
-
+  const bodyError = validateBodyField(input.body);
+  if (bodyError) errors.push(bodyError);
+  const authorError = validateAuthorField(input.author);
+  if (authorError) errors.push(authorError);
+  const assigneesError = validateAssigneesField(input.assignees);
+  if (assigneesError) errors.push(assigneesError);
   return errors;
 }
 

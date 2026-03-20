@@ -50,6 +50,51 @@ async function loadComments(taskId: number): Promise<void> {
   }
 }
 
+function renderCommentItemHtml(
+  comment: { id: number; content: string; author?: string | null; created_at?: string },
+  taskId: number
+): string {
+  const authorText = comment.author ? escapeHtmlClient(comment.author) : 'Anonymous';
+  const dateRel = relativeTime(comment.created_at);
+  const dateAbs = escapeHtmlClient(comment.created_at);
+  const contentText = escapeHtmlClient(comment.content);
+  let html = '<div class="comment-item" data-comment-id="' + comment.id + '">';
+  html += '<div class="comment-meta">';
+  html += '<span class="comment-author">' + authorText + '</span>';
+  html += '<span class="comment-date" title="' + dateAbs + '">' + dateRel + '</span>';
+  html += '<span class="comment-actions">';
+  html +=
+    '<button class="comment-action-btn" title="Edit" onclick="startCommentEdit(' + comment.id + ')">&#9998;</button>';
+  html +=
+    '<button class="comment-action-btn danger" title="Delete" onclick="deleteComment(' +
+    comment.id +
+    ',' +
+    taskId +
+    ')">&#128465;</button>';
+  html += '</span></div>';
+  html += '<div class="comment-content" id="comment-content-' + comment.id + '">' + contentText + '</div>';
+  html += '<div id="comment-edit-' + comment.id + '" style="display:none;">';
+  html +=
+    '<textarea class="comment-edit-area" id="comment-edit-area-' + comment.id + '">' + contentText + '</textarea>';
+  html += '<div class="comment-edit-actions">';
+  html += '<button class="comment-btn" onclick="saveCommentEdit(' + comment.id + ',' + taskId + ')">Save</button>';
+  html += '<button class="comment-btn" onclick="cancelCommentEdit(' + comment.id + ')">Cancel</button>';
+  html += '</div></div></div>';
+  return html;
+}
+
+function renderAddCommentFormHtml(taskId: number): string {
+  let html =
+    '<button class="add-comment-trigger" id="add-comment-trigger" onclick="openAddCommentForm()">+ Add comment...</button>';
+  html += '<div class="add-comment-form" id="add-comment-form">';
+  html += '<textarea class="add-comment-textarea" id="add-comment-text" placeholder="Write a comment..."></textarea>';
+  html += '<div>';
+  html += '<button class="add-comment-submit" onclick="submitComment(' + taskId + ')">Add Comment</button>';
+  html += '<button class="add-comment-cancel" onclick="closeAddCommentForm()">Cancel</button>';
+  html += '</div></div>';
+  return html;
+}
+
 function renderComments(
   taskId: number,
   comments: Array<{
@@ -64,46 +109,10 @@ function renderComments(
   pane.style.padding = '16px 20px';
 
   let html = '';
-
-  comments.forEach(function (comment) {
-    const authorText = comment.author ? escapeHtmlClient(comment.author) : 'Anonymous';
-    const dateRel = relativeTime(comment.created_at);
-    const dateAbs = escapeHtmlClient(comment.created_at);
-    const contentText = escapeHtmlClient(comment.content);
-    html += '<div class="comment-item" data-comment-id="' + comment.id + '">';
-    html += '<div class="comment-meta">';
-    html += '<span class="comment-author">' + authorText + '</span>';
-    html += '<span class="comment-date" title="' + dateAbs + '">' + dateRel + '</span>';
-    html += '<span class="comment-actions">';
-    html +=
-      '<button class="comment-action-btn" title="Edit" onclick="startCommentEdit(' + comment.id + ')">&#9998;</button>';
-    html +=
-      '<button class="comment-action-btn danger" title="Delete" onclick="deleteComment(' +
-      comment.id +
-      ',' +
-      taskId +
-      ')">&#128465;</button>';
-    html += '</span>';
-    html += '</div>';
-    html += '<div class="comment-content" id="comment-content-' + comment.id + '">' + contentText + '</div>';
-    html += '<div id="comment-edit-' + comment.id + '" style="display:none;">';
-    html +=
-      '<textarea class="comment-edit-area" id="comment-edit-area-' + comment.id + '">' + contentText + '</textarea>';
-    html += '<div class="comment-edit-actions">';
-    html += '<button class="comment-btn" onclick="saveCommentEdit(' + comment.id + ',' + taskId + ')">Save</button>';
-    html += '<button class="comment-btn" onclick="cancelCommentEdit(' + comment.id + ')">Cancel</button>';
-    html += '</div></div>';
-    html += '</div>';
+  comments.forEach((comment) => {
+    html += renderCommentItemHtml(comment, taskId);
   });
-
-  html +=
-    '<button class="add-comment-trigger" id="add-comment-trigger" onclick="openAddCommentForm()">+ Add comment...</button>';
-  html += '<div class="add-comment-form" id="add-comment-form">';
-  html += '<textarea class="add-comment-textarea" id="add-comment-text" placeholder="Write a comment..."></textarea>';
-  html += '<div>';
-  html += '<button class="add-comment-submit" onclick="submitComment(' + taskId + ')">Add Comment</button>';
-  html += '<button class="add-comment-cancel" onclick="closeAddCommentForm()">Cancel</button>';
-  html += '</div></div>';
+  html += renderAddCommentFormHtml(taskId);
 
   pane.innerHTML = html;
 }
@@ -200,122 +209,117 @@ type WindowWithGlobals = Window & typeof globalThis & Record<string, unknown>;
   }
 };
 
-export function renderDetailPanel(data: TaskDetail): void {
-  // Remove stale update-warning bar so it does not persist after reload
-  document.getElementById('detail-panel-update-warning')?.remove();
+function renderStatusField(currentStatus: string, allStatuses: string[], statusLabels: Record<string, string>): string {
+  let html = '<div class="detail-field">';
+  html += '<div class="detail-field-label">Status</div>';
+  html += '<select id="detail-edit-status" class="detail-edit-select">';
+  allStatuses.forEach((s) => {
+    const selected = s === currentStatus ? ' selected' : '';
+    html += '<option value="' + s + '"' + selected + '>' + statusLabels[s] + '</option>';
+  });
+  html += '</select></div>';
+  return html;
+}
 
-  const detailPanelTitle = document.getElementById('detail-panel-title') as HTMLElement;
+function renderPriorityField(currentPriority: string | null | undefined, allPriorities: string[]): string {
+  let html = '<div class="detail-field">';
+  html += '<div class="detail-field-label">Priority</div>';
+  html += '<select id="detail-edit-priority" class="detail-edit-select">';
+  html += '<option value="">None</option>';
+  allPriorities.forEach((p) => {
+    const selected = currentPriority === p ? ' selected' : '';
+    html += '<option value="' + p + '"' + selected + '>' + p.charAt(0).toUpperCase() + p.slice(1) + '</option>';
+  });
+  html += '</select></div>';
+  return html;
+}
 
+function renderRelationsHtml(
+  parent: { id: number; title: string } | null,
+  blockedBy: Array<{ id: number }>,
+  blocking: Array<{ id: number }>
+): string {
+  let html = '<div class="detail-relations">';
+  if (parent) {
+    html += '<div class="detail-relation-row">';
+    html += '<span class="detail-relation-label">Parent</span>';
+    html +=
+      '<div class="detail-relation-ids"><span class="detail-relation-id">#' +
+      parent.id +
+      ' ' +
+      escapeHtmlClient(parent.title) +
+      '</span></div>';
+    html += '</div>';
+  }
+  if (blockedBy.length > 0) {
+    html += '<div class="detail-relation-row"><span class="detail-relation-label">Blocked by</span>';
+    html += '<div class="detail-relation-ids">';
+    blockedBy.forEach((t) => {
+      html += '<span class="detail-relation-id">#' + t.id + '</span>';
+    });
+    html += '</div></div>';
+  }
+  if (blocking.length > 0) {
+    html += '<div class="detail-relation-row"><span class="detail-relation-label">Blocking</span>';
+    html += '<div class="detail-relation-ids">';
+    blocking.forEach((t) => {
+      html += '<span class="detail-relation-id">#' + t.id + '</span>';
+    });
+    html += '</div></div>';
+  }
+  html += '</div>';
+  return html;
+}
+
+function renderMetadataTable(metadata: Array<{ key: string; value: string }>): string {
+  const otherMeta = metadata.filter((m) => m.key !== 'priority');
+  if (otherMeta.length === 0) return '';
+  let html = '<div class="detail-field"><div class="detail-field-label">Metadata</div>';
+  html += '<table class="detail-meta-table">';
+  otherMeta.forEach((m) => {
+    html += '<tr><td>' + escapeHtmlClient(m.key) + '</td><td>' + escapeHtmlClient(m.value) + '</td></tr>';
+  });
+  html += '</table></div>';
+  return html;
+}
+
+function renderEditableTextFields(task: TaskDetail['task']): string {
+  let html = '<div class="detail-field"><div class="detail-field-label">Title</div>';
+  html +=
+    '<input id="detail-edit-title" class="detail-edit-input" type="text" value="' + escapeHtmlClient(task.title) + '">';
+  html += '</div>';
+  html += '<div class="detail-field description-field-wrapper"><div class="detail-field-label">Description</div>';
+  html +=
+    '<textarea id="detail-edit-body" class="detail-edit-textarea">' + escapeHtmlClient(task.body || '') + '</textarea>';
+  html += '</div>';
+  return html;
+}
+
+function renderDetailPanelHtml(data: TaskDetail): string {
   const task = data.task;
-  const tags = data.tags || [];
   const metadata = data.metadata || [];
   const blockedBy = data.blockedBy || [];
   const blocking = data.blocking || [];
   const parent = data.parent || null;
 
-  detailTaskId = task.id;
-  detailPanelTitle.textContent = '#' + task.id;
-
-  // Globals from server-side renderer
   const win = window as WindowWithGlobals;
-  const _allStatuses: string[] = win.allStatuses as string[];
-  const _statusLabels: Record<string, string> = win.statusLabels as Record<string, string>;
-  const _allPriorities: string[] = win.allPriorities as string[];
+  const allStatuses: string[] = win.allStatuses as string[];
+  const statusLabels: Record<string, string> = win.statusLabels as Record<string, string>;
+  const allPriorities: string[] = win.allPriorities as string[];
 
   let html = '';
+  html += renderStatusField(task.status, allStatuses, statusLabels);
+  html += renderPriorityField(task.priority, allPriorities);
+  html += '<div class="detail-field"><div class="detail-field-label">Tags</div>';
+  html += '<div id="detail-tags-container"></div></div>';
 
-  // Status (editable)
-  html += '<div class="detail-field">';
-  html += '<div class="detail-field-label">Status</div>';
-  html += '<select id="detail-edit-status" class="detail-edit-select">';
-  _allStatuses.forEach((s) => {
-    const selected = s === task.status ? ' selected' : '';
-    html += '<option value="' + s + '"' + selected + '>' + _statusLabels[s] + '</option>';
-  });
-  html += '</select>';
-  html += '</div>';
-
-  // Priority (editable)
-  html += '<div class="detail-field">';
-  html += '<div class="detail-field-label">Priority</div>';
-  html += '<select id="detail-edit-priority" class="detail-edit-select">';
-  html += '<option value="">None</option>';
-  _allPriorities.forEach((p) => {
-    const selected = task.priority === p ? ' selected' : '';
-    html += '<option value="' + p + '"' + selected + '>' + p.charAt(0).toUpperCase() + p.slice(1) + '</option>';
-  });
-  html += '</select>';
-  html += '</div>';
-
-  // Tags (editable)
-  html += '<div class="detail-field">';
-  html += '<div class="detail-field-label">Tags</div>';
-  html += '<div id="detail-tags-container"></div>';
-  html += '</div>';
-
-  // Relations: parent, blockedBy, blocking
   const hasRelations = parent || blockedBy.length > 0 || blocking.length > 0;
   if (hasRelations) {
-    html += '<div class="detail-relations">';
-    if (parent) {
-      html += '<div class="detail-relation-row">';
-      html += '<span class="detail-relation-label">Parent</span>';
-      html +=
-        '<div class="detail-relation-ids"><span class="detail-relation-id">#' +
-        parent.id +
-        ' ' +
-        escapeHtmlClient(parent.title) +
-        '</span></div>';
-      html += '</div>';
-    }
-    if (blockedBy.length > 0) {
-      html += '<div class="detail-relation-row">';
-      html += '<span class="detail-relation-label">Blocked by</span>';
-      html += '<div class="detail-relation-ids">';
-      blockedBy.forEach((t) => {
-        html += '<span class="detail-relation-id">#' + t.id + '</span>';
-      });
-      html += '</div></div>';
-    }
-    if (blocking.length > 0) {
-      html += '<div class="detail-relation-row">';
-      html += '<span class="detail-relation-label">Blocking</span>';
-      html += '<div class="detail-relation-ids">';
-      blocking.forEach((t) => {
-        html += '<span class="detail-relation-id">#' + t.id + '</span>';
-      });
-      html += '</div></div>';
-    }
-    html += '</div>';
+    html += renderRelationsHtml(parent, blockedBy, blocking);
   }
 
-  // Title (editable)
-  html += '<div class="detail-field">';
-  html += '<div class="detail-field-label">Title</div>';
-  html +=
-    '<input id="detail-edit-title" class="detail-edit-input" type="text" value="' + escapeHtmlClient(task.title) + '">';
-  html += '</div>';
-
-  // Body (editable)
-  html += '<div class="detail-field description-field-wrapper">';
-  html += '<div class="detail-field-label">Description</div>';
-  html +=
-    '<textarea id="detail-edit-body" class="detail-edit-textarea">' + escapeHtmlClient(task.body || '') + '</textarea>';
-  html += '</div>';
-
-  // Metadata table (read-only, non-priority)
-  const otherMeta = metadata.filter((m) => m.key !== 'priority');
-  if (otherMeta.length > 0) {
-    html += '<div class="detail-field">';
-    html += '<div class="detail-field-label">Metadata</div>';
-    html += '<table class="detail-meta-table">';
-    otherMeta.forEach((m) => {
-      html += '<tr><td>' + escapeHtmlClient(m.key) + '</td><td>' + escapeHtmlClient(m.value) + '</td></tr>';
-    });
-    html += '</table></div>';
-  }
-
-  // Timestamps compressed to one line
+  html += renderEditableTextFields(task);
+  html += renderMetadataTable(metadata);
   html +=
     '<div class="detail-timestamp">created ' +
     relativeTime(task.created_at) +
@@ -323,9 +327,23 @@ export function renderDetailPanel(data: TaskDetail): void {
     relativeTime(task.updated_at) +
     '</div>';
 
+  return html;
+}
+
+export function renderDetailPanel(data: TaskDetail): void {
+  // Remove stale update-warning bar so it does not persist after reload
+  document.getElementById('detail-panel-update-warning')?.remove();
+
+  const detailPanelTitle = document.getElementById('detail-panel-title') as HTMLElement;
+  const task = data.task;
+  const tags = data.tags || [];
+
+  detailTaskId = task.id;
+  detailPanelTitle.textContent = '#' + task.id;
+
   const detailsPane = document.getElementById('detail-tab-content-details');
   if (detailsPane) {
-    detailsPane.innerHTML = html;
+    detailsPane.innerHTML = renderDetailPanelHtml(data);
     detailsPane.style.padding = '20px';
   }
 
@@ -374,84 +392,118 @@ export function showUpdateWarning(): void {
     msgSpan.style.cssText = 'flex: 1;';
     msgSpan.textContent =
       'This task has been updated in the database. Save or discard your changes to see the latest version.';
-    const reloadBtn = document.createElement('button');
-    reloadBtn.title = 'Reload latest data';
-    reloadBtn.textContent = '↺';
-    reloadBtn.style.cssText =
-      'background: none; border: none; cursor: pointer; font-size: 1.1em; color: red; padding: 0 2px; line-height: 1; flex-shrink: 0;';
-    reloadBtn.addEventListener('click', async () => {
-      try {
-        const taskRes = await fetch('/api/tasks/' + detailTaskId);
-        if (taskRes.ok) {
-          const taskData = await taskRes.json();
-          renderDetailPanel(taskData);
-        }
-      } catch {
-        // Ignore network errors
-      }
-    });
+    const reloadBtn = buildUpdateWarningReloadBtn();
     warningEl.appendChild(msgSpan);
     warningEl.appendChild(reloadBtn);
     detailPanelBody.insertBefore(warningEl, detailPanelBody.firstChild);
   }
 }
 
-export function initDetailPanel(): void {
-  const boardContainer = document.querySelector<HTMLElement>('.board-container')!;
-  const detailPanelHtml =
-    '<div class="detail-panel" id="detail-panel">' +
-    '<div class="detail-panel-resize-handle" id="detail-panel-resize-handle"></div>' +
-    '<div class="detail-panel-header">' +
-    '<h2 id="detail-panel-title">Task Detail</h2>' +
-    '<button class="detail-panel-close" id="detail-panel-close" title="Close">&times;</button>' +
-    '</div>' +
-    '<div class="detail-tabs" id="detail-tabs">' +
-    '<button class="detail-tab active" data-tab="details">Details</button>' +
-    '<button class="detail-tab" data-tab="comments" id="detail-tab-comments">Comments</button>' +
-    '</div>' +
-    '<div class="detail-panel-body" id="detail-panel-body">' +
-    '<div class="detail-tab-content active" id="detail-tab-content-details"></div>' +
-    '<div class="detail-tab-content" id="detail-tab-content-comments"></div>' +
-    '</div>' +
-    '<div class="detail-panel-footer" id="detail-panel-footer"><button id="detail-save-btn">Save</button></div>' +
-    '</div>';
-  boardContainer.insertAdjacentHTML('beforeend', detailPanelHtml);
-
-  const detailPanel = document.getElementById('detail-panel') as HTMLElement;
-
-  document.getElementById('detail-panel-close')?.addEventListener('click', closeDetailPanel);
-
-  // Tab switching
-  document.getElementById('detail-tabs')?.addEventListener('click', (e: MouseEvent) => {
-    const btn = (e.target as HTMLElement).closest<HTMLElement>('.detail-tab');
-    if (!btn) return;
-    switchTab(btn.dataset.tab!);
-  });
-
-  // Panel resize
-  const resizeHandle = document.getElementById('detail-panel-resize-handle') as HTMLElement;
-  const PANEL_MIN_WIDTH = 280;
-  const PANEL_MAX_WIDTH = 800;
-  const PANEL_DEFAULT_WIDTH = 400;
-
-  // Initialize panel width from server config (async)
-  (async function initPanelWidth() {
-    let targetWidth = PANEL_DEFAULT_WIDTH;
+function buildUpdateWarningReloadBtn(): HTMLButtonElement {
+  const reloadBtn = document.createElement('button');
+  reloadBtn.title = 'Reload latest data';
+  reloadBtn.textContent = '↺';
+  reloadBtn.style.cssText =
+    'background: none; border: none; cursor: pointer; font-size: 1.1em; color: red; padding: 0 2px; line-height: 1; flex-shrink: 0;';
+  reloadBtn.addEventListener('click', async () => {
     try {
-      const res = await fetch('/api/config');
-      if (res.ok) {
-        const data = await res.json();
-        const savedWidth = data && data.board && data.board.detailPaneWidth;
-        if (typeof savedWidth === 'number' && savedWidth >= PANEL_MIN_WIDTH && savedWidth <= PANEL_MAX_WIDTH) {
-          targetWidth = savedWidth;
-        }
+      const taskRes = await fetch('/api/tasks/' + detailTaskId);
+      if (taskRes.ok) {
+        const taskData = await taskRes.json();
+        renderDetailPanel(taskData);
       }
     } catch {
-      // Ignore errors, use default width
+      // Ignore network errors
     }
-    detailPanel.dataset.preferredWidth = String(targetWidth);
-  })();
+  });
+  return reloadBtn;
+}
 
+function collectEditedTaskFields(): {
+  title: string;
+  body: string | null;
+  status: string | undefined;
+  priority: string | null;
+} | null {
+  const titleInput = document.getElementById('detail-edit-title') as HTMLInputElement;
+  const title = titleInput ? titleInput.value.trim() : '';
+  if (!title) {
+    if (titleInput) titleInput.focus();
+    return null;
+  }
+  const bodyEl = document.getElementById('detail-edit-body') as HTMLTextAreaElement;
+  const statusEl = document.getElementById('detail-edit-status') as HTMLSelectElement;
+  const priorityEl = document.getElementById('detail-edit-priority') as HTMLSelectElement;
+  return {
+    title,
+    body: bodyEl ? bodyEl.value.trim() || null : null,
+    status: statusEl ? statusEl.value : undefined,
+    priority: priorityEl ? priorityEl.value || null : null,
+  };
+}
+
+async function patchAndReloadDetail(taskId: number, fields: ReturnType<typeof collectEditedTaskFields>): Promise<void> {
+  const res = await fetch('/api/tasks/' + taskId, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(fields),
+  });
+  if (!res.ok) throw new Error('Server error');
+  const getRes = await fetch('/api/tasks/' + taskId);
+  if (!getRes.ok) throw new Error('Failed to fetch updated task');
+  const data = await getRes.json();
+  renderDetailPanel(data);
+}
+
+async function saveDetailTask(): Promise<void> {
+  if (detailTaskId === null) return;
+  const fields = collectEditedTaskFields();
+  if (!fields) return;
+
+  try {
+    await patchAndReloadDetail(detailTaskId, fields);
+    showToast('Task saved successfully');
+    await syncTimestampAfterSave();
+    refreshBoardCards();
+  } catch {
+    showToast('Failed to update task');
+  }
+}
+
+async function syncTimestampAfterSave(): Promise<void> {
+  try {
+    const tsRes = await fetch('/api/board/updated-at');
+    if (tsRes.ok) {
+      const tsData = await tsRes.json();
+      setLastUpdatedAt(tsData.updatedAt);
+    }
+  } catch {
+    // Ignore errors when syncing timestamp
+  }
+}
+
+const PANEL_MIN_WIDTH = 280;
+const PANEL_MAX_WIDTH = 800;
+const PANEL_DEFAULT_WIDTH = 400;
+
+async function initPanelWidthFromConfig(detailPanel: HTMLElement): Promise<void> {
+  let targetWidth = PANEL_DEFAULT_WIDTH;
+  try {
+    const res = await fetch('/api/config');
+    if (res.ok) {
+      const data = await res.json();
+      const savedWidth = data && data.board && data.board.detailPaneWidth;
+      if (typeof savedWidth === 'number' && savedWidth >= PANEL_MIN_WIDTH && savedWidth <= PANEL_MAX_WIDTH) {
+        targetWidth = savedWidth;
+      }
+    }
+  } catch {
+    // Ignore errors, use default width
+  }
+  detailPanel.dataset.preferredWidth = String(targetWidth);
+}
+
+function attachResizeMousedown(resizeHandle: HTMLElement, detailPanel: HTMLElement): void {
   resizeHandle.addEventListener('mousedown', function (e: MouseEvent) {
     e.preventDefault();
     if (!detailPanel.classList.contains('open')) return;
@@ -462,8 +514,8 @@ export function initDetailPanel(): void {
     document.body.style.cursor = 'col-resize';
     detailPanel.style.transition = 'none';
 
-    function onMouseMove(e: MouseEvent): void {
-      const delta = startX - e.clientX;
+    function onMouseMove(ev: MouseEvent): void {
+      const delta = startX - ev.clientX;
       const newWidth = Math.min(PANEL_MAX_WIDTH, Math.max(PANEL_MIN_WIDTH, startWidth + delta));
       detailPanel.style.width = newWidth + 'px';
     }
@@ -479,9 +531,7 @@ export function initDetailPanel(): void {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ board: { detailPaneWidth: currentWidth } }),
-      }).catch(function () {
-        // Ignore errors when saving panel width
-      });
+      }).catch(function () {});
       document.removeEventListener('mousemove', onMouseMove);
       document.removeEventListener('mouseup', onMouseUp);
     }
@@ -489,56 +539,53 @@ export function initDetailPanel(): void {
     document.addEventListener('mousemove', onMouseMove);
     document.addEventListener('mouseup', onMouseUp);
   });
+}
 
-  // Save button
-  document.getElementById('detail-save-btn')?.addEventListener('click', async () => {
-    if (detailTaskId === null) return;
-    const titleInput = document.getElementById('detail-edit-title') as HTMLInputElement;
-    const title = titleInput ? titleInput.value.trim() : '';
-    if (!title) {
-      if (titleInput) titleInput.focus();
-      return;
-    }
-    const bodyEl = document.getElementById('detail-edit-body') as HTMLTextAreaElement;
-    const statusEl = document.getElementById('detail-edit-status') as HTMLSelectElement;
-    const priorityEl = document.getElementById('detail-edit-priority') as HTMLSelectElement;
+function initPanelResize(detailPanel: HTMLElement): void {
+  const resizeHandle = document.getElementById('detail-panel-resize-handle') as HTMLElement;
+  initPanelWidthFromConfig(detailPanel);
+  attachResizeMousedown(resizeHandle, detailPanel);
+}
 
-    try {
-      const res = await fetch('/api/tasks/' + detailTaskId, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          title,
-          body: bodyEl ? bodyEl.value.trim() || null : null,
-          status: statusEl ? statusEl.value : undefined,
-          priority: priorityEl ? priorityEl.value || null : null,
-        }),
-      });
-      if (!res.ok) throw new Error('Server error');
-      // Fetch updated task data and refresh detail panel instead of reloading
-      const getRes = await fetch('/api/tasks/' + detailTaskId);
-      if (!getRes.ok) throw new Error('Failed to fetch updated task');
-      const data = await getRes.json();
-      renderDetailPanel(data);
-      showToast('Task saved successfully');
-      // Update lastUpdatedAt so polling doesn't treat our own save as an external update
-      try {
-        const tsRes = await fetch('/api/board/updated-at');
-        if (tsRes.ok) {
-          const tsData = await tsRes.json();
-          setLastUpdatedAt(tsData.updatedAt);
-        }
-      } catch {
-        // Ignore errors when syncing timestamp
-      }
-      // Refresh board cards in the background
-      refreshBoardCards();
-    } catch {
-      showToast('Failed to update task');
-    }
+function buildDetailPanelHtml(): string {
+  return (
+    '<div class="detail-panel" id="detail-panel">' +
+    '<div class="detail-panel-resize-handle" id="detail-panel-resize-handle"></div>' +
+    '<div class="detail-panel-header">' +
+    '<h2 id="detail-panel-title">Task Detail</h2>' +
+    '<button class="detail-panel-close" id="detail-panel-close" title="Close">&times;</button>' +
+    '</div>' +
+    '<div class="detail-tabs" id="detail-tabs">' +
+    '<button class="detail-tab active" data-tab="details">Details</button>' +
+    '<button class="detail-tab" data-tab="comments" id="detail-tab-comments">Comments</button>' +
+    '</div>' +
+    '<div class="detail-panel-body" id="detail-panel-body">' +
+    '<div class="detail-tab-content active" id="detail-tab-content-details"></div>' +
+    '<div class="detail-tab-content" id="detail-tab-content-comments"></div>' +
+    '</div>' +
+    '<div class="detail-panel-footer" id="detail-panel-footer"><button id="detail-save-btn">Save</button></div>' +
+    '</div>'
+  );
+}
+
+export function initDetailPanel(): void {
+  const boardContainer = document.querySelector<HTMLElement>('.board-container')!;
+  boardContainer.insertAdjacentHTML('beforeend', buildDetailPanelHtml());
+
+  const detailPanel = document.getElementById('detail-panel') as HTMLElement;
+
+  document.getElementById('detail-panel-close')?.addEventListener('click', closeDetailPanel);
+
+  document.getElementById('detail-tabs')?.addEventListener('click', (e: MouseEvent) => {
+    const btn = (e.target as HTMLElement).closest<HTMLElement>('.detail-tab');
+    if (!btn) return;
+    switchTab(btn.dataset.tab!);
   });
 
-  // Card click handler
+  initPanelResize(detailPanel);
+
+  document.getElementById('detail-save-btn')?.addEventListener('click', saveDetailTask);
+
   document.querySelectorAll<HTMLElement>('.card').forEach((card) => {
     card.addEventListener('click', async (e: MouseEvent) => {
       if (e.defaultPrevented) return;
@@ -546,7 +593,6 @@ export function initDetailPanel(): void {
     });
   });
 
-  // Register callbacks to break circular dependencies
   registerDetailPanelCallbacks({
     openTaskDetail,
     renderDetailPanel,
@@ -554,6 +600,5 @@ export function initDetailPanel(): void {
     getDetailTaskId,
   });
 
-  // Register getDetailTaskId with the tags module
   registerGetDetailTaskId(getDetailTaskId);
 }
