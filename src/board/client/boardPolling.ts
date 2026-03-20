@@ -2,7 +2,7 @@
 
 import { draggedCard, attachDragListeners } from './dragDrop';
 import { attachAutoScrollToBody } from './autoScroll';
-import { ActiveFilters, TaskDetail } from './types';
+import type { ActiveFilters, TaskDetail } from './types';
 
 let lastUpdatedAt: string | null = null;
 
