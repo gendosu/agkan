@@ -86,6 +86,78 @@ export class TaskService {
   }
 
   /**
+   * Build the base SELECT query and initial params for listTasks.
+   * Uses a JOIN when tag IDs are specified.
+   */
+  private buildListBaseQuery(tagIds?: number[]): { query: string; params: (string | number)[] } {
+    const params: (string | number)[] = [];
+    let query: string;
+
+    if (tagIds && tagIds.length > 0) {
+      query = 'SELECT DISTINCT tasks.* FROM tasks INNER JOIN task_tags ON tasks.id = task_tags.task_id WHERE 1=1';
+      const placeholders = tagIds.map(() => '?').join(', ');
+      query += ` AND task_tags.tag_id IN (${placeholders})`;
+      params.push(...tagIds);
+    } else {
+      query = 'SELECT * FROM tasks WHERE 1=1';
+    }
+
+    return { query, params };
+  }
+
+  /**
+   * Append filter conditions (status, author, assignees, priority) to query and params.
+   */
+  private applyListFilters(
+    query: string,
+    params: (string | number)[],
+    filters: { status?: TaskStatus | TaskStatus[]; author?: string; assignees?: string; priority?: string | string[] }
+  ): { query: string; params: (string | number)[] } {
+    if (filters.status) {
+      const statuses = Array.isArray(filters.status) ? filters.status : [filters.status];
+      if (statuses.length > 0) {
+        query += ` AND status IN (${statuses.map(() => '?').join(', ')})`;
+        params.push(...statuses);
+      }
+    }
+
+    if (filters.author) {
+      query += ' AND author = ?';
+      params.push(filters.author);
+    }
+
+    if (filters.assignees) {
+      query += ' AND assignees LIKE ?';
+      params.push(`%${filters.assignees}%`);
+    }
+
+    if (filters.priority) {
+      const priorities = Array.isArray(filters.priority) ? filters.priority : [filters.priority];
+      if (priorities.length > 0) {
+        query += ` AND priority IN (${priorities.map(() => '?').join(', ')})`;
+        params.push(...priorities);
+      }
+    }
+
+    return { query, params };
+  }
+
+  /**
+   * Append ORDER BY clause to query for listTasks.
+   */
+  private applyListOrder(query: string, sort?: SortField, order?: SortOrder, hasTagFilter?: boolean): string {
+    const sortField: SortField = sort && ALLOWED_SORT_FIELDS.includes(sort) ? sort : 'created_at';
+    const sortOrder: SortOrder = order === 'asc' ? 'asc' : 'desc';
+    const tablePrefix = hasTagFilter ? 'tasks.' : '';
+    const dir = sortOrder.toUpperCase();
+
+    if (sortField === 'priority') {
+      return query + ` ORDER BY ${PRIORITY_ORDER_EXPR} ${dir}, ${tablePrefix}id ${dir}`;
+    }
+    return query + ` ORDER BY ${tablePrefix}${sortField} ${dir}, ${tablePrefix}id ${dir}`;
+  }
+
+  /**
    * Get task list
    * @param filters - Filter criteria (status, author, tagIds)
    * @param sort - Sort field (default: created_at)
@@ -103,64 +175,12 @@ export class TaskService {
     sort?: SortField,
     order?: SortOrder
   ): Task[] {
-    const db = this.db;
+    const hasTagFilter = !!(filters?.tagIds && filters.tagIds.length > 0);
+    const { query: baseQuery, params: baseParams } = this.buildListBaseQuery(filters?.tagIds);
+    const { query: filteredQuery, params } = this.applyListFilters(baseQuery, baseParams, filters ?? {});
+    const query = this.applyListOrder(filteredQuery, sort, order, hasTagFilter);
 
-    let query: string;
-    const params: (string | number)[] = [];
-
-    // Use JOIN when tag filter is specified
-    if (filters?.tagIds && filters.tagIds.length > 0) {
-      query = 'SELECT DISTINCT tasks.* FROM tasks INNER JOIN task_tags ON tasks.id = task_tags.task_id WHERE 1=1';
-
-      // Add IN clause for tag IDs
-      const placeholders = filters.tagIds.map(() => '?').join(', ');
-      query += ` AND task_tags.tag_id IN (${placeholders})`;
-      params.push(...filters.tagIds);
-    } else {
-      query = 'SELECT * FROM tasks WHERE 1=1';
-    }
-
-    if (filters?.status) {
-      const statuses = Array.isArray(filters.status) ? filters.status : [filters.status];
-      if (statuses.length > 0) {
-        const placeholders = statuses.map(() => '?').join(', ');
-        query += ` AND status IN (${placeholders})`;
-        params.push(...statuses);
-      }
-    }
-
-    if (filters?.author) {
-      query += ' AND author = ?';
-      params.push(filters.author);
-    }
-
-    if (filters?.assignees) {
-      query += ' AND assignees LIKE ?';
-      params.push(`%${filters.assignees}%`);
-    }
-
-    if (filters?.priority) {
-      const priorities = Array.isArray(filters.priority) ? filters.priority : [filters.priority];
-      if (priorities.length > 0) {
-        const placeholders = priorities.map(() => '?').join(', ');
-        query += ` AND priority IN (${placeholders})`;
-        params.push(...priorities);
-      }
-    }
-
-    const sortField: SortField = sort && ALLOWED_SORT_FIELDS.includes(sort) ? sort : 'created_at';
-    const sortOrder: SortOrder = order === 'asc' ? 'asc' : 'desc';
-    const tablePrefix = filters?.tagIds && filters.tagIds.length > 0 ? 'tasks.' : '';
-
-    if (sortField === 'priority') {
-      // Use CASE expression for custom priority ordering (critical > high > medium > low > unset)
-      query += ` ORDER BY ${PRIORITY_ORDER_EXPR} ${sortOrder.toUpperCase()}, ${tablePrefix}id ${sortOrder.toUpperCase()}`;
-    } else {
-      query += ` ORDER BY ${tablePrefix}${sortField} ${sortOrder.toUpperCase()}, ${tablePrefix}id ${sortOrder.toUpperCase()}`;
-    }
-
-    const stmt = db.prepare(query);
-    return stmt.all(...params) as unknown as Task[];
+    return this.db.prepare(query).all(...params) as unknown as Task[];
   }
 
   /**
