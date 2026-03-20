@@ -334,22 +334,32 @@ function displayDependencyTree(
 }
 
 /**
- * Build a dependency tree node recursively (blocking relationships only).
+ * Extract tags and metadata for a task.
  */
-function buildDepTreeNode(
+function extractTaskRelations(
   task: TaskRecord,
+  allTaskTags: TaskTagMap,
+  allTasksMetadata: MetadataMap
+): { tags: Array<{ id: number; name: string }>; metadata: Array<{ key: string; value: string }> } {
+  const tags = allTaskTags.get(task.id);
+  const metadata = allTasksMetadata.get(task.id);
+  return {
+    tags: tags ? tags.map((tag) => ({ id: tag.id, name: tag.name })) : [],
+    metadata: metadata ? metadata.map((m) => ({ key: m.key, value: m.value })) : [],
+  };
+}
+
+/**
+ * Build blocked task nodes recursively.
+ */
+function buildBlockedNodes(
+  blockedIds: number[],
   taskService: TaskService,
   blockMap: BlockMap,
   allTaskTags: TaskTagMap,
   allTasksMetadata: MetadataMap,
   visited: Set<number>
-): DepTreeNode {
-  const tags = allTaskTags.get(task.id);
-  const metadata = allTasksMetadata.get(task.id);
-  const blockedIds = blockMap.get(task.id) || [];
-
-  visited.add(task.id);
-
+): DepTreeNode[] {
   const blocks: DepTreeNode[] = [];
   for (const blockedId of blockedIds) {
     if (!visited.has(blockedId)) {
@@ -361,6 +371,24 @@ function buildDepTreeNode(
       }
     }
   }
+  return blocks;
+}
+
+/**
+ * Build a dependency tree node recursively (blocking relationships only).
+ */
+function buildDepTreeNode(
+  task: TaskRecord,
+  taskService: TaskService,
+  blockMap: BlockMap,
+  allTaskTags: TaskTagMap,
+  allTasksMetadata: MetadataMap,
+  visited: Set<number>
+): DepTreeNode {
+  visited.add(task.id);
+  const blockedIds = blockMap.get(task.id) || [];
+  const { tags, metadata } = extractTaskRelations(task, allTaskTags, allTasksMetadata);
+  const blocks = buildBlockedNodes(blockedIds, taskService, blockMap, allTaskTags, allTasksMetadata, visited);
 
   return {
     id: task.id,
@@ -372,8 +400,8 @@ function buildDepTreeNode(
     parent_id: task.parent_id,
     created_at: task.created_at,
     updated_at: task.updated_at,
-    tags: tags ? tags.map((tag) => ({ id: tag.id, name: tag.name })) : [],
-    metadata: metadata ? metadata.map((m) => ({ key: m.key, value: m.value })) : [],
+    tags,
+    metadata,
     blocks,
   };
 }
@@ -428,6 +456,74 @@ function formatMetadataEntry(m: { key: string; value: string }): string {
 }
 
 /**
+ * Print task title and status.
+ */
+function printTaskHeader(task: TaskRecord): void {
+  const statusColor = getStatusColor(task.status as TaskStatus);
+  console.log(`\n${chalk.bold.cyan(`[${task.id}]`)} ${chalk.bold(task.title)}`);
+  console.log(`  ${chalk.bold('Status:')} ${chalk[statusColor](task.status)}`);
+}
+
+/**
+ * Print task author and assignees.
+ */
+function printTaskPersonInfo(task: TaskRecord): void {
+  if (task.author) {
+    console.log(`  ${chalk.bold('Author:')} ${task.author}`);
+  }
+  if (task.assignees) {
+    console.log(`  ${chalk.bold('Assignees:')} ${task.assignees}`);
+  }
+}
+
+/**
+ * Print task parent reference.
+ */
+function printTaskParent(task: TaskRecord, taskService: TaskService): void {
+  if (!task.parent_id) return;
+  const parentTask = taskService.getTask(task.parent_id);
+  if (parentTask) {
+    console.log(`  ${chalk.bold('Parent:')} ${chalk.cyan(`[${parentTask.id}]`)} ${parentTask.title}`);
+  }
+}
+
+/**
+ * Print task tags.
+ */
+function printTaskTags(taskId: number, allTaskTags: TaskTagMap): void {
+  const tags = allTaskTags.get(taskId);
+  if (!tags || tags.length === 0) return;
+  const tagStrings = tags.map((tag) => `${chalk.cyan(`[${tag.id}]`)} ${tag.name}`);
+  console.log(`  ${chalk.bold('Tags:')} ${tagStrings.join(', ')}`);
+}
+
+/**
+ * Print task metadata.
+ */
+function printTaskMetadata(taskId: number, allTasksMetadata: MetadataMap): void {
+  const metadata = allTasksMetadata.get(taskId);
+  if (!metadata || metadata.length === 0) return;
+  const metadataStrings = metadata.map(formatMetadataEntry);
+  console.log(`  ${chalk.bold('Metadata:')} ${metadataStrings.join(', ')}`);
+}
+
+/**
+ * Print task creation date.
+ */
+function printTaskCreationDate(task: TaskRecord): void {
+  console.log(`  ${chalk.bold('Created:')} ${formatDate(task.created_at)}`);
+}
+
+/**
+ * Print separator line if not last task.
+ */
+function printTaskSeparator(isLast: boolean): void {
+  if (!isLast) {
+    console.log(chalk.gray('  ' + '─'.repeat(76)));
+  }
+}
+
+/**
  * Print a single task row in the human-readable list view.
  */
 function printTaskRow(
@@ -437,43 +533,106 @@ function printTaskRow(
   allTasksMetadata: MetadataMap,
   isLast: boolean
 ): void {
-  const statusColor = getStatusColor(task.status as TaskStatus);
+  printTaskHeader(task);
+  printTaskPersonInfo(task);
+  printTaskParent(task, taskService);
+  printTaskTags(task.id, allTaskTags);
+  printTaskMetadata(task.id, allTasksMetadata);
+  printTaskCreationDate(task);
+  printTaskSeparator(isLast);
+}
 
-  console.log(`\n${chalk.bold.cyan(`[${task.id}]`)} ${chalk.bold(task.title)}`);
-  console.log(`  ${chalk.bold('Status:')} ${chalk[statusColor](task.status)}`);
+/**
+ * Parse status filter from comma-separated string.
+ */
+function parseStatusFilter(statusStr: string): string[] {
+  return statusStr
+    .split(',')
+    .map((s: string) => s.trim())
+    .filter((s: string) => s !== '');
+}
 
-  if (task.author) {
-    console.log(`  ${chalk.bold('Author:')} ${task.author}`);
-  }
-
-  if (task.assignees) {
-    console.log(`  ${chalk.bold('Assignees:')} ${task.assignees}`);
-  }
-
-  if (task.parent_id) {
-    const parentTask = taskService.getTask(task.parent_id);
-    if (parentTask) {
-      console.log(`  ${chalk.bold('Parent:')} ${chalk.cyan(`[${parentTask.id}]`)} ${parentTask.title}`);
+/**
+ * Validate status values.
+ */
+function validateStatuses(statuses: TaskStatus[], formatter: ReturnType<typeof createFormatter>): void {
+  for (const s of statuses) {
+    if (!validateTaskStatus(s)) {
+      formatter.error(
+        `Invalid status: ${s}. Valid statuses: icebox, backlog, ready, in_progress, review, done, closed`,
+        () => {
+          console.log(chalk.red(`Invalid status: ${s}`));
+          console.log('Valid statuses: icebox, backlog, ready, in_progress, review, done, closed');
+        }
+      );
+      process.exit(1);
     }
   }
+}
 
-  const tags = allTaskTags.get(task.id);
-  if (tags && tags.length > 0) {
-    const tagStrings = tags.map((tag) => `${chalk.cyan(`[${tag.id}]`)} ${tag.name}`);
-    console.log(`  ${chalk.bold('Tags:')} ${tagStrings.join(', ')}`);
+/**
+ * Convert status strings to filter format (single or array).
+ */
+function normalizeStatusFilter(statusParts: TaskStatus[]): TaskStatus | TaskStatus[] | undefined {
+  return statusParts.length === 1 ? statusParts[0] : statusParts;
+}
+
+/**
+ * Validate sort field.
+ */
+function validateSortField(sortField: string, formatter: ReturnType<typeof createFormatter>): void {
+  if (!ALLOWED_SORT_FIELDS.includes(sortField as SortField)) {
+    formatter.error(`Invalid sort field: ${sortField}. Valid fields: ${ALLOWED_SORT_FIELDS.join(', ')}`, () => {
+      console.log(chalk.red(`Invalid sort field: ${sortField}`));
+      console.log(`Valid fields: ${ALLOWED_SORT_FIELDS.join(', ')}`);
+    });
+    process.exit(1);
   }
+}
 
-  const metadata = allTasksMetadata.get(task.id);
-  if (metadata && metadata.length > 0) {
-    const metadataStrings = metadata.map(formatMetadataEntry);
-    console.log(`  ${chalk.bold('Metadata:')} ${metadataStrings.join(', ')}`);
+/**
+ * Validate sort order.
+ */
+function validateSortOrder(sortOrder: string, formatter: ReturnType<typeof createFormatter>): void {
+  if (!['asc', 'desc'].includes(sortOrder)) {
+    formatter.error(`Invalid sort order: ${sortOrder}. Valid orders: asc, desc`, () => {
+      console.log(chalk.red(`Invalid sort order: ${sortOrder}`));
+      console.log('Valid orders: asc, desc');
+    });
+    process.exit(1);
   }
+}
 
-  console.log(`  ${chalk.bold('Created:')} ${formatDate(task.created_at)}`);
+/**
+ * Parse priority filter from comma-separated string.
+ */
+function parsePriorityFilter(priorityStr: string): string[] {
+  return priorityStr
+    .split(',')
+    .map((s: string) => s.trim())
+    .filter((s: string) => s !== '');
+}
 
-  if (!isLast) {
-    console.log(chalk.gray('  ' + '─'.repeat(76)));
+/**
+ * Validate priority values.
+ */
+function validatePriorities(priorities: string[], formatter: ReturnType<typeof createFormatter>): void {
+  for (const p of priorities) {
+    if (!isPriority(p)) {
+      formatter.error(`Invalid priority: ${p}. Valid priorities: ${PRIORITIES.join(', ')}`, () => {
+        console.log(chalk.red(`Invalid priority: ${p}`));
+        console.log(`Valid priorities: ${PRIORITIES.join(', ')}`);
+      });
+      process.exit(1);
+    }
   }
+}
+
+/**
+ * Convert priority strings to filter format (single or array).
+ */
+function normalizePriorityFilter(priorityParts: string[]): string | string[] | undefined {
+  return priorityParts.length === 1 ? priorityParts[0] : priorityParts;
 }
 
 /**
@@ -522,6 +681,271 @@ function resolveTagIds(
   return tagIds;
 }
 
+/**
+ * Handle tree view output.
+ */
+function handleTreeView(
+  displayTasks: TaskRecord[],
+  options: Record<string, unknown>,
+  tagIds: number[] | undefined,
+  taskService: TaskService,
+  allTaskTags: TaskTagMap,
+  allTasksMetadata: MetadataMap,
+  formatter: ReturnType<typeof createFormatter>
+): void {
+  const rootTasks = displayTasks.filter((task) => !task.parent_id);
+  formatter.output(
+    () => buildTreeJsonOutput(displayTasks, options, tagIds, taskService, allTaskTags, allTasksMetadata),
+    () => {
+      console.log(chalk.bold(`\nFound ${displayTasks.length} task(s) in tree view:\n`));
+      console.log(chalk.bold('─'.repeat(80)));
+      rootTasks.forEach((task, index) => {
+        const isLast = index === rootTasks.length - 1;
+        displayTaskTree(
+          taskService,
+          task as { id: number; title: string; status: TaskStatus },
+          '',
+          isLast,
+          allTasksMetadata
+        );
+      });
+      console.log('\n');
+    }
+  );
+}
+
+/**
+ * Handle dependency tree view output.
+ */
+function handleDepTreeView(
+  displayTasks: TaskRecord[],
+  options: Record<string, unknown>,
+  tagIds: number[] | undefined,
+  taskService: TaskService,
+  allTaskTags: TaskTagMap,
+  allTasksMetadata: MetadataMap,
+  taskBlockService: TaskBlockService,
+  formatter: ReturnType<typeof createFormatter>
+): void {
+  const blockMap = buildBlockMap(taskBlockService);
+  const allBlockedIds = collectAllBlockedIds(blockMap);
+  const rootTasks = displayTasks.filter((task) => !allBlockedIds.has(task.id));
+
+  formatter.output(
+    () => buildDepTreeJsonOutput(displayTasks, options, tagIds, taskService, blockMap, allTaskTags, allTasksMetadata),
+    () => {
+      console.log(chalk.bold(`\nFound ${displayTasks.length} task(s) in dependency tree view:\n`));
+      console.log(chalk.bold('\u2500'.repeat(80)));
+      rootTasks.forEach((task, index) => {
+        const isLast = index === rootTasks.length - 1;
+        displayDependencyTree(task, taskService, blockMap, allTasksMetadata, '', isLast, new Set());
+      });
+      console.log('\n');
+    }
+  );
+}
+
+/**
+ * Handle normal list view output.
+ */
+function handleListView(
+  displayTasks: TaskRecord[],
+  options: Record<string, unknown>,
+  tagIds: number[] | undefined,
+  taskService: TaskService,
+  allTaskTags: TaskTagMap,
+  allTasksMetadata: MetadataMap,
+  formatter: ReturnType<typeof createFormatter>
+): void {
+  formatter.output(
+    () => buildListJsonOutput(displayTasks, options, tagIds, taskService, allTaskTags, allTasksMetadata),
+    () => {
+      console.log(chalk.bold(`\nFound ${displayTasks.length} task(s):\n`));
+      console.log(chalk.bold('─'.repeat(80)));
+      displayTasks.forEach((task, index) => {
+        const isLast = index === displayTasks.length - 1;
+        printTaskRow(task, taskService, allTaskTags, allTasksMetadata, isLast);
+      });
+      console.log('\n');
+    }
+  );
+}
+
+/**
+ * Filter tasks based on options and return filtered list.
+ */
+function filterTasks(
+  tasks: TaskRecord[],
+  options: { status?: string; rootOnly?: boolean; all?: boolean }
+): TaskRecord[] {
+  let displayTasks = tasks;
+
+  // Default: exclude icebox, done, and closed unless --all or --status is explicitly specified
+  if (!options.status && !options.all) {
+    displayTasks = displayTasks.filter((t) => t.status !== 'icebox' && t.status !== 'done' && t.status !== 'closed');
+  }
+
+  // If --root-only option is specified, filter to only tasks without parent
+  if (options.rootOnly) {
+    displayTasks = displayTasks.filter((task) => !task.parent_id);
+  }
+
+  return displayTasks;
+}
+
+/**
+ * Handle empty results case.
+ */
+function handleEmptyResults(
+  options: Record<string, unknown>,
+  tagIds: number[] | undefined,
+  tasks: TaskRecord[],
+  formatter: ReturnType<typeof createFormatter>
+): void {
+  const emptyText = options.rootOnly && tasks.length > 0 ? '\nNo root tasks found\n' : '\nNo tasks found\n';
+  formatter.output(
+    () => ({
+      totalCount: 0,
+      filters: {
+        status: options.status || null,
+        author: options.author || null,
+        assignees: options.assignees || null,
+        tagIds: tagIds || [],
+        rootOnly: options.rootOnly || false,
+        all: options.all || false,
+        priority: options.priority || null,
+      },
+      tasks: [],
+    }),
+    () => {
+      console.log(chalk.yellow(emptyText));
+    }
+  );
+}
+
+/**
+ * Resolve all filter parameters from command options.
+ */
+function resolveFilters(
+  options: Record<string, unknown>,
+  tagService: TagService,
+  formatter: ReturnType<typeof createFormatter>
+): {
+  statusFilter: TaskStatus | TaskStatus[] | undefined;
+  tagIds: number[] | undefined;
+  priorityFilter: string | string[] | undefined;
+} {
+  // Validate and normalize status filter
+  let statusFilter: TaskStatus | TaskStatus[] | undefined;
+  if (options.status) {
+    const statusParts = parseStatusFilter(options.status as string) as TaskStatus[];
+    validateStatuses(statusParts, formatter);
+    statusFilter = normalizeStatusFilter(statusParts);
+  }
+
+  // Validate sort field and order
+  if (options.sort) {
+    validateSortField(options.sort as string, formatter);
+  }
+  if (options.order) {
+    validateSortOrder(options.order as string, formatter);
+  }
+
+  // Parse and resolve tag filter
+  const tagIds = resolveTagIds(options.tag as string | undefined, tagService, formatter);
+
+  // Validate and normalize priority filter
+  let priorityFilter: string | string[] | undefined;
+  if (options.priority) {
+    const priorityParts = parsePriorityFilter(options.priority as string);
+    validatePriorities(priorityParts, formatter);
+    priorityFilter = normalizePriorityFilter(priorityParts);
+  }
+
+  return { statusFilter, tagIds, priorityFilter };
+}
+
+/**
+ * Fetch task data and relations (tags, metadata, blocks).
+ */
+function fetchTaskRelations(): {
+  allTaskTags: TaskTagMap;
+  allTasksMetadata: MetadataMap;
+  taskBlockService: TaskBlockService;
+} {
+  const taskTagService = new TaskTagService();
+  const metadataService = new MetadataService();
+  return {
+    allTaskTags: taskTagService.getAllTaskTags(),
+    allTasksMetadata: metadataService.getAllTasksMetadata(),
+    taskBlockService: new TaskBlockService(),
+  };
+}
+
+/**
+ * Query and filter tasks.
+ */
+function queryAndFilterTasks(
+  taskService: TaskService,
+  options: Record<string, unknown>,
+  statusFilter: TaskStatus | TaskStatus[] | undefined,
+  tagIds: number[] | undefined,
+  priorityFilter: string | string[] | undefined
+): { displayTasks: TaskRecord[]; allTasks: TaskRecord[] } {
+  let allTasks = taskService.listTasks(
+    {
+      status: statusFilter,
+      author: options.author as string | undefined,
+      assignees: options.assignees as string | undefined,
+      tagIds,
+      priority: priorityFilter,
+    },
+    options.sort as SortField,
+    options.order as SortOrder
+  );
+
+  const displayTasks = filterTasks(allTasks, options);
+  return { displayTasks, allTasks };
+}
+
+/**
+ * Execute the list command action.
+ */
+async function executeListAction(
+  options: Record<string, unknown>,
+  formatter: ReturnType<typeof createFormatter>
+): Promise<void> {
+  const taskService = new TaskService();
+  const tagService = new TagService();
+
+  const { statusFilter, tagIds, priorityFilter } = resolveFilters(options, tagService, formatter);
+  const { displayTasks, allTasks } = queryAndFilterTasks(taskService, options, statusFilter, tagIds, priorityFilter);
+
+  if (displayTasks.length === 0) {
+    handleEmptyResults(options, tagIds, allTasks, formatter);
+    return;
+  }
+
+  const { allTaskTags, allTasksMetadata, taskBlockService } = fetchTaskRelations();
+
+  if (options.tree) {
+    handleTreeView(displayTasks, options, tagIds, taskService, allTaskTags, allTasksMetadata, formatter);
+  } else if (options.depTree) {
+    handleDepTreeView(
+      displayTasks,
+      options,
+      tagIds,
+      taskService,
+      allTaskTags,
+      allTasksMetadata,
+      taskBlockService,
+      formatter
+    );
+  } else {
+    handleListView(displayTasks, options, tagIds, taskService, allTaskTags, allTasksMetadata, formatter);
+  }
+}
+
 export function setupTaskListCommand(program: Command): void {
   const taskCommand = program.commands.find((cmd) => cmd.name() === 'task');
   if (!taskCommand) {
@@ -549,199 +973,7 @@ export function setupTaskListCommand(program: Command): void {
     .action(async (options) => {
       const formatter = createFormatter(options);
       try {
-        const taskService = new TaskService();
-        const tagService = new TagService();
-        const taskTagService = new TaskTagService();
-        const metadataService = new MetadataService();
-
-        // Validate status filter (supports comma-separated multiple statuses)
-        let statusFilter: TaskStatus | TaskStatus[] | undefined;
-        if (options.status) {
-          const statusParts = options.status
-            .split(',')
-            .map((s: string) => s.trim())
-            .filter((s: string) => s !== '');
-
-          for (const s of statusParts) {
-            if (!validateTaskStatus(s)) {
-              formatter.error(
-                `Invalid status: ${s}. Valid statuses: icebox, backlog, ready, in_progress, review, done, closed`,
-                () => {
-                  console.log(chalk.red(`Invalid status: ${s}`));
-                  console.log('Valid statuses: icebox, backlog, ready, in_progress, review, done, closed');
-                }
-              );
-              process.exit(1);
-            }
-          }
-
-          statusFilter = statusParts.length === 1 ? (statusParts[0] as TaskStatus) : (statusParts as TaskStatus[]);
-        }
-
-        // Validate sort field
-        if (options.sort && !ALLOWED_SORT_FIELDS.includes(options.sort as SortField)) {
-          formatter.error(
-            `Invalid sort field: ${options.sort}. Valid fields: ${ALLOWED_SORT_FIELDS.join(', ')}`,
-            () => {
-              console.log(chalk.red(`Invalid sort field: ${options.sort}`));
-              console.log(`Valid fields: ${ALLOWED_SORT_FIELDS.join(', ')}`);
-            }
-          );
-          process.exit(1);
-        }
-
-        // Validate sort order
-        if (options.order && !['asc', 'desc'].includes(options.order)) {
-          formatter.error(`Invalid sort order: ${options.order}. Valid orders: asc, desc`, () => {
-            console.log(chalk.red(`Invalid sort order: ${options.order}`));
-            console.log('Valid orders: asc, desc');
-          });
-          process.exit(1);
-        }
-
-        // Parse and resolve tag filter (supports IDs and names)
-        const tagIds = resolveTagIds(options.tag, tagService, formatter);
-
-        // Validate and parse priority filter (comma-separated)
-        let priorityFilter: string | string[] | undefined;
-        if (options.priority) {
-          const priorityParts = options.priority
-            .split(',')
-            .map((s: string) => s.trim())
-            .filter((s: string) => s !== '');
-
-          for (const p of priorityParts) {
-            if (!isPriority(p)) {
-              formatter.error(`Invalid priority: ${p}. Valid priorities: ${PRIORITIES.join(', ')}`, () => {
-                console.log(chalk.red(`Invalid priority: ${p}`));
-                console.log(`Valid priorities: ${PRIORITIES.join(', ')}`);
-              });
-              process.exit(1);
-            }
-          }
-
-          priorityFilter = priorityParts.length === 1 ? priorityParts[0] : priorityParts;
-        }
-
-        let tasks = taskService.listTasks(
-          {
-            status: statusFilter,
-            author: options.author,
-            assignees: options.assignees,
-            tagIds,
-            priority: priorityFilter,
-          },
-          options.sort as SortField,
-          options.order as SortOrder
-        );
-
-        // Default: exclude icebox, done, and closed unless --all or --status is explicitly specified
-        if (!options.status && !options.all) {
-          tasks = tasks.filter((t) => t.status !== 'icebox' && t.status !== 'done' && t.status !== 'closed');
-        }
-
-        // If --root-only option is specified, filter to only tasks without parent
-        let displayTasks = tasks;
-        if (options.rootOnly) {
-          displayTasks = tasks.filter((task) => !task.parent_id);
-        }
-
-        if (displayTasks.length === 0) {
-          const emptyText = options.rootOnly && tasks.length > 0 ? '\nNo root tasks found\n' : '\nNo tasks found\n';
-          formatter.output(
-            () => ({
-              totalCount: 0,
-              filters: {
-                status: options.status || null,
-                author: options.author || null,
-                assignees: options.assignees || null,
-                tagIds: tagIds || [],
-                rootOnly: options.rootOnly || false,
-                all: options.all || false,
-                priority: options.priority || null,
-              },
-              tasks: [],
-            }),
-            () => {
-              console.log(chalk.yellow(emptyText));
-            }
-          );
-          return;
-        }
-
-        // Fetch all task tags and metadata at once to avoid N+1 problem
-        const allTaskTags = taskTagService.getAllTaskTags();
-        const allTasksMetadata = metadataService.getAllTasksMetadata();
-        const taskBlockService = new TaskBlockService();
-
-        // If --tree option is specified, display in tree structure
-        if (options.tree) {
-          const rootTasks = displayTasks.filter((task) => !task.parent_id);
-
-          formatter.output(
-            () => buildTreeJsonOutput(displayTasks, options, tagIds, taskService, allTaskTags, allTasksMetadata),
-            () => {
-              console.log(chalk.bold(`\nFound ${displayTasks.length} task(s) in tree view:\n`));
-              console.log(chalk.bold('─'.repeat(80)));
-
-              rootTasks.forEach((task, index) => {
-                const isLast = index === rootTasks.length - 1;
-                displayTaskTree(taskService, task, '', isLast, allTasksMetadata);
-              });
-
-              console.log('\n');
-            }
-          );
-          return;
-        }
-
-        // If --dep-tree option is specified, display dependency (blocking) tree
-        if (options.depTree) {
-          const blockMap = buildBlockMap(taskBlockService);
-          const allBlockedIds = collectAllBlockedIds(blockMap);
-          const rootTasks = displayTasks.filter((task) => !allBlockedIds.has(task.id));
-
-          formatter.output(
-            () =>
-              buildDepTreeJsonOutput(
-                displayTasks,
-                options,
-                tagIds,
-                taskService,
-                blockMap,
-                allTaskTags,
-                allTasksMetadata
-              ),
-            () => {
-              console.log(chalk.bold(`\nFound ${displayTasks.length} task(s) in dependency tree view:\n`));
-              console.log(chalk.bold('\u2500'.repeat(80)));
-
-              rootTasks.forEach((task, index) => {
-                const isLast = index === rootTasks.length - 1;
-                displayDependencyTree(task, taskService, blockMap, allTasksMetadata, '', isLast, new Set());
-              });
-
-              console.log('\n');
-            }
-          );
-          return;
-        }
-
-        // Normal display (with parent task information)
-        formatter.output(
-          () => buildListJsonOutput(displayTasks, options, tagIds, taskService, allTaskTags, allTasksMetadata),
-          () => {
-            console.log(chalk.bold(`\nFound ${displayTasks.length} task(s):\n`));
-            console.log(chalk.bold('─'.repeat(80)));
-
-            displayTasks.forEach((task, index) => {
-              const isLast = index === displayTasks.length - 1;
-              printTaskRow(task, taskService, allTaskTags, allTasksMetadata, isLast);
-            });
-
-            console.log('\n');
-          }
-        );
+        await executeListAction(options, formatter);
       } catch (error) {
         if (error instanceof Error) {
           handleError(error, options);
