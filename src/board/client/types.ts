@@ -35,6 +35,7 @@ export interface ActiveFilters {
   tagIds: number[];
   priorities: string[];
   assignee: string;
+  searchText: string;
 }
 
 export interface ColumnData {
