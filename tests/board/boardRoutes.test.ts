@@ -729,6 +729,49 @@ describe('GET /api/board/cards', () => {
     const backlogCol = data.columns.find((c) => c.status === 'backlog')!;
     expect(backlogCol.count).toBe(1);
   });
+
+  it('filters cards by search text matching title', async () => {
+    const services = buildServices();
+    services.ts.createTask({ title: 'Fix login bug', status: 'backlog' });
+    services.ts.createTask({ title: 'Add signup page', status: 'backlog' });
+    const app = buildApp(services);
+    const res = await app.fetch(new Request('http://localhost/api/board/cards?search=login'));
+    const data = (await res.json()) as { columns: Array<{ status: string; count: number }> };
+    const backlogCol = data.columns.find((c) => c.status === 'backlog')!;
+    expect(backlogCol.count).toBe(1);
+  });
+
+  it('filters cards by search text matching body', async () => {
+    const services = buildServices();
+    services.ts.createTask({ title: 'Task A', body: 'Fix the authentication flow', status: 'backlog' });
+    services.ts.createTask({ title: 'Task B', body: 'Improve performance', status: 'backlog' });
+    const app = buildApp(services);
+    const res = await app.fetch(new Request('http://localhost/api/board/cards?search=authentication'));
+    const data = (await res.json()) as { columns: Array<{ status: string; count: number }> };
+    const backlogCol = data.columns.find((c) => c.status === 'backlog')!;
+    expect(backlogCol.count).toBe(1);
+  });
+
+  it('search is case-insensitive', async () => {
+    const services = buildServices();
+    services.ts.createTask({ title: 'Fix Login Bug', status: 'backlog' });
+    const app = buildApp(services);
+    const res = await app.fetch(new Request('http://localhost/api/board/cards?search=login'));
+    const data = (await res.json()) as { columns: Array<{ status: string; count: number }> };
+    const backlogCol = data.columns.find((c) => c.status === 'backlog')!;
+    expect(backlogCol.count).toBe(1);
+  });
+
+  it('returns all cards when search is empty', async () => {
+    const services = buildServices();
+    services.ts.createTask({ title: 'Task A', status: 'backlog' });
+    services.ts.createTask({ title: 'Task B', status: 'backlog' });
+    const app = buildApp(services);
+    const res = await app.fetch(new Request('http://localhost/api/board/cards?search='));
+    const data = (await res.json()) as { columns: Array<{ status: string; count: number }> };
+    const backlogCol = data.columns.find((c) => c.status === 'backlog')!;
+    expect(backlogCol.count).toBe(2);
+  });
 });
 
 describe('GET /', () => {
