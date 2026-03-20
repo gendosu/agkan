@@ -635,6 +635,12 @@ export function initDetailPanel(): void {
 
   document.getElementById('detail-panel-close')?.addEventListener('click', closeDetailPanel);
 
+  document.addEventListener('keydown', (e: KeyboardEvent) => {
+    if (e.key === 'Escape' && detailPanel.classList.contains('open')) {
+      closeDetailPanel();
+    }
+  });
+
   document.getElementById('detail-tabs')?.addEventListener('click', (e: MouseEvent) => {
     const btn = (e.target as HTMLElement).closest<HTMLElement>('.detail-tab');
     if (!btn) return;
