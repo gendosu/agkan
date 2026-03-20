@@ -7,8 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.12.0] - 2026-03-20
+
+### Added
+- Add esbuild client bundle build pipeline for board client TypeScript (#199)
+- Add typed client-side TypeScript modules under `src/board/client/` (#199)
+- Add burger menu to header bar with Purge Tasks and Version Info (#195)
+- Add reload button to DB update warning in detail panel (#200)
+- Fix sticky column headers with independent vertical scroll and drag auto-scroll (#197)
+- Add release branch creation step to release skill docs (#211)
+
 ### Changed
-- Update Node.js engine requirement from >=18.0.0 to >=20.0.0 (Node 18 EOL April 2025) (#204)
+- Split `server.ts` into module files (phase 1) (#198)
+- Update tsconfig.json files to TypeScript 5.x settings (#201)
+- Update Node.js engine requirement from >=18.0.0 to >=20.0.0 (#204)
+
+### Fixed
+- Remove stale update-warning bar on detail panel reload (#207)
+- Migrate kill_port() from ss to lsof for cross-platform compatibility in E2E tests
+- Add env.d.ts to provide DOM lib types for IDE language server (#199)
+- Fix TypeScript type errors in burger menu implementation (#195)
+- Use type-only imports for verbatimModuleSyntax compatibility (#201)
+- Build client bundle before running tests in pre-push hook
+- Prevent root-owned directories on Mac in devcontainer (#205)
 
 ## [2.11.0] - 2026-03-19
 
