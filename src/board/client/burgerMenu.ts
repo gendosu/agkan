@@ -1,9 +1,6 @@
 // Burger menu, purge tasks, and version info functionality
 
-export function initBurgerMenu(): void {
-  const burgerBtn = document.getElementById('burger-menu-btn') as HTMLButtonElement;
-  const burgerDropdown = document.getElementById('burger-menu-dropdown') as HTMLElement;
-
+function initBurgerToggle(burgerBtn: HTMLButtonElement, burgerDropdown: HTMLElement): void {
   burgerBtn.addEventListener('click', (e: MouseEvent) => {
     e.stopPropagation();
     burgerDropdown.classList.toggle('open');
@@ -14,8 +11,40 @@ export function initBurgerMenu(): void {
       burgerDropdown.classList.remove('open');
     }
   });
+}
 
-  // Purge tasks
+async function executePurge(
+  purgeConfirmBtn: HTMLButtonElement,
+  purgeModal: HTMLElement,
+  purgeResultEl: HTMLElement
+): Promise<void> {
+  purgeConfirmBtn.disabled = true;
+  purgeConfirmBtn.textContent = 'Purging...';
+  try {
+    const res = await fetch('/api/tasks/purge', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({}),
+    });
+    const data = await res.json();
+    if (res.ok) {
+      purgeResultEl.textContent = 'Purged ' + data.count + ' task(s).';
+      setTimeout(() => {
+        purgeModal.classList.remove('show');
+      }, 1500);
+      location.reload();
+    } else {
+      purgeResultEl.textContent = 'Error: ' + (data.error || 'Unknown error');
+    }
+  } catch {
+    purgeResultEl.textContent = 'Failed to purge tasks.';
+  } finally {
+    purgeConfirmBtn.disabled = false;
+    purgeConfirmBtn.textContent = 'Purge';
+  }
+}
+
+function initPurgeModal(burgerDropdown: HTMLElement): void {
   const purgeModal = document.getElementById('purge-confirm-modal') as HTMLElement;
   const purgeConfirmBtn = document.getElementById('purge-confirm-btn') as HTMLButtonElement;
   const purgeCancelBtn = document.getElementById('purge-cancel-btn') as HTMLButtonElement;
@@ -31,34 +60,10 @@ export function initBurgerMenu(): void {
     purgeModal.classList.remove('show');
   });
 
-  purgeConfirmBtn.addEventListener('click', async () => {
-    purgeConfirmBtn.disabled = true;
-    purgeConfirmBtn.textContent = 'Purging...';
-    try {
-      const res = await fetch('/api/tasks/purge', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({}),
-      });
-      const data = await res.json();
-      if (res.ok) {
-        purgeResultEl.textContent = 'Purged ' + data.count + ' task(s).';
-        setTimeout(() => {
-          purgeModal.classList.remove('show');
-        }, 1500);
-        location.reload();
-      } else {
-        purgeResultEl.textContent = 'Error: ' + (data.error || 'Unknown error');
-      }
-    } catch {
-      purgeResultEl.textContent = 'Failed to purge tasks.';
-    } finally {
-      purgeConfirmBtn.disabled = false;
-      purgeConfirmBtn.textContent = 'Purge';
-    }
-  });
+  purgeConfirmBtn.addEventListener('click', () => executePurge(purgeConfirmBtn, purgeModal, purgeResultEl));
+}
 
-  // Version info
+function initVersionModal(burgerDropdown: HTMLElement): void {
   const versionModal = document.getElementById('version-info-modal') as HTMLElement;
   const versionCloseBtn = document.getElementById('version-info-close') as HTMLButtonElement;
   const versionTextEl = document.getElementById('version-info-text') as HTMLElement;
@@ -79,4 +84,13 @@ export function initBurgerMenu(): void {
   versionCloseBtn.addEventListener('click', () => {
     versionModal.classList.remove('show');
   });
+}
+
+export function initBurgerMenu(): void {
+  const burgerBtn = document.getElementById('burger-menu-btn') as HTMLButtonElement;
+  const burgerDropdown = document.getElementById('burger-menu-dropdown') as HTMLElement;
+
+  initBurgerToggle(burgerBtn, burgerDropdown);
+  initPurgeModal(burgerDropdown);
+  initVersionModal(burgerDropdown);
 }
