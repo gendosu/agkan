@@ -47,7 +47,13 @@ Apply semantic versioning rules (from `.claude/rules/versioning.md`):
 | MINOR | New features, new commands, new options (backward-compatible) |
 | PATCH | Bug fixes, docs, dependency updates |
 
-### 4. Bump version in package.json
+### 4. Create the release branch
+
+```bash
+git checkout -b release/v<NEW_VERSION>
+```
+
+### 5. Bump version in package.json
 
 ```bash
 # Choose one based on step 3:
@@ -64,7 +70,7 @@ node -p "require('./package.json').version"
 NEW_VERSION=<version>
 ```
 
-### 5. Update CHANGELOG.md
+### 6. Update CHANGELOG.md
 
 Edit `CHANGELOG.md`:
 
@@ -85,20 +91,20 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/):
 - ...
 ```
 
-### 6. Build and verify
+### 7. Build and verify
 
 ```bash
 npm run build
 ```
 
-### 7. Commit version bump and CHANGELOG
+### 8. Commit version bump and CHANGELOG
 
 ```bash
 git add package.json package-lock.json CHANGELOG.md
 git commit -m "chore: release v<NEW_VERSION>"
 ```
 
-### 8. Push the branch and create a pull request
+### 9. Push the branch and create a pull request
 
 ```bash
 git push -u origin HEAD
@@ -110,7 +116,7 @@ Then create a pull request:
 /pull-request
 ```
 
-### 9. Ask user to merge the release branch
+### 10. Ask user to merge the release branch
 
 Ask the user to merge the release branch into main, then wait for confirmation before proceeding:
 
