@@ -6,7 +6,7 @@
 
 ### 必要な環境
 
-- Node.js 18以上
+- Node.js 20以上
 - npm 9以上
 - Git
 

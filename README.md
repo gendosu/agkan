@@ -28,7 +28,7 @@ To use agkan with Claude Code skills (automated task execution, planning, review
 
 ### Prerequisites
 
-- Node.js 18 or higher
+- Node.js 20 or higher
 - npm
 
 ### Install from npm (Recommended)

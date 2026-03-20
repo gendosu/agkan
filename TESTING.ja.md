@@ -12,7 +12,7 @@
 
 ### 前提条件
 
-- Node.js 18以上
+- Node.js 20以上
 - npm
 
 ### セットアップ手順
@@ -137,7 +137,7 @@ rm -rf data/agkan.db
 
 4. **Node.jsバージョンの確認**:
 ```bash
-node --version  # 18以上であることを確認
+node --version  # 20以上であることを確認
 ```
 
 ### よくある問題

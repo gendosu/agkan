@@ -12,7 +12,7 @@ This document describes the test environment and testing methods for the agkan p
 
 ### Prerequisites
 
-- Node.js 18 or later
+- Node.js 20 or later
 - npm
 
 ### Setup Steps
@@ -203,7 +203,7 @@ rm -rf data/agkan.db
 
 4. **Verify Node.js version**:
 ```bash
-node --version  # Should be 18 or later
+node --version  # Should be 20 or later
 ```
 
 ### Common Issues

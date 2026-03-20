@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- Update Node.js engine requirement from >=18.0.0 to >=20.0.0 (Node 18 EOL April 2025) (#204)
+
 ## [2.11.0] - 2026-03-19
 
 ### Added
