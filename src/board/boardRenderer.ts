@@ -152,10 +152,10 @@ function loadClientBundle(): string {
 function getBoardBodyStatic(): string {
   const clientBundle = loadClientBundle();
   const script = `
-    const statusColors = ${JSON.stringify(STATUS_COLORS)};
-    const allStatuses = ${JSON.stringify(STATUSES)};
-    const statusLabels = ${JSON.stringify(STATUS_LABELS)};
-    const allPriorities = ${JSON.stringify(PRIORITIES)};
+    var statusColors = ${JSON.stringify(STATUS_COLORS)};
+    var allStatuses = ${JSON.stringify(STATUSES)};
+    var statusLabels = ${JSON.stringify(STATUS_LABELS)};
+    var allPriorities = ${JSON.stringify(PRIORITIES)};
     ${clientBundle}`;
 
   return `${getAddTaskModal()}${getContextMenuAndToast()}${getPurgeAndVersionModals()}
