@@ -4,7 +4,7 @@
 
 import { Command } from 'commander';
 import chalk from 'chalk';
-import { TaskService, TaskBlockService } from '../../../services';
+import { getServiceContainer } from '../../utils/service-container';
 import { validateNumberInput } from '../../utils/error-handler';
 import { getStatusColor } from '../../../utils/format';
 import { createFormatter } from '../../utils/output-formatter';
@@ -29,8 +29,7 @@ export function setupBlockListCommand(program: Command): void {
     .action(async (id, options) => {
       const formatter = createFormatter(options);
       try {
-        const taskService = new TaskService();
-        const taskBlockService = new TaskBlockService();
+        const { taskService, taskBlockService } = getServiceContainer();
 
         // Validate ID
         const taskId = validateNumberInput(id);

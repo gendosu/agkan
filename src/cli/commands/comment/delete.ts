@@ -4,7 +4,7 @@
 
 import { Command } from 'commander';
 import chalk from 'chalk';
-import { CommentService } from '../../../services';
+import { getServiceContainer } from '../../utils/service-container';
 import { validateIdInput } from '../../utils/error-handler';
 import { createFormatter } from '../../utils/output-formatter';
 
@@ -29,7 +29,7 @@ export function setupCommentDeleteCommand(program: Command): void {
     .action(async (commentId, options) => {
       const formatter = createFormatter(options);
       try {
-        const commentService = new CommentService();
+        const { commentService } = getServiceContainer();
 
         // Validate comment ID
         const parsedCommentId = validateIdInput(commentId, 'Comment', options);

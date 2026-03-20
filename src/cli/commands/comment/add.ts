@@ -4,7 +4,7 @@
 
 import { Command } from 'commander';
 import chalk from 'chalk';
-import { TaskService, CommentService } from '../../../services';
+import { getServiceContainer } from '../../utils/service-container';
 import { validateIdInput } from '../../utils/error-handler';
 import { createFormatter } from '../../utils/output-formatter';
 import { formatDate } from '../../../utils/format';
@@ -32,8 +32,7 @@ export function setupCommentAddCommand(program: Command): void {
     .action(async (taskId, content, options) => {
       const formatter = createFormatter(options);
       try {
-        const taskService = new TaskService();
-        const commentService = new CommentService();
+        const { taskService, commentService } = getServiceContainer();
 
         // Validate task ID
         const parsedTaskId = validateIdInput(taskId, 'Task', options);

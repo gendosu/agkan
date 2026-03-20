@@ -4,7 +4,7 @@
 
 import { Command } from 'commander';
 import chalk from 'chalk';
-import { TaskService, MetadataService } from '../../../services';
+import { getServiceContainer } from '../../utils/service-container';
 import { validateIdInput } from '../../utils/error-handler';
 import { createFormatter } from '../../utils/output-formatter';
 
@@ -31,8 +31,7 @@ export function setupMetaSetCommand(program: Command): void {
     .action(async (taskId, key, value, options) => {
       const formatter = createFormatter(options);
       try {
-        const taskService = new TaskService();
-        const metadataService = new MetadataService();
+        const { taskService, metadataService } = getServiceContainer();
 
         // Validate task ID
         const parsedTaskId = validateIdInput(taskId, 'Task', options);

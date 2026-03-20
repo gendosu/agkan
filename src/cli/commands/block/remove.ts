@@ -4,7 +4,7 @@
 
 import { Command } from 'commander';
 import chalk from 'chalk';
-import { TaskService, TaskBlockService } from '../../../services';
+import { getServiceContainer } from '../../utils/service-container';
 import { validateNumberInput } from '../../utils/error-handler';
 import { createFormatter } from '../../utils/output-formatter';
 
@@ -28,8 +28,7 @@ export function setupBlockRemoveCommand(program: Command): void {
     .action(async (blockerId, blockedId, options) => {
       const formatter = createFormatter(options);
       try {
-        const taskService = new TaskService();
-        const taskBlockService = new TaskBlockService();
+        const { taskService, taskBlockService } = getServiceContainer();
 
         // Validate IDs
         const blockerTaskId = validateNumberInput(blockerId);

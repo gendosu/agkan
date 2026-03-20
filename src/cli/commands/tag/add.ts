@@ -4,7 +4,7 @@
 
 import { Command } from 'commander';
 import chalk from 'chalk';
-import { TagService } from '../../../services';
+import { getServiceContainer } from '../../utils/service-container';
 import { formatDate } from '../../../utils/format';
 import { createFormatter } from '../../utils/output-formatter';
 import { validateTagInput } from '../../../utils/input-validators';
@@ -25,7 +25,7 @@ export function setupTagAddCommand(program: Command): void {
       const formatter = createFormatter(options);
 
       try {
-        const tagService = new TagService();
+        const { tagService } = getServiceContainer();
 
         // Verify tag name is not empty
         if (!name || name.trim() === '') {

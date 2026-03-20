@@ -4,7 +4,7 @@
 
 import { Command } from 'commander';
 import chalk from 'chalk';
-import { TagService } from '../../../services';
+import { getServiceContainer } from '../../utils/service-container';
 import { Tag } from '../../../models';
 import { createFormatter } from '../../utils/output-formatter';
 import { validateNumberInput } from '../../utils/error-handler';
@@ -26,7 +26,7 @@ export function setupTagRenameCommand(program: Command): void {
     .action(async (id, newName, options) => {
       const formatter = createFormatter(options);
       try {
-        const tagService = new TagService();
+        const { tagService } = getServiceContainer();
 
         // Validate new tag name
         const validationErrors = validateTagInput({ name: newName });

@@ -4,13 +4,14 @@
 
 import { Command } from 'commander';
 import chalk from 'chalk';
-import { TaskService, TaskBlockService } from '../../../services';
+
 import { TaskStatus } from '../../../models';
 import { Priority, isPriority } from '../../../models/Priority';
 import { handleError, validateNumberInput } from '../../utils/error-handler';
 import { validateTaskStatus } from '../../utils/validators';
 import { validateTaskInput } from '../../../utils/input-validators';
 import { createFormatter } from '../../utils/output-formatter';
+import { getServiceContainer } from '../../utils/service-container';
 import {
   readBodyFromFile,
   parseBlockIds,
@@ -125,7 +126,7 @@ export function setupTaskAddCommand(program: Command): void {
           return;
         }
 
-        const taskService = new TaskService();
+        const { taskService, taskBlockService } = getServiceContainer();
         const task = taskService.createTask({
           title,
           body: taskBody,
@@ -137,7 +138,7 @@ export function setupTaskAddCommand(program: Command): void {
         });
 
         try {
-          addBlockRelationships(new TaskBlockService(), task.id, blockedByIds, blocksIds);
+          addBlockRelationships(taskBlockService, task.id, blockedByIds, blocksIds);
         } catch (error) {
           const msg = error instanceof Error ? error.message : 'Error adding block relationships';
           formatter.error(msg, () => {

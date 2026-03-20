@@ -4,7 +4,7 @@
 
 import { Command } from 'commander';
 import chalk from 'chalk';
-import { TaskService } from '../../../services';
+import { getServiceContainer } from '../../utils/service-container';
 import { handleError, validateNumberInput } from '../../utils/error-handler';
 import { createFormatter } from '../../utils/output-formatter';
 
@@ -22,7 +22,7 @@ export function setupTaskDeleteCommand(program: Command): void {
     .action(async (id, options) => {
       const formatter = createFormatter(options);
       try {
-        const taskService = new TaskService();
+        const { taskService } = getServiceContainer();
 
         const taskId = validateNumberInput(id);
         if (taskId === null) {

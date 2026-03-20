@@ -4,7 +4,7 @@
 
 import { Command } from 'commander';
 import chalk from 'chalk';
-import { TaskService } from '../../../services';
+import { getServiceContainer } from '../../utils/service-container';
 import { TaskStatus } from '../../../models';
 import { handleError } from '../../utils/error-handler';
 import { validateTaskStatus } from '../../utils/validators';
@@ -26,7 +26,7 @@ export function setupTaskCountCommand(program: Command): void {
     .action(async (options) => {
       const formatter = createFormatter(options);
       try {
-        const taskService = new TaskService();
+        const { taskService } = getServiceContainer();
 
         // Get task count by status
         const statusCounts = taskService.getTaskCountByStatus();

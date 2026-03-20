@@ -4,7 +4,8 @@
 
 import { Command } from 'commander';
 import chalk from 'chalk';
-import { TaskService, TagService, TaskTagService, MetadataService, TaskBlockService } from '../../../services';
+import { TaskService, TaskBlockService, TagService } from '../../../services';
+import { getServiceContainer } from '../../utils/service-container';
 import { ALLOWED_SORT_FIELDS, SortField, SortOrder } from '../../../services/TaskService';
 import { TaskStatus, PRIORITIES, isPriority } from '../../../models';
 import { handleError } from '../../utils/error-handler';
@@ -873,12 +874,11 @@ function fetchTaskRelations(): {
   allTasksMetadata: MetadataMap;
   taskBlockService: TaskBlockService;
 } {
-  const taskTagService = new TaskTagService();
-  const metadataService = new MetadataService();
+  const { taskTagService, metadataService, taskBlockService } = getServiceContainer();
   return {
     allTaskTags: taskTagService.getAllTaskTags(),
     allTasksMetadata: metadataService.getAllTasksMetadata(),
-    taskBlockService: new TaskBlockService(),
+    taskBlockService,
   };
 }
 
@@ -915,8 +915,7 @@ async function executeListAction(
   options: Record<string, unknown>,
   formatter: ReturnType<typeof createFormatter>
 ): Promise<void> {
-  const taskService = new TaskService();
-  const tagService = new TagService();
+  const { taskService, tagService } = getServiceContainer();
 
   const { statusFilter, tagIds, priorityFilter } = resolveFilters(options, tagService, formatter);
   const { displayTasks, allTasks } = queryAndFilterTasks(taskService, options, statusFilter, tagIds, priorityFilter);
