@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.12.2] - 2026-03-20
+
+### Fixed
+- Fix detail panel "Failed to load task details" error caused by `const` declarations not being added to `window` object (#214)
+
 ## [2.12.1] - 2026-03-20
 
 ### Fixed
