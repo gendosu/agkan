@@ -200,6 +200,9 @@ type WindowWithGlobals = Window & typeof globalThis & Record<string, unknown>;
 };
 
 export function renderDetailPanel(data: TaskDetail): void {
+  // Remove stale update-warning bar so it does not persist after reload
+  document.getElementById('detail-panel-update-warning')?.remove();
+
   const detailPanelTitle = document.getElementById('detail-panel-title') as HTMLElement;
 
   const task = data.task;
