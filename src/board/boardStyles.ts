@@ -101,6 +101,8 @@ export const BOARD_STYLES = `
     .filter-priority-btn.active[data-priority="high"] { background: #fee2e2; color: #dc2626; border-color: #fca5a5; }
     .filter-priority-btn.active[data-priority="medium"] { background: #fef9c3; color: #ca8a04; border-color: #fde047; }
     .filter-priority-btn.active[data-priority="low"] { background: #dcfce7; color: #16a34a; border-color: #86efac; }
+    .filter-search-input { border: 1px solid #e2e8f0; border-radius: 4px; padding: 3px 8px; font-size: 12px; font-family: inherit; background: white; color: #1e293b; width: 160px; }
+    .filter-search-input:focus { outline: none; border-color: #3b82f6; box-shadow: 0 0 0 2px rgba(59,130,246,0.2); }
     .filter-assignee-input { border: 1px solid #e2e8f0; border-radius: 4px; padding: 3px 8px; font-size: 12px; font-family: inherit; background: white; color: #1e293b; width: 120px; }
     .filter-assignee-input:focus { outline: none; border-color: #3b82f6; box-shadow: 0 0 0 2px rgba(59,130,246,0.2); }
     .filter-tag-pill { background: #e0f2fe; color: #0369a1; font-size: 11px; font-weight: 600; padding: 2px 4px 2px 8px; border-radius: 10px; display: inline-flex; align-items: center; gap: 3px; flex-shrink: 0; }
