@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.12.1] - 2026-03-20
+
+### Fixed
+- Resolve TypeScript null checks in board client tags and detail panel closures (#212)
+- Handle promise rejection and null checks in detail panel tags (#212)
+
+### Tests
+- Add unit tests for board client tags and detailPanel modules (#213)
+
 ## [2.12.0] - 2026-03-20
 
 ### Added
