@@ -109,16 +109,7 @@ export function buildFlagModeInput(options: UpdateOptions, formatter: OutputForm
 const SUPPORTED_FIELDS = ['status', 'title', 'body', 'author', 'assignees', 'priority'] as const;
 type SupportedField = (typeof SUPPORTED_FIELDS)[number];
 
-/**
- * Builds the updateInput map from positional (legacy) arguments.
- * Returns null if validation fails.
- */
-export function buildPositionalModeInput(
-  field: string | undefined,
-  value: string | undefined,
-  options: UpdateOptions,
-  formatter: OutputFormatter
-): Record<string, string> | null {
+function validateFieldName(field: string | undefined, formatter: OutputFormatter): field is SupportedField {
   if (!field) {
     formatter.error(
       'No fields specified. Use --title, --status, --body, --author, --assignees flags or positional arguments: <field> <value>',
@@ -130,32 +121,34 @@ export function buildPositionalModeInput(
         );
       }
     );
-    return null;
+    return false;
   }
-
   if (!SUPPORTED_FIELDS.includes(field as SupportedField)) {
     formatter.error(`Unsupported field: ${field}. Supported fields: ${SUPPORTED_FIELDS.join(', ')}`, () => {
       console.log(chalk.red(`\nUnsupported field: ${field}`));
       console.log(`Supported fields: ${SUPPORTED_FIELDS.join(', ')}\n`);
     });
-    return null;
+    return false;
   }
+  return true;
+}
 
+function resolvePositionalValue(
+  field: string,
+  value: string | undefined,
+  options: UpdateOptions,
+  formatter: OutputFormatter
+): string | null {
   if (options.file && field !== 'body') {
     formatter.error('--file option is only valid for the body field', () => {
       console.log(chalk.red(`\nError: --file option is only valid for the body field\n`));
     });
     return null;
   }
-
-  let resolvedValue = value;
   if (options.file) {
-    const body = readBodyOrError(options.file, formatter);
-    if (body === null) return null;
-    resolvedValue = body;
+    return readBodyOrError(options.file, formatter);
   }
-
-  if (resolvedValue === undefined) {
+  if (value === undefined) {
     formatter.error(`Missing value for field '${field}'. Provide a value argument or use --file for body.`, () => {
       console.log(
         chalk.red(`\nError: Missing value for field '${field}'. Provide a value argument or use --file for body.\n`)
@@ -163,9 +156,23 @@ export function buildPositionalModeInput(
     });
     return null;
   }
+  return value;
+}
 
+/**
+ * Builds the updateInput map from positional (legacy) arguments.
+ * Returns null if validation fails.
+ */
+export function buildPositionalModeInput(
+  field: string | undefined,
+  value: string | undefined,
+  options: UpdateOptions,
+  formatter: OutputFormatter
+): Record<string, string> | null {
+  if (!validateFieldName(field, formatter)) return null;
+  const resolvedValue = resolvePositionalValue(field, value, options, formatter);
+  if (resolvedValue === null) return null;
   if (field === 'status' && !validateStatus(resolvedValue, formatter)) return null;
   if (field === 'priority' && !validatePriority(resolvedValue, formatter)) return null;
-
   return { [field]: resolvedValue };
 }

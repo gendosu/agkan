@@ -12,12 +12,65 @@ import { getStatusColor, formatDate } from '../../../utils/format';
 import { createFormatter } from '../../utils/output-formatter';
 import { isFlagMode, buildFlagModeInput, buildPositionalModeInput, UpdateOptions } from './update-helpers';
 
+function applyTaskUpdate(
+  taskService: TaskService,
+  taskId: number,
+  updateInput: Record<string, string>
+): ReturnType<TaskService['updateTask']> {
+  return taskService.updateTask(taskId, {
+    ...(updateInput.status !== undefined && { status: updateInput.status as TaskStatus }),
+    ...(updateInput.title !== undefined && { title: updateInput.title }),
+    ...(updateInput.body !== undefined && { body: updateInput.body }),
+    ...(updateInput.author !== undefined && { author: updateInput.author }),
+    ...(updateInput.assignees !== undefined && { assignees: updateInput.assignees }),
+    ...(updateInput.priority !== undefined && {
+      priority: updateInput.priority === '' ? null : (updateInput.priority as Priority),
+    }),
+  });
+}
+
+async function handleUpdateAction(id: string, field: string, value: string, options: UpdateOptions): Promise<void> {
+  const formatter = createFormatter(options);
+  try {
+    const taskService = new TaskService();
+    const taskId = validateNumberInput(id);
+    if (taskId === null) {
+      formatter.error('Task ID must be a number', () => {
+        console.log(chalk.red('\nError: Task ID must be a number\n'));
+      });
+      process.exit(1);
+    }
+    const updateInput = isFlagMode(options, field)
+      ? buildFlagModeInput(options, formatter)
+      : buildPositionalModeInput(field, value, options, formatter);
+    if (updateInput === null) {
+      process.exit(1);
+    }
+    const task = applyTaskUpdate(taskService, taskId, updateInput);
+    if (!task) {
+      formatter.error(`Task with ID ${id} not found`, () => {
+        console.log(chalk.red(`\nTask with ID ${id} not found\n`));
+      });
+      process.exit(1);
+    }
+    renderSuccess(taskService, task, formatter);
+  } catch (error) {
+    if (error instanceof Error) {
+      handleError(error, options);
+    } else {
+      formatter.error('An unknown error occurred', () => {
+        console.log(chalk.red('\n✗ An unknown error occurred\n'));
+      });
+    }
+    process.exit(1);
+  }
+}
+
 export function setupTaskUpdateCommand(program: Command): void {
   const taskCommand = program.commands.find((cmd) => cmd.name() === 'task');
   if (!taskCommand) {
     throw new Error('Task command not found');
   }
-
   taskCommand
     .command('update')
     .argument('<id>', 'Task ID')
@@ -32,63 +85,12 @@ export function setupTaskUpdateCommand(program: Command): void {
     .option('--file <path>', 'Read body from file (only valid for body field)')
     .option('--json', 'Output in JSON format')
     .description('Update a task field')
-    .action(async (id, field, value, options: UpdateOptions) => {
-      const formatter = createFormatter(options);
-      try {
-        const taskService = new TaskService();
-
-        const taskId = validateNumberInput(id);
-        if (taskId === null) {
-          formatter.error('Task ID must be a number', () => {
-            console.log(chalk.red('\nError: Task ID must be a number\n'));
-          });
-          process.exit(1);
-        }
-
-        const updateInput = isFlagMode(options, field)
-          ? buildFlagModeInput(options, formatter)
-          : buildPositionalModeInput(field, value, options, formatter);
-
-        if (updateInput === null) {
-          process.exit(1);
-        }
-
-        const task = taskService.updateTask(taskId, {
-          ...(updateInput.status !== undefined && { status: updateInput.status as TaskStatus }),
-          ...(updateInput.title !== undefined && { title: updateInput.title }),
-          ...(updateInput.body !== undefined && { body: updateInput.body }),
-          ...(updateInput.author !== undefined && { author: updateInput.author }),
-          ...(updateInput.assignees !== undefined && { assignees: updateInput.assignees }),
-          ...(updateInput.priority !== undefined && {
-            priority: updateInput.priority === '' ? null : (updateInput.priority as Priority),
-          }),
-        });
-
-        if (!task) {
-          formatter.error(`Task with ID ${id} not found`, () => {
-            console.log(chalk.red(`\nTask with ID ${id} not found\n`));
-          });
-          process.exit(1);
-        }
-
-        renderSuccess(taskService, task, id, formatter);
-      } catch (error) {
-        if (error instanceof Error) {
-          handleError(error, options);
-        } else {
-          formatter.error('An unknown error occurred', () => {
-            console.log(chalk.red('\n✗ An unknown error occurred\n'));
-          });
-        }
-        process.exit(1);
-      }
-    });
+    .action(handleUpdateAction);
 }
 
 function renderSuccess(
   taskService: TaskService,
   task: ReturnType<TaskService['updateTask']>,
-  id: string,
   formatter: ReturnType<typeof createFormatter>
 ): void {
   const statusCounts = taskService.getTaskCountByStatus();
