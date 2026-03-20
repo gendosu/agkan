@@ -4,7 +4,8 @@
 
 import { Command } from 'commander';
 import chalk from 'chalk';
-import { Task, Tag, Comment } from '../../../models';
+import { Task, Tag } from '../../../models';
+import type { TaskComment } from '../../../models';
 import { TaskService, TaskBlockService, TaskTagService, CommentService } from '../../../services';
 import { handleError, validateNumberInput } from '../../utils/error-handler';
 import { getStatusColor, formatDate } from '../../../utils/format';
@@ -36,7 +37,7 @@ interface RelatedTaskData {
   blockerTasks: Task[];
   blockedTasks: Task[];
   tags: Tag[];
-  comments: Comment[];
+  comments: TaskComment[];
 }
 
 /**
@@ -147,7 +148,7 @@ function renderTags(tags: Tag[]): void {
 /**
  * Render comments section
  */
-function renderComments(comments: Comment[]): void {
+function renderComments(comments: TaskComment[]): void {
   if (comments.length === 0) return;
   console.log(`${chalk.bold('\nComments:')} ${comments.length} comment(s)`);
   console.log(chalk.gray('─'.repeat(80)));
