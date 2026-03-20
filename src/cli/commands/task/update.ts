@@ -5,6 +5,7 @@
 import { Command } from 'commander';
 import chalk from 'chalk';
 import { TaskService } from '../../../services';
+import { getServiceContainer } from '../../utils/service-container';
 import { TaskStatus } from '../../../models';
 import { Priority } from '../../../models/Priority';
 import { handleError, validateNumberInput } from '../../utils/error-handler';
@@ -32,7 +33,7 @@ function applyTaskUpdate(
 async function handleUpdateAction(id: string, field: string, value: string, options: UpdateOptions): Promise<void> {
   const formatter = createFormatter(options);
   try {
-    const taskService = new TaskService();
+    const { taskService } = getServiceContainer();
     const taskId = validateNumberInput(id);
     if (taskId === null) {
       formatter.error('Task ID must be a number', () => {

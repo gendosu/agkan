@@ -4,7 +4,7 @@
 
 import { Command } from 'commander';
 import chalk from 'chalk';
-import { TaskService, TagService, TaskTagService } from '../../../services';
+import { getServiceContainer } from '../../utils/service-container';
 import { Tag } from '../../../models';
 import { createFormatter } from '../../utils/output-formatter';
 import { validateIdInput, validateNumberInput } from '../../utils/error-handler';
@@ -25,9 +25,7 @@ export function setupTagDetachCommand(program: Command): void {
     .action(async (taskId, tagId, options) => {
       const formatter = createFormatter(options);
       try {
-        const taskService = new TaskService();
-        const tagService = new TagService();
-        const taskTagService = new TaskTagService();
+        const { taskService, tagService, taskTagService } = getServiceContainer();
 
         // Validate task ID
         const parsedTaskId = validateIdInput(taskId, 'Task', options);

@@ -4,7 +4,7 @@
 
 import { Command } from 'commander';
 import chalk from 'chalk';
-import { TagService, TaskTagService } from '../../../services';
+import { getServiceContainer } from '../../utils/service-container';
 import { formatDate } from '../../../utils/format';
 import { createFormatter } from '../../utils/output-formatter';
 
@@ -22,8 +22,7 @@ export function setupTagListCommand(program: Command): void {
     .action(async (options) => {
       const formatter = createFormatter(options);
       try {
-        const tagService = new TagService();
-        const taskTagService = new TaskTagService();
+        const { tagService, taskTagService } = getServiceContainer();
 
         const tags = tagService.listTags();
 

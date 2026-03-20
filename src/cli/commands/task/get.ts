@@ -6,7 +6,7 @@ import { Command } from 'commander';
 import chalk from 'chalk';
 import { Task, Tag } from '../../../models';
 import type { TaskComment } from '../../../models';
-import { TaskService, TaskBlockService, TaskTagService, CommentService } from '../../../services';
+import { getServiceContainer } from '../../utils/service-container';
 import { handleError, validateNumberInput } from '../../utils/error-handler';
 import { getStatusColor, formatDate } from '../../../utils/format';
 import { createFormatter } from '../../utils/output-formatter';
@@ -62,10 +62,7 @@ function formatTaskOutput(task: Task): TaskOutputData {
  * Fetch all related task data
  */
 function fetchRelatedData(taskId: number): RelatedTaskData {
-  const taskService = new TaskService();
-  const taskBlockService = new TaskBlockService();
-  const taskTagService = new TaskTagService();
-  const commentService = new CommentService();
+  const { taskService, taskBlockService, taskTagService, commentService } = getServiceContainer();
 
   const task = taskService.getTask(taskId)!;
   const parentTask = task.parent_id ? taskService.getParentTask(taskId) : null;
@@ -208,7 +205,7 @@ async function handleTaskGetAction(id: string, options: { json?: boolean }): Pro
       process.exit(1);
     }
 
-    const taskService = new TaskService();
+    const { taskService } = getServiceContainer();
     const task = taskService.getTask(taskId);
 
     if (!task) {

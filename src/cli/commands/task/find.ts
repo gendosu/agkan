@@ -5,7 +5,7 @@
 
 import { Command } from 'commander';
 import chalk from 'chalk';
-import { TaskService, TaskTagService } from '../../../services';
+import { getServiceContainer } from '../../utils/service-container';
 import type { TaskStatus } from '../../../models';
 import { getStatusColor, formatDate } from '../../../utils/format';
 import { createFormatter } from '../../utils/output-formatter';
@@ -26,8 +26,7 @@ export function setupTaskFindCommand(program: Command): void {
     .action(async (keyword, options) => {
       const formatter = createFormatter(options);
       try {
-        const taskService = new TaskService();
-        const taskTagService = new TaskTagService();
+        const { taskService, taskTagService } = getServiceContainer();
 
         if (!keyword || keyword.trim() === '') {
           formatter.error('Search keyword is required', () => {

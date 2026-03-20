@@ -4,7 +4,7 @@
 
 import { Command } from 'commander';
 import chalk from 'chalk';
-import { TaskService } from '../../../services';
+import { getServiceContainer } from '../../utils/service-container';
 import { Task, TaskStatus } from '../../../models';
 import { handleError } from '../../utils/error-handler';
 import { validateTaskStatus } from '../../utils/validators';
@@ -106,7 +106,7 @@ export function setupTaskPurgeCommand(program: Command): void {
     .action(async (options) => {
       const formatter = createFormatter(options);
       try {
-        const taskService = new TaskService();
+        const { taskService } = getServiceContainer();
 
         const beforeResult = resolveBeforeDate(options.before);
         if ('error' in beforeResult) {

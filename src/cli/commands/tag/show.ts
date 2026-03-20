@@ -4,7 +4,7 @@
 
 import { Command } from 'commander';
 import chalk from 'chalk';
-import { TaskService, TaskTagService } from '../../../services';
+import { getServiceContainer } from '../../utils/service-container';
 import { getStatusColor } from '../../../utils/format';
 import { validateIdInput } from '../../utils/error-handler';
 import { createFormatter } from '../../utils/output-formatter';
@@ -24,8 +24,7 @@ export function setupTagShowCommand(program: Command): void {
     .action(async (taskId, options) => {
       const formatter = createFormatter(options);
       try {
-        const taskService = new TaskService();
-        const taskTagService = new TaskTagService();
+        const { taskService, taskTagService } = getServiceContainer();
 
         // Validate ID
         const parsedTaskId = validateIdInput(taskId, 'Task', options);

@@ -5,6 +5,7 @@
 import { Command } from 'commander';
 import chalk from 'chalk';
 import { TaskService, TaskBlockService } from '../../../services';
+import { getServiceContainer } from '../../utils/service-container';
 import { validateNumberInput } from '../../utils/error-handler';
 import { createFormatter } from '../../utils/output-formatter';
 import type { Task } from '../../../models/Task';
@@ -164,8 +165,7 @@ function getOrCreateBlockCommand(taskCommand: Command): Command {
 async function handleBlockAdd(blockerId: string, blockedId: string, options: { json?: boolean }): Promise<void> {
   const formatter = createFormatter(options);
   try {
-    const taskService = new TaskService();
-    const taskBlockService = new TaskBlockService();
+    const { taskService, taskBlockService } = getServiceContainer();
 
     // Validate IDs
     const ids = validateTaskIds(blockerId, blockedId, formatter);
