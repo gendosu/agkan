@@ -513,7 +513,7 @@ describe('createBoardApp', () => {
       const html = await res.text();
 
       // Verify the JavaScript creates the detail panel dynamically
-      expect(html).toContain("querySelector('.board-container')");
+      expect(html).toContain('querySelector(".board-container")');
       expect(html).toContain('insertAdjacentHTML');
       expect(html).toContain('detail-panel');
     });
@@ -537,7 +537,7 @@ describe('createBoardApp', () => {
 
       expect(html).toContain('renderDetailPanel');
       expect(html).toContain('closeDetailPanel');
-      expect(html).toContain("fetch('/api/tasks/'");
+      expect(html).toContain('fetch("/api/tasks/');
     });
 
     it('should include resize handle element in detail panel', async () => {
@@ -876,7 +876,7 @@ describe('createBoardApp', () => {
 
       // After saving, the script should fetch the latest board timestamp and update lastUpdatedAt
       // so that polling does not treat the user's own save as an external update
-      expect(html).toContain('lastUpdatedAt = tsData.updatedAt');
+      expect(html).toContain('setLastUpdatedAt(tsData.updatedAt)');
     });
   });
 
@@ -889,7 +889,8 @@ describe('createBoardApp', () => {
       expect(html).toContain('pollBoardUpdates');
       expect(html).toContain('/api/board/updated-at');
       expect(html).toContain('setInterval');
-      expect(html).toContain('5000');
+      // esbuild converts 5000 to 5e3
+      expect(html).toMatch(/5000|5e3/);
     });
 
     it('should skip reload when draggedCard is not null', async () => {
@@ -905,7 +906,7 @@ describe('createBoardApp', () => {
       const res = await app.fetch(new Request('http://localhost/'));
       const html = await res.text();
 
-      expect(html).toContain("detailPanel.classList.contains('open')");
+      expect(html).toMatch(/detailPanel\.classList\.contains\(["']open["']\)/);
       expect(html).toContain('refreshBoardCards');
       expect(html).toContain('/api/board/cards');
     });
@@ -917,8 +918,9 @@ describe('createBoardApp', () => {
       const res = await app.fetch(new Request('http://localhost/'));
       const html = await res.text();
 
-      expect(html).toContain('detailTaskId !== null');
-      expect(html).toContain("/api/tasks/' + detailTaskId");
+      // detailTaskId may be renamed by bundler; check for null check pattern
+      expect(html).toMatch(/detailTaskId\w* !== null/);
+      expect(html).toMatch(/\/api\/tasks\/["'] \+ detailTaskId/);
       expect(html).toContain('renderDetailPanel(taskData)');
     });
 
@@ -939,7 +941,8 @@ describe('createBoardApp', () => {
 
       expect(html).toContain('detail-panel-update-warning');
       expect(html).toContain('Reload latest data');
-      expect(html).toContain('↺');
+      // esbuild may convert ↺ to unicode escape \u21BA
+      expect(html).toMatch(/↺|\\u21BA|\u21BA/);
     });
 
     it('should skip detail panel refresh when user is editing', async () => {
