@@ -64,33 +64,46 @@ function renderCommentItemHtml(
   html += '<span class="comment-date" title="' + dateAbs + '">' + dateRel + '</span>';
   html += '<span class="comment-actions">';
   html +=
-    '<button class="comment-action-btn" title="Edit" onclick="startCommentEdit(' + comment.id + ')">&#9998;</button>';
-  html +=
-    '<button class="comment-action-btn danger" title="Delete" onclick="deleteComment(' +
+    '<button class="comment-action-btn" title="Edit" data-action="start-comment-edit" data-comment-id="' +
     comment.id +
-    ',' +
+    '">&#9998;</button>';
+  html +=
+    '<button class="comment-action-btn danger" title="Delete" data-action="delete-comment" data-comment-id="' +
+    comment.id +
+    '" data-task-id="' +
     taskId +
-    ')">&#128465;</button>';
+    '">&#128465;</button>';
   html += '</span></div>';
   html += '<div class="comment-content" id="comment-content-' + comment.id + '">' + contentText + '</div>';
   html += '<div id="comment-edit-' + comment.id + '" style="display:none;">';
   html +=
     '<textarea class="comment-edit-area" id="comment-edit-area-' + comment.id + '">' + contentText + '</textarea>';
   html += '<div class="comment-edit-actions">';
-  html += '<button class="comment-btn" onclick="saveCommentEdit(' + comment.id + ',' + taskId + ')">Save</button>';
-  html += '<button class="comment-btn" onclick="cancelCommentEdit(' + comment.id + ')">Cancel</button>';
+  html +=
+    '<button class="comment-btn" data-action="save-comment-edit" data-comment-id="' +
+    comment.id +
+    '" data-task-id="' +
+    taskId +
+    '">Save</button>';
+  html +=
+    '<button class="comment-btn" data-action="cancel-comment-edit" data-comment-id="' +
+    comment.id +
+    '">Cancel</button>';
   html += '</div></div></div>';
   return html;
 }
 
 function renderAddCommentFormHtml(taskId: number): string {
   let html =
-    '<button class="add-comment-trigger" id="add-comment-trigger" onclick="openAddCommentForm()">+ Add comment...</button>';
+    '<button class="add-comment-trigger" id="add-comment-trigger" data-action="open-add-comment">+ Add comment...</button>';
   html += '<div class="add-comment-form" id="add-comment-form">';
   html += '<textarea class="add-comment-textarea" id="add-comment-text" placeholder="Write a comment..."></textarea>';
   html += '<div>';
-  html += '<button class="add-comment-submit" onclick="submitComment(' + taskId + ')">Add Comment</button>';
-  html += '<button class="add-comment-cancel" onclick="closeAddCommentForm()">Cancel</button>';
+  html +=
+    '<button class="add-comment-submit" data-action="submit-comment" data-task-id="' +
+    taskId +
+    '">Add Comment</button>';
+  html += '<button class="add-comment-cancel" data-action="close-add-comment">Cancel</button>';
   html += '</div></div>';
   return html;
 }
@@ -115,12 +128,23 @@ function renderComments(
   html += renderAddCommentFormHtml(taskId);
 
   pane.innerHTML = html;
+
+  // Attach event delegation listener once per pane instance.
+  // Remove any previously attached listener before re-adding to avoid duplicates.
+  const paneEl = pane as HTMLElement & { _commentActionHandler?: (e: MouseEvent) => void };
+  if (paneEl._commentActionHandler) {
+    paneEl.removeEventListener('click', paneEl._commentActionHandler);
+  }
+  paneEl._commentActionHandler = handleCommentAction;
+  paneEl.addEventListener('click', paneEl._commentActionHandler);
 }
 
-// Expose comment functions globally for inline onclick handlers
+// Type for accessing window globals set by the server-rendered page
 type WindowWithGlobals = Window & typeof globalThis & Record<string, unknown>;
 
-(window as WindowWithGlobals).openAddCommentForm = function (): void {
+// Comment action handlers (encapsulated, not exposed globally)
+
+function openAddCommentForm(): void {
   const trigger = document.getElementById('add-comment-trigger');
   const form = document.getElementById('add-comment-form');
   if (trigger) trigger.style.display = 'none';
@@ -128,9 +152,9 @@ type WindowWithGlobals = Window & typeof globalThis & Record<string, unknown>;
     form.classList.add('open');
     (form.querySelector('textarea') as HTMLTextAreaElement).focus();
   }
-};
+}
 
-(window as WindowWithGlobals).closeAddCommentForm = function (): void {
+function closeAddCommentForm(): void {
   const trigger = document.getElementById('add-comment-trigger');
   const form = document.getElementById('add-comment-form');
   if (trigger) trigger.style.display = '';
@@ -138,25 +162,25 @@ type WindowWithGlobals = Window & typeof globalThis & Record<string, unknown>;
     form.classList.remove('open');
     (form.querySelector('textarea') as HTMLTextAreaElement).value = '';
   }
-};
+}
 
-(window as WindowWithGlobals).startCommentEdit = function (commentId: number): void {
+function startCommentEdit(commentId: number): void {
   const contentEl = document.getElementById('comment-content-' + commentId);
   const editWrapper = document.getElementById('comment-edit-' + commentId);
   if (contentEl) contentEl.style.display = 'none';
   if (editWrapper) editWrapper.style.display = 'block';
   const area = document.getElementById('comment-edit-area-' + commentId) as HTMLTextAreaElement;
   if (area) area.focus();
-};
+}
 
-(window as WindowWithGlobals).cancelCommentEdit = function (commentId: number): void {
+function cancelCommentEdit(commentId: number): void {
   const contentEl = document.getElementById('comment-content-' + commentId);
   const editWrapper = document.getElementById('comment-edit-' + commentId);
   if (contentEl) contentEl.style.display = '';
   if (editWrapper) editWrapper.style.display = 'none';
-};
+}
 
-(window as WindowWithGlobals).saveCommentEdit = async function (commentId: number, taskId: number): Promise<void> {
+async function saveCommentEdit(commentId: number, taskId: number): Promise<void> {
   const area = document.getElementById('comment-edit-area-' + commentId) as HTMLTextAreaElement;
   if (!area) return;
   const content = area.value.trim();
@@ -175,9 +199,9 @@ type WindowWithGlobals = Window & typeof globalThis & Record<string, unknown>;
   } catch {
     showToast('Failed to update comment');
   }
-};
+}
 
-(window as WindowWithGlobals).deleteComment = async function (commentId: number, taskId: number): Promise<void> {
+async function deleteComment(commentId: number, taskId: number): Promise<void> {
   if (!confirm('Delete this comment?')) return;
   try {
     const res = await fetch('/api/comments/' + commentId, { method: 'DELETE' });
@@ -186,9 +210,9 @@ type WindowWithGlobals = Window & typeof globalThis & Record<string, unknown>;
   } catch {
     showToast('Failed to delete comment');
   }
-};
+}
 
-(window as WindowWithGlobals).submitComment = async function (taskId: number): Promise<void> {
+async function submitComment(taskId: number): Promise<void> {
   const textarea = document.getElementById('add-comment-text') as HTMLTextAreaElement;
   if (!textarea) return;
   const content = textarea.value.trim();
@@ -207,7 +231,42 @@ type WindowWithGlobals = Window & typeof globalThis & Record<string, unknown>;
   } catch {
     showToast('Failed to add comment');
   }
-};
+}
+
+function dispatchCommentAction(action: string, commentId: number, taskId: number): void {
+  switch (action) {
+    case 'open-add-comment':
+      openAddCommentForm();
+      break;
+    case 'close-add-comment':
+      closeAddCommentForm();
+      break;
+    case 'start-comment-edit':
+      startCommentEdit(commentId);
+      break;
+    case 'cancel-comment-edit':
+      cancelCommentEdit(commentId);
+      break;
+    case 'save-comment-edit':
+      void saveCommentEdit(commentId, taskId);
+      break;
+    case 'delete-comment':
+      void deleteComment(commentId, taskId);
+      break;
+    case 'submit-comment':
+      void submitComment(taskId);
+      break;
+  }
+}
+
+function handleCommentAction(e: MouseEvent): void {
+  const target = (e.target as HTMLElement).closest<HTMLElement>('[data-action]');
+  if (!target) return;
+  const action = target.dataset.action ?? '';
+  const commentId = target.dataset.commentId ? Number(target.dataset.commentId) : NaN;
+  const taskId = target.dataset.taskId ? Number(target.dataset.taskId) : NaN;
+  dispatchCommentAction(action, commentId, taskId);
+}
 
 function renderStatusField(currentStatus: string, allStatuses: string[], statusLabels: Record<string, string>): string {
   let html = '<div class="detail-field">';
