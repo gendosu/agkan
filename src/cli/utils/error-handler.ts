@@ -4,7 +4,7 @@
  */
 
 import chalk from 'chalk';
-import { formatJsonError } from './response-formatter';
+import { formatJsonError } from './output-formatter';
 
 /**
  * Handle and display errors in CLI
