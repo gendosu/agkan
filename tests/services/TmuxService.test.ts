@@ -2,10 +2,16 @@ import { describe, it, expect, afterEach, vi, beforeEach } from 'vitest';
 import { TmuxService } from '../../src/services/TmuxService';
 
 // We mock child_process to avoid requiring a real tmux installation in CI
-vi.mock('child_process', () => ({
-  execSync: vi.fn(),
-  exec: vi.fn(),
-}));
+vi.mock('child_process', () => {
+  const mockChildProcess = {
+    unref: vi.fn(),
+  };
+  return {
+    execSync: vi.fn(),
+    exec: vi.fn(),
+    spawn: vi.fn(() => mockChildProcess),
+  };
+});
 
 import { execSync } from 'child_process';
 
@@ -47,11 +53,10 @@ describe('TmuxService', () => {
       mockExecSync.mockImplementationOnce(() => {
         throw new Error('no server');
       });
-      // Second call: new-session succeeds
-      mockExecSync.mockReturnValueOnce(Buffer.from(''));
 
       expect(() => service.startSession('my-session', 'echo hi')).not.toThrow();
-      expect(mockExecSync).toHaveBeenCalledTimes(2);
+      // Only one execSync call for sessionExists check; spawn is called but not mocked in execSync
+      expect(mockExecSync).toHaveBeenCalledTimes(1);
     });
 
     it('throws when the session already exists', () => {
@@ -59,7 +64,7 @@ describe('TmuxService', () => {
       mockExecSync.mockReturnValueOnce(Buffer.from(''));
 
       expect(() => service.startSession('my-session', 'echo hi')).toThrow("Session 'my-session' already exists");
-      // new-session should NOT be called
+      // Only one execSync call for sessionExists check
       expect(mockExecSync).toHaveBeenCalledTimes(1);
     });
   });
