@@ -5,6 +5,7 @@ import { TagService } from '../services/TagService';
 import { MetadataService } from '../services/MetadataService';
 import { CommentService } from '../services/CommentService';
 import { TaskBlockService } from '../services/TaskBlockService';
+import { TmuxService } from '../services/TmuxService';
 import { TaskStatus, isPriority, Priority } from '../models';
 import { StorageProvider } from '../db/types/storage';
 import { readBoardConfig, writeBoardConfig, DETAIL_PANE_MAX_WIDTH, VALID_THEMES, ThemePreference } from './boardConfig';
@@ -291,7 +292,102 @@ function parseBoardCardFilters(query: {
   return filters;
 }
 
-export function registerBoardRoutes(app: Hono, services: BoardServices): void {
+function registerTmuxRoutes(app: Hono, tmux: TmuxService): void {
+  // List all active tmux sessions
+  app.get('/api/tmux/sessions', (c) => {
+    const sessions = tmux.listSessions();
+    return c.json({ sessions });
+  });
+
+  // Start a new tmux session
+  app.post('/api/tmux/sessions', async (c) => {
+    const body = await c.req.json<{ name?: string; command?: string }>();
+    if (!body.name || typeof body.name !== 'string' || !body.name.trim()) {
+      return c.json({ error: 'name is required' }, 400);
+    }
+    if (!body.command || typeof body.command !== 'string' || !body.command.trim()) {
+      return c.json({ error: 'command is required' }, 400);
+    }
+    const name = body.name.trim();
+    const command = body.command.trim();
+    try {
+      tmux.startSession(name, command);
+      return c.json({ name, started: true }, 201);
+    } catch (e) {
+      return c.json({ error: e instanceof Error ? e.message : 'Failed to start session' }, 409);
+    }
+  });
+
+  // Kill a tmux session
+  app.delete('/api/tmux/sessions/:name', (c) => {
+    const name = c.req.param('name');
+    if (!tmux.sessionExists(name)) {
+      return c.json({ error: 'Session not found' }, 404);
+    }
+    try {
+      tmux.killSession(name);
+      return c.json({ success: true });
+    } catch (e) {
+      return c.json({ error: e instanceof Error ? e.message : 'Failed to kill session' }, 500);
+    }
+  });
+
+  // Capture current pane content (snapshot)
+  app.get('/api/tmux/sessions/:name/pane', (c) => {
+    const name = c.req.param('name');
+    const content = tmux.capturePane(name);
+    if (content === null) {
+      return c.json({ error: 'Session not found' }, 404);
+    }
+    return c.json({ content });
+  });
+
+  // SSE endpoint: stream pane output in real time
+  app.get('/api/tmux/sessions/:name/stream', (c) => {
+    const name = c.req.param('name');
+
+    if (!tmux.sessionExists(name)) {
+      return c.json({ error: 'Session not found' }, 404);
+    }
+
+    const stream = new ReadableStream({
+      start(controller) {
+        const encode = (event: string, data: string): Uint8Array => {
+          const payload = `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
+          return new TextEncoder().encode(payload);
+        };
+
+        const stop = tmux.streamPane(
+          name,
+          (chunk) => {
+            controller.enqueue(encode('pane', chunk));
+          },
+          () => {
+            controller.enqueue(encode('end', 'session ended'));
+            stop();
+            controller.close();
+          }
+        );
+
+        // Clean up if client disconnects
+        c.req.raw.signal?.addEventListener('abort', () => {
+          stop();
+          controller.close();
+        });
+      },
+    });
+
+    return new Response(stream, {
+      headers: {
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache',
+        Connection: 'keep-alive',
+      },
+    });
+  });
+}
+
+export function registerBoardRoutes(app: Hono, services: BoardServices, tmux?: TmuxService): void {
   const { ts, tts, database, boardTitle, configDir } = services;
   app.get('/', (c) => {
     const tasksByStatus = buildTasksByStatus(ts.listTasks({}, 'id', 'asc'));
@@ -312,4 +408,5 @@ export function registerBoardRoutes(app: Hono, services: BoardServices): void {
   });
   registerTaskApiRoutes(app, services);
   registerConfigApiRoutes(app, configDir);
+  registerTmuxRoutes(app, tmux ?? new TmuxService());
 }

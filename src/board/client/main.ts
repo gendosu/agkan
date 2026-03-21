@@ -8,6 +8,7 @@ import { initDetailPanel } from './detailPanel';
 import { initBoardPolling } from './boardPolling';
 import { initFilters } from './filters';
 import { initBurgerMenu } from './burgerMenu';
+import { initTmuxPanel } from './tmuxPanel';
 
 initDragDrop();
 initAutoScroll();
@@ -17,3 +18,4 @@ initDetailPanel();
 initBoardPolling();
 initFilters();
 initBurgerMenu();
+initTmuxPanel();
