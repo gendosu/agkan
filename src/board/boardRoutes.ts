@@ -7,7 +7,7 @@ import { CommentService } from '../services/CommentService';
 import { TaskBlockService } from '../services/TaskBlockService';
 import { TaskStatus, isPriority, Priority } from '../models';
 import { StorageProvider } from '../db/types/storage';
-import { readBoardConfig, writeBoardConfig, DETAIL_PANE_MAX_WIDTH } from './boardConfig';
+import { readBoardConfig, writeBoardConfig, DETAIL_PANE_MAX_WIDTH, VALID_THEMES, ThemePreference } from './boardConfig';
 import { buildTasksByStatus, getBoardUpdatedAt, buildBoardCardsPayload, STATUSES, renderBoard } from './boardRenderer';
 
 export type BoardServices = {
@@ -233,7 +233,7 @@ export function registerConfigApiRoutes(app: Hono, configDir: string): void {
   });
 
   app.put('/api/config', async (c) => {
-    const body = await c.req.json<{ board?: { detailPaneWidth?: unknown } }>();
+    const body = await c.req.json<{ board?: { detailPaneWidth?: unknown; theme?: unknown } }>();
     const boardBody = body?.board ?? {};
 
     if (boardBody.detailPaneWidth !== undefined) {
@@ -245,6 +245,14 @@ export function registerConfigApiRoutes(app: Hono, configDir: string): void {
         return c.json({ error: `detailPaneWidth must not exceed ${DETAIL_PANE_MAX_WIDTH}` }, 400);
       }
       writeBoardConfig(configDir, { detailPaneWidth: width });
+    }
+
+    if (boardBody.theme !== undefined) {
+      const theme = boardBody.theme;
+      if (typeof theme !== 'string' || !(VALID_THEMES as string[]).includes(theme)) {
+        return c.json({ error: `theme must be one of: ${VALID_THEMES.join(', ')}` }, 400);
+      }
+      writeBoardConfig(configDir, { theme: theme as ThemePreference });
     }
 
     return c.json({ success: true });

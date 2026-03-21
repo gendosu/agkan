@@ -1,4 +1,4 @@
-// Dark mode / light mode support with localStorage persistence
+// Dark mode / light mode support with localStorage persistence and server-side config
 
 const STORAGE_KEY = 'agkan-theme';
 
@@ -16,6 +16,18 @@ export function saveThemePreference(theme: 'dark' | 'light'): void {
 
 export function clearThemePreference(): void {
   localStorage.removeItem(STORAGE_KEY);
+}
+
+async function persistThemeToServer(theme: ThemePreference): Promise<void> {
+  try {
+    await fetch('/api/config', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ board: { theme } }),
+    });
+  } catch {
+    // Ignore network errors - localStorage is the fallback
+  }
 }
 
 export function getCurrentEffectiveTheme(): 'dark' | 'light' {
@@ -63,8 +75,23 @@ function updateCheckmarks(active: ThemePreference): void {
   }
 }
 
+export async function loadThemeFromServer(): Promise<ThemePreference | null> {
+  try {
+    const res = await fetch('/api/config');
+    if (!res.ok) return null;
+    const data = (await res.json()) as { board?: { theme?: string } };
+    const theme = data?.board?.theme;
+    if (theme === 'dark' || theme === 'light' || theme === 'system') {
+      return theme;
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
 export function initDarkMode(): void {
-  // Apply stored or system preference on init
+  // Apply stored or system preference on init (localStorage as fallback until server responds)
   const stored = localStorage.getItem(STORAGE_KEY);
   if (stored === 'dark' || stored === 'light') {
     applyTheme(stored);
@@ -73,21 +100,37 @@ export function initDarkMode(): void {
   const activePreference = getActivePreference();
   updateCheckmarks(activePreference);
 
+  // Load from server config and apply if different from localStorage
+  void loadThemeFromServer().then((serverTheme) => {
+    if (serverTheme !== null) {
+      if (serverTheme === 'system') {
+        localStorage.removeItem(STORAGE_KEY);
+      } else {
+        localStorage.setItem(STORAGE_KEY, serverTheme);
+      }
+      applyTheme(serverTheme);
+      updateCheckmarks(serverTheme);
+    }
+  });
+
   document.getElementById('burger-theme-dark')?.addEventListener('click', () => {
     saveThemePreference('dark');
     applyTheme('dark');
     updateCheckmarks('dark');
+    void persistThemeToServer('dark');
   });
 
   document.getElementById('burger-theme-light')?.addEventListener('click', () => {
     saveThemePreference('light');
     applyTheme('light');
     updateCheckmarks('light');
+    void persistThemeToServer('light');
   });
 
   document.getElementById('burger-theme-system')?.addEventListener('click', () => {
     clearThemePreference();
     applyTheme('system');
     updateCheckmarks('system');
+    void persistThemeToServer('system');
   });
 }

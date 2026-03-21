@@ -11,6 +11,7 @@ import {
   saveThemePreference,
   clearThemePreference,
   getCurrentEffectiveTheme,
+  loadThemeFromServer,
 } from '../../../src/board/client/darkMode';
 
 function setupDOM(): void {
@@ -87,6 +88,64 @@ describe('applyTheme', () => {
     document.documentElement.setAttribute('data-theme', 'dark');
     applyTheme('system');
     expect(document.documentElement.hasAttribute('data-theme')).toBe(false);
+  });
+});
+
+describe('loadThemeFromServer', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('returns dark theme from server config', async () => {
+    vi.spyOn(global, 'fetch').mockResolvedValueOnce(
+      new Response(JSON.stringify({ board: { theme: 'dark' } }), { status: 200 })
+    );
+    const result = await loadThemeFromServer();
+    expect(result).toBe('dark');
+  });
+
+  it('returns light theme from server config', async () => {
+    vi.spyOn(global, 'fetch').mockResolvedValueOnce(
+      new Response(JSON.stringify({ board: { theme: 'light' } }), { status: 200 })
+    );
+    const result = await loadThemeFromServer();
+    expect(result).toBe('light');
+  });
+
+  it('returns system theme from server config', async () => {
+    vi.spyOn(global, 'fetch').mockResolvedValueOnce(
+      new Response(JSON.stringify({ board: { theme: 'system' } }), { status: 200 })
+    );
+    const result = await loadThemeFromServer();
+    expect(result).toBe('system');
+  });
+
+  it('returns null when theme is not set in server config', async () => {
+    vi.spyOn(global, 'fetch').mockResolvedValueOnce(new Response(JSON.stringify({ board: {} }), { status: 200 }));
+    const result = await loadThemeFromServer();
+    expect(result).toBeNull();
+  });
+
+  it('returns null when server returns invalid theme', async () => {
+    vi.spyOn(global, 'fetch').mockResolvedValueOnce(
+      new Response(JSON.stringify({ board: { theme: 'invalid' } }), { status: 200 })
+    );
+    const result = await loadThemeFromServer();
+    expect(result).toBeNull();
+  });
+
+  it('returns null when server request fails', async () => {
+    vi.spyOn(global, 'fetch').mockRejectedValueOnce(new Error('Network error'));
+    const result = await loadThemeFromServer();
+    expect(result).toBeNull();
+  });
+
+  it('returns null when server returns non-ok response', async () => {
+    vi.spyOn(global, 'fetch').mockResolvedValueOnce(
+      new Response(JSON.stringify({ error: 'Server error' }), { status: 500 })
+    );
+    const result = await loadThemeFromServer();
+    expect(result).toBeNull();
   });
 });
 

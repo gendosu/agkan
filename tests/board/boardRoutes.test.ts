@@ -681,6 +681,74 @@ describe('PUT /api/config', () => {
     );
     expect(res.status).toBe(200);
   });
+
+  it('returns success when updating theme to dark', async () => {
+    const app = buildApp(buildServices());
+    const res = await app.fetch(
+      new Request('http://localhost/api/config', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ board: { theme: 'dark' } }),
+      })
+    );
+    expect(res.status).toBe(200);
+    const data = (await res.json()) as { success: boolean };
+    expect(data.success).toBe(true);
+  });
+
+  it('returns success when updating theme to light', async () => {
+    const app = buildApp(buildServices());
+    const res = await app.fetch(
+      new Request('http://localhost/api/config', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ board: { theme: 'light' } }),
+      })
+    );
+    expect(res.status).toBe(200);
+    const data = (await res.json()) as { success: boolean };
+    expect(data.success).toBe(true);
+  });
+
+  it('returns success when updating theme to system', async () => {
+    const app = buildApp(buildServices());
+    const res = await app.fetch(
+      new Request('http://localhost/api/config', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ board: { theme: 'system' } }),
+      })
+    );
+    expect(res.status).toBe(200);
+    const data = (await res.json()) as { success: boolean };
+    expect(data.success).toBe(true);
+  });
+
+  it('returns 400 when theme is invalid', async () => {
+    const app = buildApp(buildServices());
+    const res = await app.fetch(
+      new Request('http://localhost/api/config', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ board: { theme: 'invalid-theme' } }),
+      })
+    );
+    expect(res.status).toBe(400);
+    const data = (await res.json()) as { error: string };
+    expect(data.error).toContain('theme');
+  });
+
+  it('returns 400 when theme is not a string', async () => {
+    const app = buildApp(buildServices());
+    const res = await app.fetch(
+      new Request('http://localhost/api/config', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ board: { theme: 123 } }),
+      })
+    );
+    expect(res.status).toBe(400);
+  });
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
