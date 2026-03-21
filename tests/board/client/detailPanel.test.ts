@@ -782,3 +782,91 @@ describe('closeDetailPanel', () => {
     expect(getDetailTaskId()).toBeNull();
   });
 });
+
+describe('Escape key closes detail panel', () => {
+  beforeEach(() => {
+    vi.resetModules();
+    setupMinimalBoardDOM();
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('pressing Escape closes the panel when it is open', async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ comments: [] }),
+    });
+
+    const { renderDetailPanel, initDetailPanel, getDetailTaskId } =
+      await import('../../../src/board/client/detailPanel');
+
+    global.fetch = vi.fn().mockImplementation((url: string) => {
+      if (String(url).includes('/api/config')) {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve({}) });
+      }
+      return Promise.resolve({ ok: true, json: () => Promise.resolve({ comments: [] }) });
+    });
+
+    initDetailPanel();
+    renderDetailPanel(makeTaskDetail());
+    await new Promise((resolve) => setTimeout(resolve, 50));
+
+    const panel = document.getElementById('detail-panel')!;
+    panel.classList.add('open');
+
+    expect(panel.classList.contains('open')).toBe(true);
+
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+
+    expect(panel.classList.contains('open')).toBe(false);
+    expect(getDetailTaskId()).toBeNull();
+  });
+
+  it('pressing Escape does not throw when panel is not open', async () => {
+    global.fetch = vi.fn().mockImplementation((url: string) => {
+      if (String(url).includes('/api/config')) {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve({}) });
+      }
+      return Promise.resolve({ ok: true, json: () => Promise.resolve({ comments: [] }) });
+    });
+
+    const { initDetailPanel } = await import('../../../src/board/client/detailPanel');
+
+    initDetailPanel();
+
+    const panel = document.getElementById('detail-panel')!;
+    expect(panel.classList.contains('open')).toBe(false);
+
+    expect(() => {
+      document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    }).not.toThrow();
+
+    expect(panel.classList.contains('open')).toBe(false);
+  });
+
+  it('pressing other keys does not close the panel', async () => {
+    global.fetch = vi.fn().mockImplementation((url: string) => {
+      if (String(url).includes('/api/config')) {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve({}) });
+      }
+      return Promise.resolve({ ok: true, json: () => Promise.resolve({ comments: [] }) });
+    });
+
+    const { renderDetailPanel, initDetailPanel } = await import('../../../src/board/client/detailPanel');
+
+    initDetailPanel();
+    renderDetailPanel(makeTaskDetail());
+    await new Promise((resolve) => setTimeout(resolve, 50));
+
+    const panel = document.getElementById('detail-panel')!;
+    panel.classList.add('open');
+
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+    expect(panel.classList.contains('open')).toBe(true);
+
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true }));
+    expect(panel.classList.contains('open')).toBe(true);
+  });
+});
