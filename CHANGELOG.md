@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.13.0] - 2026-03-21
+
+### Added
+- Add dark mode support to board with CSS variables and theme toggle in burger menu (#188)
+- Persist dark mode theme setting to `.agkan/config.yml` (#188)
+- Add free-text search to board filter bar (#180)
+- Add Escape key to close detail panel (#235)
+- Add metadata display to board detail panel (#190)
+- Add `ServiceContainer` to centralize service instantiation for CLI commands (#229)
+- Add `formatJsonSuccess` and `formatJsonError` to output-formatter (#214)
+
+### Fixed
+- Apply dark mode styles to drag & drop status area (#239)
+- Apply dark mode styles to Version Info modal (#240)
+- Remove deprecated `--ext .ts` flag from ESLint scripts (#203)
+
+### Refactored
+- Replace localStorage theme management with SSR `data-theme` attribute (#238)
+- Replace global window comment functions with event delegation via `data-action` (#230)
+- Deduplicate HTML escape logic across board modules (#228)
+- Decompose board client modules to reduce cyclomatic complexity (#222)
+- Consolidate response formatters into output-formatter (#214)
+
 ## [2.12.2] - 2026-03-20
 
 ### Fixed
