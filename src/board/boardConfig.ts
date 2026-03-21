@@ -4,13 +4,18 @@ import yaml from 'js-yaml';
 
 export const DETAIL_PANE_MAX_WIDTH = 800;
 
+export type ThemePreference = 'dark' | 'light' | 'system';
+export const VALID_THEMES: ThemePreference[] = ['dark', 'light', 'system'];
+
 export interface BoardConfig {
   detailPaneWidth?: number;
+  theme?: ThemePreference;
 }
 
 interface RawConfigFile {
   board?: {
     detailPaneWidth?: unknown;
+    theme?: unknown;
     [key: string]: unknown;
   };
   [key: string]: unknown;
@@ -47,6 +52,11 @@ export function readBoardConfig(configDir: string): BoardConfig {
       result.detailPaneWidth = detailPaneWidth;
     }
 
+    const theme = board.theme;
+    if (typeof theme === 'string' && (VALID_THEMES as string[]).includes(theme)) {
+      result.theme = theme as ThemePreference;
+    }
+
     return result;
   } catch {
     return {};
@@ -81,6 +91,7 @@ export function writeBoardConfig(configDir: string, config: BoardConfig): void {
     board: {
       ...(existing.board ?? {}),
       ...(config.detailPaneWidth !== undefined ? { detailPaneWidth: config.detailPaneWidth } : {}),
+      ...(config.theme !== undefined ? { theme: config.theme } : {}),
     },
   };
 
