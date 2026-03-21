@@ -16,6 +16,7 @@ export const BOARD_STYLES = `
       --column-count-color: #64748b;
       --input-bg: #ffffff;
       --burger-dropdown-bg: #ffffff;
+      --drag-over-bg: #eff6ff;
     }
     [data-theme="dark"] {
       --bg-page: #0f172a;
@@ -34,6 +35,7 @@ export const BOARD_STYLES = `
       --column-count-color: #94a3b8;
       --input-bg: #1e293b;
       --burger-dropdown-bg: #1e293b;
+      --drag-over-bg: #1e3a5f;
     }
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg-page); color: var(--text-primary); }
@@ -51,7 +53,7 @@ export const BOARD_STYLES = `
     .add-btn { background: none; border: 1px solid var(--border-color); color: var(--text-secondary); border-radius: 4px; width: 22px; height: 22px; font-size: 14px; line-height: 1; cursor: pointer; display: flex; align-items: center; justify-content: center; }
     .add-btn:hover { background: var(--border-color); color: var(--text-primary); }
     .column-body { padding: 8px; min-height: 60px; flex: 1; overflow-y: auto; min-height: 0; }
-    .column.drag-over .column-body { background: #eff6ff; border-radius: 6px; }
+    .column.drag-over .column-body { background: var(--drag-over-bg); border-radius: 6px; }
     .card { background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 6px; padding: 10px; margin-bottom: 6px; cursor: grab; transition: box-shadow 0.15s; }
     .card:hover { box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
     .card.dragging { opacity: 0.5; }
