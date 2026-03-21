@@ -867,4 +867,54 @@ describe('GET /', () => {
     const html = await res.text();
     expect(html).toContain('My Project Board');
   });
+
+  it('sets data-theme="dark" on html element when config has dark theme', async () => {
+    const services = buildServices();
+    // Write dark theme config
+    fs.mkdirSync(TEST_CONFIG_DIR, { recursive: true });
+    fs.writeFileSync(path.join(TEST_CONFIG_DIR, 'config.yml'), 'board:\n  theme: dark\n', 'utf8');
+    const app = buildApp(services);
+    const res = await app.fetch(new Request('http://localhost/'));
+    const html = await res.text();
+    expect(html).toContain('<html lang="en" data-theme="dark">');
+  });
+
+  it('sets data-theme="light" on html element when config has light theme', async () => {
+    const services = buildServices();
+    fs.mkdirSync(TEST_CONFIG_DIR, { recursive: true });
+    fs.writeFileSync(path.join(TEST_CONFIG_DIR, 'config.yml'), 'board:\n  theme: light\n', 'utf8');
+    const app = buildApp(services);
+    const res = await app.fetch(new Request('http://localhost/'));
+    const html = await res.text();
+    expect(html).toContain('<html lang="en" data-theme="light">');
+  });
+
+  it('does not set data-theme on html element when config has system theme', async () => {
+    const services = buildServices();
+    fs.mkdirSync(TEST_CONFIG_DIR, { recursive: true });
+    fs.writeFileSync(path.join(TEST_CONFIG_DIR, 'config.yml'), 'board:\n  theme: system\n', 'utf8');
+    const app = buildApp(services);
+    const res = await app.fetch(new Request('http://localhost/'));
+    const html = await res.text();
+    expect(html).toContain('<html lang="en">');
+    expect(html).not.toContain('<html lang="en" data-theme=');
+  });
+
+  it('does not set data-theme on html element when config has no theme', async () => {
+    const services = buildServices();
+    const app = buildApp(services);
+    const res = await app.fetch(new Request('http://localhost/'));
+    const html = await res.text();
+    expect(html).toContain('<html lang="en">');
+    expect(html).not.toContain('<html lang="en" data-theme=');
+  });
+
+  it('does not include localStorage theme script in HTML', async () => {
+    const services = buildServices();
+    const app = buildApp(services);
+    const res = await app.fetch(new Request('http://localhost/'));
+    const html = await res.text();
+    expect(html).not.toContain('agkan-theme');
+    expect(html).not.toContain('localStorage');
+  });
 });

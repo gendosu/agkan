@@ -295,7 +295,8 @@ export function registerBoardRoutes(app: Hono, services: BoardServices): void {
   const { ts, tts, database, boardTitle, configDir } = services;
   app.get('/', (c) => {
     const tasksByStatus = buildTasksByStatus(ts.listTasks({}, 'id', 'asc'));
-    return c.html(renderBoard(tasksByStatus, tts.getAllTaskTags(), boardTitle));
+    const boardConfig = readBoardConfig(configDir);
+    return c.html(renderBoard(tasksByStatus, tts.getAllTaskTags(), boardTitle, boardConfig.theme));
   });
   app.get('/api/board/updated-at', (c) => c.json({ updatedAt: getBoardUpdatedAt(database) }));
   app.get('/api/board/cards', (c) => {
