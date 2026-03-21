@@ -207,6 +207,162 @@ describe('renderDetailPanel - successful tag loading', () => {
   });
 });
 
+describe('renderDetailPanel - metadata table', () => {
+  beforeEach(() => {
+    vi.resetModules();
+    setupMinimalBoardDOM();
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('renders a metadata table when metadata entries exist', async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ comments: [] }),
+    });
+
+    const { renderDetailPanel } = await import('../../../src/board/client/detailPanel');
+    const data = makeTaskDetail({
+      metadata: [
+        { key: 'branch', value: 'feat/my-branch' },
+        { key: 'pr', value: 'https://github.com/org/repo/pull/42' },
+      ],
+    });
+    renderDetailPanel(data);
+
+    await new Promise((resolve) => setTimeout(resolve, 50));
+
+    const detailsPane = document.getElementById('detail-tab-content-details');
+    expect(detailsPane?.querySelector('.detail-meta-table')).not.toBeNull();
+  });
+
+  it('renders all metadata keys and values in the table', async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ comments: [] }),
+    });
+
+    const { renderDetailPanel } = await import('../../../src/board/client/detailPanel');
+    const data = makeTaskDetail({
+      metadata: [
+        { key: 'branch', value: 'feat/my-branch' },
+        { key: 'pr', value: 'https://github.com/org/repo/pull/42' },
+      ],
+    });
+    renderDetailPanel(data);
+
+    await new Promise((resolve) => setTimeout(resolve, 50));
+
+    const detailsPane = document.getElementById('detail-tab-content-details');
+    expect(detailsPane?.innerHTML).toContain('branch');
+    expect(detailsPane?.innerHTML).toContain('feat/my-branch');
+    expect(detailsPane?.innerHTML).toContain('pr');
+    expect(detailsPane?.innerHTML).toContain('https://github.com/org/repo/pull/42');
+  });
+
+  it('does not render metadata table when metadata array is empty', async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ comments: [] }),
+    });
+
+    const { renderDetailPanel } = await import('../../../src/board/client/detailPanel');
+    const data = makeTaskDetail({ metadata: [] });
+    renderDetailPanel(data);
+
+    await new Promise((resolve) => setTimeout(resolve, 50));
+
+    const detailsPane = document.getElementById('detail-tab-content-details');
+    expect(detailsPane?.querySelector('.detail-meta-table')).toBeNull();
+  });
+
+  it('excludes priority key from the metadata table', async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ comments: [] }),
+    });
+
+    const { renderDetailPanel } = await import('../../../src/board/client/detailPanel');
+    const data = makeTaskDetail({
+      metadata: [
+        { key: 'priority', value: 'high' },
+        { key: 'branch', value: 'feat/test' },
+      ],
+    });
+    renderDetailPanel(data);
+
+    await new Promise((resolve) => setTimeout(resolve, 50));
+
+    const table = document.querySelector('.detail-meta-table');
+    expect(table).not.toBeNull();
+    const rows = table?.querySelectorAll('tr');
+    // Only 'branch' row should be present; 'priority' is excluded
+    expect(rows?.length).toBe(1);
+    expect(table?.innerHTML).toContain('branch');
+    expect(table?.innerHTML).not.toContain('priority');
+  });
+
+  it('does not render metadata table when all metadata entries are priority keys', async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ comments: [] }),
+    });
+
+    const { renderDetailPanel } = await import('../../../src/board/client/detailPanel');
+    const data = makeTaskDetail({
+      metadata: [{ key: 'priority', value: 'high' }],
+    });
+    renderDetailPanel(data);
+
+    await new Promise((resolve) => setTimeout(resolve, 50));
+
+    const detailsPane = document.getElementById('detail-tab-content-details');
+    expect(detailsPane?.querySelector('.detail-meta-table')).toBeNull();
+  });
+
+  it('escapes HTML in metadata key and value to prevent XSS', async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ comments: [] }),
+    });
+
+    const { renderDetailPanel } = await import('../../../src/board/client/detailPanel');
+    const data = makeTaskDetail({
+      metadata: [{ key: '<script>', value: '<img src=x onerror=alert(1)>' }],
+    });
+    renderDetailPanel(data);
+
+    await new Promise((resolve) => setTimeout(resolve, 50));
+
+    const detailsPane = document.getElementById('detail-tab-content-details');
+    // Raw HTML tags should not appear unescaped in the DOM
+    expect(detailsPane?.innerHTML).not.toContain('<script>');
+    expect(detailsPane?.innerHTML).not.toContain('<img src=x');
+    // The table should still render (key is not 'priority')
+    expect(detailsPane?.querySelector('.detail-meta-table')).not.toBeNull();
+  });
+
+  it('renders metadata section with a "Metadata" label', async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ comments: [] }),
+    });
+
+    const { renderDetailPanel } = await import('../../../src/board/client/detailPanel');
+    const data = makeTaskDetail({
+      metadata: [{ key: 'branch', value: 'main' }],
+    });
+    renderDetailPanel(data);
+
+    await new Promise((resolve) => setTimeout(resolve, 50));
+
+    const detailsPane = document.getElementById('detail-tab-content-details');
+    expect(detailsPane?.innerHTML).toContain('Metadata');
+  });
+});
+
 describe('renderDetailPanel - metadata and relations', () => {
   beforeEach(() => {
     vi.resetModules();
