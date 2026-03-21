@@ -166,26 +166,20 @@ function getBoardBodyStatic(): string {
 export function renderBoard(
   tasksByStatus: Map<TaskStatus, Task[]>,
   tagMap: Map<number, Tag[]>,
-  boardTitle?: string
+  boardTitle?: string,
+  theme?: string
 ): string {
   const columns = STATUSES.map((status) => renderColumn(status, tasksByStatus.get(status) || [], tagMap)).join('');
   const titleHtml = boardTitle ? `<span class="board-title">${escapeHtml(boardTitle)}</span>` : '';
   const boardBodyStatic = getBoardBodyStatic();
+  const dataThemeAttr = theme === 'dark' || theme === 'light' ? ` data-theme="${theme}"` : '';
 
   return `<!DOCTYPE html>
-<html lang="en">
+<html lang="en"${dataThemeAttr}>
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>agkan board</title>
-  <script>
-    (function() {
-      var stored = localStorage.getItem('agkan-theme');
-      if (stored === 'dark' || stored === 'light') {
-        document.documentElement.setAttribute('data-theme', stored);
-      }
-    })();
-  </script>
   <style>${BOARD_STYLES}
   </style>
 </head>

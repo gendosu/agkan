@@ -1,38 +1,10 @@
-// Dark mode / light mode support with localStorage persistence and server-side config
-
-const STORAGE_KEY = 'agkan-theme';
+// Dark mode / light mode support with SSR data-theme attribute
 
 export type ThemePreference = 'dark' | 'light' | 'system';
 
-export function getThemePreference(): 'dark' | 'light' | null {
-  const stored = localStorage.getItem(STORAGE_KEY);
-  if (stored === 'dark' || stored === 'light') return stored;
-  return null;
-}
-
-export function saveThemePreference(theme: 'dark' | 'light'): void {
-  localStorage.setItem(STORAGE_KEY, theme);
-}
-
-export function clearThemePreference(): void {
-  localStorage.removeItem(STORAGE_KEY);
-}
-
-async function persistThemeToServer(theme: ThemePreference): Promise<void> {
-  try {
-    await fetch('/api/config', {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ board: { theme } }),
-    });
-  } catch {
-    // Ignore network errors - localStorage is the fallback
-  }
-}
-
 export function getCurrentEffectiveTheme(): 'dark' | 'light' {
-  const stored = getThemePreference();
-  if (stored) return stored;
+  const ssrTheme = document.documentElement.getAttribute('data-theme');
+  if (ssrTheme === 'dark' || ssrTheme === 'light') return ssrTheme;
   if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
     return 'dark';
   }
@@ -49,9 +21,21 @@ export function applyTheme(preference: ThemePreference): void {
   }
 }
 
+async function persistThemeToServer(theme: ThemePreference): Promise<void> {
+  try {
+    await fetch('/api/config', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ board: { theme } }),
+    });
+  } catch {
+    // Ignore network errors
+  }
+}
+
 function getActivePreference(): ThemePreference {
-  const stored = localStorage.getItem(STORAGE_KEY);
-  if (stored === 'dark' || stored === 'light') return stored;
+  const ssrTheme = document.documentElement.getAttribute('data-theme');
+  if (ssrTheme === 'dark' || ssrTheme === 'light') return ssrTheme;
   return 'system';
 }
 
@@ -91,44 +75,23 @@ export async function loadThemeFromServer(): Promise<ThemePreference | null> {
 }
 
 export function initDarkMode(): void {
-  // Apply stored or system preference on init (localStorage as fallback until server responds)
-  const stored = localStorage.getItem(STORAGE_KEY);
-  if (stored === 'dark' || stored === 'light') {
-    applyTheme(stored);
-  }
-
+  // Read initial theme from SSR data-theme attribute (set server-side from config.yml)
   const activePreference = getActivePreference();
   updateCheckmarks(activePreference);
 
-  // Load from server config and apply if different from localStorage
-  void loadThemeFromServer().then((serverTheme) => {
-    if (serverTheme !== null) {
-      if (serverTheme === 'system') {
-        localStorage.removeItem(STORAGE_KEY);
-      } else {
-        localStorage.setItem(STORAGE_KEY, serverTheme);
-      }
-      applyTheme(serverTheme);
-      updateCheckmarks(serverTheme);
-    }
-  });
-
   document.getElementById('burger-theme-dark')?.addEventListener('click', () => {
-    saveThemePreference('dark');
     applyTheme('dark');
     updateCheckmarks('dark');
     void persistThemeToServer('dark');
   });
 
   document.getElementById('burger-theme-light')?.addEventListener('click', () => {
-    saveThemePreference('light');
     applyTheme('light');
     updateCheckmarks('light');
     void persistThemeToServer('light');
   });
 
   document.getElementById('burger-theme-system')?.addEventListener('click', () => {
-    clearThemePreference();
     applyTheme('system');
     updateCheckmarks('system');
     void persistThemeToServer('system');

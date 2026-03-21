@@ -5,14 +5,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import {
-  getThemePreference,
-  applyTheme,
-  saveThemePreference,
-  clearThemePreference,
-  getCurrentEffectiveTheme,
-  loadThemeFromServer,
-} from '../../../src/board/client/darkMode';
+import { applyTheme, getCurrentEffectiveTheme, loadThemeFromServer } from '../../../src/board/client/darkMode';
 
 function setupDOM(): void {
   document.documentElement.removeAttribute('data-theme');
@@ -27,50 +20,12 @@ function setupDOM(): void {
 
 beforeEach(() => {
   vi.restoreAllMocks();
-  localStorage.clear();
   document.documentElement.removeAttribute('data-theme');
   setupDOM();
 });
 
 afterEach(() => {
-  localStorage.clear();
   document.documentElement.removeAttribute('data-theme');
-});
-
-describe('getThemePreference', () => {
-  it('returns null when no preference is stored', () => {
-    expect(getThemePreference()).toBeNull();
-  });
-
-  it('returns stored dark preference', () => {
-    localStorage.setItem('agkan-theme', 'dark');
-    expect(getThemePreference()).toBe('dark');
-  });
-
-  it('returns stored light preference', () => {
-    localStorage.setItem('agkan-theme', 'light');
-    expect(getThemePreference()).toBe('light');
-  });
-});
-
-describe('saveThemePreference', () => {
-  it('saves dark preference to localStorage', () => {
-    saveThemePreference('dark');
-    expect(localStorage.getItem('agkan-theme')).toBe('dark');
-  });
-
-  it('saves light preference to localStorage', () => {
-    saveThemePreference('light');
-    expect(localStorage.getItem('agkan-theme')).toBe('light');
-  });
-});
-
-describe('clearThemePreference', () => {
-  it('removes preference from localStorage', () => {
-    localStorage.setItem('agkan-theme', 'dark');
-    clearThemePreference();
-    expect(localStorage.getItem('agkan-theme')).toBeNull();
-  });
 });
 
 describe('applyTheme', () => {
@@ -150,17 +105,17 @@ describe('loadThemeFromServer', () => {
 });
 
 describe('getCurrentEffectiveTheme', () => {
-  it('returns stored preference when set to dark', () => {
-    localStorage.setItem('agkan-theme', 'dark');
+  it('returns dark when data-theme is set to dark', () => {
+    document.documentElement.setAttribute('data-theme', 'dark');
     expect(getCurrentEffectiveTheme()).toBe('dark');
   });
 
-  it('returns stored preference when set to light', () => {
-    localStorage.setItem('agkan-theme', 'light');
+  it('returns light when data-theme is set to light', () => {
+    document.documentElement.setAttribute('data-theme', 'light');
     expect(getCurrentEffectiveTheme()).toBe('light');
   });
 
-  it('returns system preference dark when no stored preference and system is dark', () => {
+  it('returns system preference dark when no data-theme and system is dark', () => {
     Object.defineProperty(window, 'matchMedia', {
       writable: true,
       value: vi.fn().mockImplementation((query: string) => ({
@@ -177,7 +132,7 @@ describe('getCurrentEffectiveTheme', () => {
     expect(getCurrentEffectiveTheme()).toBe('dark');
   });
 
-  it('returns system preference light when no stored preference and system is light', () => {
+  it('returns system preference light when no data-theme and system is light', () => {
     Object.defineProperty(window, 'matchMedia', {
       writable: true,
       value: vi.fn().mockImplementation((query: string) => ({

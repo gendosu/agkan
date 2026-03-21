@@ -41,13 +41,11 @@ function setupDOM(): void {
 
 beforeEach(() => {
   vi.restoreAllMocks();
-  localStorage.clear();
   document.documentElement.removeAttribute('data-theme');
   setupDOM();
 });
 
 afterEach(() => {
-  localStorage.clear();
   document.documentElement.removeAttribute('data-theme');
 });
 
@@ -71,20 +69,19 @@ describe('burger menu dark mode items', () => {
     expect(document.documentElement.hasAttribute('data-theme')).toBe(false);
   });
 
-  it('clicking Dark Mode saves dark to localStorage', () => {
+  it('clicking Dark Mode does not save to localStorage', () => {
     initBurgerMenu();
     document.getElementById('burger-theme-dark')!.click();
-    expect(localStorage.getItem('agkan-theme')).toBe('dark');
+    expect(localStorage.getItem('agkan-theme')).toBeNull();
   });
 
-  it('clicking Light Mode saves light to localStorage', () => {
+  it('clicking Light Mode does not save to localStorage', () => {
     initBurgerMenu();
     document.getElementById('burger-theme-light')!.click();
-    expect(localStorage.getItem('agkan-theme')).toBe('light');
+    expect(localStorage.getItem('agkan-theme')).toBeNull();
   });
 
-  it('clicking System Setting clears localStorage preference', () => {
-    localStorage.setItem('agkan-theme', 'dark');
+  it('clicking System Setting does not modify localStorage', () => {
     initBurgerMenu();
     document.getElementById('burger-theme-system')!.click();
     expect(localStorage.getItem('agkan-theme')).toBeNull();
