@@ -1,4 +1,6 @@
-// Burger menu, purge tasks, and version info functionality
+// Burger menu, purge tasks, version info, and dark mode functionality
+
+import { initDarkMode } from './darkMode';
 
 function initBurgerToggle(burgerBtn: HTMLButtonElement, burgerDropdown: HTMLElement): void {
   burgerBtn.addEventListener('click', (e: MouseEvent) => {
@@ -93,4 +95,5 @@ export function initBurgerMenu(): void {
   initBurgerToggle(burgerBtn, burgerDropdown);
   initPurgeModal(burgerDropdown);
   initVersionModal(burgerDropdown);
+  initDarkMode();
 }
