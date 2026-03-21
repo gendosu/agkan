@@ -125,7 +125,7 @@ function getPurgeAndVersionModals(): string {
   <div class="modal-overlay" id="version-info-modal">
     <div class="modal" style="width:320px;">
       <h2>Version Info</h2>
-      <p id="version-info-text" style="font-size:14px;color:#1e293b;margin-bottom:16px;"></p>
+      <p id="version-info-text" style="font-size:14px;color:var(--text-primary);margin-bottom:16px;"></p>
       <div class="modal-actions">
         <button id="version-info-close">Close</button>
       </div>
