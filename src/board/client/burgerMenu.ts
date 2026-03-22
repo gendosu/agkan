@@ -1,6 +1,7 @@
 // Burger menu, purge tasks, version info, and dark mode functionality
 
 import { initDarkMode } from './darkMode';
+import { refreshBoardCards } from './boardPolling';
 
 function initBurgerToggle(burgerBtn: HTMLButtonElement, burgerDropdown: HTMLElement): void {
   burgerBtn.addEventListener('click', (e: MouseEvent) => {
@@ -15,34 +16,18 @@ function initBurgerToggle(burgerBtn: HTMLButtonElement, burgerDropdown: HTMLElem
   });
 }
 
-async function executePurge(
-  purgeConfirmBtn: HTMLButtonElement,
-  purgeModal: HTMLElement,
-  purgeResultEl: HTMLElement
-): Promise<void> {
-  purgeConfirmBtn.disabled = true;
-  purgeConfirmBtn.textContent = 'Purging...';
+async function executePurge(): Promise<void> {
   try {
     const res = await fetch('/api/tasks/purge', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({}),
     });
-    const data = await res.json();
     if (res.ok) {
-      purgeResultEl.textContent = 'Purged ' + data.count + ' task(s).';
-      setTimeout(() => {
-        purgeModal.classList.remove('show');
-      }, 1500);
-      location.reload();
-    } else {
-      purgeResultEl.textContent = 'Error: ' + (data.error || 'Unknown error');
+      await refreshBoardCards();
     }
   } catch {
-    purgeResultEl.textContent = 'Failed to purge tasks.';
-  } finally {
-    purgeConfirmBtn.disabled = false;
-    purgeConfirmBtn.textContent = 'Purge';
+    // Ignore errors during purge
   }
 }
 
@@ -62,7 +47,10 @@ function initPurgeModal(burgerDropdown: HTMLElement): void {
     purgeModal.classList.remove('show');
   });
 
-  purgeConfirmBtn.addEventListener('click', () => executePurge(purgeConfirmBtn, purgeModal, purgeResultEl));
+  purgeConfirmBtn.addEventListener('click', () => {
+    purgeModal.classList.remove('show');
+    void executePurge();
+  });
 }
 
 function initVersionModal(burgerDropdown: HTMLElement): void {
