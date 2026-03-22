@@ -22,6 +22,8 @@ function makeTask(overrides: Partial<Task> = {}): Task {
     id: 1,
     title: 'Test Task',
     body: null,
+    author: null,
+    assignees: null,
     status: 'backlog' as TaskStatus,
     priority: null,
     parent_id: null,
