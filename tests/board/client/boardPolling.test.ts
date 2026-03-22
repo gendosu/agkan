@@ -12,6 +12,7 @@ import {
   buildFilterParams,
   registerDetailPanelCallbacks,
   refreshBoardCards,
+  pollBoardUpdates,
 } from '../../../src/board/client/boardPolling';
 
 beforeEach(() => {
@@ -131,6 +132,68 @@ describe('refreshBoardCards', () => {
 
     const countEl = document.querySelector('.column-count')!;
     expect(countEl.textContent).toBe('5');
+  });
+});
+
+describe('pollBoardUpdates', () => {
+  beforeEach(() => {
+    document.body.innerHTML = `
+      <div class="column" data-status="backlog">
+        <span class="column-count">0</span>
+        <div class="column-body" id="col-backlog"></div>
+      </div>
+      <div id="detail-panel"></div>
+    `;
+  });
+
+  it('does not call location.reload() when an update is detected', async () => {
+    const reloadMock = vi.fn();
+    Object.defineProperty(window, 'location', {
+      value: { reload: reloadMock },
+      writable: true,
+    });
+
+    setLastUpdatedAt('2026-01-01T00:00:00.000Z');
+
+    global.fetch = vi.fn().mockImplementation((url: string) => {
+      if (String(url).includes('updated-at')) {
+        return Promise.resolve({
+          ok: true,
+          json: vi.fn().mockResolvedValue({ updatedAt: '2026-01-02T00:00:00.000Z' }),
+        });
+      }
+      return Promise.resolve({
+        ok: true,
+        json: vi.fn().mockResolvedValue({ columns: [] }),
+      });
+    });
+
+    await pollBoardUpdates();
+
+    expect(reloadMock).not.toHaveBeenCalled();
+  });
+
+  it('calls refreshBoardCards (not reload) when an update is detected with detail panel closed', async () => {
+    setLastUpdatedAt('2026-01-01T00:00:00.000Z');
+
+    const fetchCalls: string[] = [];
+    global.fetch = vi.fn().mockImplementation((url: string) => {
+      fetchCalls.push(String(url));
+      if (String(url).includes('updated-at')) {
+        return Promise.resolve({
+          ok: true,
+          json: vi.fn().mockResolvedValue({ updatedAt: '2026-01-02T00:00:00.000Z' }),
+        });
+      }
+      return Promise.resolve({
+        ok: true,
+        json: vi.fn().mockResolvedValue({ columns: [] }),
+      });
+    });
+
+    await pollBoardUpdates();
+
+    expect(fetchCalls.some((u) => u.includes('board/cards'))).toBe(true);
   });
 });
 

@@ -1,4 +1,4 @@
-// Board polling: reload when updated_at changes
+// Board polling: update data in background when updated_at changes
 
 import { draggedCard, attachDragListeners } from './dragDrop';
 import { attachAutoScrollToBody } from './autoScroll';
@@ -122,16 +122,11 @@ export async function pollBoardUpdates(): Promise<void> {
     if (!res.ok) return;
     const data = (await res.json()) as { updatedAt: string };
     const ts: string = data.updatedAt;
-    const detailPanel = document.getElementById('detail-panel') as HTMLElement;
     if (lastUpdatedAt === null) {
       lastUpdatedAt = ts;
     } else if (ts !== lastUpdatedAt) {
       lastUpdatedAt = ts;
-      if (detailPanel.classList.contains('open')) {
-        await refreshBoardCards();
-      } else {
-        location.reload();
-      }
+      await refreshBoardCards();
     }
   } catch {
     // Ignore network errors during polling
