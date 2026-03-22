@@ -136,6 +136,12 @@ describe('renderCard', () => {
     const html = renderCard(makeTask(), []);
     expect(html).toContain('draggable="true"');
   });
+
+  it('renders data-updated-at attribute from task.updated_at', () => {
+    const task = makeTask({ id: 1, updated_at: '2026-03-15T10:00:00.000Z' });
+    const html = renderCard(task, []);
+    expect(html).toContain('data-updated-at="2026-03-15T10:00:00.000Z"');
+  });
 });
 
 describe('renderColumn', () => {
