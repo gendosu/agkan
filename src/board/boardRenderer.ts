@@ -92,6 +92,14 @@ function getAddTaskModal(): string {
         <option value="">None</option>
         ${BOARD_PRIORITY_OPTIONS}
       </select>
+      <label>Tags</label>
+      <div class="tag-select-wrapper" id="add-tags-wrapper">
+        <div class="tag-select-control" id="add-tag-select-control"></div>
+        <div class="tag-select-dropdown" id="add-tag-select-dropdown"></div>
+      </div>
+      <label>Metadata</label>
+      <div id="add-metadata-rows"></div>
+      <button type="button" id="add-metadata-add-row" class="add-metadata-row-btn">+ Add metadata</button>
       <input type="hidden" id="add-status">
       <div class="modal-actions">
         <button id="add-cancel">Cancel</button>

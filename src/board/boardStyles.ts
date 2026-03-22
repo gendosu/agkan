@@ -205,4 +205,13 @@ export const BOARD_STYLES = `
     .burger-menu-item:hover { background: var(--bg-surface-hover); }
     .burger-menu-item.danger { color: #dc2626; }
     .burger-menu-item.danger:hover { background: #fef2f2; }
-    .burger-menu-separator { height: 1px; background: var(--border-color); margin: 4px 0; }`;
+    .burger-menu-separator { height: 1px; background: var(--border-color); margin: 4px 0; }
+    .add-metadata-row-btn { background: none; border: 1px dashed var(--border-color); border-radius: 6px; padding: 5px 10px; font-size: 12px; color: var(--text-secondary); cursor: pointer; width: 100%; text-align: left; margin-bottom: 12px; }
+    .add-metadata-row-btn:hover { border-color: var(--text-muted); background: var(--bg-surface-subtle); }
+    .metadata-row { display: flex; gap: 6px; align-items: center; margin-bottom: 6px; }
+    .metadata-row-key { flex: 1; border: 1px solid var(--border-color); border-radius: 6px; padding: 6px 8px; font-size: 12px; font-family: inherit; background: var(--input-bg); color: var(--text-primary); }
+    .metadata-row-key:focus { outline: none; border-color: #3b82f6; box-shadow: 0 0 0 2px rgba(59,130,246,0.2); }
+    .metadata-row-value { flex: 2; border: 1px solid var(--border-color); border-radius: 6px; padding: 6px 8px; font-size: 12px; font-family: inherit; background: var(--input-bg); color: var(--text-primary); }
+    .metadata-row-value:focus { outline: none; border-color: #3b82f6; box-shadow: 0 0 0 2px rgba(59,130,246,0.2); }
+    .metadata-row-remove { background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 16px; line-height: 1; padding: 2px 4px; border-radius: 4px; flex-shrink: 0; }
+    .metadata-row-remove:hover { color: #dc2626; background: #fef2f2; }`;
