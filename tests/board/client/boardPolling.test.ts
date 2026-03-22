@@ -13,6 +13,7 @@ import {
   registerDetailPanelCallbacks,
   refreshBoardCards,
   pollBoardUpdates,
+  applyIncrementalCardUpdate,
 } from '../../../src/board/client/boardPolling';
 
 beforeEach(() => {
@@ -207,5 +208,124 @@ describe('registerDetailPanelCallbacks', () => {
         getDetailTaskId: vi.fn().mockReturnValue(null),
       })
     ).not.toThrow();
+  });
+});
+
+describe('applyIncrementalCardUpdate', () => {
+  function makeBody(): HTMLElement {
+    const body = document.createElement('div');
+    body.className = 'column-body';
+    document.body.appendChild(body);
+    return body;
+  }
+
+  function makeCardHtml(id: string, title: string, updatedAt = '2026-01-01T00:00:00.000Z'): string {
+    return `<div class="card" data-id="${id}" data-status="backlog" data-updated-at="${updatedAt}"><div class="card-title">${title}</div></div>`;
+  }
+
+  it('inserts cards into an empty column body', () => {
+    const body = makeBody();
+    applyIncrementalCardUpdate(body, makeCardHtml('1', 'Task One'));
+    expect(body.querySelectorAll('.card')).toHaveLength(1);
+    expect(body.querySelector('[data-id="1"]')?.querySelector('.card-title')?.textContent).toBe('Task One');
+  });
+
+  it('does not replace existing card DOM element when content is unchanged', () => {
+    const body = makeBody();
+    applyIncrementalCardUpdate(body, makeCardHtml('1', 'Task One'));
+    const originalCard = body.querySelector('[data-id="1"]') as HTMLElement;
+
+    // Apply same HTML again — existing node should be reused
+    applyIncrementalCardUpdate(body, makeCardHtml('1', 'Task One'));
+    const afterCard = body.querySelector('[data-id="1"]') as HTMLElement;
+    expect(afterCard).toBe(originalCard);
+  });
+
+  it('replaces existing card DOM element when updated-at changes', () => {
+    const body = makeBody();
+    applyIncrementalCardUpdate(body, makeCardHtml('1', 'Task One', '2026-01-01T00:00:00.000Z'));
+    const originalCard = body.querySelector('[data-id="1"]') as HTMLElement;
+
+    // Apply with new updated-at — node should be replaced
+    applyIncrementalCardUpdate(body, makeCardHtml('1', 'Task One Updated', '2026-01-02T00:00:00.000Z'));
+    const afterCard = body.querySelector('[data-id="1"]') as HTMLElement;
+    expect(afterCard).not.toBe(originalCard);
+    expect(afterCard?.querySelector('.card-title')?.textContent).toBe('Task One Updated');
+  });
+
+  it('removes cards that are no longer present in new HTML', () => {
+    const body = makeBody();
+    const html = makeCardHtml('1', 'Task One') + makeCardHtml('2', 'Task Two');
+    applyIncrementalCardUpdate(body, html);
+    expect(body.querySelectorAll('.card')).toHaveLength(2);
+
+    // Apply with only card 1 — card 2 should be removed
+    applyIncrementalCardUpdate(body, makeCardHtml('1', 'Task One'));
+    expect(body.querySelectorAll('.card')).toHaveLength(1);
+    expect(body.querySelector('[data-id="2"]')).toBeNull();
+  });
+
+  it('adds new cards that appear in new HTML', () => {
+    const body = makeBody();
+    applyIncrementalCardUpdate(body, makeCardHtml('1', 'Task One'));
+    expect(body.querySelectorAll('.card')).toHaveLength(1);
+
+    // Apply with two cards — card 2 should be added
+    const html = makeCardHtml('1', 'Task One') + makeCardHtml('2', 'Task Two');
+    applyIncrementalCardUpdate(body, html);
+    expect(body.querySelectorAll('.card')).toHaveLength(2);
+    expect(body.querySelector('[data-id="2"]')).not.toBeNull();
+  });
+
+  it('reorders cards to match the new order without replacing unchanged elements', () => {
+    const body = makeBody();
+    const html = makeCardHtml('1', 'First') + makeCardHtml('2', 'Second');
+    applyIncrementalCardUpdate(body, html);
+    const card1Before = body.querySelector('[data-id="1"]') as HTMLElement;
+    const card2Before = body.querySelector('[data-id="2"]') as HTMLElement;
+
+    // Reverse order — no updated-at change, so elements should be reused but reordered
+    const reversedHtml = makeCardHtml('2', 'Second') + makeCardHtml('1', 'First');
+    applyIncrementalCardUpdate(body, reversedHtml);
+
+    const cards = body.querySelectorAll('.card');
+    expect(cards[0]).toBe(card2Before);
+    expect(cards[1]).toBe(card1Before);
+  });
+
+  it('clears all cards when new HTML is empty', () => {
+    const body = makeBody();
+    applyIncrementalCardUpdate(body, makeCardHtml('1', 'Task One') + makeCardHtml('2', 'Task Two'));
+    expect(body.querySelectorAll('.card')).toHaveLength(2);
+
+    applyIncrementalCardUpdate(body, '');
+    expect(body.querySelectorAll('.card')).toHaveLength(0);
+  });
+
+  it('handles cards without data-id by inserting them as new elements', () => {
+    const body = makeBody();
+    const noIdHtml = `<div class="card" data-status="backlog"><div class="card-title">No ID</div></div>`;
+    applyIncrementalCardUpdate(body, noIdHtml);
+    expect(body.querySelectorAll('.card')).toHaveLength(1);
+  });
+
+  it('preserves existing unchanged cards across multiple rapid updates (no flicker)', () => {
+    const body = makeBody();
+    const initialHtml = makeCardHtml('1', 'Card 1') + makeCardHtml('2', 'Card 2') + makeCardHtml('3', 'Card 3');
+    applyIncrementalCardUpdate(body, initialHtml);
+
+    const card1 = body.querySelector('[data-id="1"]') as HTMLElement;
+    const card2 = body.querySelector('[data-id="2"]') as HTMLElement;
+    const card3 = body.querySelector('[data-id="3"]') as HTMLElement;
+
+    // Simulate rapid re-polls with no data changes
+    applyIncrementalCardUpdate(body, initialHtml);
+    applyIncrementalCardUpdate(body, initialHtml);
+    applyIncrementalCardUpdate(body, initialHtml);
+
+    // All DOM elements must be the same references (no re-creation = no flicker)
+    expect(body.querySelector('[data-id="1"]')).toBe(card1);
+    expect(body.querySelector('[data-id="2"]')).toBe(card2);
+    expect(body.querySelector('[data-id="3"]')).toBe(card3);
   });
 });
