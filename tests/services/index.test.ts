@@ -37,8 +37,13 @@ describe('services/index', () => {
     expect(typeof servicesIndex.CommentService).toBe('function');
   });
 
-  it('should export exactly 7 named exports', () => {
+  it('should export ExportImportService', () => {
+    expect(servicesIndex.ExportImportService).toBeDefined();
+    expect(typeof servicesIndex.ExportImportService).toBe('function');
+  });
+
+  it('should export exactly 8 named exports', () => {
     const exportedKeys = Object.keys(servicesIndex);
-    expect(exportedKeys).toHaveLength(7);
+    expect(exportedKeys).toHaveLength(8);
   });
 });

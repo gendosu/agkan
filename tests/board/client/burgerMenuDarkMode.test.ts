@@ -13,6 +13,8 @@ function setupDOM(): void {
     <button id="burger-menu-btn">Menu</button>
     <div id="burger-menu-dropdown">
       <div class="burger-menu-item danger" id="burger-purge-tasks">Purge Tasks</div>
+      <div class="burger-menu-item" id="burger-export-tasks">Export Tasks</div>
+      <div class="burger-menu-item" id="burger-import-tasks">Import Tasks</div>
       <div class="burger-menu-item" id="burger-version-info">Version Info</div>
       <div class="burger-menu-separator"></div>
       <div class="burger-menu-item" id="burger-theme-dark">Dark Mode</div>
@@ -25,6 +27,18 @@ function setupDOM(): void {
         <div class="modal-actions">
           <button id="purge-cancel-btn">Cancel</button>
           <button id="purge-confirm-btn">Purge</button>
+        </div>
+      </div>
+    </div>
+    <div class="modal-overlay" id="import-modal">
+      <div class="modal">
+        <div id="import-drop-zone">
+          <input type="file" id="import-file-input" accept=".json" style="display:none;">
+        </div>
+        <p id="import-result"></p>
+        <div class="modal-actions">
+          <button id="import-cancel-btn">Cancel</button>
+          <button id="import-confirm-btn" disabled>Import</button>
         </div>
       </div>
     </div>

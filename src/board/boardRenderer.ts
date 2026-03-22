@@ -130,6 +130,22 @@ function getPurgeAndVersionModals(): string {
       </div>
     </div>
   </div>
+  <div class="modal-overlay" id="import-modal">
+    <div class="modal" style="width:420px;">
+      <h2>Import Tasks</h2>
+      <p style="font-size:13px;color:#64748b;margin-bottom:16px;">Import tasks from a JSON export file. Tasks will be added without duplicate checking.</p>
+      <div id="import-drop-zone" style="border:2px dashed #94a3b8;border-radius:8px;padding:24px;text-align:center;margin-bottom:16px;cursor:pointer;transition:border-color 0.2s;">
+        <p style="font-size:13px;color:#64748b;margin:0 0 8px 0;">Drag &amp; drop a JSON file here, or</p>
+        <label for="import-file-input" style="cursor:pointer;color:#3b82f6;font-size:13px;text-decoration:underline;">click to select a file</label>
+        <input type="file" id="import-file-input" accept=".json" style="display:none;">
+      </div>
+      <p id="import-result" style="font-size:13px;min-height:18px;margin-bottom:8px;"></p>
+      <div class="modal-actions">
+        <button id="import-cancel-btn">Cancel</button>
+        <button id="import-confirm-btn" class="primary" disabled>Import</button>
+      </div>
+    </div>
+  </div>
   <div class="modal-overlay" id="version-info-modal">
     <div class="modal" style="width:320px;">
       <h2>Version Info</h2>
@@ -192,7 +208,7 @@ export function renderBoard(
   </style>
 </head>
 <body>
-  <header><h1>agkan board</h1>${titleHtml}<div class="burger-menu-wrapper"><button class="burger-menu-btn" id="burger-menu-btn" title="Menu" aria-label="Menu"><span></span><span></span><span></span></button><div class="burger-menu-dropdown" id="burger-menu-dropdown"><div class="burger-menu-item danger" id="burger-purge-tasks">&#128465; Purge Tasks</div><div class="burger-menu-item" id="burger-version-info">&#8505; Version Info</div><div class="burger-menu-separator"></div><div class="burger-menu-item" id="burger-theme-dark">Dark Mode</div><div class="burger-menu-item" id="burger-theme-light">Light Mode</div><div class="burger-menu-item" id="burger-theme-system">System Setting</div></div></div></header>
+  <header><h1>agkan board</h1>${titleHtml}<div class="burger-menu-wrapper"><button class="burger-menu-btn" id="burger-menu-btn" title="Menu" aria-label="Menu"><span></span><span></span><span></span></button><div class="burger-menu-dropdown" id="burger-menu-dropdown"><div class="burger-menu-item danger" id="burger-purge-tasks">&#128465; Purge Tasks</div><div class="burger-menu-item" id="burger-export-tasks">&#8595; Export Tasks</div><div class="burger-menu-item" id="burger-import-tasks">&#8593; Import Tasks</div><div class="burger-menu-item" id="burger-version-info">&#8505; Version Info</div><div class="burger-menu-separator"></div><div class="burger-menu-item" id="burger-theme-dark">Dark Mode</div><div class="burger-menu-item" id="burger-theme-light">Light Mode</div><div class="burger-menu-item" id="burger-theme-system">System Setting</div></div></div></header>
   <div class="filter-bar" id="filter-bar">
     <div class="filter-group">
       <input type="search" id="filter-search" class="filter-search-input" placeholder="Search tasks...">
