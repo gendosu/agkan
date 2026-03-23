@@ -49,6 +49,10 @@ import { setupAgentGuideCommand } from './commands/agent-guide';
 // Init command handler
 import { setupInitCommand } from './commands/init';
 
+// Export/Import command handlers
+import { setupExportCommand } from './commands/export';
+import { setupImportCommand } from './commands/import';
+
 const program = new Command();
 
 // Load version from package.json
@@ -107,6 +111,10 @@ setupAgentGuideCommand(program);
 
 // Register init command
 setupInitCommand(program);
+
+// Register export/import commands
+setupExportCommand(program);
+setupImportCommand(program);
 
 // Execute program
 program.parse(process.argv);

@@ -76,12 +76,122 @@ function initVersionModal(burgerDropdown: HTMLElement): void {
   });
 }
 
+function initExportModal(burgerDropdown: HTMLElement): void {
+  document.getElementById('burger-export-tasks')?.addEventListener('click', () => {
+    burgerDropdown.classList.remove('open');
+    const a = document.createElement('a');
+    a.href = '/api/export';
+    a.download = '';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  });
+}
+
+function initImportModal(burgerDropdown: HTMLElement): void {
+  const importModal = document.getElementById('import-modal');
+  const importCancelBtn = document.getElementById('import-cancel-btn');
+  const importConfirmBtn = document.getElementById('import-confirm-btn') as HTMLButtonElement | null;
+  const importResultEl = document.getElementById('import-result');
+  const importDropZone = document.getElementById('import-drop-zone');
+  const importFileInput = document.getElementById('import-file-input') as HTMLInputElement | null;
+
+  if (!importModal || !importCancelBtn || !importConfirmBtn || !importResultEl || !importDropZone || !importFileInput) {
+    return;
+  }
+
+  const safeImportModal = importModal as HTMLElement;
+  const safeImportCancelBtn = importCancelBtn as HTMLButtonElement;
+  const safeImportConfirmBtn = importConfirmBtn as HTMLButtonElement;
+  const safeImportResultEl = importResultEl as HTMLElement;
+  const safeImportDropZone = importDropZone as HTMLElement;
+  const safeImportFileInput = importFileInput as HTMLInputElement;
+
+  let selectedFile: File | null = null;
+
+  function setFile(file: File): void {
+    selectedFile = file;
+    safeImportResultEl.textContent = `Selected: ${file.name}`;
+    safeImportResultEl.style.color = '#64748b';
+    safeImportConfirmBtn.disabled = false;
+  }
+
+  document.getElementById('burger-import-tasks')?.addEventListener('click', () => {
+    burgerDropdown.classList.remove('open');
+    selectedFile = null;
+    safeImportResultEl.textContent = '';
+    safeImportConfirmBtn.disabled = true;
+    safeImportFileInput.value = '';
+    safeImportModal.classList.add('show');
+  });
+
+  safeImportCancelBtn.addEventListener('click', () => {
+    safeImportModal.classList.remove('show');
+  });
+
+  safeImportFileInput.addEventListener('change', () => {
+    const file = safeImportFileInput.files?.[0];
+    if (file) setFile(file);
+  });
+
+  safeImportDropZone.addEventListener('dragover', (e: DragEvent) => {
+    e.preventDefault();
+    safeImportDropZone.style.borderColor = '#3b82f6';
+  });
+
+  safeImportDropZone.addEventListener('dragleave', () => {
+    safeImportDropZone.style.borderColor = '#94a3b8';
+  });
+
+  safeImportDropZone.addEventListener('drop', (e: DragEvent) => {
+    e.preventDefault();
+    safeImportDropZone.style.borderColor = '#94a3b8';
+    const file = e.dataTransfer?.files?.[0];
+    if (file) setFile(file);
+  });
+
+  safeImportConfirmBtn.addEventListener('click', async () => {
+    if (!selectedFile) return;
+    safeImportConfirmBtn.disabled = true;
+    safeImportConfirmBtn.textContent = 'Importing...';
+    try {
+      const text = await selectedFile.text();
+      const data = JSON.parse(text);
+      const res = await fetch('/api/import', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+      const result = await res.json();
+      if (res.ok) {
+        safeImportResultEl.textContent = `Imported ${result.importedCount} task(s) successfully.`;
+        safeImportResultEl.style.color = '#16a34a';
+        setTimeout(() => {
+          safeImportModal.classList.remove('show');
+          location.reload();
+        }, 1500);
+      } else {
+        safeImportResultEl.textContent = 'Error: ' + (result.error || 'Unknown error');
+        safeImportResultEl.style.color = '#dc2626';
+      }
+    } catch {
+      safeImportResultEl.textContent = 'Failed to import tasks. Invalid JSON file.';
+      safeImportResultEl.style.color = '#dc2626';
+    } finally {
+      safeImportConfirmBtn.disabled = false;
+      safeImportConfirmBtn.textContent = 'Import';
+    }
+  });
+}
+
 export function initBurgerMenu(): void {
   const burgerBtn = document.getElementById('burger-menu-btn') as HTMLButtonElement;
   const burgerDropdown = document.getElementById('burger-menu-dropdown') as HTMLElement;
 
   initBurgerToggle(burgerBtn, burgerDropdown);
   initPurgeModal(burgerDropdown);
+  initExportModal(burgerDropdown);
+  initImportModal(burgerDropdown);
   initVersionModal(burgerDropdown);
   initDarkMode();
 }

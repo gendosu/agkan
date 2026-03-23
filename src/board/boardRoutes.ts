@@ -5,6 +5,7 @@ import { TagService } from '../services/TagService';
 import { MetadataService } from '../services/MetadataService';
 import { CommentService } from '../services/CommentService';
 import { TaskBlockService } from '../services/TaskBlockService';
+import { ExportImportService, ExportData } from '../services/ExportImportService';
 import { TaskStatus, isPriority, Priority } from '../models';
 import { StorageProvider } from '../db/types/storage';
 import { readBoardConfig, writeBoardConfig, DETAIL_PANE_MAX_WIDTH, VALID_THEMES, ThemePreference } from './boardConfig';
@@ -253,11 +254,44 @@ function registerUtilityRoutes(app: Hono, ts: TaskService): void {
   });
 }
 
-export function registerTaskApiRoutes(app: Hono, { ts, tts, tags, ms, cs, tbs }: BoardServices): void {
+function registerExportImportRoutes(app: Hono, services: BoardServices): void {
+  const { database } = services;
+
+  app.get('/api/export', (c) => {
+    try {
+      const service = new ExportImportService(database);
+      const data = service.exportData();
+      const filename = `agkan-export-${new Date().toISOString().replace(/[:.]/g, '-')}.json`;
+      c.header('Content-Disposition', `attachment; filename="${filename}"`);
+      c.header('Content-Type', 'application/json');
+      return c.body(JSON.stringify(data, null, 2));
+    } catch (e) {
+      return c.json({ error: e instanceof Error ? e.message : 'Export failed' }, 500);
+    }
+  });
+
+  app.post('/api/import', async (c) => {
+    try {
+      const data = await c.req.json<ExportData>();
+      if (!data.tasks || !Array.isArray(data.tasks)) {
+        return c.json({ error: 'Invalid export file format (missing tasks array)' }, 400);
+      }
+      const service = new ExportImportService(database);
+      const result = service.importData(data);
+      return c.json({ success: true, importedCount: result.importedCount });
+    } catch (e) {
+      return c.json({ error: e instanceof Error ? e.message : 'Import failed' }, 500);
+    }
+  });
+}
+
+export function registerTaskApiRoutes(app: Hono, services: BoardServices): void {
+  const { ts, tts, tags, ms, cs, tbs } = services;
   registerTaskCrudRoutes(app, ts, tts, tbs, ms, tags);
   registerCommentRoutes(app, cs, ts);
   registerTagRoutes(app, tts, tags, ts);
   registerUtilityRoutes(app, ts);
+  registerExportImportRoutes(app, services);
 }
 
 export function registerConfigApiRoutes(app: Hono, configDir: string): void {
