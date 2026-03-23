@@ -432,7 +432,12 @@ export function renderDetailPanel(data: TaskDetail): void {
   // Set up textarea auto-resize
   const textarea = document.getElementById('detail-edit-body') as HTMLTextAreaElement;
   if (textarea) {
-    autoResizeTextarea(textarea);
+    // Delay the initial resize until after the panel has been rendered with its correct width.
+    // If autoResizeTextarea is called while the panel width is still 0 (before the .open class
+    // is applied), scrollHeight is inflated due to text wrapping, causing an oversized textarea.
+    requestAnimationFrame(() => {
+      autoResizeTextarea(textarea);
+    });
     textarea.addEventListener('input', () => {
       autoResizeTextarea(textarea);
     });
