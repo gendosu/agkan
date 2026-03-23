@@ -3,6 +3,7 @@
 import { showToast } from './utils';
 import { allAvailableTags } from './tags';
 import type { Tag } from './types';
+import { refreshBoardCards } from './boardPolling';
 
 interface AddModalElements {
   addModal: HTMLElement;
@@ -243,7 +244,7 @@ async function submitAddTask(elements: AddModalElements): Promise<void> {
       }),
     });
     if (!res.ok) throw new Error('Server error');
-    location.reload();
+    await refreshBoardCards();
   } catch {
     showToast('Failed to add task');
   }

@@ -44,7 +44,7 @@ export function renderCard(task: Task, tags: Tag[]): string {
   const tagBadges = tags.map((t) => `<span class="tag">${escapeHtml(t.name)}</span>`).join('');
 
   return `
-    <div class="card" draggable="true" data-id="${task.id}" data-status="${task.status}">
+    <div class="card" draggable="true" data-id="${task.id}" data-status="${task.status}" data-updated-at="${escapeHtml(task.updated_at)}">
       <div class="card-header">
         <span class="card-id">#${task.id}</span>
         ${priorityBadge}

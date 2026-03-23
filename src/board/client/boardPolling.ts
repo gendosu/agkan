@@ -62,10 +62,65 @@ function attachCardListeners(body: HTMLElement): void {
   });
 }
 
+export function applyIncrementalCardUpdate(body: HTMLElement, newHtml: string): void {
+  const template = document.createElement('div');
+  template.innerHTML = newHtml;
+  const newCards = Array.from(template.querySelectorAll<HTMLElement>('.card'));
+
+  // Build a map of existing cards by id
+  const existingCards = new Map<string, HTMLElement>();
+  body.querySelectorAll<HTMLElement>('.card').forEach((card) => {
+    const id = card.dataset.id;
+    if (id) existingCards.set(id, card);
+  });
+
+  // Build a set of new card ids to detect removals
+  const newCardIds = new Set<string>();
+  newCards.forEach((card) => {
+    const id = card.dataset.id;
+    if (id) newCardIds.add(id);
+  });
+
+  // Remove cards no longer present
+  existingCards.forEach((card, id) => {
+    if (!newCardIds.has(id)) {
+      card.remove();
+    }
+  });
+
+  // Insert or update cards in order
+  newCards.forEach((newCard, index) => {
+    const id = newCard.dataset.id;
+    const newUpdatedAt = newCard.dataset.updatedAt;
+    const existing = id ? existingCards.get(id) : undefined;
+
+    if (existing) {
+      // Update only if content changed (using data-updated-at as a change signal)
+      const existingUpdatedAt = existing.dataset.updatedAt;
+      let activeCard: HTMLElement;
+      if (newUpdatedAt !== existingUpdatedAt) {
+        existing.replaceWith(newCard);
+        activeCard = newCard;
+      } else {
+        activeCard = existing;
+      }
+      // Reorder if not in correct position
+      const currentChild = body.children[index];
+      if (currentChild !== activeCard) {
+        body.insertBefore(activeCard, currentChild || null);
+      }
+    } else {
+      // New card: insert at correct position
+      const currentChild = body.children[index];
+      body.insertBefore(newCard, currentChild || null);
+    }
+  });
+}
+
 function updateColumnHtml(col: { status: string; html: string; count: number }): void {
   const body = document.getElementById('col-' + col.status);
   if (!body) return;
-  body.innerHTML = col.html;
+  applyIncrementalCardUpdate(body, col.html);
   const colEl = body.closest('.column');
   if (colEl) {
     const countEl = colEl.querySelector('.column-count');
