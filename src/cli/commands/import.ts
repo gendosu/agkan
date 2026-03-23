@@ -5,8 +5,7 @@
 
 import { Command } from 'commander';
 import { readFileSync } from 'fs';
-import { ExportImportService } from '../../services/ExportImportService';
-import { ExportData } from '../../services/ExportImportService';
+import { ExportImportService, ExportData } from '../../services/ExportImportService';
 
 export function setupImportCommand(program: Command): void {
   program
@@ -21,13 +20,11 @@ export function setupImportCommand(program: Command): void {
         } catch {
           process.stderr.write('Error: Invalid JSON file\n');
           process.exit(1);
-          return;
         }
 
         if (!data.tasks || !Array.isArray(data.tasks)) {
           process.stderr.write('Error: Invalid export file format (missing tasks array)\n');
           process.exit(1);
-          return;
         }
 
         const service = new ExportImportService();
