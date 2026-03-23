@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.14.1] - 2026-03-23
+
+### Fixed
+- Fix description textarea in detail pane expanding beyond text height on open (#253)
+
 ## [2.14.0] - 2026-03-23
 
 ### Added
