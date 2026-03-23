@@ -342,8 +342,11 @@ function renderRelationsHtml(
 }
 
 function autoResizeTextarea(el: HTMLTextAreaElement): void {
+  const scrollContainer = el.closest('.detail-tab-content') as HTMLElement;
+  const scrollTop = scrollContainer?.scrollTop ?? 0;
   el.style.height = 'auto';
   el.style.height = el.scrollHeight + 'px';
+  if (scrollContainer) scrollContainer.scrollTop = scrollTop;
 }
 
 function renderMetadataTable(metadata: Array<{ key: string; value: string }>): string {
