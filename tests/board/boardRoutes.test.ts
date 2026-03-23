@@ -157,6 +157,99 @@ describe('POST /api/tasks', () => {
     const task = (await res.json()) as { priority: string };
     expect(task.priority).toBe('high');
   });
+
+  it('creates task with tags and attaches them', async () => {
+    const services = buildServices();
+    const tag = services.tags.createTag({ name: 'bug' });
+    const app = buildApp(services);
+    const res = await app.fetch(
+      new Request('http://localhost/api/tasks', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title: 'Tagged Task', tags: [tag.id] }),
+      })
+    );
+    expect(res.status).toBe(201);
+    const created = (await res.json()) as { id: number };
+    const taskTags = services.tts.getTagsForTask(created.id);
+    expect(taskTags).toHaveLength(1);
+    expect(taskTags[0].name).toBe('bug');
+  });
+
+  it('creates task with metadata and stores it', async () => {
+    const services = buildServices();
+    const app = buildApp(services);
+    const res = await app.fetch(
+      new Request('http://localhost/api/tasks', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: 'Meta Task',
+          metadata: [
+            { key: 'owner', value: 'alice' },
+            { key: 'sprint', value: '3' },
+          ],
+        }),
+      })
+    );
+    expect(res.status).toBe(201);
+    const created = (await res.json()) as { id: number };
+    const meta = services.ms.listMetadata(created.id);
+    expect(meta).toHaveLength(2);
+    const ownerMeta = meta.find((m) => m.key === 'owner');
+    expect(ownerMeta?.value).toBe('alice');
+  });
+
+  it('creates task with both tags and metadata', async () => {
+    const services = buildServices();
+    const tag = services.tags.createTag({ name: 'feature' });
+    const app = buildApp(services);
+    const res = await app.fetch(
+      new Request('http://localhost/api/tasks', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: 'Full Task',
+          tags: [tag.id],
+          metadata: [{ key: 'env', value: 'prod' }],
+        }),
+      })
+    );
+    expect(res.status).toBe(201);
+    const created = (await res.json()) as { id: number };
+    expect(services.tts.getTagsForTask(created.id)).toHaveLength(1);
+    expect(services.ms.listMetadata(created.id)).toHaveLength(1);
+  });
+
+  it('ignores invalid tag ids gracefully', async () => {
+    const services = buildServices();
+    const app = buildApp(services);
+    const res = await app.fetch(
+      new Request('http://localhost/api/tasks', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title: 'Bad Tag Task', tags: [99999] }),
+      })
+    );
+    expect(res.status).toBe(201);
+    const created = (await res.json()) as { id: number };
+    expect(services.tts.getTagsForTask(created.id)).toHaveLength(0);
+  });
+
+  it('ignores metadata entries with empty keys', async () => {
+    const services = buildServices();
+    const app = buildApp(services);
+    const res = await app.fetch(
+      new Request('http://localhost/api/tasks', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title: 'Bad Meta Task', metadata: [{ key: '', value: 'x' }] }),
+      })
+    );
+    expect(res.status).toBe(201);
+    const created = (await res.json()) as { id: number };
+    expect(services.ms.listMetadata(created.id)).toHaveLength(0);
+  });
 });
 
 // ─────────────────────────────────────────────────────────────────────────────

@@ -64,7 +64,8 @@ function registerTaskCrudRoutes(
   ts: TaskService,
   tts: TaskTagService,
   tbs: TaskBlockService,
-  ms: MetadataService
+  ms: MetadataService,
+  tags: TagService
 ): void {
   app.get('/api/tasks', (c) => c.json({ tasks: ts.listTasks({}, 'id', 'asc') }));
   app.post('/api/tasks', async (c) => {
@@ -73,13 +74,46 @@ function registerTaskCrudRoutes(
       body?: string | null;
       status?: TaskStatus;
       priority?: string | null;
+      tags?: unknown;
+      metadata?: unknown;
     }>();
     if (!body.title || typeof body.title !== 'string' || !body.title.trim()) {
       return c.json({ error: 'Title is required' }, 400);
     }
     const status = body.status && STATUSES.includes(body.status) ? body.status : 'backlog';
     const priority = body.priority && isPriority(body.priority) ? body.priority : undefined;
-    return c.json(ts.createTask({ title: body.title.trim(), body: body.body || undefined, status, priority }), 201);
+    const task = ts.createTask({ title: body.title.trim(), body: body.body || undefined, status, priority });
+
+    // Attach tags if provided
+    if (Array.isArray(body.tags)) {
+      for (const tagId of body.tags) {
+        const numericTagId = Number(tagId);
+        if (!isNaN(numericTagId) && tags.getTag(numericTagId)) {
+          tts.addTagToTask({ task_id: task.id, tag_id: numericTagId });
+        }
+      }
+    }
+
+    // Store metadata if provided
+    if (Array.isArray(body.metadata)) {
+      for (const entry of body.metadata) {
+        if (
+          entry &&
+          typeof entry === 'object' &&
+          typeof (entry as { key: unknown }).key === 'string' &&
+          (entry as { key: string }).key.trim() !== ''
+        ) {
+          const metaEntry = entry as { key: string; value: unknown };
+          ms.setMetadata({
+            task_id: task.id,
+            key: metaEntry.key.trim(),
+            value: String(metaEntry.value ?? ''),
+          });
+        }
+      }
+    }
+
+    return c.json(task, 201);
   });
   app.get('/api/tasks/:id', (c) => {
     const id = Number(c.req.param('id'));
@@ -220,7 +254,7 @@ function registerUtilityRoutes(app: Hono, ts: TaskService): void {
 }
 
 export function registerTaskApiRoutes(app: Hono, { ts, tts, tags, ms, cs, tbs }: BoardServices): void {
-  registerTaskCrudRoutes(app, ts, tts, tbs, ms);
+  registerTaskCrudRoutes(app, ts, tts, tbs, ms, tags);
   registerCommentRoutes(app, cs, ts);
   registerTagRoutes(app, tts, tags, ts);
   registerUtilityRoutes(app, ts);
