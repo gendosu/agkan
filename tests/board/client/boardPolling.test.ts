@@ -206,6 +206,7 @@ describe('registerDetailPanelCallbacks', () => {
         renderDetailPanel: vi.fn(),
         showUpdateWarning: vi.fn(),
         getDetailTaskId: vi.fn().mockReturnValue(null),
+        setActiveCard: vi.fn(),
       })
     ).not.toThrow();
   });
