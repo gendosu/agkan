@@ -89,60 +89,71 @@ function initExportModal(burgerDropdown: HTMLElement): void {
 }
 
 function initImportModal(burgerDropdown: HTMLElement): void {
-  const importModal = document.getElementById('import-modal') as HTMLElement;
-  const importCancelBtn = document.getElementById('import-cancel-btn') as HTMLButtonElement;
-  const importConfirmBtn = document.getElementById('import-confirm-btn') as HTMLButtonElement;
-  const importResultEl = document.getElementById('import-result') as HTMLElement;
-  const importDropZone = document.getElementById('import-drop-zone') as HTMLElement;
-  const importFileInput = document.getElementById('import-file-input') as HTMLInputElement;
+  const importModal = document.getElementById('import-modal');
+  const importCancelBtn = document.getElementById('import-cancel-btn');
+  const importConfirmBtn = document.getElementById('import-confirm-btn') as HTMLButtonElement | null;
+  const importResultEl = document.getElementById('import-result');
+  const importDropZone = document.getElementById('import-drop-zone');
+  const importFileInput = document.getElementById('import-file-input') as HTMLInputElement | null;
+
+  if (!importModal || !importCancelBtn || !importConfirmBtn || !importResultEl || !importDropZone || !importFileInput) {
+    return;
+  }
+
+  const safeImportModal = importModal as HTMLElement;
+  const safeImportCancelBtn = importCancelBtn as HTMLButtonElement;
+  const safeImportConfirmBtn = importConfirmBtn as HTMLButtonElement;
+  const safeImportResultEl = importResultEl as HTMLElement;
+  const safeImportDropZone = importDropZone as HTMLElement;
+  const safeImportFileInput = importFileInput as HTMLInputElement;
 
   let selectedFile: File | null = null;
 
   function setFile(file: File): void {
     selectedFile = file;
-    importResultEl.textContent = `Selected: ${file.name}`;
-    importResultEl.style.color = '#64748b';
-    importConfirmBtn.disabled = false;
+    safeImportResultEl.textContent = `Selected: ${file.name}`;
+    safeImportResultEl.style.color = '#64748b';
+    safeImportConfirmBtn.disabled = false;
   }
 
   document.getElementById('burger-import-tasks')?.addEventListener('click', () => {
     burgerDropdown.classList.remove('open');
     selectedFile = null;
-    importResultEl.textContent = '';
-    importConfirmBtn.disabled = true;
-    importFileInput.value = '';
-    importModal.classList.add('show');
+    safeImportResultEl.textContent = '';
+    safeImportConfirmBtn.disabled = true;
+    safeImportFileInput.value = '';
+    safeImportModal.classList.add('show');
   });
 
-  importCancelBtn.addEventListener('click', () => {
-    importModal.classList.remove('show');
+  safeImportCancelBtn.addEventListener('click', () => {
+    safeImportModal.classList.remove('show');
   });
 
-  importFileInput.addEventListener('change', () => {
-    const file = importFileInput.files?.[0];
+  safeImportFileInput.addEventListener('change', () => {
+    const file = safeImportFileInput.files?.[0];
     if (file) setFile(file);
   });
 
-  importDropZone.addEventListener('dragover', (e: DragEvent) => {
+  safeImportDropZone.addEventListener('dragover', (e: DragEvent) => {
     e.preventDefault();
-    importDropZone.style.borderColor = '#3b82f6';
+    safeImportDropZone.style.borderColor = '#3b82f6';
   });
 
-  importDropZone.addEventListener('dragleave', () => {
-    importDropZone.style.borderColor = '#94a3b8';
+  safeImportDropZone.addEventListener('dragleave', () => {
+    safeImportDropZone.style.borderColor = '#94a3b8';
   });
 
-  importDropZone.addEventListener('drop', (e: DragEvent) => {
+  safeImportDropZone.addEventListener('drop', (e: DragEvent) => {
     e.preventDefault();
-    importDropZone.style.borderColor = '#94a3b8';
+    safeImportDropZone.style.borderColor = '#94a3b8';
     const file = e.dataTransfer?.files?.[0];
     if (file) setFile(file);
   });
 
-  importConfirmBtn.addEventListener('click', async () => {
+  safeImportConfirmBtn.addEventListener('click', async () => {
     if (!selectedFile) return;
-    importConfirmBtn.disabled = true;
-    importConfirmBtn.textContent = 'Importing...';
+    safeImportConfirmBtn.disabled = true;
+    safeImportConfirmBtn.textContent = 'Importing...';
     try {
       const text = await selectedFile.text();
       const data = JSON.parse(text);
@@ -153,22 +164,22 @@ function initImportModal(burgerDropdown: HTMLElement): void {
       });
       const result = await res.json();
       if (res.ok) {
-        importResultEl.textContent = `Imported ${result.importedCount} task(s) successfully.`;
-        importResultEl.style.color = '#16a34a';
+        safeImportResultEl.textContent = `Imported ${result.importedCount} task(s) successfully.`;
+        safeImportResultEl.style.color = '#16a34a';
         setTimeout(() => {
-          importModal.classList.remove('show');
+          safeImportModal.classList.remove('show');
           location.reload();
         }, 1500);
       } else {
-        importResultEl.textContent = 'Error: ' + (result.error || 'Unknown error');
-        importResultEl.style.color = '#dc2626';
+        safeImportResultEl.textContent = 'Error: ' + (result.error || 'Unknown error');
+        safeImportResultEl.style.color = '#dc2626';
       }
     } catch {
-      importResultEl.textContent = 'Failed to import tasks. Invalid JSON file.';
-      importResultEl.style.color = '#dc2626';
+      safeImportResultEl.textContent = 'Failed to import tasks. Invalid JSON file.';
+      safeImportResultEl.style.color = '#dc2626';
     } finally {
-      importConfirmBtn.disabled = false;
-      importConfirmBtn.textContent = 'Import';
+      safeImportConfirmBtn.disabled = false;
+      safeImportConfirmBtn.textContent = 'Import';
     }
   });
 }
