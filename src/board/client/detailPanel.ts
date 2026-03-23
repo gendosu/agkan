@@ -330,6 +330,11 @@ function renderRelationsHtml(
   return html;
 }
 
+function autoResizeTextarea(el: HTMLTextAreaElement): void {
+  el.style.height = 'auto';
+  el.style.height = el.scrollHeight + 'px';
+}
+
 function renderMetadataTable(metadata: Array<{ key: string; value: string }>): string {
   const otherMeta = metadata.filter((m) => m.key !== 'priority');
   if (otherMeta.length === 0) return '';
@@ -377,14 +382,8 @@ function renderDetailPanelHtml(data: TaskDetail): string {
     html += renderRelationsHtml(parent, blockedBy, blocking);
   }
 
-  html += renderEditableTextFields(task);
   html += renderMetadataTable(metadata);
-  html +=
-    '<div class="detail-timestamp">created ' +
-    relativeTime(task.created_at) +
-    ' &middot; updated ' +
-    relativeTime(task.updated_at) +
-    '</div>';
+  html += renderEditableTextFields(task);
 
   return html;
 }
@@ -404,6 +403,28 @@ export function renderDetailPanel(data: TaskDetail): void {
   if (detailsPane) {
     detailsPane.innerHTML = renderDetailPanelHtml(data);
     detailsPane.style.padding = '20px';
+  }
+
+  // Update footer with timestamp and save button
+  const footer = document.getElementById('detail-panel-footer');
+  if (footer) {
+    footer.innerHTML =
+      '<span class="detail-footer-timestamp">created ' +
+      relativeTime(task.created_at) +
+      ' &middot; updated ' +
+      relativeTime(task.updated_at) +
+      '</span>' +
+      '<button id="detail-save-btn">Save</button>';
+    document.getElementById('detail-save-btn')?.addEventListener('click', saveDetailTask);
+  }
+
+  // Set up textarea auto-resize
+  const textarea = document.getElementById('detail-edit-body') as HTMLTextAreaElement;
+  if (textarea) {
+    autoResizeTextarea(textarea);
+    textarea.addEventListener('input', () => {
+      autoResizeTextarea(textarea);
+    });
   }
 
   // Render tags section after DOM update
@@ -648,8 +669,6 @@ export function initDetailPanel(): void {
   });
 
   initPanelResize(detailPanel);
-
-  document.getElementById('detail-save-btn')?.addEventListener('click', saveDetailTask);
 
   document.querySelectorAll<HTMLElement>('.card').forEach((card) => {
     card.addEventListener('click', async (e: MouseEvent) => {
