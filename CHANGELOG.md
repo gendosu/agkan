@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.14.0] - 2026-03-23
+
+### Added
+- Add visual selection indicator for task card when detail pane is open (#252)
+- Add export/import functionality for tasks (#91)
+- Add tag and metadata UI to task creation modal (#246)
+- Add data-updated-at attribute to board cards for change detection
+
+### Fixed
+- Fix board screen flickering with incremental DOM diffing instead of full innerHTML replacement (#248)
+- Fix location.reload() calls replaced with refreshBoardCards() for smoother updates (#247, #244)
+- Fix guard against null import modal elements in initImportModal
+- Fix missing author/assignees fields in boardRenderer tests
+
 ## [2.13.0] - 2026-03-21
 
 ### Added
