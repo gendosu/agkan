@@ -783,6 +783,132 @@ describe('closeDetailPanel', () => {
   });
 });
 
+describe('Detail panel design updates', () => {
+  beforeEach(() => {
+    vi.resetModules();
+    setupMinimalBoardDOM();
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('renders metadata table before editable text fields', async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ comments: [] }),
+    });
+
+    const { renderDetailPanel } = await import('../../../src/board/client/detailPanel');
+    const data = makeTaskDetail({
+      metadata: [{ key: 'branch', value: 'feat/my-feature' }],
+    });
+    renderDetailPanel(data);
+
+    await new Promise((resolve) => setTimeout(resolve, 50));
+
+    const detailsPane = document.getElementById('detail-tab-content-details');
+    const metaTableIndex = detailsPane?.innerHTML.indexOf('detail-meta-table') ?? -1;
+    const titleInputIndex = detailsPane?.innerHTML.indexOf('detail-edit-title') ?? -1;
+
+    expect(metaTableIndex).toBeGreaterThan(-1);
+    expect(titleInputIndex).toBeGreaterThan(-1);
+    expect(metaTableIndex).toBeLessThan(titleInputIndex);
+  });
+
+  it('displays timestamps in footer instead of detail body', async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ comments: [] }),
+    });
+
+    const { renderDetailPanel } = await import('../../../src/board/client/detailPanel');
+    const data = makeTaskDetail();
+    renderDetailPanel(data);
+
+    await new Promise((resolve) => setTimeout(resolve, 50));
+
+    const detailsPane = document.getElementById('detail-tab-content-details');
+    const footer = document.getElementById('detail-panel-footer');
+
+    // Timestamp should NOT be in details pane anymore
+    expect(detailsPane?.innerHTML).not.toContain('created');
+    expect(detailsPane?.innerHTML).not.toContain('updated');
+
+    // Timestamp should be in footer
+    expect(footer?.innerHTML).toContain('created');
+    expect(footer?.innerHTML).toContain('updated');
+  });
+
+  it('has save button in footer', async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ comments: [] }),
+    });
+
+    const { renderDetailPanel } = await import('../../../src/board/client/detailPanel');
+    renderDetailPanel(makeTaskDetail());
+
+    await new Promise((resolve) => setTimeout(resolve, 50));
+
+    const footer = document.getElementById('detail-panel-footer');
+    const saveBtn = footer?.querySelector('#detail-save-btn');
+
+    expect(saveBtn).not.toBeNull();
+    expect(saveBtn?.textContent).toBe('Save');
+  });
+
+  it('textarea gets input event listener for auto-resize', async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ comments: [] }),
+    });
+
+    const { renderDetailPanel } = await import('../../../src/board/client/detailPanel');
+    const data = makeTaskDetail({
+      task: {
+        ...makeTaskDetail().task,
+        body: 'Short text',
+      },
+    });
+    renderDetailPanel(data);
+
+    await new Promise((resolve) => setTimeout(resolve, 50));
+
+    const textarea = document.getElementById('detail-edit-body') as HTMLTextAreaElement;
+    expect(textarea).not.toBeNull();
+
+    // The textarea should exist and have been set up with auto-resize
+    // We verify by checking that the height style was set (autoResizeTextarea sets style.height)
+    expect(textarea.style.height).toBeTruthy();
+
+    // Simulate input event which should trigger auto-resize
+    textarea.value = 'New content';
+    const inputEvent = new Event('input', { bubbles: true });
+    textarea.dispatchEvent(inputEvent);
+
+    // The style.height should still exist after input event
+    expect(textarea.style.height).toBeTruthy();
+  });
+
+  it('detail tab content div is rendered with active class', async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ comments: [] }),
+    });
+
+    const { renderDetailPanel } = await import('../../../src/board/client/detailPanel');
+    renderDetailPanel(makeTaskDetail());
+
+    await new Promise((resolve) => setTimeout(resolve, 50));
+
+    const detailsPane = document.getElementById('detail-tab-content-details');
+
+    // Check that the active class is present
+    expect(detailsPane?.classList.contains('active')).toBe(true);
+  });
+});
+
 describe('Escape key closes detail panel', () => {
   beforeEach(() => {
     vi.resetModules();
