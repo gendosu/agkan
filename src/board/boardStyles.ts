@@ -52,14 +52,14 @@ export const BOARD_STYLES = `
     .column-count { background: var(--column-count-bg); color: var(--column-count-color); border-radius: 10px; font-size: 11px; font-weight: 600; padding: 2px 7px; }
     .add-btn { background: none; border: 1px solid var(--border-color); color: var(--text-secondary); border-radius: 4px; width: 22px; height: 22px; font-size: 14px; line-height: 1; cursor: pointer; display: flex; align-items: center; justify-content: center; }
     .add-btn:hover { background: var(--border-color); color: var(--text-primary); }
-    .column-body { padding: 8px; min-height: 60px; flex: 1; overflow-y: auto; min-height: 0; }
+    .column-body { padding: 8px; min-height: 60px; flex: 1; overflow-y: auto; overflow-x: hidden; min-height: 0; }
     .column.drag-over .column-body { background: var(--drag-over-bg); border-radius: 6px; }
     .card { background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 6px; padding: 10px; margin-bottom: 6px; cursor: grab; transition: box-shadow 0.15s; }
     .card:hover { box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
     .card.dragging { opacity: 0.5; }
     .card-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 5px; }
     .card-id { font-size: 11px; color: var(--text-muted); font-weight: 600; }
-    .card-title { font-size: 13px; font-weight: 500; line-height: 1.4; }
+    .card-title { font-size: 13px; font-weight: 500; line-height: 1.4; word-break: break-word; }
     .card-tags { margin-top: 6px; display: flex; flex-wrap: wrap; gap: 4px; }
     .tag { background: var(--tag-bg); color: var(--tag-color); font-size: 10px; font-weight: 600; padding: 2px 6px; border-radius: 10px; }
     .priority { font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 10px; text-transform: uppercase; }
