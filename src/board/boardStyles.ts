@@ -56,6 +56,8 @@ export const BOARD_STYLES = `
     .column.drag-over .column-body { background: var(--drag-over-bg); border-radius: 6px; }
     .card { background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 6px; padding: 10px; margin-bottom: 6px; cursor: grab; transition: box-shadow 0.15s; }
     .card:hover { box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+    .card.active { border-color: #3b82f6; box-shadow: 0 0 0 2px rgba(59,130,246,0.25); background: #eff6ff; }
+    [data-theme="dark"] .card.active { border-color: #60a5fa; box-shadow: 0 0 0 2px rgba(96,165,250,0.25); background: #1e3a5f; }
     .card.dragging { opacity: 0.5; }
     .card-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 5px; }
     .card-id { font-size: 11px; color: var(--text-muted); font-weight: 600; }

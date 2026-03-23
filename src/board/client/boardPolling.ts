@@ -39,17 +39,20 @@ let _openTaskDetail: ((taskId: string) => Promise<void>) | null = null;
 let _renderDetailPanel: ((data: TaskDetail) => void) | null = null;
 let _showUpdateWarning: (() => void) | null = null;
 let _getDetailTaskId: (() => number | null) | null = null;
+let _setActiveCard: ((taskId: number | null) => void) | null = null;
 
 export function registerDetailPanelCallbacks(callbacks: {
   openTaskDetail: (taskId: string) => Promise<void>;
   renderDetailPanel: (data: TaskDetail) => void;
   showUpdateWarning: () => void;
   getDetailTaskId: () => number | null;
+  setActiveCard: (taskId: number | null) => void;
 }): void {
   _openTaskDetail = callbacks.openTaskDetail;
   _renderDetailPanel = callbacks.renderDetailPanel;
   _showUpdateWarning = callbacks.showUpdateWarning;
   _getDetailTaskId = callbacks.getDetailTaskId;
+  _setActiveCard = callbacks.setActiveCard;
 }
 
 function attachCardListeners(body: HTMLElement): void {
@@ -160,8 +163,13 @@ export async function refreshBoardCards(): Promise<void> {
     const data = (await res.json()) as { columns: Array<{ status: string; html: string; count: number }> };
     data.columns.forEach(updateColumnHtml);
 
-    // If detail panel is open, refresh its content if the task was updated
+    // Re-apply active card indicator after DOM update
     const detailTaskId = _getDetailTaskId ? _getDetailTaskId() : null;
+    if (detailTaskId !== null && _setActiveCard) {
+      _setActiveCard(detailTaskId);
+    }
+
+    // If detail panel is open, refresh its content if the task was updated
     if (detailTaskId !== null) {
       await refreshOpenDetailPanel(detailTaskId);
     }

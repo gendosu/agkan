@@ -14,10 +14,21 @@ export function getDetailTaskId(): number | null {
   return detailTaskId;
 }
 
+export function setActiveCard(taskId: number | null): void {
+  document.querySelectorAll<HTMLElement>('.card.active').forEach((card) => {
+    card.classList.remove('active');
+  });
+  if (taskId !== null) {
+    const card = document.querySelector<HTMLElement>('.card[data-id="' + taskId + '"]');
+    if (card) card.classList.add('active');
+  }
+}
+
 export function closeDetailPanel(): void {
   const detailPanel = document.getElementById('detail-panel') as HTMLElement;
   detailPanel.classList.remove('open');
   detailPanel.style.width = '';
+  setActiveCard(null);
   detailTaskId = null;
 }
 
@@ -449,6 +460,7 @@ export async function openTaskDetail(taskId: string): Promise<void> {
     if (!res.ok) throw new Error('Server error');
     const data = await res.json();
     renderDetailPanel(data);
+    setActiveCard(Number(taskId));
     if (!detailPanel.classList.contains('open')) {
       const preferredWidth = detailPanel.dataset.preferredWidth || String(PANEL_DEFAULT_WIDTH);
       detailPanel.style.width = preferredWidth + 'px';
@@ -682,6 +694,7 @@ export function initDetailPanel(): void {
     renderDetailPanel,
     showUpdateWarning,
     getDetailTaskId,
+    setActiveCard,
   });
 
   registerGetDetailTaskId(getDetailTaskId);
