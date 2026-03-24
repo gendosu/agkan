@@ -446,12 +446,13 @@ export function renderDetailPanel(data: TaskDetail): void {
     });
   }
 
-  // Render tags section after DOM update
-  loadAllTags()
-    .then(() => renderTagsSection([...tags]))
-    .catch((err) => {
-      console.error('[agkan] renderDetailPanel tags failed', err);
-    });
+  // Render tags section immediately to avoid content shift and blinking
+  renderTagsSection([...tags]);
+
+  // Load all available tags for dropdown in parallel (only needed on user interaction)
+  loadAllTags().catch((err) => {
+    console.error('[agkan] renderDetailPanel tags failed', err);
+  });
 
   // Load comments into the comments tab
   loadComments(task.id);
