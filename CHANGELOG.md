@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.14.2] - 2026-03-24
+
+### Fixed
+- Fix tag input content shift and blinking on detail pane open (#254)
+- Fix scroll position reset in detail pane when resizing textarea (#255)
+
 ## [2.14.1] - 2026-03-23
 
 ### Fixed
