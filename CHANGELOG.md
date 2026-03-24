@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.14.3] - 2026-03-24
+
+### Fixed
+- Fix overflow hidden on detail textarea to prevent scrollbar flickering (#257)
+
+### Refactored
+- Decompose detailPanel.ts into separate concern modules (SoC) (#260)
+
 ## [2.14.2] - 2026-03-24
 
 ### Fixed
