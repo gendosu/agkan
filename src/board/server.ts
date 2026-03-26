@@ -7,8 +7,8 @@ import { TagService } from '../services/TagService';
 import { MetadataService } from '../services/MetadataService';
 import { CommentService } from '../services/CommentService';
 import { TaskBlockService } from '../services/TaskBlockService';
-import { getDatabase } from '../db/connection';
-import { StorageProvider } from '../db/types/storage';
+import { getStorageBackend } from '../db/connection';
+import { StorageBackend } from '../db/types/repository';
 import { getDefaultDirName } from '../db/config';
 import { registerBoardRoutes, BoardServices } from './boardRoutes';
 
@@ -16,7 +16,7 @@ export function createBoardApp(
   taskService?: TaskService,
   taskTagService?: TaskTagService,
   metadataService?: MetadataService,
-  db?: StorageProvider,
+  db?: StorageBackend,
   boardTitle?: string,
   tagService?: TagService,
   configDir?: string,
@@ -25,12 +25,12 @@ export function createBoardApp(
 ): Hono {
   const app = new Hono();
   const resolvedConfigDir = configDir ?? path.join(process.cwd(), getDefaultDirName());
-  const resolvedDb = db ?? getDatabase();
+  const resolvedDb = db ?? getStorageBackend();
   const services: BoardServices = {
-    ts: taskService ?? new TaskService(),
-    tts: taskTagService ?? new TaskTagService(),
-    tags: tagService ?? new TagService(),
-    ms: metadataService ?? new MetadataService(),
+    ts: taskService ?? new TaskService(resolvedDb),
+    tts: taskTagService ?? new TaskTagService(resolvedDb),
+    tags: tagService ?? new TagService(resolvedDb),
+    ms: metadataService ?? new MetadataService(resolvedDb),
     cs: commentService ?? new CommentService(resolvedDb),
     tbs: taskBlockService ?? new TaskBlockService(resolvedDb),
     database: resolvedDb,

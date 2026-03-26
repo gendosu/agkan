@@ -1,19 +1,19 @@
 import { TaskBlock, CreateTaskBlockInput } from '../models';
-import { getDatabase } from '../db/connection';
+import { getStorageBackend } from '../db/connection';
 import { TaskService } from './TaskService';
-import { StorageProvider } from '../db/types/storage';
+import { StorageBackend } from '../db/types/repository';
 
 /**
  * Task Block Service
  * Manages blocking relationships between tasks
  */
 export class TaskBlockService {
-  private db: StorageProvider;
+  private backend: StorageBackend;
   private taskService: TaskService;
 
-  constructor(db?: StorageProvider, taskService?: TaskService) {
-    this.db = db || getDatabase();
-    this.taskService = taskService || new TaskService(this.db);
+  constructor(backend?: StorageBackend, taskService?: TaskService) {
+    this.backend = backend ?? getStorageBackend();
+    this.taskService = taskService ?? new TaskService(this.backend);
   }
 
   /**
@@ -23,8 +23,6 @@ export class TaskBlockService {
    * @throws Error if tasks do not exist, self-reference is detected, or circular reference would be created
    */
   addBlock(input: CreateTaskBlockInput): TaskBlock {
-    const db = this.db;
-
     // Check for self-reference: prevent a task from blocking itself
     if (input.blocker_task_id === input.blocked_task_id) {
       throw new Error('Task cannot block itself');
@@ -49,16 +47,7 @@ export class TaskBlockService {
     }
 
     const now = new Date().toISOString();
-
-    const stmt = db.prepare(`
-      INSERT INTO task_blocks (blocker_task_id, blocked_task_id, created_at)
-      VALUES (?, ?, ?)
-    `);
-
-    const result = stmt.run(input.blocker_task_id, input.blocked_task_id, now);
-
-    const getStmt = db.prepare('SELECT * FROM task_blocks WHERE id = ?');
-    return getStmt.get(result.lastInsertRowid as number) as unknown as TaskBlock;
+    return this.backend.blocks.create({ ...input, created_at: now });
   }
 
   /**
@@ -68,16 +57,7 @@ export class TaskBlockService {
    * @returns True if removal was successful, false if relationship was not found
    */
   removeBlock(blockerId: number, blockedId: number): boolean {
-    const db = this.db;
-
-    const stmt = db.prepare(`
-      DELETE FROM task_blocks
-      WHERE blocker_task_id = ? AND blocked_task_id = ?
-    `);
-
-    const result = stmt.run(blockerId, blockedId);
-
-    return result.changes > 0;
+    return this.backend.blocks.delete(blockerId, blockedId);
   }
 
   /**
@@ -87,15 +67,7 @@ export class TaskBlockService {
    * @returns Array of IDs for tasks blocked by this task
    */
   getBlockedTaskIds(blockerId: number): number[] {
-    const db = this.db;
-
-    const stmt = db.prepare(`
-      SELECT blocked_task_id FROM task_blocks
-      WHERE blocker_task_id = ?
-    `);
-
-    const results = stmt.all(blockerId) as Array<{ blocked_task_id: number }>;
-    return results.map((row) => row.blocked_task_id);
+    return this.backend.blocks.findBlockedTaskIds(blockerId);
   }
 
   /**
@@ -105,15 +77,7 @@ export class TaskBlockService {
    * @returns Array of IDs for blocking tasks
    */
   getBlockerTaskIds(blockedId: number): number[] {
-    const db = this.db;
-
-    const stmt = db.prepare(`
-      SELECT blocker_task_id FROM task_blocks
-      WHERE blocked_task_id = ?
-    `);
-
-    const results = stmt.all(blockedId) as Array<{ blocker_task_id: number }>;
-    return results.map((row) => row.blocker_task_id);
+    return this.backend.blocks.findBlockerTaskIds(blockedId);
   }
 
   /**
@@ -122,10 +86,7 @@ export class TaskBlockService {
    * @returns Array of all blocking relationships
    */
   getAllBlocks(): Array<{ blocker_task_id: number; blocked_task_id: number }> {
-    const db = this.db;
-
-    const stmt = db.prepare('SELECT blocker_task_id, blocked_task_id FROM task_blocks');
-    return stmt.all() as Array<{ blocker_task_id: number; blocked_task_id: number }>;
+    return this.backend.blocks.findAll();
   }
 
   /**

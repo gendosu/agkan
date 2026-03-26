@@ -4,24 +4,39 @@ import fs from 'fs';
 import { resolveDatabasePath } from './config';
 import { runMigrations } from './schema';
 import { StorageProvider } from './types/storage';
+import { StorageBackend } from './types/repository';
 import { getStorageProvider } from './storage-factory';
+import { SQLiteStorageBackend } from './adapters/sqlite-storage-backend';
 
 /**
  * Singleton management of database connection
  */
 export class DatabaseConnection {
   private static instance: StorageProvider | null = null;
+  private static backendInstance: StorageBackend | null = null;
   private static rawDatabase: Database.Database | null = null;
 
   /**
    * Get database instance (singleton)
    * @returns StorageProvider instance
+   * @deprecated Use getStorageBackend() instead
    */
   public static getInstance(): StorageProvider {
     if (!this.instance) {
       this.initialize();
     }
     return this.instance!;
+  }
+
+  /**
+   * Get StorageBackend instance (singleton)
+   * @returns StorageBackend instance
+   */
+  public static getBackendInstance(): StorageBackend {
+    if (!this.backendInstance) {
+      this.initialize();
+    }
+    return this.backendInstance!;
   }
 
   /**
@@ -46,8 +61,11 @@ export class DatabaseConnection {
     // Run migrations
     runMigrations(this.rawDatabase);
 
-    // Wrap with storage provider
+    // Wrap with storage provider (legacy)
     this.instance = getStorageProvider(this.rawDatabase);
+
+    // Create StorageBackend
+    this.backendInstance = new SQLiteStorageBackend(this.rawDatabase);
   }
 
   /**
@@ -55,8 +73,10 @@ export class DatabaseConnection {
    */
   public static close(): void {
     if (this.instance) {
-      this.instance.close();
       this.instance = null;
+    }
+    if (this.backendInstance) {
+      this.backendInstance = null;
     }
     if (this.rawDatabase) {
       this.rawDatabase.close();
@@ -68,7 +88,16 @@ export class DatabaseConnection {
 /**
  * Convenience function to get database instance
  * @returns StorageProvider instance
+ * @deprecated Use getStorageBackend() instead
  */
 export function getDatabase(): StorageProvider {
   return DatabaseConnection.getInstance();
+}
+
+/**
+ * Convenience function to get StorageBackend instance
+ * @returns StorageBackend instance
+ */
+export function getStorageBackend(): StorageBackend {
+  return DatabaseConnection.getBackendInstance();
 }

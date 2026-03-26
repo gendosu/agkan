@@ -1,8 +1,8 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { TaskService } from '../src/services/TaskService';
 import { resetDatabase } from '../src/db/reset';
-import { createMockDatabase } from './utils/mock-database';
-import type { StorageProvider } from '../src/db/types/storage';
+import { createMockStorageBackend } from './utils/mock-database';
+import type { StorageBackend } from '../src/db/types/repository';
 
 describe('TaskService', () => {
   let taskService: TaskService;
@@ -1805,16 +1805,16 @@ describe('TaskService', () => {
   });
 
   describe('TaskService with Mock Database', () => {
-    let mockDb: StorageProvider;
+    let mockBackend: StorageBackend;
     let taskService: TaskService;
 
     beforeEach(() => {
-      mockDb = createMockDatabase();
-      taskService = new TaskService(mockDb);
+      mockBackend = createMockStorageBackend();
+      taskService = new TaskService(mockBackend);
     });
 
     afterEach(() => {
-      mockDb.close();
+      mockBackend.close();
     });
 
     it('should create task with mock database', () => {

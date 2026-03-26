@@ -13,14 +13,14 @@ import { TagService } from '../../src/services/TagService';
 import { MetadataService } from '../../src/services/MetadataService';
 import { CommentService } from '../../src/services/CommentService';
 import { TaskBlockService } from '../../src/services/TaskBlockService';
-import { getDatabase } from '../../src/db/connection';
+import { getStorageBackend } from '../../src/db/connection';
 import { registerBoardRoutes, BoardServices } from '../../src/board/boardRoutes';
 import { ExportData } from '../../src/services/ExportImportService';
 
 const TEST_CONFIG_DIR = path.join(process.cwd(), '.agkan-test-export-import-' + process.pid);
 
 function buildServices(): BoardServices {
-  const database = getDatabase();
+  const database = getStorageBackend();
   return {
     ts: new TaskService(database),
     tts: new TaskTagService(database),

@@ -1,16 +1,16 @@
 import { TaskMetadata, CreateTaskMetadataInput } from '../models';
-import { getDatabase } from '../db/connection';
-import { StorageProvider } from '../db/types/storage';
+import { getStorageBackend } from '../db/connection';
+import { StorageBackend } from '../db/types/repository';
 
 /**
  * Metadata Service
  * Manages creation, retrieval, update, and deletion of task metadata
  */
 export class MetadataService {
-  private db: StorageProvider;
+  private backend: StorageBackend;
 
-  constructor(db?: StorageProvider) {
-    this.db = db || getDatabase();
+  constructor(backend?: StorageBackend) {
+    this.backend = backend ?? getStorageBackend();
   }
 
   /**
@@ -19,35 +19,8 @@ export class MetadataService {
    * @returns Metadata object
    */
   setMetadata(input: CreateTaskMetadataInput): TaskMetadata {
-    const db = this.db;
-
-    // Check if metadata already exists
-    const existing = this.getMetadataByKey(input.task_id, input.key);
-
     const now = new Date().toISOString();
-
-    if (existing) {
-      // Update existing metadata
-      const stmt = db.prepare(`
-        UPDATE task_metadata
-        SET value = ?, updated_at = ?
-        WHERE task_id = ? AND key = ?
-      `);
-
-      stmt.run(input.value, now, input.task_id, input.key);
-
-      return this.getMetadataByKey(input.task_id, input.key)!;
-    } else {
-      // Create new metadata
-      const stmt = db.prepare(`
-        INSERT INTO task_metadata (task_id, key, value, created_at, updated_at)
-        VALUES (?, ?, ?, ?, ?)
-      `);
-
-      stmt.run(input.task_id, input.key, input.value, now, now);
-
-      return this.getMetadataByKey(input.task_id, input.key)!;
-    }
+    return this.backend.metadata.set({ ...input, created_at: now, updated_at: now });
   }
 
   /**
@@ -57,16 +30,7 @@ export class MetadataService {
    * @returns Metadata object or null if not found
    */
   getMetadataByKey(taskId: number, key: string): TaskMetadata | null {
-    const db = this.db;
-
-    const stmt = db.prepare(`
-      SELECT * FROM task_metadata
-      WHERE task_id = ? AND key = ?
-    `);
-
-    const result = stmt.get(taskId, key);
-
-    return result ? (result as unknown as TaskMetadata) : null;
+    return this.backend.metadata.findByKey(taskId, key);
   }
 
   /**
@@ -75,17 +39,7 @@ export class MetadataService {
    * @returns Array of metadata objects
    */
   listMetadata(taskId: number): TaskMetadata[] {
-    const db = this.db;
-
-    const stmt = db.prepare(`
-      SELECT * FROM task_metadata
-      WHERE task_id = ?
-      ORDER BY created_at DESC
-    `);
-
-    const results = stmt.all(taskId);
-
-    return results as unknown as TaskMetadata[];
+    return this.backend.metadata.findByTaskId(taskId);
   }
 
   /**
@@ -95,16 +49,7 @@ export class MetadataService {
    * @returns True if deletion succeeded, false if metadata not found
    */
   deleteMetadata(taskId: number, key: string): boolean {
-    const db = this.db;
-
-    const stmt = db.prepare(`
-      DELETE FROM task_metadata
-      WHERE task_id = ? AND key = ?
-    `);
-
-    const result = stmt.run(taskId, key);
-
-    return result.changes > 0;
+    return this.backend.metadata.delete(taskId, key);
   }
 
   /**
@@ -113,25 +58,7 @@ export class MetadataService {
    * @returns Map<task_id, TaskMetadata[]>
    */
   getAllTasksMetadata(): Map<number, TaskMetadata[]> {
-    const db = this.db;
-
-    const stmt = db.prepare(`
-      SELECT * FROM task_metadata
-      ORDER BY task_id, created_at DESC
-    `);
-
-    const results = stmt.all() as unknown as TaskMetadata[];
-    const metadataMap = new Map<number, TaskMetadata[]>();
-
-    for (const row of results) {
-      const taskId = row.task_id;
-      if (!metadataMap.has(taskId)) {
-        metadataMap.set(taskId, []);
-      }
-      metadataMap.get(taskId)!.push(row);
-    }
-
-    return metadataMap;
+    return this.backend.metadata.findAllGroupedByTaskId();
   }
 
   /**
@@ -140,15 +67,6 @@ export class MetadataService {
    * @returns Number of deleted metadata entries
    */
   deleteAllMetadata(taskId: number): number {
-    const db = this.db;
-
-    const stmt = db.prepare(`
-      DELETE FROM task_metadata
-      WHERE task_id = ?
-    `);
-
-    const result = stmt.run(taskId);
-
-    return result.changes;
+    return this.backend.metadata.deleteAllForTask(taskId);
   }
 }

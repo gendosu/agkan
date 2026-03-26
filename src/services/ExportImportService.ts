@@ -1,5 +1,5 @@
-import { getDatabase } from '../db/connection';
-import { StorageProvider } from '../db/types/storage';
+import { getStorageBackend } from '../db/connection';
+import { StorageBackend } from '../db/types/repository';
 import { TaskService } from './TaskService';
 import { TagService } from './TagService';
 import { TaskTagService } from './TaskTagService';
@@ -46,7 +46,7 @@ export interface ImportResult {
  * Handles JSON bulk export and import of tasks with all related data
  */
 export class ExportImportService {
-  private db: StorageProvider;
+  private backend: StorageBackend;
   private taskService: TaskService;
   private tagService: TagService;
   private taskTagService: TaskTagService;
@@ -54,14 +54,14 @@ export class ExportImportService {
   private commentService: CommentService;
   private taskBlockService: TaskBlockService;
 
-  constructor(db?: StorageProvider) {
-    this.db = db || getDatabase();
-    this.taskService = new TaskService(this.db);
-    this.tagService = new TagService(this.db);
-    this.taskTagService = new TaskTagService(this.db);
-    this.metadataService = new MetadataService(this.db);
-    this.commentService = new CommentService(this.db);
-    this.taskBlockService = new TaskBlockService(this.db);
+  constructor(backend?: StorageBackend) {
+    this.backend = backend ?? getStorageBackend();
+    this.taskService = new TaskService(this.backend);
+    this.tagService = new TagService(this.backend);
+    this.taskTagService = new TaskTagService(this.backend);
+    this.metadataService = new MetadataService(this.backend);
+    this.commentService = new CommentService(this.backend);
+    this.taskBlockService = new TaskBlockService(this.backend);
   }
 
   /**
@@ -144,10 +144,8 @@ export class ExportImportService {
       parent_id: newParentId,
     });
 
-    // Restore original timestamps via direct UPDATE
-    this.db
-      .prepare('UPDATE tasks SET created_at = ?, updated_at = ? WHERE id = ?')
-      .run(exportedTask.created_at, exportedTask.updated_at, newTask.id);
+    // Restore original timestamps via the backend
+    this.backend.updateTaskTimestamps(newTask.id, exportedTask.created_at, exportedTask.updated_at);
 
     return newTask.id;
   }
@@ -179,9 +177,7 @@ export class ExportImportService {
         author: comment.author || undefined,
         content: comment.content,
       });
-      this.db
-        .prepare('UPDATE task_comments SET created_at = ?, updated_at = ? WHERE id = ?')
-        .run(comment.created_at, comment.updated_at, newComment.id);
+      this.backend.comments.updateTimestamps(newComment.id, comment.created_at, comment.updated_at);
     }
   }
 

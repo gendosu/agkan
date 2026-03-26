@@ -13,19 +13,19 @@ import { TagService } from '../../src/services/TagService';
 import { MetadataService } from '../../src/services/MetadataService';
 import { CommentService } from '../../src/services/CommentService';
 import { TaskBlockService } from '../../src/services/TaskBlockService';
-import { getDatabase } from '../../src/db/connection';
+import { getStorageBackend } from '../../src/db/connection';
 import { registerBoardRoutes, BoardServices } from '../../src/board/boardRoutes';
 import { DETAIL_PANE_MAX_WIDTH } from '../../src/board/boardConfig';
 
 const TEST_CONFIG_DIR = path.join(process.cwd(), '.agkan-test-routes-' + process.pid);
 
 function buildServices(): BoardServices {
-  const database = getDatabase();
+  const database = getStorageBackend();
   return {
-    ts: new TaskService(),
-    tts: new TaskTagService(),
-    tags: new TagService(),
-    ms: new MetadataService(),
+    ts: new TaskService(database),
+    tts: new TaskTagService(database),
+    tags: new TagService(database),
+    ms: new MetadataService(database),
     cs: new CommentService(database),
     tbs: new TaskBlockService(database),
     database,

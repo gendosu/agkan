@@ -1,18 +1,19 @@
 import { Tag, CreateTagInput, UpdateTagInput } from '../models';
-import { getDatabase } from '../db/connection';
+import { getStorageBackend } from '../db/connection';
 import { validateTagInput } from '../utils/input-validators';
-import { StorageProvider } from '../db/types/storage';
+import { StorageBackend } from '../db/types/repository';
 
 /**
  * Tag Service
  * Manages creation, retrieval, update, and deletion of tags
  */
 export class TagService {
-  private db: StorageProvider;
+  private backend: StorageBackend;
 
-  constructor(db?: StorageProvider) {
-    this.db = db || getDatabase();
+  constructor(backend?: StorageBackend) {
+    this.backend = backend ?? getStorageBackend();
   }
+
   /**
    * Create a new tag
    * @param input - Tag creation input
@@ -20,8 +21,6 @@ export class TagService {
    * @throws Error if tag name already exists
    */
   createTag(input: CreateTagInput): Tag {
-    const db = this.db;
-
     // Validate input fields
     const validationErrors = validateTagInput(input);
     if (validationErrors.length > 0) {
@@ -35,16 +34,7 @@ export class TagService {
     }
 
     const now = new Date().toISOString();
-
-    const stmt = db.prepare(`
-      INSERT INTO tags (name, created_at)
-      VALUES (?, ?)
-    `);
-
-    const result = stmt.run(input.name, now);
-
-    const getStmt = db.prepare('SELECT * FROM tags WHERE id = ?');
-    return getStmt.get(result.lastInsertRowid as number) as unknown as Tag;
+    return this.backend.tags.create({ name: input.name, created_at: now });
   }
 
   /**
@@ -53,12 +43,7 @@ export class TagService {
    * @returns Tag object or null if not found
    */
   getTag(id: number): Tag | null {
-    const db = this.db;
-
-    const stmt = db.prepare('SELECT * FROM tags WHERE id = ?');
-    const result = stmt.get(id);
-
-    return result ? (result as unknown as Tag) : null;
+    return this.backend.tags.findById(id);
   }
 
   /**
@@ -67,12 +52,7 @@ export class TagService {
    * @returns Tag object or null if not found
    */
   getTagByName(name: string): Tag | null {
-    const db = this.db;
-
-    const stmt = db.prepare('SELECT * FROM tags WHERE name = ?');
-    const result = stmt.get(name);
-
-    return result ? (result as unknown as Tag) : null;
+    return this.backend.tags.findByName(name);
   }
 
   /**
@@ -80,12 +60,7 @@ export class TagService {
    * @returns Array of tags sorted by creation date in descending order
    */
   listTags(): Tag[] {
-    const db = this.db;
-
-    const stmt = db.prepare('SELECT * FROM tags ORDER BY created_at DESC, id DESC');
-    const results = stmt.all();
-
-    return results as unknown as Tag[];
+    return this.backend.tags.findAll();
   }
 
   /**
@@ -96,8 +71,6 @@ export class TagService {
    * @throws Error if tag name already exists
    */
   updateTag(id: number, input: UpdateTagInput): Tag | null {
-    const db = this.db;
-
     // Verify that tag exists
     const existingTag = this.getTag(id);
     if (!existingTag) {
@@ -125,15 +98,7 @@ export class TagService {
       }
     }
 
-    const stmt = db.prepare(`
-      UPDATE tags
-      SET name = COALESCE(?, name)
-      WHERE id = ?
-    `);
-
-    stmt.run(input.name ?? null, id);
-
-    return this.getTag(id);
+    return this.backend.tags.update(id, input);
   }
 
   /**
@@ -142,11 +107,6 @@ export class TagService {
    * @returns True if deletion succeeded, false if tag not found
    */
   deleteTag(id: number): boolean {
-    const db = this.db;
-
-    const stmt = db.prepare('DELETE FROM tags WHERE id = ?');
-    const result = stmt.run(id);
-
-    return result.changes > 0;
+    return this.backend.tags.delete(id);
   }
 }

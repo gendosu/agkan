@@ -11,7 +11,7 @@ import { MetadataService } from '../../src/services/MetadataService';
 import { CommentService } from '../../src/services/CommentService';
 import { TaskBlockService } from '../../src/services/TaskBlockService';
 import { resetDatabase } from '../../src/db/reset';
-import { getDatabase } from '../../src/db/connection';
+import { getStorageBackend } from '../../src/db/connection';
 
 describe('ExportImportService', () => {
   let service: ExportImportService;
@@ -24,14 +24,14 @@ describe('ExportImportService', () => {
 
   beforeEach(() => {
     resetDatabase();
-    const db = getDatabase();
-    service = new ExportImportService(db);
-    taskService = new TaskService(db);
-    tagService = new TagService(db);
-    taskTagService = new TaskTagService(db);
-    metadataService = new MetadataService(db);
-    commentService = new CommentService(db);
-    taskBlockService = new TaskBlockService(db);
+    const backend = getStorageBackend();
+    service = new ExportImportService(backend);
+    taskService = new TaskService(backend);
+    tagService = new TagService(backend);
+    taskTagService = new TaskTagService(backend);
+    metadataService = new MetadataService(backend);
+    commentService = new CommentService(backend);
+    taskBlockService = new TaskBlockService(backend);
   });
 
   describe('exportData', () => {
@@ -599,12 +599,12 @@ describe('ExportImportService', () => {
       // Reset and import
       resetDatabase();
 
-      const newService = new ExportImportService(getDatabase());
+      const newService = new ExportImportService(getStorageBackend());
       const result = newService.importData(exportedData);
 
       expect(result.importedCount).toBe(1);
 
-      const newTaskService = new TaskService(getDatabase());
+      const newTaskService = new TaskService(getStorageBackend());
       const importedTasks = newTaskService.listTasks();
       expect(importedTasks).toHaveLength(1);
       expect(importedTasks[0].title).toBe('Original Task');
@@ -612,11 +612,11 @@ describe('ExportImportService', () => {
       expect(importedTasks[0].author).toBe('alice');
       expect(importedTasks[0].status).toBe('in_progress');
 
-      const newTaskTagService = new TaskTagService(getDatabase());
+      const newTaskTagService = new TaskTagService(getStorageBackend());
       const importedTags = newTaskTagService.getTagsForTask(importedTasks[0].id);
       expect(importedTags.map((t) => t.name)).toContain('roundtrip-tag');
 
-      const newCommentService = new CommentService(getDatabase());
+      const newCommentService = new CommentService(getStorageBackend());
       const importedComments = newCommentService.listComments(importedTasks[0].id);
       expect(importedComments).toHaveLength(1);
       expect(importedComments[0].content).toBe('A comment');
