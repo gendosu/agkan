@@ -127,7 +127,7 @@ test_board_api_post_task() {
 }
 
 test_board_api_post_task_with_priority() {
-    print_test "POST /api/tasks with priority sets metadata"
+    print_test "POST /api/tasks with priority sets DB column"
     local response
     local http_code
     response=$(curl -s -w "\n%{http_code}" -X POST \
@@ -141,13 +141,13 @@ test_board_api_post_task_with_priority() {
     if [ "$http_code" = "201" ]; then
         local task_id
         task_id=$(echo "$body" | jq -r '.id')
-        # Verify priority via detail endpoint
+        # Verify priority via detail endpoint (DB column, not metadata)
         local detail
         detail=$(curl -s "http://localhost:$BOARD_PORT/api/tasks/$task_id")
         if echo "$detail" | jq -e '.task.priority == "high"' > /dev/null 2>&1; then
-            print_success "POST /api/tasks with priority stores priority metadata"
+            print_success "POST /api/tasks with priority stores priority in DB column"
         else
-            print_error "POST /api/tasks priority metadata not found in detail"
+            print_error "POST /api/tasks priority DB column not found in detail"
         fi
     else
         print_error "POST /api/tasks with priority expected 201, got $http_code"

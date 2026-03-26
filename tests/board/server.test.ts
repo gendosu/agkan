@@ -431,18 +431,30 @@ describe('createBoardApp', () => {
   });
 
   describe('GET /api/tasks/:id', () => {
-    it('should return task detail with tags and metadata', async () => {
-      const task = taskService.createTask({ title: 'Detail task', body: 'Task body text', status: 'ready' });
+    it('should return task detail with tags and priority', async () => {
+      const task = taskService.createTask({
+        title: 'Detail task',
+        body: 'Task body text',
+        status: 'ready',
+        priority: 'high',
+      });
       const tag = tagService.createTag({ name: 'backend' });
       taskTagService.addTagToTask({ task_id: task.id, tag_id: tag.id });
-      metadataService.setMetadata({ task_id: task.id, key: 'priority', value: 'high' });
 
       const app = createBoardApp(taskService, taskTagService, metadataService);
       const res = await app.fetch(new Request(`http://localhost/api/tasks/${task.id}`));
 
       expect(res.status).toBe(200);
       const data = (await res.json()) as {
-        task: { id: number; title: string; body: string; status: string; created_at: string; updated_at: string };
+        task: {
+          id: number;
+          title: string;
+          body: string;
+          status: string;
+          priority: string;
+          created_at: string;
+          updated_at: string;
+        };
         tags: Array<{ name: string }>;
         metadata: Array<{ key: string; value: string }>;
       };
@@ -450,13 +462,12 @@ describe('createBoardApp', () => {
       expect(data.task.title).toBe('Detail task');
       expect(data.task.body).toBe('Task body text');
       expect(data.task.status).toBe('ready');
+      expect(data.task.priority).toBe('high');
       expect(data.task.created_at).toBeDefined();
       expect(data.task.updated_at).toBeDefined();
       expect(data.tags).toHaveLength(1);
       expect(data.tags[0].name).toBe('backend');
-      expect(data.metadata).toHaveLength(1);
-      expect(data.metadata[0].key).toBe('priority');
-      expect(data.metadata[0].value).toBe('high');
+      expect(data.metadata).toHaveLength(0);
     });
 
     it('should return task with empty tags and metadata when none exist', async () => {
@@ -987,7 +998,7 @@ describe('createBoardApp', () => {
       const data1 = (await res1.json()) as { updatedAt: string };
 
       // Set metadata after task creation
-      metadataService.setMetadata({ task_id: task.id, key: 'priority', value: 'high' });
+      metadataService.setMetadata({ task_id: task.id, key: 'sprint', value: '3' });
 
       const res2 = await app.fetch(new Request('http://localhost/api/board/updated-at'));
       const data2 = (await res2.json()) as { updatedAt: string };

@@ -278,7 +278,7 @@ describe('renderDetailPanel - metadata table', () => {
     expect(detailsPane?.querySelector('.detail-meta-table')).toBeNull();
   });
 
-  it('excludes priority key from the metadata table', async () => {
+  it('renders all metadata keys in the metadata table', async () => {
     global.fetch = vi.fn().mockResolvedValue({
       ok: true,
       json: () => Promise.resolve({ comments: [] }),
@@ -287,7 +287,7 @@ describe('renderDetailPanel - metadata table', () => {
     const { renderDetailPanel } = await import('../../../src/board/client/detailPanel');
     const data = makeTaskDetail({
       metadata: [
-        { key: 'priority', value: 'high' },
+        { key: 'sprint', value: '3' },
         { key: 'branch', value: 'feat/test' },
       ],
     });
@@ -298,13 +298,13 @@ describe('renderDetailPanel - metadata table', () => {
     const table = document.querySelector('.detail-meta-table');
     expect(table).not.toBeNull();
     const rows = table?.querySelectorAll('tr');
-    // Only 'branch' row should be present; 'priority' is excluded
-    expect(rows?.length).toBe(1);
+    // Both rows should be present
+    expect(rows?.length).toBe(2);
+    expect(table?.innerHTML).toContain('sprint');
     expect(table?.innerHTML).toContain('branch');
-    expect(table?.innerHTML).not.toContain('priority');
   });
 
-  it('does not render metadata table when all metadata entries are priority keys', async () => {
+  it('does not render metadata table when metadata is empty', async () => {
     global.fetch = vi.fn().mockResolvedValue({
       ok: true,
       json: () => Promise.resolve({ comments: [] }),
@@ -312,7 +312,7 @@ describe('renderDetailPanel - metadata table', () => {
 
     const { renderDetailPanel } = await import('../../../src/board/client/detailPanel');
     const data = makeTaskDetail({
-      metadata: [{ key: 'priority', value: 'high' }],
+      metadata: [],
     });
     renderDetailPanel(data);
 
