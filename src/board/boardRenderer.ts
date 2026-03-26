@@ -2,7 +2,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { Task, TaskStatus, PRIORITIES, PRIORITY_ORDER } from '../models';
 import { Tag } from '../models/Tag';
-import { StorageProvider } from '../db/types/storage';
+import { StorageBackend } from '../db/types/repository';
 import { BOARD_STYLES } from './boardStyles';
 
 export const STATUSES: TaskStatus[] = ['icebox', 'backlog', 'ready', 'in_progress', 'review', 'done', 'closed'];
@@ -270,23 +270,6 @@ export function buildTasksByStatus(tasks: Task[]): Map<TaskStatus, Task[]> {
   return tasksByStatus;
 }
 
-export function getBoardUpdatedAt(database: StorageProvider): string | null {
-  const baseRow = database
-    .prepare(
-      `
-    SELECT MAX(updated_at) as max_updated_at FROM (
-      SELECT updated_at FROM tasks UNION ALL SELECT updated_at FROM task_metadata
-    )
-  `
-    )
-    .get() as { max_updated_at: string | null };
-  const tagsRow = database
-    .prepare(
-      `
-    SELECT MAX(created_at) as max_created_at, COUNT(*) as count FROM task_tags
-  `
-    )
-    .get() as { max_created_at: string | null; count: number };
-  if (baseRow.max_updated_at === null && tagsRow.max_created_at === null) return null;
-  return `${baseRow.max_updated_at}|${tagsRow.max_created_at}|${tagsRow.count}`;
+export function getBoardUpdatedAt(database: StorageBackend): string | null {
+  return database.getBoardUpdatedAtSignature();
 }

@@ -1,6 +1,6 @@
 import { TaskComment, CreateTaskCommentInput } from '../models';
-import { getDatabase } from '../db/connection';
-import { StorageProvider } from '../db/types/storage';
+import { getStorageBackend } from '../db/connection';
+import { StorageBackend } from '../db/types/repository';
 import { validateCommentInput } from '../utils/input-validators';
 
 /**
@@ -8,10 +8,10 @@ import { validateCommentInput } from '../utils/input-validators';
  * Manages creation, retrieval, and deletion of task comments
  */
 export class CommentService {
-  private db: StorageProvider;
+  private backend: StorageBackend;
 
-  constructor(db?: StorageProvider) {
-    this.db = db || getDatabase();
+  constructor(backend?: StorageBackend) {
+    this.backend = backend ?? getStorageBackend();
   }
 
   /**
@@ -20,23 +20,13 @@ export class CommentService {
    * @returns Created comment object
    */
   addComment(input: CreateTaskCommentInput): TaskComment {
-    const db = this.db;
-
     const errors = validateCommentInput(input);
     if (errors.length > 0) {
       throw new Error(errors[0].message);
     }
 
     const now = new Date().toISOString();
-
-    const stmt = db.prepare(`
-      INSERT INTO task_comments (task_id, author, content, created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?)
-    `);
-
-    const result = stmt.run(input.task_id, input.author ?? null, input.content, now, now);
-
-    return this.getComment(result.lastInsertRowid as number)!;
+    return this.backend.comments.create({ ...input, created_at: now, updated_at: now });
   }
 
   /**
@@ -45,16 +35,7 @@ export class CommentService {
    * @returns Comment object or null if not found
    */
   getComment(id: number): TaskComment | null {
-    const db = this.db;
-
-    const stmt = db.prepare(`
-      SELECT * FROM task_comments
-      WHERE id = ?
-    `);
-
-    const result = stmt.get(id);
-
-    return result ? (result as unknown as TaskComment) : null;
+    return this.backend.comments.findById(id);
   }
 
   /**
@@ -63,17 +44,7 @@ export class CommentService {
    * @returns Array of comment objects ordered by created_at ASC
    */
   listComments(taskId: number): TaskComment[] {
-    const db = this.db;
-
-    const stmt = db.prepare(`
-      SELECT * FROM task_comments
-      WHERE task_id = ?
-      ORDER BY created_at ASC
-    `);
-
-    const results = stmt.all(taskId);
-
-    return results as unknown as TaskComment[];
+    return this.backend.comments.findByTaskId(taskId);
   }
 
   /**
@@ -82,16 +53,7 @@ export class CommentService {
    * @returns True if deletion succeeded, false if comment not found
    */
   deleteComment(id: number): boolean {
-    const db = this.db;
-
-    const stmt = db.prepare(`
-      DELETE FROM task_comments
-      WHERE id = ?
-    `);
-
-    const result = stmt.run(id);
-
-    return result.changes > 0;
+    return this.backend.comments.delete(id);
   }
 
   /**
@@ -106,22 +68,8 @@ export class CommentService {
       throw new Error(errors[0].message);
     }
 
-    const db = this.db;
     const now = new Date().toISOString();
-
-    const stmt = db.prepare(`
-      UPDATE task_comments
-      SET content = ?, updated_at = ?
-      WHERE id = ?
-    `);
-
-    const result = stmt.run(content, now, id);
-
-    if (result.changes === 0) {
-      return null;
-    }
-
-    return this.getComment(id);
+    return this.backend.comments.update(id, content, now);
   }
 
   /**
@@ -130,16 +78,7 @@ export class CommentService {
    * @returns Number of deleted comments
    */
   deleteAllComments(taskId: number): number {
-    const db = this.db;
-
-    const stmt = db.prepare(`
-      DELETE FROM task_comments
-      WHERE task_id = ?
-    `);
-
-    const result = stmt.run(taskId);
-
-    return result.changes;
+    return this.backend.comments.deleteAllForTask(taskId);
   }
 
   /**
@@ -149,30 +88,6 @@ export class CommentService {
    * @returns Map<task_id, TaskComment[]>
    */
   getCommentsForTasks(taskIds: number[]): Map<number, TaskComment[]> {
-    const db = this.db;
-
-    if (taskIds.length === 0) {
-      return new Map();
-    }
-
-    const placeholders = taskIds.map(() => '?').join(', ');
-    const stmt = db.prepare(`
-      SELECT * FROM task_comments
-      WHERE task_id IN (${placeholders})
-      ORDER BY task_id, created_at ASC
-    `);
-
-    const results = stmt.all(...taskIds) as unknown as TaskComment[];
-    const commentsMap = new Map<number, TaskComment[]>();
-
-    for (const row of results) {
-      const taskId = row.task_id;
-      if (!commentsMap.has(taskId)) {
-        commentsMap.set(taskId, []);
-      }
-      commentsMap.get(taskId)!.push(row);
-    }
-
-    return commentsMap;
+    return this.backend.comments.findByTaskIds(taskIds);
   }
 }

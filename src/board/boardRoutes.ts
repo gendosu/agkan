@@ -7,7 +7,7 @@ import { CommentService } from '../services/CommentService';
 import { TaskBlockService } from '../services/TaskBlockService';
 import { ExportImportService, ExportData } from '../services/ExportImportService';
 import { TaskStatus, isPriority, Priority } from '../models';
-import { StorageProvider } from '../db/types/storage';
+import { StorageBackend } from '../db/types/repository';
 import { readBoardConfig, writeBoardConfig, DETAIL_PANE_MAX_WIDTH, VALID_THEMES, ThemePreference } from './boardConfig';
 import { buildTasksByStatus, getBoardUpdatedAt, buildBoardCardsPayload, STATUSES, renderBoard } from './boardRenderer';
 
@@ -18,7 +18,7 @@ export type BoardServices = {
   ms: MetadataService;
   cs: CommentService;
   tbs: TaskBlockService;
-  database: StorageProvider;
+  database: StorageBackend;
   boardTitle?: string;
   configDir: string;
 };

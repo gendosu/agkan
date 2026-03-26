@@ -301,45 +301,35 @@ describe('buildBoardCardsPayload', () => {
 });
 
 describe('getBoardUpdatedAt', () => {
-  function makeDatabase(baseMax: string | null, tagsMax: string | null, tagsCount: number) {
+  function makeBackend(signature: string | null) {
     return {
-      prepare: vi.fn((sql: string) => ({
-        get: vi.fn(() => {
-          if (sql.includes('task_metadata')) {
-            return { max_updated_at: baseMax };
-          }
-          if (sql.includes('task_tags')) {
-            return { max_created_at: tagsMax, count: tagsCount };
-          }
-          return {};
-        }),
-      })),
+      getBoardUpdatedAtSignature: vi.fn(() => signature),
     };
   }
 
   it('returns null when both base and tags timestamps are null', () => {
-    const db = makeDatabase(null, null, 0);
+    const db = makeBackend(null);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const result = getBoardUpdatedAt(db as any);
     expect(result).toBeNull();
   });
 
   it('returns a composite string when base timestamp is present', () => {
-    const db = makeDatabase('2026-01-01T00:00:00.000Z', null, 0);
+    const db = makeBackend('2026-01-01T00:00:00.000Z|null|0');
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const result = getBoardUpdatedAt(db as any);
     expect(result).toBe('2026-01-01T00:00:00.000Z|null|0');
   });
 
   it('returns a composite string when tags timestamp is present', () => {
-    const db = makeDatabase(null, '2026-01-02T00:00:00.000Z', 5);
+    const db = makeBackend('null|2026-01-02T00:00:00.000Z|5');
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const result = getBoardUpdatedAt(db as any);
     expect(result).toBe('null|2026-01-02T00:00:00.000Z|5');
   });
 
   it('returns a composite string combining all parts', () => {
-    const db = makeDatabase('2026-01-01T00:00:00.000Z', '2026-01-02T00:00:00.000Z', 3);
+    const db = makeBackend('2026-01-01T00:00:00.000Z|2026-01-02T00:00:00.000Z|3');
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const result = getBoardUpdatedAt(db as any);
     expect(result).toBe('2026-01-01T00:00:00.000Z|2026-01-02T00:00:00.000Z|3');
