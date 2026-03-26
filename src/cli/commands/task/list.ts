@@ -24,6 +24,7 @@ type TreeNode = {
   author: string | null;
   assignees: string | null;
   status: string;
+  priority: string | null;
   parent_id: number | null;
   created_at: string;
   updated_at: string;
@@ -39,6 +40,7 @@ type TaskRecord = {
   author: string | null;
   assignees: string | null;
   status: string;
+  priority: string | null;
   parent_id: number | null;
   created_at: string;
   updated_at: string;
@@ -47,39 +49,41 @@ type TaskRecord = {
 /**
  * Recursive function to display tasks in tree structure.
  */
+function printTreeTaskDetails(
+  task: { id: number; priority?: string | null },
+  childPrefix: string,
+  allTasksMetadata: MetadataMap
+): void {
+  if (task.priority) {
+    console.log(`${childPrefix}${formatPriority(task.priority)}`);
+  }
+  const metadata = allTasksMetadata.get(task.id);
+  if (metadata && metadata.length > 0) {
+    const metadataStrings = metadata.map(formatMetadataEntry);
+    console.log(`${childPrefix}${chalk.bold('Metadata:')} ${metadataStrings.join(', ')}`);
+  }
+}
+
 function displayTaskTree(
   taskService: TaskService,
-  task: { id: number; title: string; status: TaskStatus },
+  task: { id: number; title: string; status: TaskStatus; priority?: string | null },
   prefix: string,
   isLast: boolean,
   allTasksMetadata: MetadataMap
 ): void {
   const statusColor = getStatusColor(task.status);
-
-  // Tree structure symbols
   const connector = isLast ? '└── ' : '├── ';
-
-  // Display task information
   console.log(
     `${prefix}${connector}${chalk.bold.cyan(`[${task.id}]`)} ${chalk.bold(task.title)} ` +
       `${chalk[statusColor](`(${task.status})`)}`
   );
 
-  // Display metadata if present
-  const metadata = allTasksMetadata.get(task.id);
-  if (metadata && metadata.length > 0) {
-    const childPrefix = prefix + (isLast ? '    ' : '│   ');
-    const metadataStrings = metadata.map(formatMetadataEntry);
-    console.log(`${childPrefix}${chalk.bold('Metadata:')} ${metadataStrings.join(', ')}`);
-  }
+  const childPrefix = prefix + (isLast ? '    ' : '│   ');
+  printTreeTaskDetails(task, childPrefix, allTasksMetadata);
 
-  // Get child tasks
   const children = taskService.getChildTasks(task.id);
-
-  // If there are child tasks, recursively display them
   if (children.length > 0) {
     const newPrefix = prefix + (isLast ? '    ' : '│   ');
-
     children.forEach((child, index) => {
       const isChildLast = index === children.length - 1;
       displayTaskTree(taskService, child, newPrefix, isChildLast, allTasksMetadata);
@@ -107,6 +111,7 @@ function buildTreeNode(
     author: task.author,
     assignees: task.assignees,
     status: task.status,
+    priority: task.priority,
     parent_id: task.parent_id,
     created_at: task.created_at,
     updated_at: task.updated_at,
@@ -215,6 +220,7 @@ function buildTaskWithRelations(
     author: task.author,
     assignees: task.assignees,
     status: task.status,
+    priority: task.priority,
     parent_id: task.parent_id,
     created_at: task.created_at,
     updated_at: task.updated_at,
@@ -231,6 +237,7 @@ type DepTreeNode = {
   author: string | null;
   assignees: string | null;
   status: string;
+  priority: string | null;
   parent_id: number | null;
   created_at: string;
   updated_at: string;
@@ -270,7 +277,7 @@ function collectAllBlockedIds(blockMap: BlockMap): Set<number> {
  * Display a single task node line with optional metadata and relationship label.
  */
 function printTreeNodeLine(
-  task: { id: number; title: string; status: string },
+  task: { id: number; title: string; status: string; priority?: string | null },
   allTasksMetadata: MetadataMap,
   prefix: string,
   isLast: boolean,
@@ -285,9 +292,14 @@ function printTreeNodeLine(
       `${chalk[statusColor](`(${task.status})`)}`
   );
 
+  const childPrefix = prefix + (isLast ? '    ' : '\u2502   ');
+
+  if (task.priority) {
+    console.log(`${childPrefix}${formatPriority(task.priority)}`);
+  }
+
   const metadata = allTasksMetadata.get(task.id);
   if (metadata && metadata.length > 0) {
-    const childPrefix = prefix + (isLast ? '    ' : '\u2502   ');
     const metadataStrings = metadata.map(formatMetadataEntry);
     console.log(`${childPrefix}${chalk.bold('Metadata:')} ${metadataStrings.join(', ')}`);
   }
@@ -398,6 +410,7 @@ function buildDepTreeNode(
     author: task.author,
     assignees: task.assignees,
     status: task.status,
+    priority: task.priority,
     parent_id: task.parent_id,
     created_at: task.created_at,
     updated_at: task.updated_at,
@@ -443,17 +456,21 @@ function buildDepTreeJsonOutput(
  * Format a metadata entry for display.
  */
 function formatMetadataEntry(m: { key: string; value: string }): string {
-  if (m.key !== 'priority') {
-    return `${chalk.bold(m.key)}: ${m.value}`;
-  }
+  return `${chalk.bold(m.key)}: ${m.value}`;
+}
 
+/**
+ * Format the priority field for display with color coding.
+ */
+function formatPriority(priority: string): string {
   const priorityColors: Record<string, 'red' | 'yellow' | 'green' | 'white'> = {
+    critical: 'red',
     high: 'red',
     medium: 'yellow',
     low: 'green',
   };
-  const color = priorityColors[m.value.toLowerCase()] || 'white';
-  return `${chalk.bold('priority')}: ${chalk[color](m.value)}`;
+  const color = priorityColors[priority.toLowerCase()] || 'white';
+  return `${chalk.bold('Priority:')} ${chalk[color](priority)}`;
 }
 
 /**
@@ -499,6 +516,14 @@ function printTaskTags(taskId: number, allTaskTags: TaskTagMap): void {
 }
 
 /**
+ * Print task priority from DB column.
+ */
+function printTaskPriority(task: TaskRecord): void {
+  if (!task.priority) return;
+  console.log(`  ${formatPriority(task.priority)}`);
+}
+
+/**
  * Print task metadata.
  */
 function printTaskMetadata(taskId: number, allTasksMetadata: MetadataMap): void {
@@ -537,6 +562,7 @@ function printTaskRow(
   printTaskHeader(task);
   printTaskPersonInfo(task);
   printTaskParent(task, taskService);
+  printTaskPriority(task);
   printTaskTags(task.id, allTaskTags);
   printTaskMetadata(task.id, allTasksMetadata);
   printTaskCreationDate(task);

@@ -398,11 +398,9 @@ describe('setupTaskListCommand', () => {
     expect(task.assignees).toBeNull();
   });
 
-  it('should display metadata in normal list view', async () => {
+  it('should display priority from DB column in normal list view', async () => {
     const taskService = new TaskService();
-    const metadataService = new MetadataService();
-    const task = taskService.createTask({ title: 'Task With Meta', status: 'ready' });
-    metadataService.setMetadata({ task_id: task.id, key: 'priority', value: 'high' });
+    taskService.createTask({ title: 'Task With Priority', status: 'ready', priority: 'high' });
 
     const consoleLogs: string[] = [];
     const originalLog = console.log;
@@ -419,9 +417,8 @@ describe('setupTaskListCommand', () => {
     }
 
     const output = consoleLogs.join('\n');
-    expect(output).toContain('Task With Meta');
-    expect(output).toContain('Metadata:');
-    expect(output).toContain('priority');
+    expect(output).toContain('Task With Priority');
+    expect(output).toContain('Priority:');
     expect(output).toContain('high');
   });
 
@@ -448,11 +445,10 @@ describe('setupTaskListCommand', () => {
     expect(output).not.toContain('Metadata:');
   });
 
-  it('should include metadata in JSON output', async () => {
+  it('should include priority and metadata in JSON output', async () => {
     const taskService = new TaskService();
     const metadataService = new MetadataService();
-    const task = taskService.createTask({ title: 'JSON Meta Task', status: 'ready' });
-    metadataService.setMetadata({ task_id: task.id, key: 'priority', value: 'medium' });
+    const task = taskService.createTask({ title: 'JSON Meta Task', status: 'ready', priority: 'medium' });
     metadataService.setMetadata({ task_id: task.id, key: 'assignee', value: 'alice' });
 
     const consoleLogs: string[] = [];
@@ -472,18 +468,16 @@ describe('setupTaskListCommand', () => {
     const parsed = JSON.parse(consoleLogs[0]);
     expect(parsed.tasks).toHaveLength(1);
     const taskData = parsed.tasks[0];
+    expect(taskData.priority).toBe('medium');
     expect(taskData.metadata).toBeDefined();
-    expect(taskData.metadata).toHaveLength(2);
-    const priorityMeta = taskData.metadata.find((m: { key: string }) => m.key === 'priority');
-    expect(priorityMeta).toBeDefined();
-    expect(priorityMeta.value).toBe('medium');
+    expect(taskData.metadata).toHaveLength(1);
+    expect(taskData.metadata[0].key).toBe('assignee');
+    expect(taskData.metadata[0].value).toBe('alice');
   });
 
-  it('should include metadata in tree JSON output', async () => {
+  it('should include priority in tree JSON output', async () => {
     const taskService = new TaskService();
-    const metadataService = new MetadataService();
-    const parent = taskService.createTask({ title: 'Root With Meta', status: 'ready' });
-    metadataService.setMetadata({ task_id: parent.id, key: 'priority', value: 'high' });
+    taskService.createTask({ title: 'Root With Priority', status: 'ready', priority: 'high' });
 
     const consoleLogs: string[] = [];
     const originalLog = console.log;
@@ -500,19 +494,14 @@ describe('setupTaskListCommand', () => {
     }
 
     const parsed = JSON.parse(consoleLogs[0]);
-    const rootTask = parsed.tasks.find((t: { title: string }) => t.title === 'Root With Meta');
+    const rootTask = parsed.tasks.find((t: { title: string }) => t.title === 'Root With Priority');
     expect(rootTask).toBeDefined();
-    expect(rootTask.metadata).toBeDefined();
-    expect(rootTask.metadata).toHaveLength(1);
-    expect(rootTask.metadata[0].key).toBe('priority');
-    expect(rootTask.metadata[0].value).toBe('high');
+    expect(rootTask.priority).toBe('high');
   });
 
-  it('should display metadata in tree view', async () => {
+  it('should display priority from DB column in tree view', async () => {
     const taskService = new TaskService();
-    const metadataService = new MetadataService();
-    const task = taskService.createTask({ title: 'Tree Meta Task', status: 'ready' });
-    metadataService.setMetadata({ task_id: task.id, key: 'priority', value: 'high' });
+    taskService.createTask({ title: 'Tree Priority Task', status: 'ready', priority: 'high' });
 
     const consoleLogs: string[] = [];
     const originalLog = console.log;
@@ -529,9 +518,8 @@ describe('setupTaskListCommand', () => {
     }
 
     const output = consoleLogs.join('\n');
-    expect(output).toContain('Tree Meta Task');
-    expect(output).toContain('Metadata:');
-    expect(output).toContain('priority');
+    expect(output).toContain('Tree Priority Task');
+    expect(output).toContain('Priority:');
     expect(output).toContain('high');
   });
 
@@ -558,12 +546,10 @@ describe('setupTaskListCommand', () => {
     expect(output).not.toContain('Metadata:');
   });
 
-  it('should display metadata for child tasks in tree view', async () => {
+  it('should display priority from DB column for child tasks in tree view', async () => {
     const taskService = new TaskService();
-    const metadataService = new MetadataService();
     const parent = taskService.createTask({ title: 'Parent Task Tree', status: 'ready' });
-    const child = taskService.createTask({ title: 'Child Task Tree', status: 'ready', parent_id: parent.id });
-    metadataService.setMetadata({ task_id: child.id, key: 'priority', value: 'medium' });
+    taskService.createTask({ title: 'Child Task Tree', status: 'ready', parent_id: parent.id, priority: 'medium' });
 
     const consoleLogs: string[] = [];
     const originalLog = console.log;
@@ -582,8 +568,7 @@ describe('setupTaskListCommand', () => {
     const output = consoleLogs.join('\n');
     expect(output).toContain('Parent Task Tree');
     expect(output).toContain('Child Task Tree');
-    expect(output).toContain('Metadata:');
-    expect(output).toContain('priority');
+    expect(output).toContain('Priority:');
     expect(output).toContain('medium');
   });
 

@@ -131,11 +131,10 @@ export function renderRelationsHtml(
 }
 
 export function renderMetadataTable(metadata: Array<{ key: string; value: string }>): string {
-  const otherMeta = metadata.filter((m) => m.key !== 'priority');
-  if (otherMeta.length === 0) return '';
+  if (metadata.length === 0) return '';
   let html = '<div class="detail-field"><div class="detail-field-label">Metadata</div>';
   html += '<table class="detail-meta-table">';
-  otherMeta.forEach((m) => {
+  metadata.forEach((m) => {
     html += '<tr><td>' + escapeHtmlClient(m.key) + '</td><td>' + escapeHtmlClient(m.value) + '</td></tr>';
   });
   html += '</table></div>';
