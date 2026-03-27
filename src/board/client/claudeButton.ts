@@ -14,12 +14,19 @@ export function getRunningTaskIds(): Set<number> {
 
 export function updateButtonStates(runningTaskIds: Set<number>): void {
   _runningTaskIds = runningTaskIds;
+  const anyRunning = runningTaskIds.size > 0;
 
   // Update all run split containers
   document.querySelectorAll<HTMLElement>('.claude-run-split').forEach((split) => {
     const taskId = Number(split.dataset.taskId);
     if (runningTaskIds.has(taskId)) {
       replaceWithDetailBtn(split as unknown as HTMLButtonElement, taskId);
+    } else {
+      split
+        .querySelectorAll<HTMLButtonElement>('.claude-run-btn, .claude-run-toggle, .claude-run-menu-item')
+        .forEach((btn) => {
+          btn.disabled = anyRunning;
+        });
     }
   });
 
