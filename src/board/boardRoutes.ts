@@ -392,6 +392,18 @@ function registerClaudeRoutes(app: Hono, claudeProcess: ClaudeProcessService, ts
       return c.json({ error: e instanceof Error ? e.message : 'Failed to start process' }, 500);
     }
 
+    if (command === 'pr' || command === 'run') {
+      const targetStatus = command === 'pr' ? 'review' : 'done';
+      const unsubscribe = claudeProcess.subscribeOutput(taskId, (evt) => {
+        if (evt.kind === 'done' && evt.exitCode === 0) {
+          ts.updateTask(taskId, { status: targetStatus });
+        }
+        if (evt.kind === 'done' || evt.kind === 'error') {
+          unsubscribe();
+        }
+      });
+    }
+
     return c.json({ taskId, started: true }, 201);
   });
 
