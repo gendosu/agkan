@@ -32,6 +32,7 @@ interface ProcessInfo {
   startedAt: Date;
   status: 'running' | 'stopped';
   outputBuffer: ClaudeStreamEvent[];
+  processedEvents: OutputEvent[];
   subscribers: Set<SubscribeCallback>;
 }
 
@@ -66,6 +67,7 @@ export class ClaudeProcessService {
       startedAt: new Date(),
       status: 'running',
       outputBuffer: [],
+      processedEvents: [],
       subscribers: new Set(),
     };
 
@@ -159,6 +161,8 @@ export class ClaudeProcessService {
       return () => {};
     }
 
+    // Replay past events to the new subscriber before registering
+    info.processedEvents.forEach((evt) => callback(evt));
     info.subscribers.add(callback);
     return () => {
       info.subscribers.delete(callback);
@@ -181,9 +185,11 @@ export class ClaudeProcessService {
       for (const content of assistantEvent.message.content) {
         if (content.type === 'text') {
           const outputEvent: OutputEvent = { kind: 'text', text: content.text };
+          info.processedEvents.push(outputEvent);
           info.subscribers.forEach((cb) => cb(outputEvent));
         } else if (content.type === 'tool_use') {
           const outputEvent: OutputEvent = { kind: 'tool_use', name: content.name, input: content.input };
+          info.processedEvents.push(outputEvent);
           info.subscribers.forEach((cb) => cb(outputEvent));
         }
       }
