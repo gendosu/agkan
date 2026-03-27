@@ -9,6 +9,7 @@ import { initBoardPolling } from './boardPolling';
 import { initFilters } from './filters';
 import { initBurgerMenu } from './burgerMenu';
 import { initDependencyVisualization } from './dependencyVisualization';
+import { initClaudeButton } from './claudeButton';
 
 initDragDrop();
 initAutoScroll();
@@ -19,3 +20,4 @@ initBoardPolling();
 initFilters();
 initBurgerMenu();
 initDependencyVisualization();
+initClaudeButton();
