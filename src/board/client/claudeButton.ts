@@ -53,7 +53,7 @@ function replaceWithDetailBtn(btn: HTMLButtonElement, taskId: number): void {
 }
 
 function replaceWithRunOrPlanBtn(btn: HTMLButtonElement, taskId: number, status: string | undefined): void {
-  if (['review', 'done', 'close'].includes(status ?? '')) {
+  if (['review', 'done', 'closed'].includes(status ?? '')) {
     btn.remove();
     return;
   }
