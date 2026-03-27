@@ -130,7 +130,7 @@ describe('ClaudeProcessService', () => {
 
   describe('subscribeOutput', () => {
     it('should call the callback with error when taskId is not running', () => {
-      const cb = vi.fn<[OutputEvent], void>();
+      const cb = vi.fn<(event: OutputEvent) => void>();
       service.subscribeOutput(999, cb);
 
       expect(cb).toHaveBeenCalledWith(
@@ -143,7 +143,7 @@ describe('ClaudeProcessService', () => {
       spawnMock.mockReturnValue(proc);
 
       service.startProcess(1, 'p');
-      const cb = vi.fn<[OutputEvent], void>();
+      const cb = vi.fn<(event: OutputEvent) => void>();
       const unsubscribe = service.subscribeOutput(1, cb);
 
       expect(typeof unsubscribe).toBe('function');
@@ -154,7 +154,7 @@ describe('ClaudeProcessService', () => {
       spawnMock.mockReturnValue(proc);
 
       service.startProcess(1, 'p');
-      const cb = vi.fn<[OutputEvent], void>();
+      const cb = vi.fn<(event: OutputEvent) => void>();
       const unsubscribe = service.subscribeOutput(1, cb);
       unsubscribe();
 
@@ -196,7 +196,7 @@ describe('ClaudeProcessService', () => {
       spawnMock.mockReturnValue(proc);
 
       service.startProcess(1, 'p');
-      const cb = vi.fn<[OutputEvent], void>();
+      const cb = vi.fn<(event: OutputEvent) => void>();
       service.subscribeOutput(1, cb);
 
       const event = {
@@ -213,7 +213,7 @@ describe('ClaudeProcessService', () => {
       spawnMock.mockReturnValue(proc);
 
       service.startProcess(1, 'p');
-      const cb = vi.fn<[OutputEvent], void>();
+      const cb = vi.fn<(event: OutputEvent) => void>();
       service.subscribeOutput(1, cb);
 
       const event = {
@@ -232,7 +232,7 @@ describe('ClaudeProcessService', () => {
       spawnMock.mockReturnValue(proc);
 
       service.startProcess(1, 'p');
-      const cb = vi.fn<[OutputEvent], void>();
+      const cb = vi.fn<(event: OutputEvent) => void>();
       service.subscribeOutput(1, cb);
 
       const validEvent = { type: 'assistant', message: { content: [{ type: 'text', text: 'ok' }] } };
@@ -249,7 +249,7 @@ describe('ClaudeProcessService', () => {
       spawnMock.mockReturnValue(proc);
 
       service.startProcess(1, 'p');
-      const cb = vi.fn<[OutputEvent], void>();
+      const cb = vi.fn<(event: OutputEvent) => void>();
       service.subscribeOutput(1, cb);
 
       const event = { type: 'assistant', message: { content: [{ type: 'text', text: 'split' }] } };
@@ -268,7 +268,7 @@ describe('ClaudeProcessService', () => {
       spawnMock.mockReturnValue(proc);
 
       service.startProcess(1, 'p');
-      const cb = vi.fn<[OutputEvent], void>();
+      const cb = vi.fn<(event: OutputEvent) => void>();
       service.subscribeOutput(1, cb);
 
       // Simulate stdout end then process close
