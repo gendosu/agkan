@@ -216,4 +216,10 @@ export const BOARD_STYLES = `
     .metadata-row-value { flex: 2; border: 1px solid var(--border-color); border-radius: 6px; padding: 6px 8px; font-size: 12px; font-family: inherit; background: var(--input-bg); color: var(--text-primary); }
     .metadata-row-value:focus { outline: none; border-color: #3b82f6; box-shadow: 0 0 0 2px rgba(59,130,246,0.2); }
     .metadata-row-remove { background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 16px; line-height: 1; padding: 2px 4px; border-radius: 4px; flex-shrink: 0; }
-    .metadata-row-remove:hover { color: #dc2626; background: #fef2f2; }`;
+    .metadata-row-remove:hover { color: #dc2626; background: #fef2f2; }
+    .dependency-toggle-btn { border: 1px solid var(--border-color); background: var(--bg-surface); border-radius: 4px; padding: 2px 10px; font-size: 11px; font-weight: 600; cursor: pointer; color: var(--text-secondary); flex-shrink: 0; transition: all 0.2s ease; }
+    .dependency-toggle-btn:hover { background: var(--bg-surface-hover); border-color: var(--text-muted); color: var(--text-primary); }
+    .dependency-toggle-btn.active { background: #3b82f6; border-color: #3b82f6; color: white; }
+    .dependency-toggle-btn.active:hover { background: #2563eb; border-color: #2563eb; }
+    svg#dependency-svg { pointer-events: none; }
+    .dependency-line { transition: stroke-width 0.1s ease; }`;

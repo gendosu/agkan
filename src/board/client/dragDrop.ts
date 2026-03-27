@@ -2,6 +2,12 @@
 
 import { showToast } from './utils';
 
+let _redrawDependencies: (() => void) | null = null;
+
+export function registerDependencyRedrawCallback(callback: () => void): void {
+  _redrawDependencies = callback;
+}
+
 export let draggedCard: HTMLElement | null = null;
 export let sourceBody: HTMLElement | null = null;
 
@@ -37,6 +43,10 @@ async function handleDrop(e: DragEvent, newStatus: string, colEl: HTMLElement): 
       body: JSON.stringify({ status: newStatus }),
     });
     if (!res.ok) throw new Error('Server error');
+    // Redraw dependencies after successful drop
+    if (_redrawDependencies) {
+      _redrawDependencies();
+    }
   } catch {
     if (prevBody && draggedCard) {
       prevBody.appendChild(draggedCard);

@@ -8,6 +8,7 @@ import { initDetailPanel } from './detailPanel';
 import { initBoardPolling } from './boardPolling';
 import { initFilters } from './filters';
 import { initBurgerMenu } from './burgerMenu';
+import { initDependencyVisualization } from './dependencyVisualization';
 
 initDragDrop();
 initAutoScroll();
@@ -17,3 +18,4 @@ initDetailPanel();
 initBoardPolling();
 initFilters();
 initBurgerMenu();
+initDependencyVisualization();

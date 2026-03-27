@@ -9,7 +9,14 @@ import { ExportImportService, ExportData } from '../services/ExportImportService
 import { TaskStatus, isPriority, Priority } from '../models';
 import { StorageBackend } from '../db/types/repository';
 import { readBoardConfig, writeBoardConfig, DETAIL_PANE_MAX_WIDTH, VALID_THEMES, ThemePreference } from './boardConfig';
-import { buildTasksByStatus, getBoardUpdatedAt, buildBoardCardsPayload, STATUSES, renderBoard } from './boardRenderer';
+import {
+  buildTasksByStatus,
+  getBoardUpdatedAt,
+  buildBoardCardsPayload,
+  STATUSES,
+  renderBoard,
+  buildBlockMap,
+} from './boardRenderer';
 
 export type BoardServices = {
   ts: TaskService;
@@ -360,11 +367,12 @@ function parseBoardCardFilters(query: {
 }
 
 export function registerBoardRoutes(app: Hono, services: BoardServices): void {
-  const { ts, tts, database, boardTitle, configDir } = services;
+  const { ts, tts, tbs, database, boardTitle, configDir } = services;
   app.get('/', (c) => {
     const tasksByStatus = buildTasksByStatus(ts.listTasks({}, 'id', 'asc'));
     const boardConfig = readBoardConfig(configDir);
-    return c.html(renderBoard(tasksByStatus, tts.getAllTaskTags(), boardTitle, boardConfig.theme));
+    const blockMap = buildBlockMap(tbs.getAllBlocks());
+    return c.html(renderBoard(tasksByStatus, tts.getAllTaskTags(), boardTitle, boardConfig.theme, blockMap));
   });
   app.get('/api/board/updated-at', (c) => c.json({ updatedAt: getBoardUpdatedAt(database) }));
   app.get('/api/board/cards', (c) => {
@@ -375,7 +383,8 @@ export function registerBoardRoutes(app: Hono, services: BoardServices): void {
       search: c.req.query('search'),
     });
     const tasksByStatus = buildTasksByStatus(ts.listTasks(filters, 'id', 'asc'));
-    const columns = buildBoardCardsPayload(tasksByStatus, tts.getAllTaskTags());
+    const blockMap = buildBlockMap(tbs.getAllBlocks());
+    const columns = buildBoardCardsPayload(tasksByStatus, tts.getAllTaskTags(), blockMap);
     return c.json({ columns });
   });
   registerTaskApiRoutes(app, services);
