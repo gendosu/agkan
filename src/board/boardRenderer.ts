@@ -36,15 +36,17 @@ function escapeHtml(text: string): string {
     .replace(/'/g, '&#039;');
 }
 
-export function renderCard(task: Task, tags: Tag[]): string {
+export function renderCard(task: Task, tags: Tag[], blockedByIds: number[] = [], blockingIds: number[] = []): string {
   const priority = task.priority;
   const priorityBadge = priority
     ? `<span class="priority priority-${escapeHtml(priority)}">${escapeHtml(priority)}</span>`
     : '';
   const tagBadges = tags.map((t) => `<span class="tag">${escapeHtml(t.name)}</span>`).join('');
+  const dataBlockedBy = blockedByIds.length > 0 ? ` data-blocked-by="${blockedByIds.join(',')}"` : '';
+  const dataBlocking = blockingIds.length > 0 ? ` data-blocking="${blockingIds.join(',')}"` : '';
 
   return `
-    <div class="card" draggable="true" data-id="${task.id}" data-status="${task.status}" data-updated-at="${escapeHtml(task.updated_at)}">
+    <div class="card" draggable="true" data-id="${task.id}" data-status="${task.status}" data-updated-at="${escapeHtml(task.updated_at)}"${dataBlockedBy}${dataBlocking}>
       <div class="card-header">
         <span class="card-id">#${task.id}</span>
         ${priorityBadge}
@@ -54,10 +56,20 @@ export function renderCard(task: Task, tags: Tag[]): string {
     </div>`;
 }
 
-export function renderColumn(status: TaskStatus, tasks: Task[], tagMap: Map<number, Tag[]>): string {
+export function renderColumn(
+  status: TaskStatus,
+  tasks: Task[],
+  tagMap: Map<number, Tag[]>,
+  blockMap: Map<number, { blockedBy: number[]; blocking: number[] }> = new Map()
+): string {
   const color = STATUS_COLORS[status];
   const label = STATUS_LABELS[status];
-  const cards = tasks.map((t) => renderCard(t, tagMap.get(t.id) || [])).join('');
+  const cards = tasks
+    .map((t) => {
+      const blockRels = blockMap.get(t.id) || { blockedBy: [], blocking: [] };
+      return renderCard(t, tagMap.get(t.id) || [], blockRels.blockedBy, blockRels.blocking);
+    })
+    .join('');
 
   return `
       <div class="column" data-status="${status}">
@@ -191,9 +203,12 @@ export function renderBoard(
   tasksByStatus: Map<TaskStatus, Task[]>,
   tagMap: Map<number, Tag[]>,
   boardTitle?: string,
-  theme?: string
+  theme?: string,
+  blockMap: Map<number, { blockedBy: number[]; blocking: number[] }> = new Map()
 ): string {
-  const columns = STATUSES.map((status) => renderColumn(status, tasksByStatus.get(status) || [], tagMap)).join('');
+  const columns = STATUSES.map((status) =>
+    renderColumn(status, tasksByStatus.get(status) || [], tagMap, blockMap)
+  ).join('');
   const titleHtml = boardTitle ? `<span class="board-title">${escapeHtml(boardTitle)}</span>` : '';
   const boardBodyStatic = getBoardBodyStatic();
   const dataThemeAttr = theme === 'dark' || theme === 'light' ? ` data-theme="${theme}"` : '';
@@ -228,6 +243,7 @@ export function renderBoard(
       <span class="filter-label">Assignee</span>
       <input type="text" id="filter-assignee" class="filter-assignee-input" placeholder="Filter by assignee">
     </div>
+    <button class="dependency-toggle-btn" id="dependency-toggle" title="Show/hide task dependencies">Show dependencies</button>
     <button class="filter-clear-btn" id="filter-clear">Clear filters</button>
   </div>
   <div class="board-container">
@@ -247,11 +263,17 @@ export function sortByPriority(tasks: Task[]): Task[] {
 
 export function buildBoardCardsPayload(
   tasksByStatus: Map<TaskStatus, Task[]>,
-  tagMap: Map<number, Tag[]>
+  tagMap: Map<number, Tag[]>,
+  blockMap: Map<number, { blockedBy: number[]; blocking: number[] }> = new Map()
 ): { status: TaskStatus; html: string; count: number }[] {
   return STATUSES.map((status) => {
     const tasks = tasksByStatus.get(status) || [];
-    const html = tasks.map((t) => renderCard(t, tagMap.get(t.id) || [])).join('');
+    const html = tasks
+      .map((t) => {
+        const blockRels = blockMap.get(t.id) || { blockedBy: [], blocking: [] };
+        return renderCard(t, tagMap.get(t.id) || [], blockRels.blockedBy, blockRels.blocking);
+      })
+      .join('');
     return { status, html, count: tasks.length };
   });
 }
@@ -268,6 +290,24 @@ export function buildTasksByStatus(tasks: Task[]): Map<TaskStatus, Task[]> {
     tasksByStatus.set(status, sortByPriority(statusTasks));
   }
   return tasksByStatus;
+}
+
+export function buildBlockMap(
+  blocks: Array<{ blocker_task_id: number; blocked_task_id: number }>
+): Map<number, { blockedBy: number[]; blocking: number[] }> {
+  const blockMap = new Map<number, { blockedBy: number[]; blocking: number[] }>();
+  for (const block of blocks) {
+    if (!blockMap.has(block.blocker_task_id)) {
+      blockMap.set(block.blocker_task_id, { blockedBy: [], blocking: [] });
+    }
+    blockMap.get(block.blocker_task_id)!.blocking.push(block.blocked_task_id);
+
+    if (!blockMap.has(block.blocked_task_id)) {
+      blockMap.set(block.blocked_task_id, { blockedBy: [], blocking: [] });
+    }
+    blockMap.get(block.blocked_task_id)!.blockedBy.push(block.blocker_task_id);
+  }
+  return blockMap;
 }
 
 export function getBoardUpdatedAt(database: StorageBackend): string | null {

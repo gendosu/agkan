@@ -40,6 +40,7 @@ let _renderDetailPanel: ((data: TaskDetail) => void) | null = null;
 let _showUpdateWarning: (() => void) | null = null;
 let _getDetailTaskId: (() => number | null) | null = null;
 let _setActiveCard: ((taskId: number | null) => void) | null = null;
+let _redrawDependencies: (() => void) | null = null;
 
 export function registerDetailPanelCallbacks(callbacks: {
   openTaskDetail: (taskId: string) => Promise<void>;
@@ -53,6 +54,10 @@ export function registerDetailPanelCallbacks(callbacks: {
   _showUpdateWarning = callbacks.showUpdateWarning;
   _getDetailTaskId = callbacks.getDetailTaskId;
   _setActiveCard = callbacks.setActiveCard;
+}
+
+export function registerDependencyRedrawCallback(callback: () => void): void {
+  _redrawDependencies = callback;
 }
 
 function attachCardListeners(body: HTMLElement): void {
@@ -167,6 +172,11 @@ export async function refreshBoardCards(): Promise<void> {
     const detailTaskId = _getDetailTaskId ? _getDetailTaskId() : null;
     if (detailTaskId !== null && _setActiveCard) {
       _setActiveCard(detailTaskId);
+    }
+
+    // Redraw dependency visualization if enabled
+    if (_redrawDependencies) {
+      _redrawDependencies();
     }
 
     // If detail panel is open, refresh its content if the task was updated
