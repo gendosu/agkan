@@ -48,14 +48,13 @@ function drawBezierLine(
 ): SVGPathElement {
   const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
 
-  // Calculate control points for bezier curve
-  const dx = x2 - x1;
-  const dy = y2 - y1;
-  const cpX = x1 + dx * 0.5;
-  const cpY1 = y1 + dy * 0.3;
-  const cpY2 = y2 - dy * 0.3;
+  // Horizontal bezier: control points extend horizontally from each endpoint
+  const dx = Math.abs(x2 - x1);
+  const cpOffset = Math.max(dx * 0.5, 60);
+  const cp1x = x1 + cpOffset;
+  const cp2x = x2 - cpOffset;
 
-  const pathData = `M ${x1} ${y1} C ${cpX} ${cpY1}, ${cpX} ${cpY2}, ${x2} ${y2}`;
+  const pathData = `M ${x1} ${y1} C ${cp1x} ${y1}, ${cp2x} ${y2}, ${x2} ${y2}`;
   path.setAttribute('d', pathData);
   path.setAttribute('stroke', color);
   path.setAttribute('stroke-width', isHovered ? '2.5' : '1.5');
@@ -67,14 +66,26 @@ function drawBezierLine(
   return path;
 }
 
-function getCardCenter(card: HTMLElement): { x: number; y: number } {
-  const rect = card.getBoundingClientRect();
-  const boardContainer = document.querySelector('.board-container') as HTMLElement;
-  const boardRect = boardContainer.getBoundingClientRect();
+function getCardEdgePoints(
+  fromCard: HTMLElement,
+  toCard: HTMLElement,
+  boardRect: DOMRect
+): { x1: number; y1: number; x2: number; y2: number } {
+  const fromRect = fromCard.getBoundingClientRect();
+  const toRect = toCard.getBoundingClientRect();
+
+  const fromCenterX = fromRect.left + fromRect.width / 2;
+  const toCenterX = toRect.left + toRect.width / 2;
+
+  // Connect right edge → left edge when target is to the right, otherwise left → right
+  const fromX = fromCenterX <= toCenterX ? fromRect.right - boardRect.left : fromRect.left - boardRect.left;
+  const toX = fromCenterX <= toCenterX ? toRect.left - boardRect.left : toRect.right - boardRect.left;
 
   return {
-    x: rect.left - boardRect.left + rect.width / 2,
-    y: rect.top - boardRect.top + rect.height / 2,
+    x1: fromX,
+    y1: fromRect.top - boardRect.top + fromRect.height / 2,
+    x2: toX,
+    y2: toRect.top - boardRect.top + toRect.height / 2,
   };
 }
 
@@ -148,6 +159,8 @@ function redrawDependencies(): void {
     }
   }
 
+  const boardRect = boardContainer.getBoundingClientRect();
+
   // Draw all dependency lines
   cards.forEach((card) => {
     const cardId = Number(card.getAttribute('data-id'));
@@ -156,7 +169,6 @@ function redrawDependencies(): void {
 
     if (!blockedByStr && !blockingStr) return;
 
-    const fromCenter = getCardCenter(card);
     const isHovered = cardId === hoveredCardId || hoveredBlockedBySet.has(cardId) || hoveredBlockingSet.has(cardId);
 
     // Draw lines to blocking tasks (this task blocks these)
@@ -165,9 +177,9 @@ function redrawDependencies(): void {
       blockingIds.forEach((blockedId) => {
         const blockedCard = cardMap.get(blockedId);
         if (blockedCard) {
-          const toCenter = getCardCenter(blockedCard);
+          const { x1, y1, x2, y2 } = getCardEdgePoints(card, blockedCard, boardRect);
           const color = isHovered || hoveredBlockedBySet.has(blockedId) ? '#ef4444' : '#cbd5e1';
-          const line = drawBezierLine(svg, fromCenter.x, fromCenter.y, toCenter.x, toCenter.y, color, isHovered);
+          const line = drawBezierLine(svg, x1, y1, x2, y2, color, isHovered);
           svg.appendChild(line);
         }
       });
