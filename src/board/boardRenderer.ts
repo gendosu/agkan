@@ -137,6 +137,24 @@ function getContextMenuAndToast(): string {
   <div class="toast" id="toast">Failed to update task</div>`;
 }
 
+function getClaudeStreamModal(): string {
+  return `
+  <div class="modal-overlay" id="claude-stream-modal">
+    <div class="modal" style="width:680px;">
+      <div class="claude-stream-modal-header">
+        <h2 id="claude-stream-modal-title">Claude Output</h2>
+        <button id="claude-stream-modal-close">&#x2715;</button>
+      </div>
+      <div id="claude-stream-log" class="claude-stream-log"></div>
+      <div class="claude-stream-modal-footer">
+        <span id="claude-stream-status" class="claude-stream-status">Connecting...</span>
+        <button id="claude-stream-stop-btn" class="claude-stream-stop-btn">Stop</button>
+        <button id="claude-stream-close-btn">Close</button>
+      </div>
+    </div>
+  </div>`;
+}
+
 function getPurgeAndVersionModals(): string {
   return `
   <div class="modal-overlay" id="purge-confirm-modal">
@@ -202,7 +220,7 @@ function getBoardBodyStatic(): string {
     var allPriorities = ${JSON.stringify(PRIORITIES)};
     ${clientBundle}`;
 
-  return `${getAddTaskModal()}${getContextMenuAndToast()}${getPurgeAndVersionModals()}
+  return `${getAddTaskModal()}${getContextMenuAndToast()}${getPurgeAndVersionModals()}${getClaudeStreamModal()}
   <script>${script}
   </script>`;
 }
