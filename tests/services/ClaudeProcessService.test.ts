@@ -138,6 +138,30 @@ describe('ClaudeProcessService', () => {
       );
     });
 
+    it('should replay past events to a late subscriber', () => {
+      const { proc, stdout } = makeFakeProcess();
+      spawnMock.mockReturnValue(proc);
+
+      service.startProcess(1, 'p');
+
+      // Emit events before subscribing
+      const textEvent = { type: 'assistant', message: { content: [{ type: 'text', text: 'before' }] } };
+      const toolEvent = {
+        type: 'assistant',
+        message: { content: [{ type: 'tool_use', id: 'x', name: 'Bash', input: { command: 'ls' } }] },
+      };
+      (stdout as EventEmitter).emit('data', Buffer.from(JSON.stringify(textEvent) + '\n'));
+      (stdout as EventEmitter).emit('data', Buffer.from(JSON.stringify(toolEvent) + '\n'));
+
+      // Subscribe after events were emitted
+      const cb = vi.fn<(event: OutputEvent) => void>();
+      service.subscribeOutput(1, cb);
+
+      expect(cb).toHaveBeenCalledTimes(2);
+      expect(cb).toHaveBeenNthCalledWith(1, { kind: 'text', text: 'before' });
+      expect(cb).toHaveBeenNthCalledWith(2, { kind: 'tool_use', name: 'Bash', input: { command: 'ls' } });
+    });
+
     it('should return an unsubscribe function', () => {
       const { proc } = makeFakeProcess();
       spawnMock.mockReturnValue(proc);
