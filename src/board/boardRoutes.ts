@@ -375,11 +375,13 @@ function registerClaudeRoutes(app: Hono, claudeProcess: ClaudeProcessService, ts
     if (!ts.getTask(taskId)) return c.json({ error: 'Task not found' }, 404);
 
     const body = (await c.req.json().catch(() => ({}))) as { command?: string };
-    const command = body.command === 'planning' ? 'planning' : 'run';
+    const command = body.command === 'planning' ? 'planning' : body.command === 'pr' ? 'pr' : 'run';
     const prompt =
       command === 'planning'
         ? `Task ID: ${taskId}\n/agkan-planning-subtask`
-        : `Task ID: ${taskId}\n/agkan-subtask-direct`;
+        : command === 'pr'
+          ? `Task ID: ${taskId}\n/agkan-subtask`
+          : `Task ID: ${taskId}\n/agkan-subtask-direct`;
 
     try {
       claudeProcess.startProcess(taskId, prompt);
