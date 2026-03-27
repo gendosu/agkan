@@ -275,8 +275,8 @@ describe('GET /api/claude/running-tasks', () => {
     const res = await app.fetch(new Request('http://localhost/api/claude/running-tasks'));
 
     expect(res.status).toBe(200);
-    const data = (await res.json()) as { tasks: number[] };
-    expect(data.tasks).toEqual([]);
+    const data = (await res.json()) as { taskIds: number[] };
+    expect(data.taskIds).toEqual([]);
   });
 
   it('returns list of running task IDs', async () => {
@@ -287,8 +287,8 @@ describe('GET /api/claude/running-tasks', () => {
     const res = await app.fetch(new Request('http://localhost/api/claude/running-tasks'));
 
     expect(res.status).toBe(200);
-    const data = (await res.json()) as { tasks: number[] };
-    expect(data.tasks).toEqual([1, 2, 3]);
+    const data = (await res.json()) as { taskIds: number[] };
+    expect(data.taskIds).toEqual([1, 2, 3]);
   });
 
   it('returns 404 when claudeProcessService is not configured', async () => {
