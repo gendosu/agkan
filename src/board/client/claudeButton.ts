@@ -12,9 +12,10 @@ export function getRunningTaskIds(): Set<number> {
   return _runningTaskIds;
 }
 
-export function updateButtonStates(runningTaskIds: Set<number>): void {
+export function updateButtonStates(runningTaskIds: Set<number>, planningTaskIds: Set<number> = new Set()): void {
   _runningTaskIds = runningTaskIds;
-  const anyRunning = runningTaskIds.size > 0;
+  const onlyPlanningRunning = runningTaskIds.size > 0 && [...runningTaskIds].every((id) => planningTaskIds.has(id));
+  const anyRunning = runningTaskIds.size > 0 && !onlyPlanningRunning;
 
   // Update all run split containers
   document.querySelectorAll<HTMLElement>('.claude-run-split').forEach((split) => {
@@ -187,8 +188,10 @@ async function pollRunningTasks(): Promise<void> {
   try {
     const res = await fetch('/api/claude/running-tasks');
     if (!res.ok) return;
-    const data = (await res.json()) as { taskIds: number[] };
-    updateButtonStates(new Set(data.taskIds));
+    const data = (await res.json()) as { tasks: { taskId: number; command: string }[] };
+    const allIds = new Set(data.tasks.map((t) => t.taskId));
+    const planningIds = new Set(data.tasks.filter((t) => t.command === 'planning').map((t) => t.taskId));
+    updateButtonStates(allIds, planningIds);
   } catch {
     // Ignore network errors during polling
   }

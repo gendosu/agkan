@@ -177,6 +177,26 @@ describe('updateButtonStates', () => {
       expect(card.querySelector('.claude-run-btn')).toBeNull();
     }
   );
+
+  it('does not disable run buttons on other cards when only planning tasks are running', () => {
+    makeCard(1, 'ready'); // planning running
+    makeCard(2, 'ready'); // not running
+    updateButtonStates(new Set([1]), new Set([1]));
+    // Card 1 is running (planning) — replaced with detail btn
+    expect(document.querySelector('.claude-detail-btn')).not.toBeNull();
+    // Card 2 run button should NOT be disabled
+    const runBtn = document.querySelector<HTMLButtonElement>('[data-task-id="2"].claude-run-btn');
+    expect(runBtn?.disabled).toBe(false);
+  });
+
+  it('disables run buttons on other cards when a non-planning task is running', () => {
+    makeCard(1, 'ready'); // running (run command)
+    makeCard(2, 'ready'); // not running
+    updateButtonStates(new Set([1]), new Set()); // no planning tasks
+    // Card 2 run button should be disabled
+    const runBtn = document.querySelector<HTMLButtonElement>('[data-task-id="2"] .claude-run-btn');
+    expect(runBtn?.disabled).toBe(true);
+  });
 });
 
 describe('registerClaudeModalCallback', () => {

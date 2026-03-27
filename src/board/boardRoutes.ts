@@ -384,7 +384,7 @@ function registerClaudeRoutes(app: Hono, claudeProcess: ClaudeProcessService, ts
           : `Task ID: ${taskId}\n/agkan-subtask-direct`;
 
     try {
-      claudeProcess.startProcess(taskId, prompt);
+      claudeProcess.startProcess(taskId, prompt, command);
     } catch (e) {
       if (e instanceof Error && e.message.includes('already running')) {
         return c.json({ error: e.message }, 409);
@@ -459,7 +459,7 @@ function registerClaudeRoutes(app: Hono, claudeProcess: ClaudeProcessService, ts
 
   app.get('/api/claude/running-tasks', (c) => {
     const tasks = claudeProcess.listRunningTasks();
-    return c.json({ taskIds: tasks });
+    return c.json({ tasks });
   });
 
   app.get('/api/claude/tasks/:taskId/run-logs', (c) => {
