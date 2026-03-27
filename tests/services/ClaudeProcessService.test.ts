@@ -51,7 +51,7 @@ describe('ClaudeProcessService', () => {
 
       expect(spawnMock).toHaveBeenCalledWith(
         'claude',
-        ['--output-format', 'stream-json', '--verbose', '-p', 'Hello world'],
+        ['--output-format', 'stream-json', '--verbose', '--dangerously-skip-permissions', '-p', 'Hello world'],
         expect.objectContaining({ cwd: '/workspace' })
       );
     });
