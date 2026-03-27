@@ -53,6 +53,10 @@ function replaceWithDetailBtn(btn: HTMLButtonElement, taskId: number): void {
 }
 
 function replaceWithRunOrPlanBtn(btn: HTMLButtonElement, taskId: number, status: string | undefined): void {
+  if (['review', 'done', 'close'].includes(status ?? '')) {
+    btn.remove();
+    return;
+  }
   const newBtn = document.createElement('button');
   if (status === 'ready') {
     newBtn.className = 'claude-run-btn';
