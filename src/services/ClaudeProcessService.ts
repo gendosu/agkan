@@ -54,7 +54,7 @@ export class ClaudeProcessService {
       throw new Error(`Process for taskId ${taskId} is already running`);
     }
 
-    const child = spawn('claude', ['--output-format', 'stream-json', '-p', prompt], {
+    const child = spawn('claude', ['--output-format', 'stream-json', '--verbose', '-p', prompt], {
       cwd: '/workspace',
       env: process.env,
       stdio: ['ignore', 'pipe', 'pipe'],
