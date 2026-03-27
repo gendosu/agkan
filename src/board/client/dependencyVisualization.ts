@@ -14,6 +14,7 @@ interface SVGArrowMarker {
 let isDependencyVisible = false;
 let arrowMarkers: Map<string, SVGArrowMarker> = new Map();
 let scrollListener: ((event: Event) => void) | null = null;
+let columnScrollListener: ((event: Event) => void) | null = null;
 let resizeListener: (() => void) | null = null;
 
 function getOrCreateArrowMarker(svg: SVGSVGElement, color: string): string {
@@ -248,6 +249,12 @@ export function initDependencyVisualization(): void {
         board.addEventListener('scroll', scrollListener, { passive: true });
       }
 
+      // Redraw on column-body vertical scroll
+      columnScrollListener = () => redrawDependencies();
+      document.querySelectorAll<HTMLElement>('.column-body').forEach((col) => {
+        col.addEventListener('scroll', columnScrollListener!, { passive: true });
+      });
+
       // Redraw on window resize
       if (boardContainer) {
         resizeListener = () => redrawDependencies();
@@ -263,6 +270,14 @@ export function initDependencyVisualization(): void {
       if (board && scrollListener) {
         board.removeEventListener('scroll', scrollListener);
         scrollListener = null;
+      }
+
+      // Remove column-body scroll listeners
+      if (columnScrollListener) {
+        document.querySelectorAll<HTMLElement>('.column-body').forEach((col) => {
+          col.removeEventListener('scroll', columnScrollListener!);
+        });
+        columnScrollListener = null;
       }
 
       // Remove resize listener
