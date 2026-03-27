@@ -37,18 +37,13 @@ describe('services/index', () => {
     expect(typeof servicesIndex.CommentService).toBe('function');
   });
 
-  it('should export ExportImportService', () => {
-    expect(servicesIndex.ExportImportService).toBeDefined();
-    expect(typeof servicesIndex.ExportImportService).toBe('function');
-  });
-
   it('should export ClaudeProcessService', () => {
     expect(servicesIndex.ClaudeProcessService).toBeDefined();
     expect(typeof servicesIndex.ClaudeProcessService).toBe('function');
   });
 
-  it('should export exactly 9 named exports', () => {
+  it('should export exactly 8 named exports', () => {
     const exportedKeys = Object.keys(servicesIndex);
-    expect(exportedKeys).toHaveLength(9);
+    expect(exportedKeys).toHaveLength(8);
   });
 });
