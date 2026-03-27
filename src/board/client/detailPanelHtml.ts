@@ -182,6 +182,63 @@ export function renderDetailPanelHtml(data: TaskDetail): string {
   return html;
 }
 
+export function renderRunLogsHtml(
+  logs: Array<{
+    id: number;
+    started_at: string;
+    finished_at: string | null;
+    exit_code: number | null;
+    events: Array<{ kind: string; text?: string; name?: string; input?: Record<string, unknown> }>;
+  }>
+): string {
+  if (logs.length === 0) {
+    return '<div class="run-log-empty">No run logs yet.</div>';
+  }
+  let html = '<div class="run-log-list">';
+  logs.forEach((log, index) => {
+    const date = log.started_at ? log.started_at.replace('T', ' ').replace(/\.\d+Z$/, '') : '';
+    const exitOk = log.exit_code === 0;
+    const exitLabel = log.exit_code !== null ? 'exit: ' + String(log.exit_code) : 'running';
+    const exitClass = exitOk ? 'success' : 'failure';
+    const isFirst = index === 0;
+    html +=
+      '<div class="run-log-item' +
+      (isFirst ? ' open' : '') +
+      '" data-log-id="' +
+      log.id +
+      '">' +
+      '<div class="run-log-header" data-action="toggle-run-log">' +
+      '<span class="run-log-toggle">&#9654;</span>' +
+      '<span class="run-log-date">' +
+      escapeHtmlClient(date) +
+      '</span>' +
+      '<span class="run-log-exit ' +
+      exitClass +
+      '">' +
+      escapeHtmlClient(exitLabel) +
+      '</span>' +
+      '</div>' +
+      '<div class="run-log-body">';
+    log.events.forEach((evt) => {
+      if (evt.kind === 'text' && evt.text) {
+        html += escapeHtmlClient(evt.text);
+      } else if (evt.kind === 'tool_use' && evt.name) {
+        const mainArg =
+          evt.input && typeof evt.input === 'object'
+            ? String(
+                (evt.input as Record<string, unknown>).path ?? (evt.input as Record<string, unknown>).command ?? ''
+              )
+            : '';
+        const display = mainArg ? '\uD83D\uDD27 ' + evt.name + ': ' + mainArg : '\uD83D\uDD27 ' + evt.name;
+        html += '<span class="run-log-tool-use">' + escapeHtmlClient(display) + '\n</span>';
+      }
+    });
+    html += '</div></div>';
+  });
+  html += '</div>';
+  return html;
+}
+
 export function buildDetailPanelHtml(): string {
   return (
     '<div class="detail-panel" id="detail-panel">' +
@@ -193,10 +250,12 @@ export function buildDetailPanelHtml(): string {
     '<div class="detail-tabs" id="detail-tabs">' +
     '<button class="detail-tab active" data-tab="details">Details</button>' +
     '<button class="detail-tab" data-tab="comments" id="detail-tab-comments">Comments</button>' +
+    '<button class="detail-tab" data-tab="run-logs" id="detail-tab-run-logs">Run Logs</button>' +
     '</div>' +
     '<div class="detail-panel-body" id="detail-panel-body">' +
     '<div class="detail-tab-content active" id="detail-tab-content-details"></div>' +
     '<div class="detail-tab-content" id="detail-tab-content-comments"></div>' +
+    '<div class="detail-tab-content" id="detail-tab-content-run-logs"></div>' +
     '</div>' +
     '<div class="detail-panel-footer" id="detail-panel-footer"><button id="detail-save-btn">Save</button></div>' +
     '</div>'

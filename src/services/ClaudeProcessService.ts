@@ -1,4 +1,5 @@
 import { spawn, ChildProcess } from 'child_process';
+import Database from 'better-sqlite3';
 
 // ---- Type definitions ----
 
@@ -26,6 +27,24 @@ export type OutputEvent =
 
 export type SubscribeCallback = (event: OutputEvent) => void;
 
+export interface RunLog {
+  id: number;
+  task_id: number;
+  started_at: string;
+  finished_at: string | null;
+  exit_code: number | null;
+  events: OutputEvent[];
+}
+
+interface RunLogRow {
+  id: number;
+  task_id: number;
+  started_at: string;
+  finished_at: string | null;
+  exit_code: number | null;
+  events: string;
+}
+
 interface ProcessInfo {
   taskId: number;
   process: ChildProcess;
@@ -45,6 +64,11 @@ interface ProcessInfo {
  */
 export class ClaudeProcessService {
   private processes: Map<number, ProcessInfo> = new Map();
+  private db: Database.Database | null;
+
+  constructor(db?: Database.Database | null) {
+    this.db = db ?? null;
+  }
 
   /**
    * Start a claude process for the given taskId and prompt.
@@ -125,8 +149,14 @@ export class ClaudeProcessService {
         info.subscribers.forEach((cb) => cb(errorEvent));
       }
 
-      const doneEvent: OutputEvent = { kind: 'done', exitCode: code ?? 0 };
+      const exitCode = code ?? 0;
+      const doneEvent: OutputEvent = { kind: 'done', exitCode };
       info.subscribers.forEach((cb) => cb(doneEvent));
+
+      // Save log to DB before removing process
+      if (this.db) {
+        this._saveRunLog(info, exitCode);
+      }
 
       this.processes.delete(taskId);
     });
@@ -155,12 +185,28 @@ export class ClaudeProcessService {
 
   /**
    * Subscribe to output events for a given taskId.
+   * If process is running: replay past events and subscribe to future events.
+   * If no process but DB available: replay last saved log from DB.
    * Returns an unsubscribe function.
    */
   subscribeOutput(taskId: number, callback: SubscribeCallback): () => void {
     const info = this.processes.get(taskId);
     if (!info) {
-      // Task not found — immediately emit an error and return a no-op unsubscribe
+      // Try to replay from DB
+      if (this.db) {
+        const row = this.db
+          .prepare(`SELECT * FROM task_run_logs WHERE task_id = ? ORDER BY started_at DESC LIMIT 1`)
+          .get(taskId) as RunLogRow | undefined;
+
+        if (row) {
+          const events = JSON.parse(row.events) as OutputEvent[];
+          events.forEach((evt) => callback(evt));
+          callback({ kind: 'done', exitCode: row.exit_code ?? 0 });
+          return () => {};
+        }
+      }
+
+      // No process and no log found — emit error
       callback({ kind: 'error', message: `No running process for taskId ${taskId}` });
       return () => {};
     }
@@ -181,7 +227,46 @@ export class ClaudeProcessService {
     return this.processes.get(taskId)?.outputBuffer ?? [];
   }
 
+  /**
+   * Get saved run logs for a task from DB (most recent first, up to 5).
+   */
+  getRunLogs(taskId: number): RunLog[] {
+    if (!this.db) return [];
+    const rows = this.db
+      .prepare(`SELECT * FROM task_run_logs WHERE task_id = ? ORDER BY started_at DESC LIMIT 5`)
+      .all(taskId) as RunLogRow[];
+    return rows.map((r) => ({
+      id: r.id,
+      task_id: r.task_id,
+      started_at: r.started_at,
+      finished_at: r.finished_at,
+      exit_code: r.exit_code,
+      events: JSON.parse(r.events) as OutputEvent[],
+    }));
+  }
+
   // ---- Private helpers ----
+
+  private _saveRunLog(info: ProcessInfo, exitCode: number): void {
+    const db = this.db!;
+    const finishedAt = new Date().toISOString();
+    const eventsJson = JSON.stringify(info.processedEvents);
+
+    db.prepare(
+      `INSERT INTO task_run_logs (task_id, started_at, finished_at, exit_code, events) VALUES (?, ?, ?, ?, ?)`
+    ).run(info.taskId, info.startedAt.toISOString(), finishedAt, exitCode, eventsJson);
+
+    // Rotate: keep only latest 5 per task
+    const rows = db
+      .prepare(`SELECT id FROM task_run_logs WHERE task_id = ? ORDER BY started_at DESC`)
+      .all(info.taskId) as { id: number }[];
+
+    if (rows.length > 5) {
+      const toDelete = rows.slice(5).map((r) => r.id);
+      const placeholders = toDelete.map(() => '?').join(',');
+      db.prepare(`DELETE FROM task_run_logs WHERE id IN (${placeholders})`).run(...toDelete);
+    }
+  }
 
   private _notifySubscribers(info: ProcessInfo, event: ClaudeStreamEvent): void {
     if (event.type === 'assistant') {

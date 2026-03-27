@@ -238,6 +238,23 @@ export function runMigrations(db: Database.Database): void {
     `);
   }
 
+  // Create task_run_logs table
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS task_run_logs (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      task_id INTEGER NOT NULL,
+      started_at TEXT NOT NULL,
+      finished_at TEXT,
+      exit_code INTEGER,
+      events TEXT NOT NULL,
+      FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE
+    );
+  `);
+
+  db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_task_run_logs_task_id ON task_run_logs(task_id);
+  `);
+
   // Migrate priority from task_metadata to tasks.priority
   const priorityMetadata = db
     .prepare(`SELECT task_id, value FROM task_metadata WHERE key = 'priority'`)

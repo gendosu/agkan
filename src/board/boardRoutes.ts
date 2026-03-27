@@ -461,6 +461,14 @@ function registerClaudeRoutes(app: Hono, claudeProcess: ClaudeProcessService, ts
     const tasks = claudeProcess.listRunningTasks();
     return c.json({ taskIds: tasks });
   });
+
+  app.get('/api/claude/tasks/:taskId/run-logs', (c) => {
+    const taskId = Number(c.req.param('taskId'));
+    if (isNaN(taskId)) return c.json({ error: 'Invalid taskId' }, 400);
+    if (!ts.getTask(taskId)) return c.json({ error: 'Task not found' }, 404);
+    const logs = claudeProcess.getRunLogs(taskId);
+    return c.json({ logs });
+  });
 }
 
 export function registerBoardRoutes(app: Hono, services: BoardServices): void {

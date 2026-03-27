@@ -14,6 +14,7 @@ import {
   syncTimestampAfterSave,
   fetchPanelWidthFromConfig,
   savePanelWidthToConfig,
+  fetchRunLogs,
   PANEL_MIN_WIDTH,
   PANEL_MAX_WIDTH,
 } from './detailPanelApi';
@@ -21,6 +22,7 @@ import {
   renderCommentItemHtml,
   renderAddCommentFormHtml,
   renderDetailPanelHtml,
+  renderRunLogsHtml,
   buildDetailPanelHtml,
   autoResizeTextarea,
 } from './detailPanelHtml';
@@ -224,6 +226,26 @@ function handleCommentAction(e: MouseEvent): void {
   dispatchCommentAction(action, commentId, taskId);
 }
 
+async function loadRunLogs(taskId: number): Promise<void> {
+  const pane = document.getElementById('detail-tab-content-run-logs');
+  if (!pane) return;
+  try {
+    const logs = await fetchRunLogs(taskId);
+    pane.innerHTML = renderRunLogsHtml(logs);
+    pane.addEventListener('click', handleRunLogToggle);
+  } catch (err) {
+    console.error('[agkan] loadRunLogs failed for task', taskId, err);
+    pane.innerHTML = '<div style="padding:20px;font-size:12px;color:#94a3b8;">Failed to load run logs</div>';
+  }
+}
+
+function handleRunLogToggle(e: MouseEvent): void {
+  const target = (e.target as HTMLElement).closest<HTMLElement>('[data-action="toggle-run-log"]');
+  if (!target) return;
+  const item = target.closest<HTMLElement>('.run-log-item');
+  if (item) item.classList.toggle('open');
+}
+
 export function renderDetailPanel(data: TaskDetail): void {
   // Remove stale update-warning bar so it does not persist after reload
   document.getElementById('detail-panel-update-warning')?.remove();
@@ -278,6 +300,11 @@ export function renderDetailPanel(data: TaskDetail): void {
 
   // Load comments into the comments tab
   loadComments(task.id);
+
+  // Load run logs into the run logs tab
+  loadRunLogs(task.id).catch((err) => {
+    console.error('[agkan] renderDetailPanel loadRunLogs failed', err);
+  });
 
   // Restore last tab
   switchTab(lastTab);
