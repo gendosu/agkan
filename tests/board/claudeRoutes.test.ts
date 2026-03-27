@@ -14,7 +14,7 @@ import { MetadataService } from '../../src/services/MetadataService';
 import { CommentService } from '../../src/services/CommentService';
 import { TaskBlockService } from '../../src/services/TaskBlockService';
 import { ClaudeProcessService, SubscribeCallback } from '../../src/services/ClaudeProcessService';
-import { getStorageBackend } from '../../src/db/connection';
+import { getDatabase } from '../../src/db/connection';
 import { registerBoardRoutes, BoardServices } from '../../src/board/boardRoutes';
 
 const TEST_CONFIG_DIR = path.join(process.cwd(), '.agkan-test-claude-routes-' + process.pid);
@@ -31,7 +31,7 @@ function buildMockClaudeProcessService(): ClaudeProcessService {
 }
 
 function buildServices(claudeProcessService?: ClaudeProcessService): BoardServices {
-  const database = getStorageBackend();
+  const database = getDatabase();
   return {
     ts: new TaskService(database),
     tts: new TaskTagService(database),
@@ -340,8 +340,8 @@ describe('GET /api/claude/tasks/:taskId/stream', () => {
     expect(mock.subscribeOutput).toHaveBeenCalledWith(1, expect.any(Function));
 
     // Emit a text event and read it
-    if (capturedCallback && res.body) {
-      capturedCallback({ kind: 'text', text: 'hello' });
+    if (capturedCallback !== null && res.body) {
+      (capturedCallback as SubscribeCallback)({ kind: 'text', text: 'hello' });
 
       const reader = res.body.getReader();
       const { value } = await reader.read();
