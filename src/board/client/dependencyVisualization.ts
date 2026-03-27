@@ -1,7 +1,11 @@
 // Dependency visualization for task blocking relationships
 
 import { registerDependencyRedrawCallback } from './boardPolling';
-import { registerDependencyRedrawCallback as registerDragDropRedrawCallback } from './dragDrop';
+import {
+  registerDependencyRedrawCallback as registerDragDropRedrawCallback,
+  draggedCard,
+  getDraggedCardVirtualRect,
+} from './dragDrop';
 
 interface SVGArrowMarker {
   svg: SVGSVGElement;
@@ -66,13 +70,20 @@ function drawBezierLine(
   return path;
 }
 
+function getCardRect(card: HTMLElement): DOMRect {
+  if (card === draggedCard) {
+    return getDraggedCardVirtualRect() ?? card.getBoundingClientRect();
+  }
+  return card.getBoundingClientRect();
+}
+
 function getCardEdgePoints(
   fromCard: HTMLElement,
   toCard: HTMLElement,
   boardRect: DOMRect
 ): { x1: number; y1: number; x2: number; y2: number } {
-  const fromRect = fromCard.getBoundingClientRect();
-  const toRect = toCard.getBoundingClientRect();
+  const fromRect = getCardRect(fromCard);
+  const toRect = getCardRect(toCard);
 
   const fromCenterX = fromRect.left + fromRect.width / 2;
   const toCenterX = toRect.left + toRect.width / 2;
