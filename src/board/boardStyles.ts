@@ -95,6 +95,8 @@ export const BOARD_STYLES = `
     .detail-panel.open { width: 400px; min-width: 280px; border-left-width: 1px; }
     .detail-panel-header { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; border-bottom: 1px solid var(--border-color); flex-shrink: 0; }
     .detail-panel-header h2 { font-size: 16px; font-weight: 700; color: var(--text-primary); margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .detail-panel-copy-id { background: none; border: none; font-size: 18px; color: var(--text-secondary); cursor: pointer; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; border-radius: 4px; flex-shrink: 0; }
+    .detail-panel-copy-id:hover { background: var(--bg-surface-hover); color: var(--text-primary); }
     .detail-panel-close { background: none; border: none; font-size: 20px; color: var(--text-secondary); cursor: pointer; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; border-radius: 4px; flex-shrink: 0; }
     .detail-panel-close:hover { background: var(--bg-surface-hover); color: var(--text-primary); }
     .detail-panel-body { flex: 1; overflow: hidden; min-width: 0; display: flex; flex-direction: column; }
