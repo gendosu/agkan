@@ -40,6 +40,9 @@ import { setupCommentAddCommand } from './commands/comment/add';
 import { setupCommentListCommand } from './commands/comment/list';
 import { setupCommentDeleteCommand } from './commands/comment/delete';
 
+// Claude command handlers
+import { setupClaudePsCommand } from './commands/claude/ps';
+
 // Board command handler
 import { setupBoardCommand } from './commands/board';
 
@@ -102,6 +105,12 @@ setupMetaDeleteCommand(program);
 setupCommentAddCommand(program);
 setupCommentListCommand(program);
 setupCommentDeleteCommand(program);
+
+// Create claude command group
+program.command('claude').description('Claude process management commands');
+
+// Register claude commands
+setupClaudePsCommand(program);
 
 // Register board command
 setupBoardCommand(program);
