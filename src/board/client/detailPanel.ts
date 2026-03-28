@@ -244,14 +244,22 @@ function handleCommentAction(e: MouseEvent): void {
 }
 
 function renderRunLogsInPane(pane: HTMLElement, logs: Awaited<ReturnType<typeof fetchRunLogs>>): void {
+  const isNearBottom = pane.scrollHeight - pane.scrollTop - pane.clientHeight <= 50;
+  const savedScrollTop = pane.scrollTop;
   pane.innerHTML = renderRunLogsHtml(logs);
-  pane.addEventListener('click', handleRunLogToggle);
+  if (isNearBottom) {
+    pane.scrollTop = pane.scrollHeight;
+  } else {
+    pane.scrollTop = savedScrollTop;
+  }
 }
 
 async function loadRunLogs(taskId: number): Promise<void> {
   stopRunLogPolling();
   const pane = document.getElementById('detail-tab-content-run-logs');
   if (!pane) return;
+  pane.removeEventListener('click', handleRunLogToggle);
+  pane.addEventListener('click', handleRunLogToggle);
   try {
     const logs = await fetchRunLogs(taskId);
     renderRunLogsInPane(pane, logs);
