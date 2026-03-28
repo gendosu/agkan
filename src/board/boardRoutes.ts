@@ -1,4 +1,5 @@
 import { Hono } from 'hono';
+import { verboseLog } from '../utils/logger';
 import { TaskService } from '../services/TaskService';
 import { TaskTagService } from '../services/TaskTagService';
 import { TagService } from '../services/TagService';
@@ -485,6 +486,13 @@ function registerClaudeRoutes(app: Hono, claudeProcess: ClaudeProcessService, ts
 
 export function registerBoardRoutes(app: Hono, services: BoardServices): void {
   const { ts, tts, tbs, database, boardTitle, configDir } = services;
+
+  app.use('*', async (c, next) => {
+    verboseLog(`[boardRoutes] ${c.req.method} ${c.req.path}`);
+    await next();
+    verboseLog(`[boardRoutes] ${c.req.method} ${c.req.path} -> ${c.res.status}`);
+  });
+
   app.get('/', (c) => {
     const tasksByStatus = buildTasksByStatus(ts.listTasks({}, 'id', 'asc'));
     const boardConfig = readBoardConfig(configDir);
