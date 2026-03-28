@@ -125,6 +125,17 @@ describe('TaskTagService', () => {
       }).toThrow('Tag with id 99999 does not exist');
     });
 
+    it('タグ追加後にタスクのupdated_atが更新される', () => {
+      const task = taskService.createTask({ title: 'Test task' });
+      const tag = tagService.createTag({ name: 'test' });
+      const beforeAdd = task.updated_at;
+
+      taskTagService.addTagToTask({ task_id: task.id, tag_id: tag.id });
+      const afterAdd = taskService.getTask(task.id)!.updated_at;
+
+      expect(afterAdd >= beforeAdd).toBe(true);
+    });
+
     it('既に追加されているタグを再度追加しようとするとエラーが発生する', () => {
       // タスクとタグを作成
       const task = taskService.createTask({ title: 'Test task' });
@@ -179,6 +190,18 @@ describe('TaskTagService', () => {
 
       // falseが返ることを検証
       expect(result).toBe(false);
+    });
+
+    it('タグ削除後にタスクのupdated_atが更新される', () => {
+      const task = taskService.createTask({ title: 'Test task' });
+      const tag = tagService.createTag({ name: 'test' });
+      taskTagService.addTagToTask({ task_id: task.id, tag_id: tag.id });
+
+      const beforeRemove = taskService.getTask(task.id)!.updated_at;
+      taskTagService.removeTagFromTask(task.id, tag.id);
+      const afterRemove = taskService.getTask(task.id)!.updated_at;
+
+      expect(afterRemove >= beforeRemove).toBe(true);
     });
   });
 
