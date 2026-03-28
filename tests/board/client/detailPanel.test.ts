@@ -873,6 +873,12 @@ describe('Detail panel design updates', () => {
     });
     renderDetailPanel(data);
 
+    // JSDOM has no CSS transitions, so transitionend never fires automatically.
+    // Dispatch it manually to simulate the panel width transition completing.
+    const detailPanel = document.getElementById('detail-panel') as HTMLElement;
+    const transitionEvent = new TransitionEvent('transitionend', { propertyName: 'width' });
+    detailPanel.dispatchEvent(transitionEvent);
+
     await new Promise((resolve) => setTimeout(resolve, 50));
 
     const textarea = document.getElementById('detail-edit-body') as HTMLTextAreaElement;
