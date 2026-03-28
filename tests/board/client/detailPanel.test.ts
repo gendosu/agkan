@@ -40,6 +40,21 @@ function setupMinimalBoardDOM(): void {
     completed: 'Completed',
   };
   (window as unknown as Record<string, unknown>).allPriorities = ['low', 'medium', 'high'];
+
+  // jsdom does not implement matchMedia — provide a no-op stub
+  Object.defineProperty(window, 'matchMedia', {
+    writable: true,
+    value: vi.fn().mockImplementation((query: string) => ({
+      matches: false,
+      media: query,
+      onchange: null,
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      dispatchEvent: vi.fn(),
+    })),
+  });
 }
 
 function makeTaskDetail(overrides = {}) {
