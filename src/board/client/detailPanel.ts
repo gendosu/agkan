@@ -527,6 +527,13 @@ export function initDetailPanel(): void {
 
   document.getElementById('detail-panel-close')?.addEventListener('click', closeDetailPanel);
 
+  document.getElementById('detail-panel-copy-id')?.addEventListener('click', () => {
+    if (detailTaskId === null) return;
+    navigator.clipboard.writeText(String(detailTaskId)).then(() => {
+      showToast('Copied task ID: ' + detailTaskId);
+    });
+  });
+
   document.addEventListener('keydown', (e: KeyboardEvent) => {
     if (e.key === 'Escape' && detailPanel.classList.contains('open')) {
       closeDetailPanel();
