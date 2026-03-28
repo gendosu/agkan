@@ -400,6 +400,9 @@ function registerClaudeRoutes(app: Hono, claudeProcess: ClaudeProcessService, ts
       claudeProcess.startProcess(taskId, prompt, command);
     } catch (e) {
       if (e instanceof Error && e.message.includes('already running')) {
+        console.error(
+          `[boardRoutes] 409 already running taskId=${taskId} command=${command} running=${JSON.stringify(claudeProcess.listRunningTasks())}`
+        );
         return c.json({ error: e.message }, 409);
       }
       return c.json({ error: e instanceof Error ? e.message : 'Failed to start process' }, 500);

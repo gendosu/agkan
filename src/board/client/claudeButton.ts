@@ -127,6 +127,7 @@ function attachRunSplitListeners(
   prItem: HTMLButtonElement,
   taskId: number
 ): void {
+  split.dataset.listenersAttached = 'true';
   mainBtn.addEventListener('click', async (e: MouseEvent) => {
     e.stopPropagation();
     await triggerRunTask(taskId, split as unknown as HTMLButtonElement, {});
@@ -151,6 +152,7 @@ function attachRunSplitListeners(
 }
 
 function attachPlanBtnListener(btn: HTMLButtonElement): void {
+  btn.dataset.listenersAttached = 'true';
   btn.addEventListener('click', async (e: MouseEvent) => {
     e.stopPropagation();
     const taskId = Number(btn.dataset.taskId);
@@ -159,6 +161,7 @@ function attachPlanBtnListener(btn: HTMLButtonElement): void {
 }
 
 function attachDetailBtnListener(btn: HTMLButtonElement): void {
+  btn.dataset.listenersAttached = 'true';
   btn.addEventListener('click', (e: MouseEvent) => {
     e.stopPropagation();
     const taskId = Number(btn.dataset.taskId);
@@ -221,6 +224,7 @@ async function pollRunningTasks(): Promise<void> {
 
 export function attachClaudeButtonListeners(body: HTMLElement): void {
   body.querySelectorAll<HTMLElement>('.claude-run-split').forEach((split) => {
+    if (split.dataset.listenersAttached) return;
     const taskId = Number(split.dataset.taskId);
     const mainBtn = split.querySelector<HTMLButtonElement>('.claude-run-btn');
     const toggleBtn = split.querySelector<HTMLButtonElement>('.claude-run-toggle');
@@ -231,9 +235,11 @@ export function attachClaudeButtonListeners(body: HTMLElement): void {
     }
   });
   body.querySelectorAll<HTMLButtonElement>('.claude-plan-btn').forEach((btn) => {
+    if (btn.dataset.listenersAttached) return;
     attachPlanBtnListener(btn);
   });
   body.querySelectorAll<HTMLButtonElement>('.claude-detail-btn').forEach((btn) => {
+    if (btn.dataset.listenersAttached) return;
     attachDetailBtnListener(btn);
   });
   // Apply current running state to newly rendered buttons
