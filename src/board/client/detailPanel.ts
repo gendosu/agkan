@@ -246,14 +246,17 @@ function handleCommentAction(e: MouseEvent): void {
 }
 
 function renderRunLogsInPane(pane: HTMLElement, logs: Awaited<ReturnType<typeof fetchRunLogs>>): void {
-  const isNearBottom = pane.scrollHeight - pane.scrollTop - pane.clientHeight <= 50;
+  const scrollable = pane.scrollHeight > pane.clientHeight;
+  const isNearBottom = !scrollable || pane.scrollHeight - pane.scrollTop - pane.clientHeight <= 50;
   const savedScrollTop = pane.scrollTop;
   pane.innerHTML = renderRunLogsHtml(logs);
-  if (isNearBottom) {
-    pane.scrollTop = pane.scrollHeight;
-  } else {
-    pane.scrollTop = savedScrollTop;
-  }
+  requestAnimationFrame(() => {
+    if (isNearBottom) {
+      pane.scrollTop = pane.scrollHeight;
+    } else {
+      pane.scrollTop = savedScrollTop;
+    }
+  });
 }
 
 async function loadRunLogs(taskId: number): Promise<void> {
