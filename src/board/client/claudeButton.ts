@@ -186,7 +186,7 @@ async function triggerRunTask(taskId: number, btn: HTMLButtonElement, body: Reco
 
 async function pollRunningTasks(): Promise<void> {
   try {
-    const res = await fetch('/api/claude/running-tasks');
+    const res = await fetch('/api/running-tasks');
     if (!res.ok) return;
     const data = (await res.json()) as { tasks: { taskId: number; command: string }[] };
     const allIds = new Set(data.tasks.map((t) => t.taskId));
