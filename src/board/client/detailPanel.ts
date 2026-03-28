@@ -263,21 +263,18 @@ async function loadRunLogs(taskId: number): Promise<void> {
   try {
     const logs = await fetchRunLogs(taskId);
     renderRunLogsInPane(pane, logs);
-    if (logs.some((log) => log.exit_code === null)) {
-      runLogPollingInterval = setInterval(() => {
-        if (detailTaskId !== taskId) {
-          stopRunLogPolling();
-          return;
-        }
-        fetchRunLogs(taskId)
-          .then((updated) => {
-            const p = document.getElementById('detail-tab-content-run-logs');
-            if (p) renderRunLogsInPane(p, updated);
-            if (!updated.some((log) => log.exit_code === null)) stopRunLogPolling();
-          })
-          .catch(() => stopRunLogPolling());
-      }, 2000);
-    }
+    runLogPollingInterval = setInterval(() => {
+      if (detailTaskId !== taskId) {
+        stopRunLogPolling();
+        return;
+      }
+      fetchRunLogs(taskId)
+        .then((updated) => {
+          const p = document.getElementById('detail-tab-content-run-logs');
+          if (p) renderRunLogsInPane(p, updated);
+        })
+        .catch(() => stopRunLogPolling());
+    }, 2000);
   } catch (err) {
     console.error('[agkan] loadRunLogs failed for task', taskId, err);
     pane.innerHTML = '<div style="padding:20px;font-size:12px;color:#94a3b8;">Failed to load run logs</div>';
