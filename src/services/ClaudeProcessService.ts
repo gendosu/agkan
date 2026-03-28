@@ -1,5 +1,17 @@
-import { spawn, ChildProcess } from 'child_process';
+import { spawn, ChildProcess, execSync } from 'child_process';
 import Database from 'better-sqlite3';
+
+function resolveClaudePath(): string {
+  try {
+    const path = execSync('which claude', { env: process.env }).toString().trim();
+    if (path) return path;
+  } catch {
+    // which failed, fall through
+  }
+  return 'claude';
+}
+
+const CLAUDE_BIN = resolveClaudePath();
 
 // ---- Type definitions ----
 
@@ -82,10 +94,10 @@ export class ClaudeProcessService {
     }
 
     const child = spawn(
-      'claude',
+      CLAUDE_BIN,
       ['--output-format', 'stream-json', '--verbose', '--dangerously-skip-permissions', '-p', prompt],
       {
-        cwd: '/workspace',
+        cwd: process.cwd(),
         env: process.env,
         stdio: ['ignore', 'pipe', 'pipe'],
       }
@@ -120,6 +132,7 @@ export class ClaudeProcessService {
     child.on('error', (err: NodeJS.ErrnoException) => {
       spawnError = true;
       const message = err.code === 'ENOENT' ? 'claude CLI not found in PATH' : err.message;
+      console.error(`[ClaudeProcessService] spawn error for taskId=${taskId}: ${message}`, err);
       const errorEvent: OutputEvent = { kind: 'error', message };
       info.processedEvents.push(errorEvent);
       info.subscribers.forEach((cb) => cb(errorEvent));
@@ -180,11 +193,15 @@ export class ClaudeProcessService {
       }
 
       if (stderrBuffer) {
+        console.error(`[ClaudeProcessService] stderr for taskId=${taskId}:\n${stderrBuffer}`);
         const errorEvent: OutputEvent = { kind: 'error', message: stderrBuffer };
         info.subscribers.forEach((cb) => cb(errorEvent));
       }
 
       const exitCode = code ?? 0;
+      if (exitCode !== 0) {
+        console.error(`[ClaudeProcessService] process exited with code ${exitCode} for taskId=${taskId}`);
+      }
       const doneEvent: OutputEvent = { kind: 'done', exitCode };
       info.subscribers.forEach((cb) => cb(doneEvent));
 
