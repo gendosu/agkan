@@ -372,15 +372,15 @@ describe('DELETE /api/claude/tasks/:taskId/run', () => {
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
-// GET /api/claude/running-tasks
+// GET /api/running-tasks
 // ─────────────────────────────────────────────────────────────────────────────
-describe('GET /api/claude/running-tasks', () => {
+describe('GET /api/running-tasks', () => {
   it('returns 200 with empty tasks array when nothing is running', async () => {
     const mock = buildMockClaudeProcessService();
     (mock.listRunningTasks as ReturnType<typeof vi.fn>).mockReturnValue([]);
     const app = buildApp(buildServices(mock));
 
-    const res = await app.fetch(new Request('http://localhost/api/claude/running-tasks'));
+    const res = await app.fetch(new Request('http://localhost/api/running-tasks'));
 
     expect(res.status).toBe(200);
     const data = (await res.json()) as { tasks: { taskId: number; command: string }[] };
@@ -396,7 +396,7 @@ describe('GET /api/claude/running-tasks', () => {
     ]);
     const app = buildApp(buildServices(mock));
 
-    const res = await app.fetch(new Request('http://localhost/api/claude/running-tasks'));
+    const res = await app.fetch(new Request('http://localhost/api/running-tasks'));
 
     expect(res.status).toBe(200);
     const data = (await res.json()) as { tasks: { taskId: number; command: string }[] };
@@ -410,7 +410,7 @@ describe('GET /api/claude/running-tasks', () => {
   it('returns 404 when claudeProcessService is not configured', async () => {
     const app = buildApp(buildServices(undefined));
 
-    const res = await app.fetch(new Request('http://localhost/api/claude/running-tasks'));
+    const res = await app.fetch(new Request('http://localhost/api/running-tasks'));
 
     expect(res.status).toBe(404);
   });
