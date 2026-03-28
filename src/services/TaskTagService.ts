@@ -44,7 +44,9 @@ export class TaskTagService {
     }
 
     const now = new Date().toISOString();
-    return this.backend.taskTags.create({ ...input, created_at: now });
+    const result = this.backend.taskTags.create({ ...input, created_at: now });
+    this.taskService.updateTask(input.task_id, {});
+    return result;
   }
 
   /**
@@ -54,7 +56,11 @@ export class TaskTagService {
    * @returns True if removal was successful, false if association not found
    */
   removeTagFromTask(taskId: number, tagId: number): boolean {
-    return this.backend.taskTags.delete(taskId, tagId);
+    const result = this.backend.taskTags.delete(taskId, tagId);
+    if (result) {
+      this.taskService.updateTask(taskId, {});
+    }
+    return result;
   }
 
   /**
