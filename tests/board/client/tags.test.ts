@@ -131,6 +131,104 @@ describe('renderTagsSection', () => {
   });
 });
 
+describe('renderTagsSection - create new tag option', () => {
+  beforeEach(async () => {
+    document.body.innerHTML = '';
+    const container = document.createElement('div');
+    container.id = 'detail-tags-container';
+    document.body.appendChild(container);
+
+    registerGetDetailTaskId(() => 42);
+
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: vi.fn().mockResolvedValue({ tags: [{ id: 1, name: 'bug' }] }),
+    } as unknown as Response);
+    await loadAllTags();
+  });
+
+  it('shows create option when input text does not match any existing tag', () => {
+    renderTagsSection([]);
+    const input = document.querySelector<HTMLInputElement>('.tag-select-input')!;
+    input.dispatchEvent(new Event('focus'));
+    input.value = 'newtagname';
+    input.dispatchEvent(new Event('input'));
+
+    const createOpt = document.querySelector<HTMLElement>('.tag-select-create-option');
+    expect(createOpt).not.toBeNull();
+    expect(createOpt!.textContent).toBe('Create "newtagname"');
+  });
+
+  it('does not show create option when input exactly matches an existing tag', () => {
+    renderTagsSection([]);
+    const input = document.querySelector<HTMLInputElement>('.tag-select-input')!;
+    input.dispatchEvent(new Event('focus'));
+    input.value = 'bug';
+    input.dispatchEvent(new Event('input'));
+
+    const createOpt = document.querySelector<HTMLElement>('.tag-select-create-option');
+    expect(createOpt).toBeNull();
+  });
+
+  it('does not show create option when input is empty', () => {
+    renderTagsSection([]);
+    const input = document.querySelector<HTMLInputElement>('.tag-select-input')!;
+    input.dispatchEvent(new Event('focus'));
+
+    const createOpt = document.querySelector<HTMLElement>('.tag-select-create-option');
+    expect(createOpt).toBeNull();
+  });
+
+  it('creates tag and adds to task on create option mousedown', async () => {
+    const newTag = { id: 2, name: 'newtag' };
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({ ok: true, json: vi.fn().mockResolvedValue(newTag) } as unknown as Response)
+      .mockResolvedValueOnce({ ok: true, json: vi.fn().mockResolvedValue({}) } as unknown as Response);
+    global.fetch = fetchMock;
+
+    renderTagsSection([]);
+    const input = document.querySelector<HTMLInputElement>('.tag-select-input')!;
+    input.dispatchEvent(new Event('focus'));
+    input.value = 'newtag';
+    input.dispatchEvent(new Event('input'));
+
+    const createOpt = document.querySelector<HTMLElement>('.tag-select-create-option')!;
+    expect(createOpt).not.toBeNull();
+
+    createOpt.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+    await Promise.resolve();
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(fetchMock).toHaveBeenCalledWith('/api/tags', expect.objectContaining({ method: 'POST' }));
+    expect(fetchMock).toHaveBeenCalledWith('/api/tasks/42/tags', expect.objectContaining({ method: 'POST' }));
+  });
+
+  it('shows toast on create tag failure', async () => {
+    global.fetch = vi.fn().mockResolvedValue({ ok: false } as unknown as Response);
+
+    // Add a toast element to DOM as showToast requires #toast
+    const toastEl = document.createElement('div');
+    toastEl.id = 'toast';
+    document.body.appendChild(toastEl);
+
+    renderTagsSection([]);
+    const input = document.querySelector<HTMLInputElement>('.tag-select-input')!;
+    input.dispatchEvent(new Event('focus'));
+    input.value = 'failingtag';
+    input.dispatchEvent(new Event('input'));
+
+    const createOpt = document.querySelector<HTMLElement>('.tag-select-create-option')!;
+    createOpt.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+    await Promise.resolve();
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(toastEl.classList.contains('show')).toBe(true);
+  });
+});
+
 describe('renderTagsSection - tag add operation with null task ID', () => {
   beforeEach(() => {
     document.body.innerHTML = '';

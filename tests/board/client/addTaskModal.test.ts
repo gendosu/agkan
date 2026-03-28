@@ -455,3 +455,67 @@ describe('initAddTaskModal - task submission with tags and metadata', () => {
     expect(body.metadata).toBeUndefined();
   });
 });
+
+describe('initAddTaskModal - create new tag option', () => {
+  beforeEach(() => {
+    document.body.innerHTML = '';
+    setupAddModalDOM();
+    vi.spyOn(tagsModule, 'loadAllTags').mockResolvedValue(undefined);
+    Object.defineProperty(tagsModule, 'allAvailableTags', {
+      value: [{ id: 1, name: 'bug' }],
+      writable: true,
+      configurable: true,
+    });
+    initAddTaskModal();
+    // Open the modal
+    document.querySelector<HTMLButtonElement>('.add-btn')!.click();
+  });
+
+  it('shows create option when input does not match existing tag', () => {
+    const input = document.getElementById('add-tag-input') as HTMLInputElement;
+    input.dispatchEvent(new Event('focus'));
+    input.value = 'newfeature';
+    input.dispatchEvent(new Event('input'));
+
+    const createOpt = document.querySelector<HTMLElement>('.tag-select-create-option');
+    expect(createOpt).not.toBeNull();
+    expect(createOpt!.textContent).toBe('Create "newfeature"');
+  });
+
+  it('does not show create option when input exactly matches existing tag', () => {
+    const input = document.getElementById('add-tag-input') as HTMLInputElement;
+    input.dispatchEvent(new Event('focus'));
+    input.value = 'bug';
+    input.dispatchEvent(new Event('input'));
+
+    const createOpt = document.querySelector<HTMLElement>('.tag-select-create-option');
+    expect(createOpt).toBeNull();
+  });
+
+  it('creates tag via API and selects it on create option mousedown', async () => {
+    const newTag = { id: 2, name: 'newfeature' };
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: vi.fn().mockResolvedValue(newTag),
+    } as unknown as Response);
+
+    const input = document.getElementById('add-tag-input') as HTMLInputElement;
+    input.dispatchEvent(new Event('focus'));
+    input.value = 'newfeature';
+    input.dispatchEvent(new Event('input'));
+
+    const createOpt = document.querySelector<HTMLElement>('.tag-select-create-option')!;
+    expect(createOpt).not.toBeNull();
+
+    createOpt.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+    await Promise.resolve();
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(global.fetch).toHaveBeenCalledWith('/api/tags', expect.objectContaining({ method: 'POST' }));
+
+    const pill = document.querySelector('.tag-pill');
+    expect(pill).not.toBeNull();
+    expect(pill!.textContent).toContain('newfeature');
+  });
+});
