@@ -477,6 +477,45 @@ describe('ClaudeProcessService', () => {
     });
   });
 
+  // --- stderr handling ---
+
+  describe('stderr handling', () => {
+    it('should save stderr error to DB log on process close', () => {
+      const db = makeTestDb();
+      db.prepare(
+        "INSERT INTO tasks (id, title, status, created_at, updated_at) VALUES (1, 'T', 'done', datetime('now'), datetime('now'))"
+      ).run();
+
+      const svc = new ClaudeProcessService(db);
+      const { proc, stderr } = makeFakeProcess();
+      spawnMock.mockReturnValue(proc);
+
+      svc.startProcess(1, 'p');
+      (stderr as EventEmitter).emit('data', Buffer.from('some error output\n'));
+      (proc as EventEmitter).emit('close', 1);
+
+      const logs = svc.getRunLogs(1);
+      expect(logs).toHaveLength(1);
+      expect(logs[0].events).toContainEqual({ kind: 'error', message: 'some error output\n' });
+
+      db.close();
+    });
+
+    it('should notify subscribers of stderr error on process close', () => {
+      const { proc, stderr } = makeFakeProcess();
+      spawnMock.mockReturnValue(proc);
+
+      service.startProcess(1, 'p');
+      const cb = vi.fn<(event: OutputEvent) => void>();
+      service.subscribeOutput(1, cb);
+
+      (stderr as EventEmitter).emit('data', Buffer.from('stderr message'));
+      (proc as EventEmitter).emit('close', 1);
+
+      expect(cb).toHaveBeenCalledWith({ kind: 'error', message: 'stderr message' });
+    });
+  });
+
   // --- NDJSON parsing ---
 
   describe('stdout NDJSON parsing', () => {
