@@ -1,6 +1,6 @@
-import Database from 'better-sqlite3';
+import type { MigratableDatabase } from './types';
 
-export function up(db: Database.Database): void {
+export function up(db: MigratableDatabase): void {
   // Create tasks table
   db.exec(`
     CREATE TABLE IF NOT EXISTS tasks (
