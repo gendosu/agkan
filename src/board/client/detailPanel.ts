@@ -326,13 +326,26 @@ export function renderDetailPanel(data: TaskDetail): void {
       // Panel is about to open — wait for the CSS width transition to complete
       // before measuring scrollHeight, otherwise the textarea is sized against
       // a partially-transitioned (narrow) panel width.
-      const onTransitionEnd = (e: TransitionEvent) => {
-        if (e.propertyName === 'width') {
+      const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      if (prefersReducedMotion) {
+        // No transition will run — resize immediately.
+        autoResizeTextarea(textarea);
+      } else {
+        let done = false;
+        const finish = () => {
+          if (done) return;
+          done = true;
           detailPanel.removeEventListener('transitionend', onTransitionEnd);
           autoResizeTextarea(textarea);
-        }
-      };
-      detailPanel.addEventListener('transitionend', onTransitionEnd);
+        };
+        const onTransitionEnd = (e: TransitionEvent) => {
+          if (e.propertyName === 'width') finish();
+        };
+        detailPanel.addEventListener('transitionend', onTransitionEnd);
+        // Fallback: if transitionend fired before listener was registered,
+        // or if the transition is disabled/skipped, call after 260ms (> 250ms transition).
+        setTimeout(finish, 260);
+      }
     } else {
       // Panel is already open (task switch) — no transition, resize next frame.
       requestAnimationFrame(() => {
