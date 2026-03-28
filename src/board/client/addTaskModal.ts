@@ -57,10 +57,14 @@ function renderAddTagDropdown(dropdown: HTMLElement): void {
   const filtered = getFilteredAddTags();
   dropdown.innerHTML = '';
   tagFocusedIndex = -1;
-  if (filtered.length === 0) {
+  const hasInput = tagInputValue.trim() !== '';
+  const exactMatch =
+    hasInput && allAvailableTags.some((t) => t.name.toLowerCase() === tagInputValue.trim().toLowerCase());
+  const showCreate = hasInput && !exactMatch;
+  if (filtered.length === 0 && !showCreate) {
     const noOpt = document.createElement('div');
     noOpt.className = 'tag-select-no-options';
-    noOpt.textContent = tagInputValue ? 'No matching tags' : 'No tags available';
+    noOpt.textContent = hasInput ? 'No matching tags' : 'No tags available';
     dropdown.appendChild(noOpt);
   } else {
     filtered.forEach((t, i) => {
@@ -75,6 +79,19 @@ function renderAddTagDropdown(dropdown: HTMLElement): void {
       });
       dropdown.appendChild(opt);
     });
+    if (showCreate) {
+      const createOpt = document.createElement('div');
+      createOpt.className = 'tag-select-option tag-select-create-option';
+      createOpt.dataset.create = 'true';
+      createOpt.textContent = `Create "${tagInputValue.trim()}"`;
+      createOpt.addEventListener('mouseover', () => setAddTagFocused(dropdown, filtered.length));
+      createOpt.addEventListener('mousedown', async (e: MouseEvent) => {
+        e.preventDefault();
+        const input = document.getElementById('add-tag-input') as HTMLInputElement;
+        await createAndSelectAddTag(tagInputValue.trim(), dropdown, input);
+      });
+      dropdown.appendChild(createOpt);
+    }
   }
 }
 
@@ -93,6 +110,22 @@ function selectAddTag(tagId: number, dropdown: HTMLElement, input: HTMLInputElem
   const control = document.getElementById('add-tag-select-control') as HTMLElement;
   renderAddTagPills(control, input);
   renderAddTagDropdown(dropdown);
+}
+
+async function createAndSelectAddTag(name: string, dropdown: HTMLElement, input: HTMLInputElement): Promise<void> {
+  try {
+    const res = await fetch('/api/tags', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name }),
+    });
+    if (!res.ok) throw new Error('Server error');
+    const newTag = (await res.json()) as Tag;
+    allAvailableTags.push(newTag);
+    selectAddTag(newTag.id, dropdown, input);
+  } catch {
+    showToast('Failed to create tag');
+  }
 }
 
 function initAddTagSelector(): void {
@@ -128,7 +161,7 @@ function initAddTagSelector(): void {
     if (!dropdown.classList.contains('open')) dropdown.classList.add('open');
   });
 
-  input.addEventListener('keydown', (e: KeyboardEvent) => {
+  input.addEventListener('keydown', async (e: KeyboardEvent) => {
     const filtered = getFilteredAddTags();
     const opts = dropdown.querySelectorAll<HTMLElement>('.tag-select-option');
     if (e.key === 'ArrowDown') {
@@ -141,6 +174,8 @@ function initAddTagSelector(): void {
       e.preventDefault();
       if (tagFocusedIndex >= 0 && filtered[tagFocusedIndex]) {
         selectAddTag(filtered[tagFocusedIndex].id, dropdown, input);
+      } else if (tagFocusedIndex >= 0 && tagInputValue.trim()) {
+        await createAndSelectAddTag(tagInputValue.trim(), dropdown, input);
       }
     } else if (e.key === 'Escape') {
       dropdown.classList.remove('open');

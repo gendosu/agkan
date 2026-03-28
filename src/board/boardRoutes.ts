@@ -233,6 +233,18 @@ function registerTagRoutes(app: Hono, tts: TaskTagService, tags: TagService, ts:
     const allTags = tags.listTags();
     return c.json({ tags: allTags });
   });
+  app.post('/api/tags', async (c) => {
+    const body = await c.req.json<{ name?: unknown }>();
+    if (!body.name || typeof body.name !== 'string' || !body.name.trim()) {
+      return c.json({ error: 'Name is required' }, 400);
+    }
+    try {
+      const tag = tags.createTag({ name: body.name.trim() });
+      return c.json(tag, 201);
+    } catch (e) {
+      return c.json({ error: e instanceof Error ? e.message : 'Failed to create tag' }, 400);
+    }
+  });
 }
 
 function registerUtilityRoutes(app: Hono, ts: TaskService): void {
