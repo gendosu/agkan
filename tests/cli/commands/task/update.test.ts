@@ -5,7 +5,7 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { Command } from 'commander';
 import { setupTaskUpdateCommand } from '../../../../src/cli/commands/task/update';
-import { getDatabase } from '../../../../src/db/connection';
+import { resetDatabase } from '../../../../src/db/reset';
 import { TaskService } from '../../../../src/services';
 
 async function runCommand(program: Command, args: string[]): Promise<{ logs: string[]; exitCode: number | undefined }> {
@@ -33,11 +33,8 @@ describe('setupTaskUpdateCommand', () => {
   let program: Command;
 
   beforeEach(() => {
-    // Reset database before each test
-    const db = getDatabase();
-    db.exec('DELETE FROM tasks');
-    db.exec('DELETE FROM task_blocks');
-    db.exec("DELETE FROM sqlite_sequence WHERE name='tasks'");
+    // Reset database before each test (ensures schema migrations have run)
+    resetDatabase();
 
     program = new Command();
     program.exitOverride();
