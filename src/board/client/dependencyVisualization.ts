@@ -56,8 +56,9 @@ function drawBezierLine(
   // Horizontal bezier: control points extend horizontally from each endpoint
   const dx = Math.abs(x2 - x1);
   const cpOffset = Math.max(dx * 0.5, 60);
-  const cp1x = x1 + cpOffset;
-  const cp2x = x2 - cpOffset;
+  // Adjust control point direction based on line direction
+  const cp1x = x1 < x2 ? x1 + cpOffset : x1 - cpOffset;
+  const cp2x = x1 < x2 ? x2 - cpOffset : x2 + cpOffset;
 
   const pathData = `M ${x1} ${y1} C ${cp1x} ${y1}, ${cp2x} ${y2}, ${x2} ${y2}`;
   path.setAttribute('d', pathData);
