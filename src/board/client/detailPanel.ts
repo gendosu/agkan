@@ -246,16 +246,51 @@ function handleCommentAction(e: MouseEvent): void {
 }
 
 function renderRunLogsInPane(pane: HTMLElement, logs: Awaited<ReturnType<typeof fetchRunLogs>>): void {
-  const scrollable = pane.scrollHeight > pane.clientHeight;
-  const isNearBottom = !scrollable || pane.scrollHeight - pane.scrollTop - pane.clientHeight <= 50;
-  const savedScrollTop = pane.scrollTop;
-  pane.innerHTML = renderRunLogsHtml(logs);
-  requestAnimationFrame(() => {
-    if (isNearBottom) {
-      pane.scrollTop = pane.scrollHeight;
-    } else {
-      pane.scrollTop = savedScrollTop;
+  // Save open state and scroll positions keyed by log ID
+  const bodyScrollState = new Map<number, { scrollTop: number; isNearBottom: boolean }>();
+  const openLogIds = new Set<number>();
+  const hadPreviousItems = pane.querySelector('.run-log-item') !== null;
+
+  pane.querySelectorAll<HTMLElement>('.run-log-item.open').forEach((item) => {
+    const logId = Number(item.dataset.logId);
+    if (!logId) return;
+    openLogIds.add(logId);
+    const body = item.querySelector<HTMLElement>('.run-log-body');
+    if (body) {
+      const isNearBottom = body.scrollHeight - body.scrollTop - body.clientHeight <= 50;
+      bodyScrollState.set(logId, { scrollTop: body.scrollTop, isNearBottom });
     }
+  });
+
+  pane.innerHTML = renderRunLogsHtml(logs);
+
+  requestAnimationFrame(() => {
+    pane.querySelectorAll<HTMLElement>('.run-log-item').forEach((item) => {
+      const logId = Number(item.dataset.logId);
+      if (!logId) return;
+      const body = item.querySelector<HTMLElement>('.run-log-body');
+      if (!body) return;
+
+      if (hadPreviousItems) {
+        // Restore open/closed state from before the re-render
+        if (openLogIds.has(logId)) {
+          item.classList.add('open');
+          const state = bodyScrollState.get(logId);
+          if (state) {
+            body.scrollTop = state.isNearBottom ? body.scrollHeight : state.scrollTop;
+          } else {
+            body.scrollTop = body.scrollHeight;
+          }
+        } else {
+          item.classList.remove('open');
+        }
+      } else {
+        // First render: keep default open state and scroll to bottom
+        if (item.classList.contains('open')) {
+          body.scrollTop = body.scrollHeight;
+        }
+      }
+    });
   });
 }
 
