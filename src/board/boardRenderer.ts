@@ -46,7 +46,7 @@ export function renderCard(task: Task, tags: Tag[], blockedByIds: number[] = [],
   const dataBlocking = blockingIds.length > 0 ? ` data-blocking="${blockingIds.join(',')}"` : '';
 
   let cardActions = '';
-  if (task.status === 'ready') {
+  if (['ready', 'in_progress'].includes(task.status)) {
     cardActions = `<div class="card-actions"><div class="claude-run-split" data-task-id="${task.id}"><button class="claude-run-btn" data-task-id="${task.id}">&#9654; Run</button><button class="claude-run-toggle" data-task-id="${task.id}" title="More options">&#9660;</button><div class="claude-run-menu"><button class="claude-run-menu-item" data-task-id="${task.id}" data-command="direct">&#9654; Run (current branch)</button><button class="claude-run-menu-item" data-task-id="${task.id}" data-command="pr">&#9654; Run (create PR)</button></div></div></div>`;
   } else if (!['review', 'done', 'closed'].includes(task.status)) {
     cardActions = `<div class="card-actions"><button class="claude-plan-btn" data-task-id="${task.id}">&#128203; Planning</button></div>`;

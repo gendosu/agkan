@@ -66,7 +66,7 @@ function replaceWithRunOrPlanBtn(btn: HTMLButtonElement, taskId: number, status:
     btn.remove();
     return;
   }
-  if (status === 'ready') {
+  if (['ready', 'in_progress'].includes(status ?? '')) {
     const split = createRunSplitElement(taskId);
     btn.replaceWith(split);
   } else {

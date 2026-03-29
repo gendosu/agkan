@@ -83,7 +83,7 @@ function makeCard(taskId: number, status = 'backlog'): HTMLElement {
   header.className = 'card-header';
   const actions = document.createElement('div');
   actions.className = 'card-actions';
-  if (status === 'ready') {
+  if (['ready', 'in_progress'].includes(status)) {
     actions.appendChild(makeRunSplit(taskId));
   } else {
     const btn = document.createElement('button');
@@ -141,6 +141,17 @@ describe('updateButtonStates', () => {
     updateButtonStates(new Set());
     expect(document.querySelector('.claude-detail-btn')).toBeNull();
     expect(document.querySelector('.claude-run-btn')).not.toBeNull();
+  });
+
+  it('converts detail button back to run button when task stops running (in_progress status)', () => {
+    makeCard(6, 'in_progress');
+    updateButtonStates(new Set([6]));
+    expect(document.querySelector('.claude-detail-btn')).not.toBeNull();
+
+    updateButtonStates(new Set());
+    expect(document.querySelector('.claude-detail-btn')).toBeNull();
+    expect(document.querySelector('.claude-run-btn')).not.toBeNull();
+    expect(document.querySelector('.claude-plan-btn')).toBeNull();
   });
 
   it('updates getRunningTaskIds to reflect current running tasks', () => {
