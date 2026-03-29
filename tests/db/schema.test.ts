@@ -69,7 +69,7 @@ describe('runMigrations', () => {
 
     const count = (db.prepare(`SELECT COUNT(*) as count FROM schema_migrations`).get() as { count: number }).count;
 
-    expect(count).toBe(1);
+    expect(count).toBe(realMigrations.length);
   });
 
   it('is safe to run on a legacy database without schema_migrations', () => {
