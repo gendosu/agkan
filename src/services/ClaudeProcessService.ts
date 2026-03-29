@@ -46,6 +46,7 @@ export interface RunLog {
   started_at: string;
   finished_at: string | null;
   exit_code: number | null;
+  session_id: string | null;
   events: OutputEvent[];
 }
 
@@ -55,6 +56,7 @@ interface RunLogRow {
   started_at: string;
   finished_at: string | null;
   exit_code: number | null;
+  session_id: string | null;
   events: string;
 }
 
@@ -68,6 +70,7 @@ interface ProcessInfo {
   processedEvents: OutputEvent[];
   subscribers: Set<SubscribeCallback>;
   runLogId: number | null;
+  sessionId: string | null;
 }
 
 // ---- ClaudeProcessService ----
@@ -125,6 +128,7 @@ export class ClaudeProcessService {
       processedEvents: [],
       subscribers: new Set(),
       runLogId: null,
+      sessionId: null,
     };
 
     this.processes.set(taskId, info);
@@ -343,6 +347,7 @@ export class ClaudeProcessService {
       started_at: r.started_at,
       finished_at: r.finished_at,
       exit_code: r.exit_code,
+      session_id: r.session_id,
       events: JSON.parse(r.events) as OutputEvent[],
     }));
   }
@@ -350,6 +355,13 @@ export class ClaudeProcessService {
   // ---- Private helpers ----
 
   private _notifySubscribers(info: ProcessInfo, event: ClaudeStreamEvent): void {
+    if (event.type === 'system' && event.session_id && !info.sessionId) {
+      info.sessionId = event.session_id as string;
+      if (this.db && info.runLogId) {
+        this.db.prepare(`UPDATE task_run_logs SET session_id = ? WHERE id = ?`).run(info.sessionId, info.runLogId);
+      }
+    }
+
     if (event.type === 'assistant') {
       const assistantEvent = event as Extract<ClaudeStreamEvent, { type: 'assistant' }>;
       let added = false;

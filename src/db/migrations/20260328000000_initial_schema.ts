@@ -249,6 +249,15 @@ export function up(db: MigratableDatabase): void {
     CREATE INDEX IF NOT EXISTS idx_task_run_logs_task_id ON task_run_logs(task_id);
   `);
 
+  // Add session_id column to task_run_logs table
+  const sessionIdColumnExists = db
+    .prepare(`SELECT COUNT(*) as count FROM pragma_table_info('task_run_logs') WHERE name = 'session_id'`)
+    .get() as { count: number };
+
+  if (sessionIdColumnExists.count === 0) {
+    db.exec(`ALTER TABLE task_run_logs ADD COLUMN session_id TEXT DEFAULT NULL`);
+  }
+
   // Migrate priority from task_metadata to tasks.priority
   const priorityMetadata = db
     .prepare(`SELECT task_id, value FROM task_metadata WHERE key = 'priority'`)

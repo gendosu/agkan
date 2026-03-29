@@ -305,6 +305,7 @@ describe('ClaudeProcessService', () => {
       expect(logs).toHaveLength(2);
       expect(logs[0].exit_code).toBe(1); // most recent first
       expect(logs[0].events[0]).toEqual({ kind: 'text', text: 'second' });
+      expect(logs[0].session_id).toBeNull();
       expect(logs[1].exit_code).toBe(0);
 
       db.close();
@@ -376,6 +377,80 @@ describe('ClaudeProcessService', () => {
       (proc as EventEmitter).emit('close', 0);
 
       expect(svc.getRunLogs(1)).toHaveLength(5);
+
+      db.close();
+    });
+  });
+
+  // --- session_id capture ---
+
+  describe('session_id capture', () => {
+    it('should save session_id to DB when system event with session_id is received', () => {
+      const db = makeTestDb();
+      db.prepare(
+        "INSERT INTO tasks (id, title, status, created_at, updated_at) VALUES (1, 'T', 'done', datetime('now'), datetime('now'))"
+      ).run();
+
+      const svc = new ClaudeProcessService(db);
+      const { proc, stdout } = makeFakeProcess();
+      spawnMock.mockReturnValue(proc);
+
+      svc.startProcess(1, 'p');
+
+      const systemEvent = { type: 'system', subtype: 'init', session_id: 'sess-abc-123' };
+      (stdout as EventEmitter).emit('data', Buffer.from(JSON.stringify(systemEvent) + '\n'));
+      (proc as EventEmitter).emit('close', 0);
+
+      const logs = svc.getRunLogs(1);
+      expect(logs).toHaveLength(1);
+      expect(logs[0].session_id).toBe('sess-abc-123');
+
+      db.close();
+    });
+
+    it('should leave session_id null when no system event with session_id is received', () => {
+      const db = makeTestDb();
+      db.prepare(
+        "INSERT INTO tasks (id, title, status, created_at, updated_at) VALUES (1, 'T', 'done', datetime('now'), datetime('now'))"
+      ).run();
+
+      const svc = new ClaudeProcessService(db);
+      const { proc, stdout } = makeFakeProcess();
+      spawnMock.mockReturnValue(proc);
+
+      svc.startProcess(1, 'p');
+
+      const textEvent = { type: 'assistant', message: { content: [{ type: 'text', text: 'hi' }] } };
+      (stdout as EventEmitter).emit('data', Buffer.from(JSON.stringify(textEvent) + '\n'));
+      (proc as EventEmitter).emit('close', 0);
+
+      const logs = svc.getRunLogs(1);
+      expect(logs).toHaveLength(1);
+      expect(logs[0].session_id).toBeNull();
+
+      db.close();
+    });
+
+    it('should only capture the first session_id and not overwrite it', () => {
+      const db = makeTestDb();
+      db.prepare(
+        "INSERT INTO tasks (id, title, status, created_at, updated_at) VALUES (1, 'T', 'done', datetime('now'), datetime('now'))"
+      ).run();
+
+      const svc = new ClaudeProcessService(db);
+      const { proc, stdout } = makeFakeProcess();
+      spawnMock.mockReturnValue(proc);
+
+      svc.startProcess(1, 'p');
+
+      const firstSystem = { type: 'system', subtype: 'init', session_id: 'first-session' };
+      const secondSystem = { type: 'system', subtype: 'other', session_id: 'second-session' };
+      (stdout as EventEmitter).emit('data', Buffer.from(JSON.stringify(firstSystem) + '\n'));
+      (stdout as EventEmitter).emit('data', Buffer.from(JSON.stringify(secondSystem) + '\n'));
+      (proc as EventEmitter).emit('close', 0);
+
+      const logs = svc.getRunLogs(1);
+      expect(logs[0].session_id).toBe('first-session');
 
       db.close();
     });
