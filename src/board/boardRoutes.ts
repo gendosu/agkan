@@ -454,6 +454,7 @@ function registerClaudeRoutes(app: Hono, claudeProcess: ClaudeProcessService, ts
             controller.close();
           } else if (evt.kind === 'error') {
             controller.enqueue(encode('error', { message: evt.message }));
+            controller.close();
           }
         });
 
