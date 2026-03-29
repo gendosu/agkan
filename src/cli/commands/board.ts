@@ -9,8 +9,12 @@ export function setupBoardCommand(program: Command): void {
     .description('Start a local Kanban board viewer at localhost')
     .option('-p, --port <number>', 'Port to listen on')
     .option('-t, --title <text>', 'Board title to display in the header')
-    .action((options: { port?: string; title?: string }) => {
+    .option('--verbose', 'Enable verbose logging')
+    .action((options: { port?: string; title?: string; verbose?: boolean }) => {
       try {
+        if (options.verbose) {
+          process.env.VERBOSE = 'true';
+        }
         const config = loadConfig();
         const configPort = config.board?.port;
         const configTitle = config.board?.title;

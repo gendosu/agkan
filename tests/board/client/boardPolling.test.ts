@@ -15,6 +15,7 @@ import {
   pollBoardUpdates,
   applyIncrementalCardUpdate,
 } from '../../../src/board/client/boardPolling';
+import { updateButtonStates } from '../../../src/board/client/claudeButton';
 
 beforeEach(() => {
   vi.restoreAllMocks();
@@ -133,6 +134,29 @@ describe('refreshBoardCards', () => {
 
     const countEl = document.querySelector('.column-count')!;
     expect(countEl.textContent).toBe('5');
+  });
+
+  it('immediately disables run buttons when a running task exists after DOM update', async () => {
+    // Simulate a running task (task id 99) already tracked
+    updateButtonStates(new Set([99]));
+
+    // New card with a run-split button for task id 1 arrives via polling
+    const newCardHtml = `<div class="card" data-id="1" data-status="ready" data-updated-at="2026-01-01T00:00:00.000Z">
+      <div class="claude-run-split" data-task-id="1">
+        <button class="claude-run-btn">Run</button>
+      </div>
+    </div>`;
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: vi.fn().mockResolvedValue({
+        columns: [{ status: 'backlog', html: newCardHtml, count: 1 }],
+      }),
+    } as unknown as Response);
+
+    await refreshBoardCards();
+
+    const runBtn = document.querySelector<HTMLButtonElement>('.claude-run-btn')!;
+    expect(runBtn.disabled).toBe(true);
   });
 });
 

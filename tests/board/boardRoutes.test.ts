@@ -573,6 +573,77 @@ describe('GET /api/tags', () => {
   });
 });
 
+describe('POST /api/tags', () => {
+  it('creates a new tag and returns 201', async () => {
+    const app = buildApp(buildServices());
+    const res = await app.fetch(
+      new Request('http://localhost/api/tags', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: 'newtag' }),
+      })
+    );
+    expect(res.status).toBe(201);
+    const tag = (await res.json()) as { id: number; name: string };
+    expect(tag.name).toBe('newtag');
+    expect(typeof tag.id).toBe('number');
+  });
+
+  it('trims whitespace from tag name', async () => {
+    const app = buildApp(buildServices());
+    const res = await app.fetch(
+      new Request('http://localhost/api/tags', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: '  trimmed  ' }),
+      })
+    );
+    expect(res.status).toBe(201);
+    const tag = (await res.json()) as { name: string };
+    expect(tag.name).toBe('trimmed');
+  });
+
+  it('returns 400 when name is missing', async () => {
+    const app = buildApp(buildServices());
+    const res = await app.fetch(
+      new Request('http://localhost/api/tags', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
+      })
+    );
+    expect(res.status).toBe(400);
+    const data = (await res.json()) as { error: string };
+    expect(data.error).toContain('Name');
+  });
+
+  it('returns 400 when name is empty string', async () => {
+    const app = buildApp(buildServices());
+    const res = await app.fetch(
+      new Request('http://localhost/api/tags', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: '   ' }),
+      })
+    );
+    expect(res.status).toBe(400);
+  });
+
+  it('returns 400 when tag name already exists', async () => {
+    const services = buildServices();
+    services.tags.createTag({ name: 'duplicate' });
+    const app = buildApp(services);
+    const res = await app.fetch(
+      new Request('http://localhost/api/tags', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: 'duplicate' }),
+      })
+    );
+    expect(res.status).toBe(400);
+  });
+});
+
 describe('POST /api/tasks/:id/tags', () => {
   it('attaches a tag to a task', async () => {
     const services = buildServices();

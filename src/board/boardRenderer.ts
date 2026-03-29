@@ -4,6 +4,7 @@ import { Task, TaskStatus, PRIORITIES, PRIORITY_ORDER } from '../models';
 import { Tag } from '../models/Tag';
 import { StorageBackend } from '../db/types/repository';
 import { BOARD_STYLES } from './boardStyles';
+import { BOARD_FAVICON_BASE64 } from './boardFavicon';
 
 export const STATUSES: TaskStatus[] = ['icebox', 'backlog', 'ready', 'in_progress', 'review', 'done', 'closed'];
 
@@ -45,11 +46,19 @@ export function renderCard(task: Task, tags: Tag[], blockedByIds: number[] = [],
   const dataBlockedBy = blockedByIds.length > 0 ? ` data-blocked-by="${blockedByIds.join(',')}"` : '';
   const dataBlocking = blockingIds.length > 0 ? ` data-blocking="${blockingIds.join(',')}"` : '';
 
+  let cardActions = '';
+  if (['ready', 'in_progress'].includes(task.status)) {
+    cardActions = `<div class="card-actions"><div class="claude-run-split" data-task-id="${task.id}"><button class="claude-run-btn" data-task-id="${task.id}">&#9654; Run</button><button class="claude-run-toggle" data-task-id="${task.id}" title="More options">&#9660;</button><div class="claude-run-menu"><button class="claude-run-menu-item" data-task-id="${task.id}" data-command="direct">&#9654; Run (current branch)</button><button class="claude-run-menu-item" data-task-id="${task.id}" data-command="pr">&#9654; Run (create PR)</button></div></div></div>`;
+  } else if (!['review', 'done', 'closed'].includes(task.status)) {
+    cardActions = `<div class="card-actions"><button class="claude-plan-btn" data-task-id="${task.id}">&#128203; Planning</button></div>`;
+  }
+
   return `
     <div class="card" draggable="true" data-id="${task.id}" data-status="${task.status}" data-updated-at="${escapeHtml(task.updated_at)}"${dataBlockedBy}${dataBlocking}>
       <div class="card-header">
         <span class="card-id">#${task.id}</span>
         ${priorityBadge}
+        ${cardActions}
       </div>
       <div class="card-title">${escapeHtml(task.title)}</div>
       ${tagBadges ? `<div class="card-tags">${tagBadges}</div>` : ''}
@@ -129,6 +138,24 @@ function getContextMenuAndToast(): string {
   <div class="toast" id="toast">Failed to update task</div>`;
 }
 
+function getClaudeStreamModal(): string {
+  return `
+  <div class="modal-overlay" id="claude-stream-modal">
+    <div class="modal" style="width:680px;">
+      <div class="claude-stream-modal-header">
+        <h2 id="claude-stream-modal-title">Claude Output</h2>
+        <button id="claude-stream-modal-close">&#x2715;</button>
+      </div>
+      <div id="claude-stream-log" class="claude-stream-log"></div>
+      <div class="claude-stream-modal-footer">
+        <span id="claude-stream-status" class="claude-stream-status">Connecting...</span>
+        <button id="claude-stream-stop-btn" class="claude-stream-stop-btn">Stop</button>
+        <button id="claude-stream-close-btn">Close</button>
+      </div>
+    </div>
+  </div>`;
+}
+
 function getPurgeAndVersionModals(): string {
   return `
   <div class="modal-overlay" id="purge-confirm-modal">
@@ -194,7 +221,7 @@ function getBoardBodyStatic(): string {
     var allPriorities = ${JSON.stringify(PRIORITIES)};
     ${clientBundle}`;
 
-  return `${getAddTaskModal()}${getContextMenuAndToast()}${getPurgeAndVersionModals()}
+  return `${getAddTaskModal()}${getContextMenuAndToast()}${getPurgeAndVersionModals()}${getClaudeStreamModal()}
   <script>${script}
   </script>`;
 }
@@ -219,6 +246,7 @@ export function renderBoard(
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>agkan board</title>
+  <link rel="icon" type="image/png" href="${BOARD_FAVICON_BASE64}">
   <style>${BOARD_STYLES}
   </style>
 </head>

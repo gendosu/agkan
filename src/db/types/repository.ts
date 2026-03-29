@@ -169,6 +169,41 @@ export interface CommentRepository {
 }
 
 /**
+ * Raw DB row shape for task_run_logs table
+ */
+export interface RunLogRow {
+  id: number;
+  task_id: number;
+  started_at: string;
+  finished_at: string | null;
+  exit_code: number | null;
+  session_id: string | null;
+  events: string;
+}
+
+/**
+ * Repository for task run log data access
+ */
+export interface RunLogRepository {
+  /** Create a new run log entry and return its ID */
+  create(taskId: number, startedAt: string): number;
+  /** Update a run log with final status (on process close or error) */
+  updateFinished(id: number, finishedAt: string, exitCode: number, events: string): void;
+  /** Update the session_id of a run log */
+  updateSessionId(id: number, sessionId: string): void;
+  /** Update the events of a run log (incremental update) */
+  updateEvents(id: number, events: string): void;
+  /** Find the most recent run log for a task */
+  findLatestByTaskId(taskId: number): RunLogRow | null;
+  /** Find run logs for a task, ordered by started_at DESC, up to limit */
+  findByTaskId(taskId: number, limit: number): RunLogRow[];
+  /** Find all run log IDs for a task, ordered by started_at DESC */
+  findIdsByTaskId(taskId: number): number[];
+  /** Delete run logs by IDs */
+  deleteMany(ids: number[]): void;
+}
+
+/**
  * StorageBackend - collection of all entity repositories
  *
  * This is the main interface that replaces StorageProvider for use in services.
@@ -181,6 +216,7 @@ export interface StorageBackend {
   taskTags: TaskTagRepository;
   metadata: MetadataRepository;
   comments: CommentRepository;
+  runLogs: RunLogRepository;
   /** Execute a function within a database transaction */
   transaction<T>(fn: () => T): T;
   /** Update task timestamps directly (used during import) */

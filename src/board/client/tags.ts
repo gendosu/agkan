@@ -86,14 +86,45 @@ export function renderTagsSection(currentTags: Tag[]): void {
     input.placeholder = currentTags.length === 0 ? 'Add tags...' : '';
   }
 
+  async function createAndAddTag(name: string): Promise<void> {
+    const detailTaskId = _getDetailTaskId ? _getDetailTaskId() : null;
+    try {
+      const createRes = await fetch('/api/tags', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name }),
+      });
+      if (!createRes.ok) throw new Error('Server error');
+      const newTag = (await createRes.json()) as Tag;
+      allAvailableTags.push(newTag);
+      const taskRes = await fetch('/api/tasks/' + detailTaskId + '/tags', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tagId: newTag.id }),
+      });
+      if (!taskRes.ok) throw new Error('Server error');
+      currentTags.push(newTag);
+      input.value = '';
+      inputValue = '';
+      renderPills();
+      renderDropdown();
+    } catch {
+      showToast('Failed to create tag');
+    }
+  }
+
   function renderDropdown(): void {
     const filtered = getFilteredTags();
     dropdown.innerHTML = '';
     focusedOptionIndex = -1;
-    if (filtered.length === 0) {
+    const hasInput = inputValue.trim() !== '';
+    const exactMatch =
+      hasInput && allAvailableTags.some((t) => t.name.toLowerCase() === inputValue.trim().toLowerCase());
+    const showCreate = hasInput && !exactMatch;
+    if (filtered.length === 0 && !showCreate) {
       const noOpt = document.createElement('div');
       noOpt.className = 'tag-select-no-options';
-      noOpt.textContent = inputValue ? 'No matching tags' : 'No tags available';
+      noOpt.textContent = hasInput ? 'No matching tags' : 'No tags available';
       dropdown.appendChild(noOpt);
     } else {
       filtered.forEach((t, i) => {
@@ -108,6 +139,18 @@ export function renderTagsSection(currentTags: Tag[]): void {
         });
         dropdown.appendChild(opt);
       });
+      if (showCreate) {
+        const createOpt = document.createElement('div');
+        createOpt.className = 'tag-select-option tag-select-create-option';
+        createOpt.dataset.create = 'true';
+        createOpt.textContent = `Create "${inputValue.trim()}"`;
+        createOpt.addEventListener('mouseover', () => setFocusedOption(filtered.length));
+        createOpt.addEventListener('mousedown', async (e: MouseEvent) => {
+          e.preventDefault();
+          await createAndAddTag(inputValue.trim());
+        });
+        dropdown.appendChild(createOpt);
+      }
     }
   }
 
@@ -169,6 +212,8 @@ export function renderTagsSection(currentTags: Tag[]): void {
       e.preventDefault();
       if (focusedOptionIndex >= 0 && filtered[focusedOptionIndex]) {
         await addTag(String(filtered[focusedOptionIndex].id));
+      } else if (focusedOptionIndex >= 0 && inputValue.trim()) {
+        await createAndAddTag(inputValue.trim());
       }
     } else if (e.key === 'Escape') {
       closeDropdown();

@@ -40,6 +40,9 @@ import { setupCommentAddCommand } from './commands/comment/add';
 import { setupCommentListCommand } from './commands/comment/list';
 import { setupCommentDeleteCommand } from './commands/comment/delete';
 
+// Ps command handler
+import { setupPsCommand } from './commands/ps';
+
 // Board command handler
 import { setupBoardCommand } from './commands/board';
 
@@ -102,6 +105,9 @@ setupMetaDeleteCommand(program);
 setupCommentAddCommand(program);
 setupCommentListCommand(program);
 setupCommentDeleteCommand(program);
+
+// Register ps command
+setupPsCommand(program);
 
 // Register board command
 setupBoardCommand(program);

@@ -23,9 +23,14 @@ export function resetDatabase(): void {
   // Database file path
   const dbPath = resolveDatabasePath();
 
-  // Delete database file if it exists
-  if (fs.existsSync(dbPath)) {
-    fs.unlinkSync(dbPath);
+  // Delete database file and auxiliary SQLite files (journal, WAL, SHM).
+  // Orphaned auxiliary files from a previous interrupted write can cause
+  // SQLite to attempt journal recovery on the newly-created file, leading
+  // to "attempt to write a readonly database" or "disk I/O error".
+  for (const path of [dbPath, `${dbPath}-journal`, `${dbPath}-wal`, `${dbPath}-shm`]) {
+    if (fs.existsSync(path)) {
+      fs.unlinkSync(path);
+    }
   }
 
   // Initialize new database connection (schema is automatically created)
