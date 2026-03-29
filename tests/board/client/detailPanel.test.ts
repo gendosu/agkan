@@ -912,6 +912,36 @@ describe('Detail panel design updates', () => {
     expect(textarea.style.height).toBeTruthy();
   });
 
+  it('textarea is auto-resized after panel opens with 5+ line description', async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ comments: [] }),
+    });
+
+    const { renderDetailPanel } = await import('../../../src/board/client/detailPanel');
+    const longBody = 'line1\nline2\nline3\nline4\nline5\nline6';
+    const data = makeTaskDetail({
+      task: {
+        ...makeTaskDetail().task,
+        body: longBody,
+      },
+    });
+    renderDetailPanel(data);
+
+    // Dispatch transitionend to simulate panel width transition completing.
+    const detailPanel = document.getElementById('detail-panel') as HTMLElement;
+    const transitionEvent = new TransitionEvent('transitionend', { propertyName: 'width' });
+    detailPanel.dispatchEvent(transitionEvent);
+
+    // Allow double rAF (each resolves as setTimeout(0) in jsdom) to flush.
+    await new Promise((resolve) => setTimeout(resolve, 50));
+
+    const textarea = document.getElementById('detail-edit-body') as HTMLTextAreaElement;
+    expect(textarea).not.toBeNull();
+    // autoResizeTextarea should have set style.height after the double rAF.
+    expect(textarea.style.height).toBeTruthy();
+  });
+
   it('detail tab content div is rendered with active class', async () => {
     global.fetch = vi.fn().mockResolvedValue({
       ok: true,

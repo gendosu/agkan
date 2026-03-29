@@ -377,7 +377,13 @@ export function renderDetailPanel(data: TaskDetail): void {
           if (done) return;
           done = true;
           detailPanel.removeEventListener('transitionend', onTransitionEnd);
-          autoResizeTextarea(textarea);
+          // Double rAF ensures browser reflow after the width transition completes
+          // before measuring scrollHeight, so tall descriptions size correctly.
+          requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+              autoResizeTextarea(textarea);
+            });
+          });
         };
         const onTransitionEnd = (e: TransitionEvent) => {
           if (e.propertyName === 'width') finish();
