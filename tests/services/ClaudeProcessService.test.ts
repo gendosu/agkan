@@ -4,6 +4,7 @@ import { ClaudeProcessService } from '../../src/services/ClaudeProcessService';
 import type { OutputEvent } from '../../src/services/ClaudeProcessService';
 import Database from 'better-sqlite3';
 import { runMigrations } from '../../src/db/schema';
+import { SQLiteStorageBackend } from '../../src/db/adapters/sqlite-storage-backend';
 
 // ---- Mock child_process ----
 
@@ -31,6 +32,10 @@ function makeTestDb(): Database.Database {
   db.pragma('foreign_keys = ON');
   runMigrations(db);
   return db;
+}
+
+function makeTestBackend(db: Database.Database): SQLiteStorageBackend {
+  return new SQLiteStorageBackend(db);
 }
 
 // ---- Tests ----
@@ -225,7 +230,7 @@ describe('ClaudeProcessService', () => {
         "INSERT INTO task_run_logs (task_id, started_at, finished_at, exit_code, events) VALUES (1, datetime('now'), datetime('now'), 0, ?)"
       ).run(events);
 
-      const svc = new ClaudeProcessService(db);
+      const svc = new ClaudeProcessService(makeTestBackend(db));
       const received: OutputEvent[] = [];
       svc.subscribeOutput(1, (evt) => received.push(evt));
 
@@ -239,7 +244,7 @@ describe('ClaudeProcessService', () => {
 
     it('should emit error when process not running and no log in DB', () => {
       const db = makeTestDb();
-      const svc = new ClaudeProcessService(db);
+      const svc = new ClaudeProcessService(makeTestBackend(db));
       const cb = vi.fn<(event: OutputEvent) => void>();
       svc.subscribeOutput(999, cb);
 
@@ -282,7 +287,7 @@ describe('ClaudeProcessService', () => {
 
     it('should return empty array when no logs exist for the task', () => {
       const db = makeTestDb();
-      const svc = new ClaudeProcessService(db);
+      const svc = new ClaudeProcessService(makeTestBackend(db));
       expect(svc.getRunLogs(1)).toEqual([]);
       db.close();
     });
@@ -299,7 +304,7 @@ describe('ClaudeProcessService', () => {
         "INSERT INTO task_run_logs (task_id, started_at, finished_at, exit_code, events) VALUES (1, '2026-03-27T11:00:00.000Z', '2026-03-27T11:01:00.000Z', 1, ?)"
       ).run(JSON.stringify([{ kind: 'text', text: 'second' }]));
 
-      const svc = new ClaudeProcessService(db);
+      const svc = new ClaudeProcessService(makeTestBackend(db));
       const logs = svc.getRunLogs(1);
 
       expect(logs).toHaveLength(2);
@@ -322,7 +327,7 @@ describe('ClaudeProcessService', () => {
         ).run(String(i), JSON.stringify([]));
       }
 
-      const svc = new ClaudeProcessService(db);
+      const svc = new ClaudeProcessService(makeTestBackend(db));
       expect(svc.getRunLogs(1)).toHaveLength(5);
       db.close();
     });
@@ -337,7 +342,7 @@ describe('ClaudeProcessService', () => {
         "INSERT INTO tasks (id, title, status, created_at, updated_at) VALUES (1, 'T', 'done', datetime('now'), datetime('now'))"
       ).run();
 
-      const svc = new ClaudeProcessService(db);
+      const svc = new ClaudeProcessService(makeTestBackend(db));
       const { proc, stdout } = makeFakeProcess();
       spawnMock.mockReturnValue(proc);
 
@@ -361,7 +366,7 @@ describe('ClaudeProcessService', () => {
         "INSERT INTO tasks (id, title, status, created_at, updated_at) VALUES (1, 'T', 'done', datetime('now'), datetime('now'))"
       ).run();
 
-      const svc = new ClaudeProcessService(db);
+      const svc = new ClaudeProcessService(makeTestBackend(db));
 
       // Insert 5 existing logs
       for (let i = 0; i < 5; i++) {
@@ -391,7 +396,7 @@ describe('ClaudeProcessService', () => {
         "INSERT INTO tasks (id, title, status, created_at, updated_at) VALUES (1, 'T', 'done', datetime('now'), datetime('now'))"
       ).run();
 
-      const svc = new ClaudeProcessService(db);
+      const svc = new ClaudeProcessService(makeTestBackend(db));
       const { proc, stdout } = makeFakeProcess();
       spawnMock.mockReturnValue(proc);
 
@@ -414,7 +419,7 @@ describe('ClaudeProcessService', () => {
         "INSERT INTO tasks (id, title, status, created_at, updated_at) VALUES (1, 'T', 'done', datetime('now'), datetime('now'))"
       ).run();
 
-      const svc = new ClaudeProcessService(db);
+      const svc = new ClaudeProcessService(makeTestBackend(db));
       const { proc, stdout } = makeFakeProcess();
       spawnMock.mockReturnValue(proc);
 
@@ -437,7 +442,7 @@ describe('ClaudeProcessService', () => {
         "INSERT INTO tasks (id, title, status, created_at, updated_at) VALUES (1, 'T', 'done', datetime('now'), datetime('now'))"
       ).run();
 
-      const svc = new ClaudeProcessService(db);
+      const svc = new ClaudeProcessService(makeTestBackend(db));
       const { proc, stdout } = makeFakeProcess();
       spawnMock.mockReturnValue(proc);
 
@@ -534,7 +539,7 @@ describe('ClaudeProcessService', () => {
         "INSERT INTO tasks (id, title, status, created_at, updated_at) VALUES (1, 'T', 'done', datetime('now'), datetime('now'))"
       ).run();
 
-      const svc = new ClaudeProcessService(db);
+      const svc = new ClaudeProcessService(makeTestBackend(db));
       const { proc } = makeFakeProcess();
       spawnMock.mockReturnValue(proc);
 
@@ -561,7 +566,7 @@ describe('ClaudeProcessService', () => {
         "INSERT INTO tasks (id, title, status, created_at, updated_at) VALUES (1, 'T', 'done', datetime('now'), datetime('now'))"
       ).run();
 
-      const svc = new ClaudeProcessService(db);
+      const svc = new ClaudeProcessService(makeTestBackend(db));
       const { proc, stderr } = makeFakeProcess();
       spawnMock.mockReturnValue(proc);
 
