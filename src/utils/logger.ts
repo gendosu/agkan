@@ -9,6 +9,7 @@ export function isVerbose(): boolean {
 
 export function verboseLog(message: string, ...args: unknown[]): void {
   if (isVerbose()) {
-    console.log(message, ...args);
+    const ts = new Date().toISOString();
+    console.log(`[${ts}] ${message}`, ...args);
   }
 }
