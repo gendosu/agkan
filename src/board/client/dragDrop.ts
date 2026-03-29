@@ -1,6 +1,7 @@
 // Drag and drop functionality
 
 import { showToast } from './utils';
+import { updateCardButton } from './claudeButton';
 
 let _redrawDependencies: (() => void) | null = null;
 
@@ -50,6 +51,7 @@ async function handleDrop(e: DragEvent, newStatus: string, colEl: HTMLElement): 
   (draggedCard as HTMLElement).dataset.status = newStatus;
   updateCount(oldStatus!);
   updateCount(newStatus);
+  updateCardButton(draggedCard as HTMLElement, newStatus);
 
   try {
     const res = await fetch('/api/tasks/' + taskId, {
