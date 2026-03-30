@@ -34,7 +34,7 @@ export function setupTaskAddCommand(program: Command): void {
     .option('-a, --author <author>', 'Task author')
     .option('--assignees <assignees>', 'Task assignees (comma-separated)')
     .option('-s, --status <status>', 'Task status (backlog, ready, in_progress, review, done, closed)', 'backlog')
-    .option('--priority <priority>', 'Task priority (critical, high, medium, low)')
+    .option('--priority <priority>', 'Task priority (critical, high, medium, low)', 'medium')
     .option('-p, --parent <id>', 'Parent task ID')
     .option('--file <path>', 'Read body from markdown file')
     .option('--blocked-by <ids>', 'Comma-separated task IDs that block this task')

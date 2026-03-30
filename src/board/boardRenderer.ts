@@ -87,7 +87,7 @@ export function renderColumn(
 }
 
 const BOARD_PRIORITY_OPTIONS = PRIORITIES.map(
-  (p) => `<option value="${p}">${p.charAt(0).toUpperCase() + p.slice(1)}</option>`
+  (p) => `<option value="${p}"${p === 'medium' ? ' selected' : ''}>${p.charAt(0).toUpperCase() + p.slice(1)}</option>`
 ).join('\n        ');
 
 function getAddTaskModal(): string {
