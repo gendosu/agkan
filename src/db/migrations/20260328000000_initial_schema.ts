@@ -1,5 +1,19 @@
 import type { MigratableDatabase } from './types';
 
+function isStatusAllowed(db: MigratableDatabase, status: string): boolean {
+  try {
+    db.exec(`SAVEPOINT check_status`);
+    db.prepare(`INSERT INTO tasks (title, status, created_at, updated_at) VALUES ('__check__', ?, '', '')`).run(status);
+    db.exec(`ROLLBACK TO SAVEPOINT check_status`);
+    db.exec(`RELEASE SAVEPOINT check_status`);
+    return true;
+  } catch {
+    db.exec(`ROLLBACK TO SAVEPOINT check_status`);
+    db.exec(`RELEASE SAVEPOINT check_status`);
+    return false;
+  }
+}
+
 export function up(db: MigratableDatabase): void {
   // Create tasks table
   db.exec(`
@@ -24,11 +38,7 @@ export function up(db: MigratableDatabase): void {
   `);
 
   // Migrate tasks table to add 'review' status to CHECK constraint
-  const taskTableDef = db.prepare(`SELECT sql FROM sqlite_master WHERE type='table' AND name='tasks'`).get() as
-    | { sql: string }
-    | undefined;
-
-  if (taskTableDef && !taskTableDef.sql.includes("'review'")) {
+  if (!isStatusAllowed(db, 'review')) {
     db.exec(`
       CREATE TABLE tasks_new (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -52,11 +62,7 @@ export function up(db: MigratableDatabase): void {
   }
 
   // Migrate tasks table to add 'icebox' status to CHECK constraint
-  const taskTableDefForIcebox = db
-    .prepare(`SELECT sql FROM sqlite_master WHERE type='table' AND name='tasks'`)
-    .get() as { sql: string } | undefined;
-
-  if (taskTableDefForIcebox && !taskTableDefForIcebox.sql.includes("'icebox'")) {
+  if (!isStatusAllowed(db, 'icebox')) {
     db.exec(`
       CREATE TABLE tasks_new (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
