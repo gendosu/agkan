@@ -197,7 +197,7 @@ function collectMetadata(container: HTMLElement): Array<{ key: string; value: st
 function resetAddModal(elements: AddModalElements): void {
   elements.addTitle.value = '';
   elements.addBody.value = '';
-  elements.addPriority.value = '';
+  elements.addPriority.value = 'medium';
   // Reset tags
   selectedTags = [];
   tagInputValue = '';
