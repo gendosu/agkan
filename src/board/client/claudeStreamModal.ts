@@ -76,6 +76,12 @@ export function openClaudeStreamModal(taskId: number): void {
   const es = new EventSource(`/api/claude/tasks/${taskId}/stream`);
   _currentEventSource = es;
 
+  es.onopen = () => {
+    if (_currentEventSource === es) {
+      status.textContent = 'Running';
+    }
+  };
+
   es.addEventListener('text', (event: Event) => {
     const msgEvent = event as MessageEvent;
     try {
