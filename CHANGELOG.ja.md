@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.0.0-rc1] - 2026-03-30
+
 ### 追加
 - `task list` コマンドに `--priority` フィルタオプションを追加。カンマ区切りで複数指定可能（例: `--priority high` または `--priority critical,high`）(#119)
 
