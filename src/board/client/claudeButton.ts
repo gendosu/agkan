@@ -3,6 +3,7 @@
 
 let _claudeModalCallback: ((taskId: number) => void) | null = null;
 let _runningTaskIds: Set<number> = new Set();
+const _inFlightTaskIds: Set<number> = new Set();
 
 export function registerClaudeModalCallback(callback: (taskId: number) => void): void {
   _claudeModalCallback = callback;
@@ -172,6 +173,9 @@ function attachDetailBtnListener(btn: HTMLButtonElement): void {
 }
 
 async function triggerRunTask(taskId: number, btn: HTMLButtonElement, body: Record<string, unknown>): Promise<void> {
+  if (_inFlightTaskIds.has(taskId)) return;
+  _inFlightTaskIds.add(taskId);
+
   // Disable immediately to prevent double-clicks before response arrives
   btn.disabled = true;
   btn.querySelectorAll<HTMLButtonElement>('button').forEach((b) => (b.disabled = true));
@@ -206,6 +210,8 @@ async function triggerRunTask(taskId: number, btn: HTMLButtonElement, body: Reco
     btn.disabled = false;
     btn.querySelectorAll<HTMLButtonElement>('button').forEach((b) => (b.disabled = false));
     console.error(`[claude] Network error starting task ${taskId}:`, err);
+  } finally {
+    _inFlightTaskIds.delete(taskId);
   }
 }
 
