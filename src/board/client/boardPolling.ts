@@ -2,6 +2,7 @@
 
 import { draggedCard, attachDragListeners } from './dragDrop';
 import { attachAutoScrollToBody } from './autoScroll';
+import { attachClaudeButtonListeners } from './claudeButton';
 import type { ActiveFilters, TaskDetail } from './types';
 
 let lastUpdatedAt: string | null = null;
@@ -136,6 +137,7 @@ function updateColumnHtml(col: { status: string; html: string; count: number }):
   }
   attachCardListeners(body);
   attachAutoScrollToBody(body);
+  attachClaudeButtonListeners(body);
 }
 
 function isEditingDetailPanel(): boolean {
