@@ -216,6 +216,8 @@ export const BOARD_STYLES = `
     .add-comment-submit:hover { background: #2563eb; border-color: #2563eb; }
     .add-comment-cancel { margin-top: 6px; margin-left: 6px; padding: 5px 10px; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer; border: 1px solid var(--border-color); background: var(--bg-surface); color: var(--text-secondary); }
     .add-comment-cancel:hover { background: var(--bg-surface-hover); }
+    @keyframes header-spin { to { transform: rotate(360deg); } }
+    #header-running-indicator { width: 16px; height: 16px; border: 2px solid rgba(255,255,255,0.3); border-top-color: white; border-radius: 50%; animation: header-spin 0.8s linear infinite; margin-right: 4px; flex-shrink: 0; }
     .burger-menu-wrapper { position: relative; }
     .burger-menu-btn { background: none; border: none; color: white; cursor: pointer; padding: 4px 6px; border-radius: 4px; display: flex; flex-direction: column; gap: 4px; align-items: center; justify-content: center; opacity: 0.8; }
     .burger-menu-btn:hover { opacity: 1; background: rgba(255,255,255,0.1); }

@@ -19,6 +19,11 @@ export function updateButtonStates(runningTaskIds: Set<number>, planningTaskIds:
   const onlyPlanningRunning = runningTaskIds.size > 0 && [...runningTaskIds].every((id) => planningTaskIds.has(id));
   const anyRunning = runningTaskIds.size > 0 && !onlyPlanningRunning;
 
+  const indicator = document.getElementById('header-running-indicator');
+  if (indicator) {
+    indicator.style.display = runningTaskIds.size > 0 ? '' : 'none';
+  }
+
   // Update all run split containers
   document.querySelectorAll<HTMLElement>('.claude-run-split').forEach((split) => {
     const taskId = Number(split.dataset.taskId);
