@@ -24,6 +24,26 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
+function makeCardWithDetailBtn(taskId: number, status: string): HTMLElement {
+  const card = document.createElement('div');
+  card.className = 'card';
+  card.dataset.id = String(taskId);
+  card.dataset.status = status;
+  const header = document.createElement('div');
+  header.className = 'card-header';
+  const actions = document.createElement('div');
+  actions.className = 'card-actions';
+  const btn = document.createElement('button');
+  btn.className = 'claude-detail-btn';
+  btn.dataset.taskId = String(taskId);
+  btn.textContent = '📋 Detail';
+  actions.appendChild(btn);
+  header.appendChild(actions);
+  card.appendChild(header);
+  document.body.appendChild(card);
+  return card;
+}
+
 function makeCard(taskId: number, status = 'backlog'): HTMLElement {
   const card = document.createElement('div');
   card.className = 'card';
@@ -110,6 +130,19 @@ describe('updateButtonStates', () => {
     expect(runBtns).toHaveLength(1);
     expect((runBtns[0] as HTMLButtonElement).dataset.taskId).toBe('3');
   });
+
+  it.each(['review', 'done', 'close'])(
+    'removes detail button (no replacement) when task stops running with %s status',
+    (status) => {
+      const card = makeCardWithDetailBtn(6, status);
+      expect(card.querySelector('.claude-detail-btn')).not.toBeNull();
+
+      updateButtonStates(new Set());
+      expect(card.querySelector('.claude-detail-btn')).toBeNull();
+      expect(card.querySelector('.claude-plan-btn')).toBeNull();
+      expect(card.querySelector('.claude-run-btn')).toBeNull();
+    }
+  );
 });
 
 describe('registerClaudeModalCallback', () => {
