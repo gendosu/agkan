@@ -87,7 +87,7 @@ export const BOARD_STYLES = `
     .modal-actions button:hover { background: var(--bg-surface-hover); }
     .modal-actions button.primary { background: #3b82f6; color: white; border-color: #3b82f6; }
     .modal-actions button.primary:hover { background: #2563eb; }
-    .toast { position: fixed; bottom: 20px; right: 20px; background: #ef4444; color: white; padding: 10px 16px; border-radius: 6px; font-size: 13px; opacity: 0; transition: opacity 0.3s; pointer-events: none; }
+    .toast { position: fixed; bottom: 20px; right: 20px; z-index: 100; background: #ef4444; color: white; padding: 10px 16px; border-radius: 6px; font-size: 13px; opacity: 0; transition: opacity 0.3s; pointer-events: none; }
     .toast.show { opacity: 1; }
     .detail-panel { position: relative; z-index: 6; width: 0; height: calc(100vh - 92px); background: var(--bg-surface); box-shadow: none; border-left: 0 solid var(--border-color); display: flex; flex-direction: column; max-width: 800px; overflow: hidden; transition: width 0.25s ease; }
     .detail-panel-resize-handle { position: absolute; top: 0; left: 0; width: 6px; height: 100%; cursor: col-resize; z-index: 10; background: transparent; }
