@@ -47,6 +47,7 @@ interface RunLogRow {
 
 interface ProcessInfo {
   taskId: number;
+  command: string;
   process: ChildProcess;
   startedAt: Date;
   status: 'running' | 'stopped';
@@ -74,7 +75,7 @@ export class ClaudeProcessService {
    * Start a claude process for the given taskId and prompt.
    * Prevents duplicate processes for the same taskId.
    */
-  startProcess(taskId: number, prompt: string): void {
+  startProcess(taskId: number, prompt: string, command: string = 'run'): void {
     if (this.processes.has(taskId)) {
       throw new Error(`Process for taskId ${taskId} is already running`);
     }
@@ -91,6 +92,7 @@ export class ClaudeProcessService {
 
     const info: ProcessInfo = {
       taskId,
+      command,
       process: child,
       startedAt: new Date(),
       status: 'running',
@@ -177,10 +179,10 @@ export class ClaudeProcessService {
   }
 
   /**
-   * List all currently running taskIds.
+   * List all currently running tasks with their command type.
    */
-  listRunningTasks(): number[] {
-    return Array.from(this.processes.keys());
+  listRunningTasks(): { taskId: number; command: string }[] {
+    return Array.from(this.processes.values()).map((info) => ({ taskId: info.taskId, command: info.command }));
   }
 
   /**

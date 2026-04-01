@@ -110,7 +110,7 @@ describe('ClaudeProcessService', () => {
       service.startProcess(1, 'prompt');
       service.stopProcess(1);
 
-      expect(service.listRunningTasks()).not.toContain(1);
+      expect(service.listRunningTasks().map((t) => t.taskId)).not.toContain(1);
     });
   });
 
@@ -129,9 +129,21 @@ describe('ClaudeProcessService', () => {
       service.startProcess(1, 'a');
       service.startProcess(2, 'b');
 
-      expect(service.listRunningTasks()).toContain(1);
-      expect(service.listRunningTasks()).toContain(2);
-      expect(service.listRunningTasks()).toHaveLength(2);
+      const taskIds = service.listRunningTasks().map((t) => t.taskId);
+      expect(taskIds).toContain(1);
+      expect(taskIds).toContain(2);
+      expect(taskIds).toHaveLength(2);
+    });
+
+    it('should include command in returned tasks', () => {
+      const { proc } = makeFakeProcess();
+      spawnMock.mockReturnValue(proc);
+
+      service.startProcess(1, 'prompt', 'planning');
+
+      const tasks = service.listRunningTasks();
+      expect(tasks).toHaveLength(1);
+      expect(tasks[0]).toEqual({ taskId: 1, command: 'planning' });
     });
   });
 
@@ -467,7 +479,7 @@ describe('ClaudeProcessService', () => {
       (stdout as EventEmitter).emit('data', Buffer.from(''));
       (proc as EventEmitter).emit('close', 0);
 
-      expect(service.listRunningTasks()).not.toContain(1);
+      expect(service.listRunningTasks().map((t) => t.taskId)).not.toContain(1);
     });
   });
 });

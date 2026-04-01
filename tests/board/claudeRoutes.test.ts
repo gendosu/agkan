@@ -87,7 +87,7 @@ describe('POST /api/claude/tasks/:taskId/run', () => {
     const data = (await res.json()) as { taskId: number; started: boolean };
     expect(data.taskId).toBe(task.id);
     expect(data.started).toBe(true);
-    expect(mock.startProcess).toHaveBeenCalledWith(task.id, `Task ID: ${task.id}\n/agkan-subtask-direct`);
+    expect(mock.startProcess).toHaveBeenCalledWith(task.id, `Task ID: ${task.id}\n/agkan-subtask-direct`, 'run');
   });
 
   it('uses planning prompt when command is planning', async () => {
@@ -105,7 +105,7 @@ describe('POST /api/claude/tasks/:taskId/run', () => {
     );
 
     expect(res.status).toBe(201);
-    expect(mock.startProcess).toHaveBeenCalledWith(task.id, `Task ID: ${task.id}\n/agkan-planning-subtask`);
+    expect(mock.startProcess).toHaveBeenCalledWith(task.id, `Task ID: ${task.id}\n/agkan-planning-subtask`, 'planning');
   });
 
   it('defaults to run command when no command specified', async () => {
@@ -123,7 +123,7 @@ describe('POST /api/claude/tasks/:taskId/run', () => {
     );
 
     expect(res.status).toBe(201);
-    expect(mock.startProcess).toHaveBeenCalledWith(task.id, `Task ID: ${task.id}\n/agkan-subtask-direct`);
+    expect(mock.startProcess).toHaveBeenCalledWith(task.id, `Task ID: ${task.id}\n/agkan-subtask-direct`, 'run');
   });
 
   it('returns 400 for invalid taskId', async () => {
@@ -383,20 +383,28 @@ describe('GET /api/claude/running-tasks', () => {
     const res = await app.fetch(new Request('http://localhost/api/claude/running-tasks'));
 
     expect(res.status).toBe(200);
-    const data = (await res.json()) as { taskIds: number[] };
-    expect(data.taskIds).toEqual([]);
+    const data = (await res.json()) as { tasks: { taskId: number; command: string }[] };
+    expect(data.tasks).toEqual([]);
   });
 
-  it('returns list of running task IDs', async () => {
+  it('returns list of running tasks with command info', async () => {
     const mock = buildMockClaudeProcessService();
-    (mock.listRunningTasks as ReturnType<typeof vi.fn>).mockReturnValue([1, 2, 3]);
+    (mock.listRunningTasks as ReturnType<typeof vi.fn>).mockReturnValue([
+      { taskId: 1, command: 'run' },
+      { taskId: 2, command: 'planning' },
+      { taskId: 3, command: 'pr' },
+    ]);
     const app = buildApp(buildServices(mock));
 
     const res = await app.fetch(new Request('http://localhost/api/claude/running-tasks'));
 
     expect(res.status).toBe(200);
-    const data = (await res.json()) as { taskIds: number[] };
-    expect(data.taskIds).toEqual([1, 2, 3]);
+    const data = (await res.json()) as { tasks: { taskId: number; command: string }[] };
+    expect(data.tasks).toEqual([
+      { taskId: 1, command: 'run' },
+      { taskId: 2, command: 'planning' },
+      { taskId: 3, command: 'pr' },
+    ]);
   });
 
   it('returns 404 when claudeProcessService is not configured', async () => {
