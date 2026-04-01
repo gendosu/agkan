@@ -59,8 +59,15 @@ export const BOARD_STYLES = `
     .card.active { border-color: #3b82f6; box-shadow: 0 0 0 2px rgba(59,130,246,0.25); background: #eff6ff; }
     [data-theme="dark"] .card.active { border-color: #60a5fa; box-shadow: 0 0 0 2px rgba(96,165,250,0.25); background: #1e3a5f; }
     .card.dragging { opacity: 0.5; }
-    .card-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 5px; }
+    .card-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 5px; gap: 4px; }
     .card-id { font-size: 11px; color: var(--text-muted); font-weight: 600; }
+    .card-actions { margin-left: auto; flex-shrink: 0; }
+    .claude-run-btn { font-size: 10px; font-weight: 600; padding: 2px 7px; border-radius: 10px; border: 1px solid #16a34a; background: #dcfce7; color: #16a34a; cursor: pointer; line-height: 1.4; transition: background 0.15s; }
+    .claude-run-btn:hover { background: #bbf7d0; }
+    .claude-plan-btn { font-size: 10px; font-weight: 600; padding: 2px 7px; border-radius: 10px; border: 1px solid #2563eb; background: #dbeafe; color: #2563eb; cursor: pointer; line-height: 1.4; transition: background 0.15s; }
+    .claude-plan-btn:hover { background: #bfdbfe; }
+    .claude-detail-btn { font-size: 10px; font-weight: 600; padding: 2px 7px; border-radius: 10px; border: 1px solid #d97706; background: #fef3c7; color: #d97706; cursor: pointer; line-height: 1.4; transition: background 0.15s; }
+    .claude-detail-btn:hover { background: #fde68a; }
     .card-title { font-size: 13px; font-weight: 500; line-height: 1.4; word-break: break-word; }
     .card-tags { margin-top: 6px; display: flex; flex-wrap: wrap; gap: 4px; }
     .tag { background: var(--tag-bg); color: var(--tag-color); font-size: 10px; font-weight: 600; padding: 2px 6px; border-radius: 10px; }

@@ -46,11 +46,19 @@ export function renderCard(task: Task, tags: Tag[], blockedByIds: number[] = [],
   const dataBlockedBy = blockedByIds.length > 0 ? ` data-blocked-by="${blockedByIds.join(',')}"` : '';
   const dataBlocking = blockingIds.length > 0 ? ` data-blocking="${blockingIds.join(',')}"` : '';
 
+  let cardActions = '';
+  if (task.status === 'ready') {
+    cardActions = `<div class="card-actions"><button class="claude-run-btn" data-task-id="${task.id}">&#9654; Run</button></div>`;
+  } else {
+    cardActions = `<div class="card-actions"><button class="claude-plan-btn" data-task-id="${task.id}">&#128203; Planning</button></div>`;
+  }
+
   return `
     <div class="card" draggable="true" data-id="${task.id}" data-status="${task.status}" data-updated-at="${escapeHtml(task.updated_at)}"${dataBlockedBy}${dataBlocking}>
       <div class="card-header">
         <span class="card-id">#${task.id}</span>
         ${priorityBadge}
+        ${cardActions}
       </div>
       <div class="card-title">${escapeHtml(task.title)}</div>
       ${tagBadges ? `<div class="card-tags">${tagBadges}</div>` : ''}
