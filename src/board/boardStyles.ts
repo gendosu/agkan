@@ -62,8 +62,15 @@ export const BOARD_STYLES = `
     .card-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 5px; gap: 4px; }
     .card-id { font-size: 11px; color: var(--text-muted); font-weight: 600; }
     .card-actions { margin-left: auto; flex-shrink: 0; }
-    .claude-run-btn { font-size: 10px; font-weight: 600; padding: 2px 7px; border-radius: 10px; border: 1px solid #16a34a; background: #dcfce7; color: #16a34a; cursor: pointer; line-height: 1.4; transition: background 0.15s; }
+    .claude-run-split { position: relative; display: inline-flex; }
+    .claude-run-btn { font-size: 10px; font-weight: 600; padding: 2px 7px; border-radius: 10px 0 0 10px; border: 1px solid #16a34a; border-right: none; background: #dcfce7; color: #16a34a; cursor: pointer; line-height: 1.4; transition: background 0.15s; }
     .claude-run-btn:hover { background: #bbf7d0; }
+    .claude-run-toggle { font-size: 9px; font-weight: 600; padding: 2px 5px; border-radius: 0 10px 10px 0; border: 1px solid #16a34a; background: #dcfce7; color: #16a34a; cursor: pointer; line-height: 1.4; transition: background 0.15s; }
+    .claude-run-toggle:hover { background: #bbf7d0; }
+    .claude-run-menu { display: none; position: absolute; top: 100%; right: 0; margin-top: 2px; background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 6px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); z-index: 100; min-width: 160px; padding: 2px 0; }
+    .claude-run-split.open .claude-run-menu { display: block; }
+    .claude-run-menu-item { display: block; width: 100%; text-align: left; font-size: 11px; font-weight: 500; padding: 6px 12px; border: none; background: none; color: var(--text-primary); cursor: pointer; white-space: nowrap; }
+    .claude-run-menu-item:hover { background: var(--bg-surface-hover); }
     .claude-plan-btn { font-size: 10px; font-weight: 600; padding: 2px 7px; border-radius: 10px; border: 1px solid #2563eb; background: #dbeafe; color: #2563eb; cursor: pointer; line-height: 1.4; transition: background 0.15s; }
     .claude-plan-btn:hover { background: #bfdbfe; }
     .claude-detail-btn { font-size: 10px; font-weight: 600; padding: 2px 7px; border-radius: 10px; border: 1px solid #d97706; background: #fef3c7; color: #d97706; cursor: pointer; line-height: 1.4; transition: background 0.15s; }

@@ -44,6 +44,36 @@ function makeCardWithDetailBtn(taskId: number, status: string): HTMLElement {
   return card;
 }
 
+function makeRunSplit(taskId: number): HTMLElement {
+  const split = document.createElement('div');
+  split.className = 'claude-run-split';
+  split.dataset.taskId = String(taskId);
+  const mainBtn = document.createElement('button');
+  mainBtn.className = 'claude-run-btn';
+  mainBtn.dataset.taskId = String(taskId);
+  mainBtn.textContent = '▶ Run';
+  const toggleBtn = document.createElement('button');
+  toggleBtn.className = 'claude-run-toggle';
+  toggleBtn.dataset.taskId = String(taskId);
+  toggleBtn.textContent = '▼';
+  const menu = document.createElement('div');
+  menu.className = 'claude-run-menu';
+  const directItem = document.createElement('button');
+  directItem.className = 'claude-run-menu-item';
+  directItem.dataset.taskId = String(taskId);
+  directItem.dataset.command = 'direct';
+  const prItem = document.createElement('button');
+  prItem.className = 'claude-run-menu-item';
+  prItem.dataset.taskId = String(taskId);
+  prItem.dataset.command = 'pr';
+  menu.appendChild(directItem);
+  menu.appendChild(prItem);
+  split.appendChild(mainBtn);
+  split.appendChild(toggleBtn);
+  split.appendChild(menu);
+  return split;
+}
+
 function makeCard(taskId: number, status = 'backlog'): HTMLElement {
   const card = document.createElement('div');
   card.className = 'card';
@@ -53,11 +83,15 @@ function makeCard(taskId: number, status = 'backlog'): HTMLElement {
   header.className = 'card-header';
   const actions = document.createElement('div');
   actions.className = 'card-actions';
-  const btn = document.createElement('button');
-  btn.className = status === 'ready' ? 'claude-run-btn' : 'claude-plan-btn';
-  btn.dataset.taskId = String(taskId);
-  btn.textContent = status === 'ready' ? '▶ Run' : '📋 Planning';
-  actions.appendChild(btn);
+  if (status === 'ready') {
+    actions.appendChild(makeRunSplit(taskId));
+  } else {
+    const btn = document.createElement('button');
+    btn.className = 'claude-plan-btn';
+    btn.dataset.taskId = String(taskId);
+    btn.textContent = '📋 Planning';
+    actions.appendChild(btn);
+  }
   header.appendChild(actions);
   card.appendChild(header);
   document.body.appendChild(card);
@@ -170,17 +204,15 @@ describe('attachClaudeButtonListeners', () => {
     card.dataset.status = 'ready';
     const actions = document.createElement('div');
     actions.className = 'card-actions';
-    const btn = document.createElement('button');
-    btn.className = 'claude-run-btn';
-    btn.dataset.taskId = '20';
-    actions.appendChild(btn);
+    const split = makeRunSplit(20);
+    actions.appendChild(split);
     card.appendChild(actions);
     body.appendChild(card);
     document.body.appendChild(body);
 
     global.fetch = vi.fn().mockResolvedValue({ ok: true });
     attachClaudeButtonListeners(body);
-    btn.click();
+    split.querySelector<HTMLButtonElement>('.claude-run-btn')!.click();
     await new Promise((r) => setTimeout(r, 0));
 
     expect(global.fetch).toHaveBeenCalledWith('/api/claude/tasks/20/run', expect.objectContaining({ method: 'POST' }));
@@ -228,10 +260,8 @@ describe('attachClaudeButtonListeners', () => {
     card.dataset.status = 'ready';
     const actions = document.createElement('div');
     actions.className = 'card-actions';
-    const btn = document.createElement('button');
-    btn.className = 'claude-run-btn';
-    btn.dataset.taskId = '22';
-    actions.appendChild(btn);
+    const split = makeRunSplit(22);
+    actions.appendChild(split);
     card.appendChild(actions);
     body.appendChild(card);
     document.body.appendChild(body);
@@ -242,7 +272,7 @@ describe('attachClaudeButtonListeners', () => {
     const cardClickHandler = vi.fn();
     card.addEventListener('click', cardClickHandler);
 
-    btn.click();
+    split.querySelector<HTMLButtonElement>('.claude-run-btn')!.click();
     expect(cardClickHandler).not.toHaveBeenCalled();
   });
 });

@@ -15,11 +15,11 @@ export function getRunningTaskIds(): Set<number> {
 export function updateButtonStates(runningTaskIds: Set<number>): void {
   _runningTaskIds = runningTaskIds;
 
-  // Update all run buttons
-  document.querySelectorAll<HTMLButtonElement>('.claude-run-btn').forEach((btn) => {
-    const taskId = Number(btn.dataset.taskId);
+  // Update all run split containers
+  document.querySelectorAll<HTMLElement>('.claude-run-split').forEach((split) => {
+    const taskId = Number(split.dataset.taskId);
     if (runningTaskIds.has(taskId)) {
-      replaceWithDetailBtn(btn, taskId);
+      replaceWithDetailBtn(split as unknown as HTMLButtonElement, taskId);
     }
   });
 
@@ -57,26 +57,88 @@ function replaceWithRunOrPlanBtn(btn: HTMLButtonElement, taskId: number, status:
     btn.remove();
     return;
   }
-  const newBtn = document.createElement('button');
   if (status === 'ready') {
-    newBtn.className = 'claude-run-btn';
-    newBtn.dataset.taskId = String(taskId);
-    newBtn.innerHTML = '&#9654; Run';
-    attachRunBtnListener(newBtn);
+    const split = createRunSplitElement(taskId);
+    btn.replaceWith(split);
   } else {
+    const newBtn = document.createElement('button');
     newBtn.className = 'claude-plan-btn';
     newBtn.dataset.taskId = String(taskId);
     newBtn.innerHTML = '&#128203; Planning';
     attachPlanBtnListener(newBtn);
+    btn.replaceWith(newBtn);
   }
-  btn.replaceWith(newBtn);
 }
 
-function attachRunBtnListener(btn: HTMLButtonElement): void {
-  btn.addEventListener('click', async (e: MouseEvent) => {
+function createRunSplitElement(taskId: number): HTMLElement {
+  const split = document.createElement('div');
+  split.className = 'claude-run-split';
+  split.dataset.taskId = String(taskId);
+
+  const mainBtn = document.createElement('button');
+  mainBtn.className = 'claude-run-btn';
+  mainBtn.dataset.taskId = String(taskId);
+  mainBtn.innerHTML = '&#9654; Run';
+
+  const toggleBtn = document.createElement('button');
+  toggleBtn.className = 'claude-run-toggle';
+  toggleBtn.dataset.taskId = String(taskId);
+  toggleBtn.title = 'More options';
+  toggleBtn.innerHTML = '&#9660;';
+
+  const menu = document.createElement('div');
+  menu.className = 'claude-run-menu';
+
+  const directItem = document.createElement('button');
+  directItem.className = 'claude-run-menu-item';
+  directItem.dataset.taskId = String(taskId);
+  directItem.dataset.command = 'direct';
+  directItem.innerHTML = '&#9654; Run (current branch)';
+
+  const prItem = document.createElement('button');
+  prItem.className = 'claude-run-menu-item';
+  prItem.dataset.taskId = String(taskId);
+  prItem.dataset.command = 'pr';
+  prItem.innerHTML = '&#9654; Run (create PR)';
+
+  menu.appendChild(directItem);
+  menu.appendChild(prItem);
+  split.appendChild(mainBtn);
+  split.appendChild(toggleBtn);
+  split.appendChild(menu);
+
+  attachRunSplitListeners(split, mainBtn, toggleBtn, directItem, prItem, taskId);
+  return split;
+}
+
+function attachRunSplitListeners(
+  split: HTMLElement,
+  mainBtn: HTMLButtonElement,
+  toggleBtn: HTMLButtonElement,
+  directItem: HTMLButtonElement,
+  prItem: HTMLButtonElement,
+  taskId: number
+): void {
+  mainBtn.addEventListener('click', async (e: MouseEvent) => {
     e.stopPropagation();
-    const taskId = Number(btn.dataset.taskId);
-    await triggerRunTask(taskId, btn, {});
+    await triggerRunTask(taskId, split as unknown as HTMLButtonElement, {});
+  });
+
+  toggleBtn.addEventListener('click', (e: MouseEvent) => {
+    e.stopPropagation();
+    split.classList.toggle('open');
+  });
+
+  directItem.addEventListener('click', async (e: MouseEvent) => {
+    e.stopPropagation();
+    split.classList.remove('open');
+    await triggerRunTask(taskId, split as unknown as HTMLButtonElement, {});
+  });
+
+  prItem.addEventListener('click', async (e: MouseEvent) => {
+    e.stopPropagation();
+    split.classList.remove('open');
+    await triggerRunTask(taskId, split as unknown as HTMLButtonElement, { command: 'pr' });
   });
 }
 
@@ -126,8 +188,15 @@ async function pollRunningTasks(): Promise<void> {
 }
 
 export function attachClaudeButtonListeners(body: HTMLElement): void {
-  body.querySelectorAll<HTMLButtonElement>('.claude-run-btn').forEach((btn) => {
-    attachRunBtnListener(btn);
+  body.querySelectorAll<HTMLElement>('.claude-run-split').forEach((split) => {
+    const taskId = Number(split.dataset.taskId);
+    const mainBtn = split.querySelector<HTMLButtonElement>('.claude-run-btn');
+    const toggleBtn = split.querySelector<HTMLButtonElement>('.claude-run-toggle');
+    const directItem = split.querySelector<HTMLButtonElement>('[data-command="direct"]');
+    const prItem = split.querySelector<HTMLButtonElement>('[data-command="pr"]');
+    if (mainBtn && toggleBtn && directItem && prItem) {
+      attachRunSplitListeners(split, mainBtn, toggleBtn, directItem, prItem, taskId);
+    }
   });
   body.querySelectorAll<HTMLButtonElement>('.claude-plan-btn').forEach((btn) => {
     attachPlanBtnListener(btn);
@@ -143,6 +212,13 @@ export function initClaudeButton(): void {
   // Attach listeners to all existing cards
   document.querySelectorAll<HTMLElement>('.column-body').forEach((body) => {
     attachClaudeButtonListeners(body);
+  });
+
+  // Close open run menus when clicking outside
+  document.addEventListener('click', () => {
+    document.querySelectorAll<HTMLElement>('.claude-run-split.open').forEach((el) => {
+      el.classList.remove('open');
+    });
   });
 
   // Start polling for running tasks
