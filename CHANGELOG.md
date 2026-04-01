@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.0.0-rc2] - 2026-03-30
+
+### Fixed
+- Fix reload button size in detail panel async update warning
+
 ## [3.0.0-rc1] - 2026-03-30
 
 ## [2.14.3] - 2026-03-24

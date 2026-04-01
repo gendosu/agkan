@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.0.0-rc2] - 2026-03-30
+
+### 修正
+- 詳細パネルの非同期更新警告における再読み込みボタンのサイズを修正
+
 ## [3.0.0-rc1] - 2026-03-30
 
 ### 追加
