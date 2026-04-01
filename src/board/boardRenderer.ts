@@ -4,6 +4,7 @@ import { Task, TaskStatus, PRIORITIES, PRIORITY_ORDER } from '../models';
 import { Tag } from '../models/Tag';
 import { StorageBackend } from '../db/types/repository';
 import { BOARD_STYLES } from './boardStyles';
+import { BOARD_FAVICON_BASE64 } from './boardFavicon';
 
 export const STATUSES: TaskStatus[] = ['icebox', 'backlog', 'ready', 'in_progress', 'review', 'done', 'closed'];
 
@@ -219,6 +220,7 @@ export function renderBoard(
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>agkan board</title>
+  <link rel="icon" type="image/png" href="${BOARD_FAVICON_BASE64}">
   <style>${BOARD_STYLES}
   </style>
 </head>
