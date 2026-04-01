@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.0.0-rc3] - 2026-03-31
+
+### Added
+- Set default priority to medium for task creation
+
+### Fixed
+- Fix textarea resize on task switch in board using double rAF
+
+### Refactored
+- Replace pragma_table_info() with addColumnIfNotExists helper in migration
+- Replace sqlite_master with SAVEPOINT-based CHECK constraint check in migration
+
 ## [3.0.0-rc2] - 2026-03-30
 
 ### Fixed

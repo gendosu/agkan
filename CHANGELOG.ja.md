@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.0.0-rc3] - 2026-03-31
+
+### 追加
+- タスク作成時のデフォルト優先度を medium に設定
+
+### 修正
+- ボードのタスク切り替え時のテキストエリアリサイズを double rAF で修正
+
+### リファクタリング
+- マイグレーションで pragma_table_info() を addColumnIfNotExists ヘルパーに置き換え
+- マイグレーションで sqlite_master を SAVEPOINT ベースの CHECK 制約チェックに置き換え
+
 ## [3.0.0-rc2] - 2026-03-30
 
 ### 修正
