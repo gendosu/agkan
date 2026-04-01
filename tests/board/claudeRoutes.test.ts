@@ -199,6 +199,113 @@ describe('POST /api/claude/tasks/:taskId/run', () => {
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
+// POST /api/claude/tasks/:taskId/run — status auto-update on done
+// ─────────────────────────────────────────────────────────────────────────────
+describe('POST /api/claude/tasks/:taskId/run - status auto-update', () => {
+  it('updates status to done when run command completes with exitCode 0', async () => {
+    let capturedCallback: SubscribeCallback | null = null;
+    const mock = buildMockClaudeProcessService();
+    (mock.subscribeOutput as ReturnType<typeof vi.fn>).mockImplementation((_taskId: number, cb: SubscribeCallback) => {
+      capturedCallback = cb;
+      return () => {};
+    });
+
+    const services = buildServices(mock);
+    const task = services.ts.createTask({ title: 'Test Task', status: 'in_progress' });
+    const app = buildApp(services);
+
+    await app.fetch(
+      new Request(`http://localhost/api/claude/tasks/${task.id}/run`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ command: 'run' }),
+      })
+    );
+
+    expect(capturedCallback).not.toBeNull();
+    capturedCallback!({ kind: 'done', exitCode: 0 });
+
+    const updated = services.ts.getTask(task.id);
+    expect(updated?.status).toBe('done');
+  });
+
+  it('updates status to review when pr command completes with exitCode 0', async () => {
+    let capturedCallback: SubscribeCallback | null = null;
+    const mock = buildMockClaudeProcessService();
+    (mock.subscribeOutput as ReturnType<typeof vi.fn>).mockImplementation((_taskId: number, cb: SubscribeCallback) => {
+      capturedCallback = cb;
+      return () => {};
+    });
+
+    const services = buildServices(mock);
+    const task = services.ts.createTask({ title: 'PR Task', status: 'in_progress' });
+    const app = buildApp(services);
+
+    await app.fetch(
+      new Request(`http://localhost/api/claude/tasks/${task.id}/run`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ command: 'pr' }),
+      })
+    );
+
+    expect(capturedCallback).not.toBeNull();
+    capturedCallback!({ kind: 'done', exitCode: 0 });
+
+    const updated = services.ts.getTask(task.id);
+    expect(updated?.status).toBe('review');
+  });
+
+  it('does not update status when exitCode is non-zero', async () => {
+    let capturedCallback: SubscribeCallback | null = null;
+    const mock = buildMockClaudeProcessService();
+    (mock.subscribeOutput as ReturnType<typeof vi.fn>).mockImplementation((_taskId: number, cb: SubscribeCallback) => {
+      capturedCallback = cb;
+      return () => {};
+    });
+
+    const services = buildServices(mock);
+    const task = services.ts.createTask({ title: 'Failing Task', status: 'in_progress' });
+    const app = buildApp(services);
+
+    await app.fetch(
+      new Request(`http://localhost/api/claude/tasks/${task.id}/run`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ command: 'run' }),
+      })
+    );
+
+    expect(capturedCallback).not.toBeNull();
+    capturedCallback!({ kind: 'done', exitCode: 1 });
+
+    const updated = services.ts.getTask(task.id);
+    expect(updated?.status).toBe('in_progress');
+  });
+
+  it('does not update status for planning command', async () => {
+    const mock = buildMockClaudeProcessService();
+    const services = buildServices(mock);
+    const task = services.ts.createTask({ title: 'Planning Task', status: 'ready' });
+    const app = buildApp(services);
+
+    await app.fetch(
+      new Request(`http://localhost/api/claude/tasks/${task.id}/run`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ command: 'planning' }),
+      })
+    );
+
+    // subscribeOutput should not be called for planning
+    expect(mock.subscribeOutput).not.toHaveBeenCalled();
+
+    const updated = services.ts.getTask(task.id);
+    expect(updated?.status).toBe('ready');
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
 // DELETE /api/claude/tasks/:taskId/run
 // ─────────────────────────────────────────────────────────────────────────────
 describe('DELETE /api/claude/tasks/:taskId/run', () => {
@@ -340,8 +447,9 @@ describe('GET /api/claude/tasks/:taskId/stream', () => {
     expect(mock.subscribeOutput).toHaveBeenCalledWith(1, expect.any(Function));
 
     // Emit a text event and read it
-    if (capturedCallback && res.body) {
-      capturedCallback({ kind: 'text', text: 'hello' });
+    const cb = capturedCallback as SubscribeCallback | null;
+    if (cb && res.body) {
+      cb({ kind: 'text', text: 'hello' });
 
       const reader = res.body.getReader();
       const { value } = await reader.read();
