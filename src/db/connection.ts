@@ -69,6 +69,16 @@ export class DatabaseConnection {
   }
 
   /**
+   * Get the raw better-sqlite3 Database instance
+   */
+  public static getRawDatabase(): Database.Database {
+    if (!this.rawDatabase) {
+      this.initialize();
+    }
+    return this.rawDatabase!;
+  }
+
+  /**
    * Close database connection
    */
   public static close(): void {

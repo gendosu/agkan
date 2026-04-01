@@ -26,6 +26,7 @@ function buildMockClaudeProcessService(): ClaudeProcessService {
     listRunningTasks: vi.fn().mockReturnValue([]),
     subscribeOutput: vi.fn().mockReturnValue(() => {}),
     getOutputBuffer: vi.fn().mockReturnValue([]),
+    getRunLogs: vi.fn().mockReturnValue([]),
   } as unknown as ClaudeProcessService;
   return mock;
 }
@@ -463,6 +464,80 @@ describe('GET /api/claude/tasks/:taskId/stream', () => {
     const app = buildApp(buildServices(undefined));
 
     const res = await app.fetch(new Request('http://localhost/api/claude/tasks/1/stream'));
+
+    expect(res.status).toBe(404);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// GET /api/claude/tasks/:taskId/run-logs
+// ─────────────────────────────────────────────────────────────────────────────
+describe('GET /api/claude/tasks/:taskId/run-logs', () => {
+  it('returns 200 with empty logs when no runs exist', async () => {
+    const mock = buildMockClaudeProcessService();
+    const services = buildServices(mock);
+    const task = services.ts.createTask({ title: 'Test Task', status: 'done' });
+    const app = buildApp(services);
+
+    const res = await app.fetch(new Request(`http://localhost/api/claude/tasks/${task.id}/run-logs`));
+
+    expect(res.status).toBe(200);
+    const data = (await res.json()) as { logs: unknown[] };
+    expect(data.logs).toEqual([]);
+    expect(mock.getRunLogs).toHaveBeenCalledWith(task.id);
+  });
+
+  it('returns 200 with logs from getRunLogs', async () => {
+    const mock = buildMockClaudeProcessService();
+    const fakeLogs = [
+      {
+        id: 1,
+        task_id: 1,
+        started_at: '2026-03-27T10:00:00.000Z',
+        finished_at: '2026-03-27T10:01:00.000Z',
+        exit_code: 0,
+        events: [{ kind: 'text', text: 'hello' }],
+      },
+    ];
+    (mock.getRunLogs as ReturnType<typeof vi.fn>).mockReturnValue(fakeLogs);
+
+    const services = buildServices(mock);
+    const task = services.ts.createTask({ title: 'Logged Task', status: 'done' });
+    const app = buildApp(services);
+
+    const res = await app.fetch(new Request(`http://localhost/api/claude/tasks/${task.id}/run-logs`));
+
+    expect(res.status).toBe(200);
+    const data = (await res.json()) as { logs: typeof fakeLogs };
+    expect(data.logs).toHaveLength(1);
+    expect(data.logs[0].exit_code).toBe(0);
+    expect(data.logs[0].events[0]).toEqual({ kind: 'text', text: 'hello' });
+  });
+
+  it('returns 400 for invalid taskId', async () => {
+    const mock = buildMockClaudeProcessService();
+    const app = buildApp(buildServices(mock));
+
+    const res = await app.fetch(new Request('http://localhost/api/claude/tasks/abc/run-logs'));
+
+    expect(res.status).toBe(400);
+  });
+
+  it('returns 404 when task does not exist', async () => {
+    const mock = buildMockClaudeProcessService();
+    const app = buildApp(buildServices(mock));
+
+    const res = await app.fetch(new Request('http://localhost/api/claude/tasks/9999/run-logs'));
+
+    expect(res.status).toBe(404);
+  });
+
+  it('returns 404 when claudeProcessService is not configured', async () => {
+    const services = buildServices(undefined);
+    const task = services.ts.createTask({ title: 'Task', status: 'done' });
+    const app = buildApp(services);
+
+    const res = await app.fetch(new Request(`http://localhost/api/claude/tasks/${task.id}/run-logs`));
 
     expect(res.status).toBe(404);
   });
