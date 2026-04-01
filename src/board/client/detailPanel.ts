@@ -402,9 +402,13 @@ export function renderDetailPanel(data: TaskDetail): void {
         setTimeout(finish, 260);
       }
     } else {
-      // Panel is already open (task switch) — no transition, resize next frame.
+      // Panel is already open (task switch) — double rAF ensures reflow after
+      // innerHTML update before measuring scrollHeight, so tall descriptions
+      // size correctly on task switch.
       requestAnimationFrame(() => {
-        autoResizeTextarea(textarea);
+        requestAnimationFrame(() => {
+          autoResizeTextarea(textarea);
+        });
       });
     }
     textarea.addEventListener('input', () => {
