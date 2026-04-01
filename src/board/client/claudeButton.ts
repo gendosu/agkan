@@ -178,9 +178,19 @@ async function triggerRunTask(taskId: number, btn: HTMLButtonElement, body: Reco
     if (res.ok) {
       _runningTaskIds = new Set(_runningTaskIds).add(taskId);
       replaceWithDetailBtn(btn, taskId);
+    } else {
+      let errorDetail = `HTTP ${res.status}`;
+      try {
+        const data = (await res.json()) as { error?: string };
+        if (data.error) errorDetail += `: ${data.error}`;
+      } catch {
+        // ignore JSON parse error
+      }
+      console.error(`[claude] Failed to start task ${taskId}: ${errorDetail}`);
+      alert(`Claude起動エラー (task ${taskId}): ${errorDetail}`);
     }
-  } catch {
-    // Ignore network errors
+  } catch (err) {
+    console.error(`[claude] Network error starting task ${taskId}:`, err);
   }
 }
 
