@@ -84,15 +84,17 @@ function switchTab(tabName: string): void {
 }
 
 async function loadComments(taskId: number): Promise<void> {
-  const tabBtn = document.getElementById('detail-tab-comments');
   const pane = document.getElementById('detail-tab-content-comments');
   if (!pane) return;
   try {
     const comments = await fetchComments(taskId);
+    if (detailTaskId !== taskId) return;
+    const tabBtn = document.getElementById('detail-tab-comments');
     if (tabBtn) tabBtn.textContent = 'Comments (' + comments.length + ')';
     renderComments(taskId, comments);
   } catch (err) {
     console.error('[agkan] loadComments failed for task', taskId, err);
+    if (detailTaskId !== taskId) return;
     if (pane) pane.innerHTML = '<div style="padding:20px;font-size:12px;color:#94a3b8;">Failed to load comments</div>';
   }
 }
