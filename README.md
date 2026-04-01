@@ -538,19 +538,19 @@ The board is served at `http://localhost:8080` by default.
 
 List currently executing Claude processes (requires the board server to be running):
 ```bash
-agkan claude ps
+agkan ps
 ```
 
 Connect to a board server on a custom port:
 ```bash
-agkan claude ps --port 3000
+agkan ps --port 3000
 ```
 
 This command queries the board server to show which Claude processes are currently running and which tasks they are associated with.
 
 JSON output format:
 ```bash
-agkan claude ps --json
+agkan ps --json
 ```
 ```json
 {
@@ -599,7 +599,7 @@ The following commands support JSON output:
 - `task tag list` - List all tags with task counts
 - `task tag show` - Show tags for a specific task
 - `task meta list` - List all metadata for a task
-- `claude ps` - List currently executing Claude processes
+- `ps` - List currently executing Claude processes
 
 ### Output Structure
 

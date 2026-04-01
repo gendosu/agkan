@@ -1,14 +1,14 @@
 /**
- * claude ps command handler
+ * ps command handler
  * Lists currently executing Claude processes via the board server API.
  */
 
 import { Command } from 'commander';
 import chalk from 'chalk';
-import { loadConfig } from '../../../db/config';
-import { getServiceContainer } from '../../utils/service-container';
-import { handleError } from '../../utils/error-handler';
-import { createFormatter } from '../../utils/output-formatter';
+import { loadConfig } from '../../db/config';
+import { getServiceContainer } from '../utils/service-container';
+import { handleError } from '../utils/error-handler';
+import { createFormatter } from '../utils/output-formatter';
 
 interface RunningTask {
   taskId: number;
@@ -20,7 +20,7 @@ interface RunningTasksResponse {
 }
 
 async function fetchRunningTasks(port: number): Promise<RunningTask[]> {
-  const url = `http://localhost:${port}/api/claude/running-tasks`;
+  const url = `http://localhost:${port}/api/running-tasks`;
   const response = await fetch(url);
   if (!response.ok) {
     throw new Error(`Board server returned status ${response.status}`);
@@ -29,13 +29,8 @@ async function fetchRunningTasks(port: number): Promise<RunningTask[]> {
   return data.tasks;
 }
 
-export function setupClaudePsCommand(program: Command): void {
-  const claudeCommand = program.commands.find((cmd) => cmd.name() === 'claude');
-  if (!claudeCommand) {
-    throw new Error('Claude command group not found');
-  }
-
-  claudeCommand
+export function setupPsCommand(program: Command): void {
+  program
     .command('ps')
     .description('List currently executing Claude processes')
     .option('-p, --port <number>', 'Board server port to connect to')

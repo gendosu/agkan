@@ -1,16 +1,16 @@
 /**
- * Tests for claude ps command handler
+ * Tests for ps command handler
  */
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { Command } from 'commander';
-import { setupClaudePsCommand } from '../../../../src/cli/commands/claude/ps';
+import { setupPsCommand } from '../../../src/cli/commands/ps';
 
-vi.mock('../../../../src/db/config', () => ({
+vi.mock('../../../src/db/config', () => ({
   loadConfig: vi.fn(() => ({})),
 }));
 
-vi.mock('../../../../src/cli/utils/service-container', () => ({
+vi.mock('../../../src/cli/utils/service-container', () => ({
   getServiceContainer: vi.fn(() => ({
     taskService: {
       getTask: vi.fn((id: number) => {
@@ -24,15 +24,14 @@ vi.mock('../../../../src/cli/utils/service-container', () => ({
   })),
 }));
 
-import { loadConfig } from '../../../../src/db/config';
+import { loadConfig } from '../../../src/db/config';
 
 const mockLoadConfig = vi.mocked(loadConfig);
 
 function createProgram(): Command {
   const prog = new Command();
   prog.exitOverride();
-  prog.command('claude').description('Claude process management commands');
-  setupClaudePsCommand(prog);
+  setupPsCommand(prog);
   return prog;
 }
 
@@ -44,7 +43,7 @@ function mockFetch(response: unknown, ok = true): void {
   });
 }
 
-describe('setupClaudePsCommand', () => {
+describe('setupPsCommand', () => {
   let program: Command;
   let consoleLogs: string[];
   let consoleErrors: string[];
@@ -63,37 +62,33 @@ describe('setupClaudePsCommand', () => {
     vi.restoreAllMocks();
   });
 
-  it('registers the claude ps command', () => {
-    const claudeCommand = program.commands.find((cmd) => cmd.name() === 'claude');
-    expect(claudeCommand).toBeDefined();
-    const psCommand = claudeCommand?.commands.find((cmd) => cmd.name() === 'ps');
+  it('registers the ps command at top level', () => {
+    const psCommand = program.commands.find((cmd) => cmd.name() === 'ps');
     expect(psCommand).toBeDefined();
     expect(psCommand?.description()).toBe('List currently executing Claude processes');
   });
 
   it('has --port option', () => {
-    const claudeCommand = program.commands.find((cmd) => cmd.name() === 'claude');
-    const psCommand = claudeCommand?.commands.find((cmd) => cmd.name() === 'ps');
+    const psCommand = program.commands.find((cmd) => cmd.name() === 'ps');
     const portOption = psCommand?.options.find((o) => o.long === '--port');
     expect(portOption).toBeDefined();
   });
 
   it('has --json option', () => {
-    const claudeCommand = program.commands.find((cmd) => cmd.name() === 'claude');
-    const psCommand = claudeCommand?.commands.find((cmd) => cmd.name() === 'ps');
+    const psCommand = program.commands.find((cmd) => cmd.name() === 'ps');
     const jsonOption = psCommand?.options.find((o) => o.long === '--json');
     expect(jsonOption).toBeDefined();
   });
 
   it('displays no processes message when none are running', async () => {
     mockFetch({ tasks: [] });
-    await program.parseAsync(['node', 'test', 'claude', 'ps']);
+    await program.parseAsync(['node', 'test', 'ps']);
     expect(consoleLogs.join(' ')).toContain('No Claude processes currently running');
   });
 
   it('displays running processes with task title and command', async () => {
     mockFetch({ tasks: [{ taskId: 1, command: 'run' }] });
-    await program.parseAsync(['node', 'test', 'claude', 'ps']);
+    await program.parseAsync(['node', 'test', 'ps']);
     const output = consoleLogs.join('\n');
     expect(output).toContain('[1]');
     expect(output).toContain('Task One');
@@ -107,7 +102,7 @@ describe('setupClaudePsCommand', () => {
         { taskId: 2, command: 'planning' },
       ],
     });
-    await program.parseAsync(['node', 'test', 'claude', 'ps']);
+    await program.parseAsync(['node', 'test', 'ps']);
     const output = consoleLogs.join('\n');
     expect(output).toContain('[1]');
     expect(output).toContain('Task One');
@@ -118,7 +113,7 @@ describe('setupClaudePsCommand', () => {
 
   it('shows (unknown) for tasks not found in DB', async () => {
     mockFetch({ tasks: [{ taskId: 999, command: 'run' }] });
-    await program.parseAsync(['node', 'test', 'claude', 'ps']);
+    await program.parseAsync(['node', 'test', 'ps']);
     const output = consoleLogs.join('\n');
     expect(output).toContain('[999]');
     expect(output).toContain('(unknown)');
@@ -126,14 +121,14 @@ describe('setupClaudePsCommand', () => {
 
   it('outputs JSON when --json flag is used with no processes', async () => {
     mockFetch({ tasks: [] });
-    await program.parseAsync(['node', 'test', 'claude', 'ps', '--json']);
+    await program.parseAsync(['node', 'test', 'ps', '--json']);
     const parsed = JSON.parse(consoleLogs[0]);
     expect(parsed).toEqual({ processes: [] });
   });
 
   it('outputs JSON when --json flag is used with processes', async () => {
     mockFetch({ tasks: [{ taskId: 1, command: 'run' }] });
-    await program.parseAsync(['node', 'test', 'claude', 'ps', '--json']);
+    await program.parseAsync(['node', 'test', 'ps', '--json']);
     const parsed = JSON.parse(consoleLogs[0]);
     expect(parsed).toEqual({
       processes: [{ taskId: 1, title: 'Task One', command: 'run' }],
@@ -144,20 +139,20 @@ describe('setupClaudePsCommand', () => {
     mockLoadConfig.mockReturnValue({ board: { port: 9090 } });
     program = createProgram();
     mockFetch({ tasks: [] });
-    await program.parseAsync(['node', 'test', 'claude', 'ps']);
-    expect(global.fetch).toHaveBeenCalledWith('http://localhost:9090/api/claude/running-tasks');
+    await program.parseAsync(['node', 'test', 'ps']);
+    expect(global.fetch).toHaveBeenCalledWith('http://localhost:9090/api/running-tasks');
   });
 
   it('uses custom port when --port flag is provided', async () => {
     mockFetch({ tasks: [] });
-    await program.parseAsync(['node', 'test', 'claude', 'ps', '--port', '3000']);
-    expect(global.fetch).toHaveBeenCalledWith('http://localhost:3000/api/claude/running-tasks');
+    await program.parseAsync(['node', 'test', 'ps', '--port', '3000']);
+    expect(global.fetch).toHaveBeenCalledWith('http://localhost:3000/api/running-tasks');
   });
 
   it('uses default port 8080 when no config and no flag', async () => {
     mockFetch({ tasks: [] });
-    await program.parseAsync(['node', 'test', 'claude', 'ps']);
-    expect(global.fetch).toHaveBeenCalledWith('http://localhost:8080/api/claude/running-tasks');
+    await program.parseAsync(['node', 'test', 'ps']);
+    expect(global.fetch).toHaveBeenCalledWith('http://localhost:8080/api/running-tasks');
   });
 
   it('exits with code 1 when board server is not reachable', async () => {
@@ -170,7 +165,7 @@ describe('setupClaudePsCommand', () => {
     }) as never;
 
     try {
-      await program.parseAsync(['node', 'test', 'claude', 'ps']);
+      await program.parseAsync(['node', 'test', 'ps']);
     } finally {
       process.exit = originalExit;
     }
@@ -187,17 +182,11 @@ describe('setupClaudePsCommand', () => {
     }) as never;
 
     try {
-      await program.parseAsync(['node', 'test', 'claude', 'ps', '--port', 'abc']);
+      await program.parseAsync(['node', 'test', 'ps', '--port', 'abc']);
     } finally {
       process.exit = originalExit;
     }
 
     expect(exitCode).toBe(1);
-  });
-
-  it('throws if claude command group is not registered', () => {
-    const freshProgram = new Command();
-    freshProgram.exitOverride();
-    expect(() => setupClaudePsCommand(freshProgram)).toThrow('Claude command group not found');
   });
 });

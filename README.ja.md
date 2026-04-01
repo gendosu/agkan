@@ -297,19 +297,19 @@ agkan board -p 3000
 
 現在実行中のClaudeプロセスを一覧表示します（ボードサーバーが起動している必要があります）:
 ```bash
-agkan claude ps
+agkan ps
 ```
 
 カスタムポートのボードサーバーに接続:
 ```bash
-agkan claude ps --port 3000
+agkan ps --port 3000
 ```
 
 このコマンドはボードサーバーに問い合わせて、現在実行中のClaudeプロセスとそれに関連するタスクを表示します。
 
 JSON出力フォーマット:
 ```bash
-agkan claude ps --json
+agkan ps --json
 ```
 ```json
 {
@@ -358,7 +358,7 @@ agkanは10のデータ取得・表示コマンドで、機械可読なJSON出力
 - `task tag list` - 全タグをタスク数と共に一覧表示
 - `task tag show` - 特定のタスクのタグを表示
 - `task meta list` - タスクのメタデータ一覧を表示
-- `claude ps` - 現在実行中のClaudeプロセスを一覧表示
+- `ps` - 現在実行中のClaudeプロセスを一覧表示
 
 ### 出力構造
 

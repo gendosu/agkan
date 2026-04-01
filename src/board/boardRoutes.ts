@@ -469,7 +469,7 @@ function registerClaudeRoutes(app: Hono, claudeProcess: ClaudeProcessService, ts
     });
   });
 
-  app.get('/api/claude/running-tasks', (c) => {
+  app.get('/api/running-tasks', (c) => {
     const tasks = claudeProcess.listRunningTasks();
     return c.json({ tasks });
   });
