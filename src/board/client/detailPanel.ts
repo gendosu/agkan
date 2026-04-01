@@ -329,12 +329,24 @@ export function renderDetailPanel(data: TaskDetail): void {
   // Set up textarea auto-resize
   const textarea = document.getElementById('detail-edit-body') as HTMLTextAreaElement;
   if (textarea) {
-    // Delay the initial resize until after the panel has been rendered with its correct width.
-    // If autoResizeTextarea is called while the panel width is still 0 (before the .open class
-    // is applied), scrollHeight is inflated due to text wrapping, causing an oversized textarea.
-    requestAnimationFrame(() => {
-      autoResizeTextarea(textarea);
-    });
+    const detailPanel = document.getElementById('detail-panel') as HTMLElement;
+    if (detailPanel && !detailPanel.classList.contains('open')) {
+      // Panel is about to open — wait for the CSS width transition to complete
+      // before measuring scrollHeight, otherwise the textarea is sized against
+      // a partially-transitioned (narrow) panel width.
+      const onTransitionEnd = (e: TransitionEvent) => {
+        if (e.propertyName === 'width') {
+          detailPanel.removeEventListener('transitionend', onTransitionEnd);
+          autoResizeTextarea(textarea);
+        }
+      };
+      detailPanel.addEventListener('transitionend', onTransitionEnd);
+    } else {
+      // Panel is already open (task switch) — no transition, resize next frame.
+      requestAnimationFrame(() => {
+        autoResizeTextarea(textarea);
+      });
+    }
     textarea.addEventListener('input', () => {
       autoResizeTextarea(textarea);
     });
