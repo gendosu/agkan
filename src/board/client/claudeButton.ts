@@ -228,6 +228,32 @@ async function pollRunningTasks(): Promise<void> {
   }
 }
 
+export function updateCardButton(card: HTMLElement, newStatus: string): void {
+  const taskId = Number(card.dataset.id);
+  if (_runningTaskIds.has(taskId)) return;
+
+  const existingEl = card.querySelector<HTMLElement>('.claude-run-split, .claude-plan-btn, .claude-detail-btn');
+  if (!existingEl) return;
+
+  if (['review', 'done', 'closed'].includes(newStatus)) {
+    existingEl.remove();
+  } else if (['ready', 'in_progress'].includes(newStatus)) {
+    if (!existingEl.classList.contains('claude-run-split')) {
+      const split = createRunSplitElement(taskId);
+      existingEl.replaceWith(split);
+    }
+  } else {
+    if (!existingEl.classList.contains('claude-plan-btn')) {
+      const newBtn = document.createElement('button');
+      newBtn.className = 'claude-plan-btn';
+      newBtn.dataset.taskId = String(taskId);
+      newBtn.innerHTML = '&#128203; Planning';
+      attachPlanBtnListener(newBtn);
+      existingEl.replaceWith(newBtn);
+    }
+  }
+}
+
 export function attachClaudeButtonListeners(body: HTMLElement): void {
   body.querySelectorAll<HTMLElement>('.claude-run-split').forEach((split) => {
     if (split.dataset.listenersAttached) return;
