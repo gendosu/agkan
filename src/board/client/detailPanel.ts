@@ -416,10 +416,12 @@ export function renderDetailPanel(data: TaskDetail): void {
   // Load comments into the comments tab
   loadComments(task.id);
 
-  // Load run logs into the run logs tab
-  loadRunLogs(task.id).catch((err) => {
-    console.error('[agkan] renderDetailPanel loadRunLogs failed', err);
-  });
+  // Load run logs only when the run-logs tab is active
+  if (lastTab === 'run-logs') {
+    loadRunLogs(task.id).catch((err) => {
+      console.error('[agkan] renderDetailPanel loadRunLogs failed', err);
+    });
+  }
 
   // Restore last tab
   switchTab(lastTab);
