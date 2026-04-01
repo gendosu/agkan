@@ -40,7 +40,7 @@ export const BOARD_STYLES = `
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg-page); color: var(--text-primary); }
     header { background: var(--header-bg); color: white; padding: 12px 20px; display: flex; align-items: center; justify-content: space-between; }
-    header h1 { font-size: 18px; font-weight: 700; }
+    header h1 { font-size: 18px; font-weight: 700; display: flex; align-items: center; gap: 8px; }
     .board-title { font-size: 14px; font-weight: 400; opacity: 0.75; }
     .board-container { display: flex; width: 100%; height: calc(100vh - 92px); gap: 0; }
     .board { display: flex; gap: 12px; padding: 16px; overflow-x: auto; flex: 1; align-items: stretch; min-width: 0; }
