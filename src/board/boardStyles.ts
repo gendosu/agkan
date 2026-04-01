@@ -253,6 +253,8 @@ export const BOARD_STYLES = `
     .claude-stream-stop-btn { padding: 6px 14px; border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer; border: 1px solid #dc2626; background: #dc2626; color: white; }
     .claude-stream-stop-btn:hover:not(:disabled) { background: #b91c1c; border-color: #b91c1c; }
     .claude-stream-stop-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    #claude-stream-close-btn { padding: 6px 14px; border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer; border: 1px solid var(--border-color); background: var(--bg-surface); color: var(--text-secondary); }
+    #claude-stream-close-btn:hover { background: var(--bg-surface-hover); color: var(--text-primary); }
     .run-log-list { padding: 12px 16px; }
     .run-log-item { border: 1px solid var(--border-color); border-radius: 6px; margin-bottom: 8px; overflow: hidden; }
     .run-log-header { display: flex; align-items: center; gap: 8px; padding: 8px 12px; cursor: pointer; background: var(--bg-surface-subtle, #f8fafc); user-select: none; }
