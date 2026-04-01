@@ -169,6 +169,10 @@ function attachDetailBtnListener(btn: HTMLButtonElement): void {
 }
 
 async function triggerRunTask(taskId: number, btn: HTMLButtonElement, body: Record<string, unknown>): Promise<void> {
+  // Disable immediately to prevent double-clicks before response arrives
+  btn.disabled = true;
+  btn.querySelectorAll<HTMLButtonElement>('button').forEach((b) => (b.disabled = true));
+
   try {
     const res = await fetch(`/api/claude/tasks/${taskId}/run`, {
       method: 'POST',
@@ -179,6 +183,8 @@ async function triggerRunTask(taskId: number, btn: HTMLButtonElement, body: Reco
       _runningTaskIds = new Set(_runningTaskIds).add(taskId);
       replaceWithDetailBtn(btn, taskId);
     } else {
+      btn.disabled = false;
+      btn.querySelectorAll<HTMLButtonElement>('button').forEach((b) => (b.disabled = false));
       let errorDetail = `HTTP ${res.status}`;
       try {
         const data = (await res.json()) as { error?: string };
@@ -187,9 +193,15 @@ async function triggerRunTask(taskId: number, btn: HTMLButtonElement, body: Reco
         // ignore JSON parse error
       }
       console.error(`[claude] Failed to start task ${taskId}: ${errorDetail}`);
-      alert(`Claude起動エラー (task ${taskId}): ${errorDetail}`);
+      if (res.status === 409) {
+        alert(`このタスクはすでに実行中です (task ${taskId})`);
+      } else {
+        alert(`Claude起動エラー (task ${taskId}): ${errorDetail}`);
+      }
     }
   } catch (err) {
+    btn.disabled = false;
+    btn.querySelectorAll<HTMLButtonElement>('button').forEach((b) => (b.disabled = false));
     console.error(`[claude] Network error starting task ${taskId}:`, err);
   }
 }
