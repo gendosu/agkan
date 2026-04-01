@@ -1,5 +1,6 @@
 import { spawn, ChildProcess, execSync } from 'child_process';
 import Database from 'better-sqlite3';
+import { verboseLog } from '../utils/logger';
 
 function resolveClaudePath(): string {
   try {
@@ -93,6 +94,8 @@ export class ClaudeProcessService {
       throw new Error(`Process for taskId ${taskId} is already running`);
     }
 
+    verboseLog(`[ClaudeProcessService] startProcess taskId=${taskId} command=${command}`);
+
     const child = spawn(
       CLAUDE_BIN,
       ['--output-format', 'stream-json', '--verbose', '--dangerously-skip-permissions', '-p', prompt],
@@ -116,6 +119,7 @@ export class ClaudeProcessService {
     };
 
     this.processes.set(taskId, info);
+    verboseLog(`[ClaudeProcessService] process added to map taskId=${taskId} total=${this.processes.size}`);
 
     if (this.db) {
       const result = this.db
@@ -124,6 +128,7 @@ export class ClaudeProcessService {
         )
         .run(info.taskId, info.startedAt.toISOString());
       info.runLogId = result.lastInsertRowid as number;
+      verboseLog(`[ClaudeProcessService] run log created id=${info.runLogId} taskId=${taskId}`);
     }
 
     let lineBuffer = '';
@@ -145,9 +150,13 @@ export class ClaudeProcessService {
         this.db
           .prepare(`UPDATE task_run_logs SET finished_at = ?, exit_code = ?, events = ? WHERE id = ?`)
           .run(finishedAt, 1, JSON.stringify(info.processedEvents), info.runLogId);
+        verboseLog(`[ClaudeProcessService] run log updated (error) id=${info.runLogId} taskId=${taskId}`);
       }
 
       this.processes.delete(taskId);
+      verboseLog(
+        `[ClaudeProcessService] process removed from map (error) taskId=${taskId} total=${this.processes.size}`
+      );
     });
 
     child.stdout?.on('data', (chunk: Buffer) => {
@@ -200,6 +209,7 @@ export class ClaudeProcessService {
       }
 
       const exitCode = code ?? 0;
+      verboseLog(`[ClaudeProcessService] process close taskId=${taskId} exitCode=${exitCode}`);
       if (exitCode !== 0) {
         console.error(`[ClaudeProcessService] process exited with code ${exitCode} for taskId=${taskId}`);
       }
@@ -212,6 +222,9 @@ export class ClaudeProcessService {
         this.db
           .prepare(`UPDATE task_run_logs SET finished_at = ?, exit_code = ?, events = ? WHERE id = ?`)
           .run(finishedAt, exitCode, JSON.stringify(info.processedEvents), info.runLogId);
+        verboseLog(
+          `[ClaudeProcessService] run log finalized id=${info.runLogId} taskId=${taskId} exitCode=${exitCode}`
+        );
         // Rotate: keep only latest 5 per task
         const rows = this.db
           .prepare(`SELECT id FROM task_run_logs WHERE task_id = ? ORDER BY started_at DESC`)
@@ -220,10 +233,14 @@ export class ClaudeProcessService {
           const toDelete = rows.slice(5).map((r) => r.id);
           const placeholders = toDelete.map(() => '?').join(',');
           this.db.prepare(`DELETE FROM task_run_logs WHERE id IN (${placeholders})`).run(...toDelete);
+          verboseLog(`[ClaudeProcessService] rotated run logs taskId=${taskId} deleted=${toDelete.length}`);
         }
       }
 
       this.processes.delete(taskId);
+      verboseLog(
+        `[ClaudeProcessService] process removed from map (close) taskId=${taskId} total=${this.processes.size}`
+      );
     });
   }
 
@@ -234,10 +251,13 @@ export class ClaudeProcessService {
   stopProcess(taskId: number): boolean {
     const info = this.processes.get(taskId);
     if (!info) {
+      verboseLog(`[ClaudeProcessService] stopProcess taskId=${taskId} not found`);
       return false;
     }
+    verboseLog(`[ClaudeProcessService] stopProcess taskId=${taskId} sending SIGTERM`);
     info.process.kill('SIGTERM');
     this.processes.delete(taskId);
+    verboseLog(`[ClaudeProcessService] process removed from map (stop) taskId=${taskId} total=${this.processes.size}`);
     return true;
   }
 
