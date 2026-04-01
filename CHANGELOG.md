@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.0.0-rc5] - 2026-03-31
+
+### Fixed
+- Move running indicator inside h1 tag in board header
+
 ## [3.0.0-rc4] - 2026-03-31
 
 ### Added
