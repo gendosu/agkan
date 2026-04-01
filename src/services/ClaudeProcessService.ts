@@ -91,6 +91,15 @@ export class ClaudeProcessService {
    */
   startProcess(taskId: number, prompt: string, command: string = 'run'): void {
     if (this.processes.has(taskId)) {
+      const existing = this.processes.get(taskId)!;
+      const pid = existing.process.pid;
+      const killed = existing.process.killed;
+      const exitCode = existing.process.exitCode;
+      const signalCode = existing.process.signalCode;
+      const aliveMs = Date.now() - existing.startedAt.getTime();
+      verboseLog(
+        `[ClaudeProcessService] startProcess DUPLICATE taskId=${taskId} existing pid=${pid} killed=${killed} exitCode=${exitCode} signalCode=${signalCode} aliveMs=${aliveMs} command=${existing.command}`
+      );
       throw new Error(`Process for taskId ${taskId} is already running`);
     }
 
@@ -153,10 +162,14 @@ export class ClaudeProcessService {
         verboseLog(`[ClaudeProcessService] run log updated (error) id=${info.runLogId} taskId=${taskId}`);
       }
 
-      this.processes.delete(taskId);
-      verboseLog(
-        `[ClaudeProcessService] process removed from map (error) taskId=${taskId} total=${this.processes.size}`
-      );
+      if (this.processes.get(taskId) === info) {
+        this.processes.delete(taskId);
+        verboseLog(
+          `[ClaudeProcessService] process removed from map (error) taskId=${taskId} total=${this.processes.size}`
+        );
+      } else {
+        verboseLog(`[ClaudeProcessService] process error skipped map delete (stale entry) taskId=${taskId}`);
+      }
     });
 
     child.stdout?.on('data', (chunk: Buffer) => {
@@ -237,10 +250,14 @@ export class ClaudeProcessService {
         }
       }
 
-      this.processes.delete(taskId);
-      verboseLog(
-        `[ClaudeProcessService] process removed from map (close) taskId=${taskId} total=${this.processes.size}`
-      );
+      if (this.processes.get(taskId) === info) {
+        this.processes.delete(taskId);
+        verboseLog(
+          `[ClaudeProcessService] process removed from map (close) taskId=${taskId} total=${this.processes.size}`
+        );
+      } else {
+        verboseLog(`[ClaudeProcessService] process close skipped map delete (stale entry) taskId=${taskId}`);
+      }
     });
   }
 
