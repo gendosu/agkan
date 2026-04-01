@@ -231,4 +231,15 @@ export const BOARD_STYLES = `
     .dependency-toggle-btn.active { background: #3b82f6; border-color: #3b82f6; color: white; }
     .dependency-toggle-btn.active:hover { background: #2563eb; border-color: #2563eb; }
     svg#dependency-svg { pointer-events: none; }
-    .dependency-line { transition: stroke-width 0.1s ease; }`;
+    .dependency-line { transition: stroke-width 0.1s ease; }
+    .claude-stream-modal-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+    .claude-stream-modal-header h2 { font-size: 16px; font-weight: 700; margin: 0; }
+    .claude-stream-modal-header button { background: none; border: none; font-size: 18px; color: var(--text-secondary); cursor: pointer; padding: 2px 6px; border-radius: 4px; line-height: 1; }
+    .claude-stream-modal-header button:hover { background: var(--bg-surface-hover); color: var(--text-primary); }
+    .claude-stream-log { font-family: 'Courier New', Courier, monospace; background: #0d0d0d; color: #22c55e; overflow-y: auto; max-height: 400px; white-space: pre-wrap; padding: 10px 12px; border-radius: 6px; font-size: 12px; line-height: 1.5; margin-bottom: 12px; }
+    .claude-stream-tool-use { background: var(--bg-header, #1e293b); color: #94a3b8; padding: 1px 4px; border-radius: 3px; }
+    .claude-stream-modal-footer { display: flex; align-items: center; gap: 8px; }
+    .claude-stream-status { color: var(--text-secondary); font-size: 11px; flex: 1; }
+    .claude-stream-stop-btn { padding: 6px 14px; border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer; border: 1px solid #dc2626; background: #dc2626; color: white; }
+    .claude-stream-stop-btn:hover:not(:disabled) { background: #b91c1c; border-color: #b91c1c; }
+    .claude-stream-stop-btn:disabled { opacity: 0.5; cursor: not-allowed; }`;
