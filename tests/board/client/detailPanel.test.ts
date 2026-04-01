@@ -1219,3 +1219,98 @@ describe('loadComments race condition - stale task ignored', () => {
     expect(pane?.innerHTML).not.toContain('Old comment');
   });
 });
+
+describe('copy task ID button', () => {
+  beforeEach(() => {
+    vi.resetModules();
+    document.body.innerHTML = '<div class="board-container"></div>';
+    Object.defineProperty(window, 'matchMedia', {
+      writable: true,
+      value: vi.fn().mockImplementation((query: string) => ({
+        matches: false,
+        media: query,
+        onchange: null,
+        addListener: vi.fn(),
+        removeListener: vi.fn(),
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+        dispatchEvent: vi.fn(),
+      })),
+    });
+    (window as unknown as Record<string, unknown>).allStatuses = ['pending'];
+    (window as unknown as Record<string, unknown>).statusLabels = { pending: 'Pending' };
+    (window as unknown as Record<string, unknown>).allPriorities = ['low', 'medium', 'high'];
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('copy button is present in the detail panel header', async () => {
+    global.fetch = vi.fn().mockImplementation((url: string) => {
+      if (String(url).includes('/api/config')) {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve({}) });
+      }
+      return Promise.resolve({ ok: true, json: () => Promise.resolve({ comments: [] }) });
+    });
+
+    const { initDetailPanel } = await import('../../../src/board/client/detailPanel');
+    initDetailPanel();
+
+    const copyBtn = document.getElementById('detail-panel-copy-id');
+    expect(copyBtn).not.toBeNull();
+  });
+
+  it('clicking copy button writes task ID to clipboard', async () => {
+    const writeTextMock = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, 'clipboard', {
+      value: { writeText: writeTextMock },
+      writable: true,
+    });
+
+    global.fetch = vi.fn().mockImplementation((url: string) => {
+      if (String(url).includes('/api/config')) {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve({}) });
+      }
+      return Promise.resolve({ ok: true, json: () => Promise.resolve({ comments: [] }) });
+    });
+
+    const { initDetailPanel, renderDetailPanel } = await import('../../../src/board/client/detailPanel');
+    initDetailPanel();
+    renderDetailPanel(makeTaskDetail({ task: { ...makeTaskDetail().task, id: 42 } }));
+
+    await new Promise((resolve) => setTimeout(resolve, 50));
+
+    const copyBtn = document.getElementById('detail-panel-copy-id') as HTMLButtonElement;
+    expect(copyBtn).not.toBeNull();
+    copyBtn.click();
+
+    await new Promise((resolve) => setTimeout(resolve, 10));
+
+    expect(writeTextMock).toHaveBeenCalledWith('42');
+  });
+
+  it('clicking copy button does not throw when no task is loaded', async () => {
+    const writeTextMock = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, 'clipboard', {
+      value: { writeText: writeTextMock },
+      writable: true,
+    });
+
+    global.fetch = vi.fn().mockImplementation((url: string) => {
+      if (String(url).includes('/api/config')) {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve({}) });
+      }
+      return Promise.resolve({ ok: true, json: () => Promise.resolve({ comments: [] }) });
+    });
+
+    const { initDetailPanel } = await import('../../../src/board/client/detailPanel');
+    initDetailPanel();
+
+    const copyBtn = document.getElementById('detail-panel-copy-id') as HTMLButtonElement;
+    expect(copyBtn).not.toBeNull();
+
+    expect(() => copyBtn.click()).not.toThrow();
+    expect(writeTextMock).not.toHaveBeenCalled();
+  });
+});
