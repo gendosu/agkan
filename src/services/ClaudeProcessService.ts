@@ -195,6 +195,7 @@ export class ClaudeProcessService {
       if (stderrBuffer) {
         console.error(`[ClaudeProcessService] stderr for taskId=${taskId}:\n${stderrBuffer}`);
         const errorEvent: OutputEvent = { kind: 'error', message: stderrBuffer };
+        info.processedEvents.push(errorEvent);
         info.subscribers.forEach((cb) => cb(errorEvent));
       }
 
