@@ -1,5 +1,30 @@
 import type { MigratableDatabase } from './types';
 
+function addColumnIfNotExists(db: MigratableDatabase, alterSql: string): void {
+  try {
+    db.exec(`SAVEPOINT add_column`);
+    db.exec(alterSql);
+    db.exec(`RELEASE SAVEPOINT add_column`);
+  } catch {
+    db.exec(`ROLLBACK TO SAVEPOINT add_column`);
+    db.exec(`RELEASE SAVEPOINT add_column`);
+  }
+}
+
+function isStatusAllowed(db: MigratableDatabase, status: string): boolean {
+  try {
+    db.exec(`SAVEPOINT check_status`);
+    db.prepare(`INSERT INTO tasks (title, status, created_at, updated_at) VALUES ('__check__', ?, '', '')`).run(status);
+    db.exec(`ROLLBACK TO SAVEPOINT check_status`);
+    db.exec(`RELEASE SAVEPOINT check_status`);
+    return true;
+  } catch {
+    db.exec(`ROLLBACK TO SAVEPOINT check_status`);
+    db.exec(`RELEASE SAVEPOINT check_status`);
+    return false;
+  }
+}
+
 export function up(db: MigratableDatabase): void {
   // Create tasks table
   db.exec(`
@@ -24,11 +49,7 @@ export function up(db: MigratableDatabase): void {
   `);
 
   // Migrate tasks table to add 'review' status to CHECK constraint
-  const taskTableDef = db.prepare(`SELECT sql FROM sqlite_master WHERE type='table' AND name='tasks'`).get() as
-    | { sql: string }
-    | undefined;
-
-  if (taskTableDef && !taskTableDef.sql.includes("'review'")) {
+  if (!isStatusAllowed(db, 'review')) {
     db.exec(`
       CREATE TABLE tasks_new (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -52,11 +73,7 @@ export function up(db: MigratableDatabase): void {
   }
 
   // Migrate tasks table to add 'icebox' status to CHECK constraint
-  const taskTableDefForIcebox = db
-    .prepare(`SELECT sql FROM sqlite_master WHERE type='table' AND name='tasks'`)
-    .get() as { sql: string } | undefined;
-
-  if (taskTableDefForIcebox && !taskTableDefForIcebox.sql.includes("'icebox'")) {
+  if (!isStatusAllowed(db, 'icebox')) {
     db.exec(`
       CREATE TABLE tasks_new (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -80,40 +97,16 @@ export function up(db: MigratableDatabase): void {
   }
 
   // Add parent_id column to tasks table (migration)
-  const columnExists = db
-    .prepare(
-      `
-    SELECT COUNT(*) as count FROM pragma_table_info('tasks')
-    WHERE name = 'parent_id'
-  `
-    )
-    .get() as { count: number };
-
-  if (columnExists.count === 0) {
-    db.exec(`
-      ALTER TABLE tasks ADD COLUMN parent_id INTEGER DEFAULT NULL
-        REFERENCES tasks(id) ON DELETE SET NULL
-    `);
-    db.exec(`
-      CREATE INDEX IF NOT EXISTS idx_tasks_parent_id ON tasks(parent_id)
-    `);
-  }
+  addColumnIfNotExists(
+    db,
+    `ALTER TABLE tasks ADD COLUMN parent_id INTEGER DEFAULT NULL REFERENCES tasks(id) ON DELETE SET NULL`
+  );
+  db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_tasks_parent_id ON tasks(parent_id)
+  `);
 
   // Add assignees column to tasks table (migration)
-  const assigneesColumnExists = db
-    .prepare(
-      `
-    SELECT COUNT(*) as count FROM pragma_table_info('tasks')
-    WHERE name = 'assignees'
-  `
-    )
-    .get() as { count: number };
-
-  if (assigneesColumnExists.count === 0) {
-    db.exec(`
-      ALTER TABLE tasks ADD COLUMN assignees TEXT DEFAULT NULL
-    `);
-  }
+  addColumnIfNotExists(db, `ALTER TABLE tasks ADD COLUMN assignees TEXT DEFAULT NULL`);
 
   // Create task_blocks table
   db.exec(`
@@ -216,21 +209,10 @@ export function up(db: MigratableDatabase): void {
   `);
 
   // Add priority column to tasks table (migration)
-  const priorityColumnExists = db
-    .prepare(
-      `
-    SELECT COUNT(*) as count FROM pragma_table_info('tasks')
-    WHERE name = 'priority'
-  `
-    )
-    .get() as { count: number };
-
-  if (priorityColumnExists.count === 0) {
-    db.exec(`
-      ALTER TABLE tasks ADD COLUMN priority TEXT DEFAULT NULL
-        CHECK(priority IS NULL OR priority IN ('critical', 'high', 'medium', 'low'))
-    `);
-  }
+  addColumnIfNotExists(
+    db,
+    `ALTER TABLE tasks ADD COLUMN priority TEXT DEFAULT NULL CHECK(priority IS NULL OR priority IN ('critical', 'high', 'medium', 'low'))`
+  );
 
   // Create task_run_logs table
   db.exec(`
