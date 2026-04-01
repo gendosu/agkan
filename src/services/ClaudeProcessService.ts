@@ -1,5 +1,6 @@
 import { spawn, ChildProcess, execSync } from 'child_process';
-import Database from 'better-sqlite3';
+import type { StorageBackend } from '../db/types/repository';
+import type { RunLogRow } from '../db/types/repository';
 import { verboseLog } from '../utils/logger';
 
 function resolveClaudePath(): string {
@@ -50,16 +51,6 @@ export interface RunLog {
   events: OutputEvent[];
 }
 
-interface RunLogRow {
-  id: number;
-  task_id: number;
-  started_at: string;
-  finished_at: string | null;
-  exit_code: number | null;
-  session_id: string | null;
-  events: string;
-}
-
 interface ProcessInfo {
   taskId: number;
   command: string;
@@ -82,9 +73,9 @@ interface ProcessInfo {
  */
 export class ClaudeProcessService {
   private processes: Map<number, ProcessInfo> = new Map();
-  private db: Database.Database | null;
+  private db: StorageBackend | null;
 
-  constructor(db?: Database.Database | null) {
+  constructor(db?: StorageBackend | null) {
     this.db = db ?? null;
   }
 
@@ -135,12 +126,7 @@ export class ClaudeProcessService {
     verboseLog(`[ClaudeProcessService] process added to map taskId=${taskId} total=${this.processes.size}`);
 
     if (this.db) {
-      const result = this.db
-        .prepare(
-          `INSERT INTO task_run_logs (task_id, started_at, finished_at, exit_code, events) VALUES (?, ?, NULL, NULL, '[]')`
-        )
-        .run(info.taskId, info.startedAt.toISOString());
-      info.runLogId = result.lastInsertRowid as number;
+      info.runLogId = this.db.runLogs.create(info.taskId, info.startedAt.toISOString());
       verboseLog(`[ClaudeProcessService] run log created id=${info.runLogId} taskId=${taskId}`);
     }
 
@@ -160,9 +146,7 @@ export class ClaudeProcessService {
 
       if (this.db && info.runLogId) {
         const finishedAt = new Date().toISOString();
-        this.db
-          .prepare(`UPDATE task_run_logs SET finished_at = ?, exit_code = ?, events = ? WHERE id = ?`)
-          .run(finishedAt, 1, JSON.stringify(info.processedEvents), info.runLogId);
+        this.db.runLogs.updateFinished(info.runLogId, finishedAt, 1, JSON.stringify(info.processedEvents));
         verboseLog(`[ClaudeProcessService] run log updated (error) id=${info.runLogId} taskId=${taskId}`);
       }
 
@@ -236,20 +220,15 @@ export class ClaudeProcessService {
       // Finalize log in DB before removing process
       if (this.db && info.runLogId) {
         const finishedAt = new Date().toISOString();
-        this.db
-          .prepare(`UPDATE task_run_logs SET finished_at = ?, exit_code = ?, events = ? WHERE id = ?`)
-          .run(finishedAt, exitCode, JSON.stringify(info.processedEvents), info.runLogId);
+        this.db.runLogs.updateFinished(info.runLogId, finishedAt, exitCode, JSON.stringify(info.processedEvents));
         verboseLog(
           `[ClaudeProcessService] run log finalized id=${info.runLogId} taskId=${taskId} exitCode=${exitCode}`
         );
         // Rotate: keep only latest 5 per task
-        const rows = this.db
-          .prepare(`SELECT id FROM task_run_logs WHERE task_id = ? ORDER BY started_at DESC`)
-          .all(info.taskId) as { id: number }[];
-        if (rows.length > 5) {
-          const toDelete = rows.slice(5).map((r) => r.id);
-          const placeholders = toDelete.map(() => '?').join(',');
-          this.db.prepare(`DELETE FROM task_run_logs WHERE id IN (${placeholders})`).run(...toDelete);
+        const ids = this.db.runLogs.findIdsByTaskId(info.taskId);
+        if (ids.length > 5) {
+          const toDelete = ids.slice(5);
+          this.db.runLogs.deleteMany(toDelete);
           verboseLog(`[ClaudeProcessService] rotated run logs taskId=${taskId} deleted=${toDelete.length}`);
         }
       }
@@ -300,9 +279,7 @@ export class ClaudeProcessService {
     if (!info) {
       // Try to replay from DB
       if (this.db) {
-        const row = this.db
-          .prepare(`SELECT * FROM task_run_logs WHERE task_id = ? ORDER BY started_at DESC LIMIT 1`)
-          .get(taskId) as RunLogRow | undefined;
+        const row = this.db.runLogs.findLatestByTaskId(taskId);
 
         if (row) {
           const events = JSON.parse(row.events) as OutputEvent[];
@@ -338,10 +315,8 @@ export class ClaudeProcessService {
    */
   getRunLogs(taskId: number): RunLog[] {
     if (!this.db) return [];
-    const rows = this.db
-      .prepare(`SELECT * FROM task_run_logs WHERE task_id = ? ORDER BY started_at DESC LIMIT 5`)
-      .all(taskId) as RunLogRow[];
-    return rows.map((r) => ({
+    const rows = this.db.runLogs.findByTaskId(taskId, 5);
+    return rows.map((r: RunLogRow) => ({
       id: r.id,
       task_id: r.task_id,
       started_at: r.started_at,
@@ -358,7 +333,7 @@ export class ClaudeProcessService {
     if (event.type === 'system' && event.session_id && !info.sessionId) {
       info.sessionId = event.session_id as string;
       if (this.db && info.runLogId) {
-        this.db.prepare(`UPDATE task_run_logs SET session_id = ? WHERE id = ?`).run(info.sessionId, info.runLogId);
+        this.db.runLogs.updateSessionId(info.runLogId, info.sessionId);
       }
     }
 
@@ -379,9 +354,7 @@ export class ClaudeProcessService {
         }
       }
       if (added && this.db && info.runLogId) {
-        this.db
-          .prepare(`UPDATE task_run_logs SET events = ? WHERE id = ?`)
-          .run(JSON.stringify(info.processedEvents), info.runLogId);
+        this.db.runLogs.updateEvents(info.runLogId, JSON.stringify(info.processedEvents));
       }
     }
     // 'result' and 'system' events are buffered but not forwarded as OutputEvents

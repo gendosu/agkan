@@ -8,7 +8,7 @@ import { MetadataService } from '../services/MetadataService';
 import { CommentService } from '../services/CommentService';
 import { TaskBlockService } from '../services/TaskBlockService';
 import { ClaudeProcessService } from '../services/ClaudeProcessService';
-import { getStorageBackend, DatabaseConnection } from '../db/connection';
+import { getStorageBackend } from '../db/connection';
 import { StorageBackend } from '../db/types/repository';
 import { getDefaultDirName } from '../db/config';
 import { registerBoardRoutes, BoardServices } from './boardRoutes';
@@ -55,7 +55,7 @@ export function startBoardServer(port: number, boardTitle?: string): void {
     undefined,
     undefined,
     undefined,
-    new ClaudeProcessService(DatabaseConnection.getRawDatabase())
+    new ClaudeProcessService(getStorageBackend())
   );
   serve(
     {
