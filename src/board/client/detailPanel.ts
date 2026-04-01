@@ -31,6 +31,7 @@ import {
 let detailTaskId: number | null = null;
 let lastTab = 'details';
 let runLogPollingInterval: ReturnType<typeof setInterval> | null = null;
+let currentFetchController: AbortController | null = null;
 
 function stopRunLogPolling(): void {
   if (runLogPollingInterval !== null) {
@@ -430,16 +431,28 @@ export function renderDetailPanel(data: TaskDetail): void {
 export async function openTaskDetail(taskId: string): Promise<void> {
   const detailPanel = document.getElementById('detail-panel') as HTMLElement;
   const PANEL_DEFAULT_WIDTH = 400;
+
+  // Set active card immediately to prevent flickering during concurrent clicks
+  setActiveCard(Number(taskId));
+
+  // Cancel any in-flight fetch from a previous click
+  if (currentFetchController) {
+    currentFetchController.abort();
+  }
+  currentFetchController = new AbortController();
+  const { signal } = currentFetchController;
+
   try {
-    const data = await fetchTaskDetail(taskId);
+    const data = await fetchTaskDetail(taskId, signal);
+    currentFetchController = null;
     renderDetailPanel(data);
-    setActiveCard(Number(taskId));
     if (!detailPanel.classList.contains('open')) {
       const preferredWidth = detailPanel.dataset.preferredWidth || String(PANEL_DEFAULT_WIDTH);
       detailPanel.style.width = preferredWidth + 'px';
       detailPanel.classList.add('open');
     }
   } catch (err) {
+    if (err instanceof DOMException && err.name === 'AbortError') return;
     console.error('[agkan] openTaskDetail failed for task', taskId, err);
     showToast('Failed to load task details');
   }

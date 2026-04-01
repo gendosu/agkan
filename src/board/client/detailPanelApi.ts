@@ -43,8 +43,8 @@ export async function postComment(taskId: number, content: string): Promise<void
   if (!res.ok) throw new Error('Server error');
 }
 
-export async function fetchTaskDetail(taskId: number | string): Promise<TaskDetail> {
-  const res = await fetch('/api/tasks/' + taskId);
+export async function fetchTaskDetail(taskId: number | string, signal?: AbortSignal): Promise<TaskDetail> {
+  const res = await fetch('/api/tasks/' + taskId, signal ? { signal } : undefined);
   if (!res.ok) throw new Error('Server error');
   return res.json();
 }
