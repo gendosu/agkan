@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.0.0-rc4] - 2026-03-31
+
+### Added
+- Add running indicator spinner to board header
+
+### Fixed
+- Move running indicator to immediately after h1 in board header
+
 ## [3.0.0-rc3] - 2026-03-31
 
 ### Added

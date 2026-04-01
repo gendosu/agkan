@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.0.0-rc4] - 2026-03-31
+
+### 追加
+- ボードヘッダーに実行中インジケータースピナーを追加
+
+### 修正
+- ボードヘッダーの実行中インジケーターを h1 直後に移動
+
 ## [3.0.0-rc3] - 2026-03-31
 
 ### 追加
