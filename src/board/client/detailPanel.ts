@@ -488,7 +488,7 @@ function buildUpdateWarningReloadBtn(): HTMLButtonElement {
   reloadBtn.title = 'Reload latest data';
   reloadBtn.textContent = '↺';
   reloadBtn.style.cssText =
-    'background: none; border: none; cursor: pointer; font-size: 1.1em; color: red; padding: 0 2px; line-height: 1; flex-shrink: 0;';
+    'background: none; border: none; cursor: pointer; font-size: 1.5em; color: red; padding: 0 4px; line-height: 1; flex-shrink: 0;';
   reloadBtn.addEventListener('click', async () => {
     try {
       if (detailTaskId !== null) {
