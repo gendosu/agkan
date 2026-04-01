@@ -3,6 +3,7 @@
 
 let _claudeModalCallback: ((taskId: number) => void) | null = null;
 let _runningTaskIds: Set<number> = new Set();
+let _planningTaskIds: Set<number> = new Set();
 const _inFlightTaskIds: Set<number> = new Set();
 
 export function registerClaudeModalCallback(callback: (taskId: number) => void): void {
@@ -62,6 +63,7 @@ function replaceWithDetailBtn(btn: HTMLButtonElement, taskId: number): void {
 }
 
 function replaceWithRunOrPlanBtn(btn: HTMLButtonElement, taskId: number, status: string | undefined): void {
+  _planningTaskIds.delete(taskId);
   if (['review', 'done', 'closed'].includes(status ?? '')) {
     btn.remove();
     return;
@@ -188,6 +190,9 @@ async function triggerRunTask(taskId: number, btn: HTMLButtonElement, body: Reco
     });
     if (res.ok) {
       _runningTaskIds = new Set(_runningTaskIds).add(taskId);
+      if (body.command === 'planning') {
+        _planningTaskIds = new Set(_planningTaskIds).add(taskId);
+      }
       replaceWithDetailBtn(btn, taskId);
     } else {
       btn.disabled = false;
@@ -275,7 +280,7 @@ export function attachClaudeButtonListeners(body: HTMLElement): void {
     attachDetailBtnListener(btn);
   });
   // Apply current running state to newly rendered buttons
-  updateButtonStates(_runningTaskIds);
+  updateButtonStates(_runningTaskIds, _planningTaskIds);
 }
 
 export function initClaudeButton(): void {
