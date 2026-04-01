@@ -457,7 +457,7 @@ function registerClaudeRoutes(app: Hono, claudeProcess: ClaudeProcessService, ts
 
   app.get('/api/claude/running-tasks', (c) => {
     const tasks = claudeProcess.listRunningTasks();
-    return c.json({ tasks });
+    return c.json({ taskIds: tasks });
   });
 }
 

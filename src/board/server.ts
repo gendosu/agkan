@@ -45,7 +45,18 @@ export function createBoardApp(
 }
 
 export function startBoardServer(port: number, boardTitle?: string): void {
-  const app = createBoardApp(undefined, undefined, undefined, undefined, boardTitle);
+  const app = createBoardApp(
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    boardTitle,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    new ClaudeProcessService()
+  );
   serve(
     {
       fetch: app.fetch,
