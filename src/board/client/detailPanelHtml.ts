@@ -187,10 +187,7 @@ export function buildDetailPanelHtml(): string {
     '<div class="detail-panel" id="detail-panel">' +
     '<div class="detail-panel-resize-handle" id="detail-panel-resize-handle"></div>' +
     '<div class="detail-panel-header">' +
-    '<div class="detail-panel-title-group">' +
     '<h2 id="detail-panel-title">Task Detail</h2>' +
-    '<button class="detail-panel-copy-id" id="detail-panel-copy-id" title="Copy task ID">&#x2398;</button>' +
-    '</div>' +
     '<button class="detail-panel-close" id="detail-panel-close" title="Close">&times;</button>' +
     '</div>' +
     '<div class="detail-tabs" id="detail-tabs">' +
