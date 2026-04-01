@@ -49,7 +49,7 @@ export function renderCard(task: Task, tags: Tag[], blockedByIds: number[] = [],
   let cardActions = '';
   if (task.status === 'ready') {
     cardActions = `<div class="card-actions"><button class="claude-run-btn" data-task-id="${task.id}">&#9654; Run</button></div>`;
-  } else if (!['review', 'done', 'close'].includes(task.status)) {
+  } else if (!['review', 'done', 'closed'].includes(task.status)) {
     cardActions = `<div class="card-actions"><button class="claude-plan-btn" data-task-id="${task.id}">&#128203; Planning</button></div>`;
   }
 
