@@ -381,6 +381,102 @@ describe('ClaudeProcessService', () => {
     });
   });
 
+  // --- error event handling ---
+
+  describe('error event handling', () => {
+    it('should emit error event with friendly message when ENOENT', () => {
+      const { proc } = makeFakeProcess();
+      spawnMock.mockReturnValue(proc);
+
+      service.startProcess(1, 'p');
+      const cb = vi.fn<(event: OutputEvent) => void>();
+      service.subscribeOutput(1, cb);
+
+      const err = Object.assign(new Error('spawn claude ENOENT'), { code: 'ENOENT' });
+      (proc as EventEmitter).emit('error', err);
+
+      expect(cb).toHaveBeenCalledWith({ kind: 'error', message: 'claude CLI not found in PATH' });
+    });
+
+    it('should emit done with exitCode 1 after ENOENT error', () => {
+      const { proc } = makeFakeProcess();
+      spawnMock.mockReturnValue(proc);
+
+      service.startProcess(1, 'p');
+      const cb = vi.fn<(event: OutputEvent) => void>();
+      service.subscribeOutput(1, cb);
+
+      const err = Object.assign(new Error('spawn claude ENOENT'), { code: 'ENOENT' });
+      (proc as EventEmitter).emit('error', err);
+
+      expect(cb).toHaveBeenCalledWith({ kind: 'done', exitCode: 1 });
+    });
+
+    it('should remove process from map after error', () => {
+      const { proc } = makeFakeProcess();
+      spawnMock.mockReturnValue(proc);
+
+      service.startProcess(1, 'p');
+      const err = Object.assign(new Error('spawn claude ENOENT'), { code: 'ENOENT' });
+      (proc as EventEmitter).emit('error', err);
+
+      expect(service.listRunningTasks().map((t) => t.taskId)).not.toContain(1);
+    });
+
+    it('should emit original message for non-ENOENT errors', () => {
+      const { proc } = makeFakeProcess();
+      spawnMock.mockReturnValue(proc);
+
+      service.startProcess(1, 'p');
+      const cb = vi.fn<(event: OutputEvent) => void>();
+      service.subscribeOutput(1, cb);
+
+      const err = Object.assign(new Error('permission denied'), { code: 'EACCES' });
+      (proc as EventEmitter).emit('error', err);
+
+      expect(cb).toHaveBeenCalledWith({ kind: 'error', message: 'permission denied' });
+    });
+
+    it('should not emit duplicate done when close fires after error', () => {
+      const { proc } = makeFakeProcess();
+      spawnMock.mockReturnValue(proc);
+
+      service.startProcess(1, 'p');
+      const cb = vi.fn<(event: OutputEvent) => void>();
+      service.subscribeOutput(1, cb);
+
+      const err = Object.assign(new Error('spawn claude ENOENT'), { code: 'ENOENT' });
+      (proc as EventEmitter).emit('error', err);
+      (proc as EventEmitter).emit('close', null);
+
+      const doneCalls = cb.mock.calls.filter((c) => c[0].kind === 'done');
+      expect(doneCalls).toHaveLength(1);
+    });
+
+    it('should save error to DB log on ENOENT', () => {
+      const db = makeTestDb();
+      db.prepare(
+        "INSERT INTO tasks (id, title, status, created_at, updated_at) VALUES (1, 'T', 'done', datetime('now'), datetime('now'))"
+      ).run();
+
+      const svc = new ClaudeProcessService(db);
+      const { proc } = makeFakeProcess();
+      spawnMock.mockReturnValue(proc);
+
+      svc.startProcess(1, 'p');
+
+      const err = Object.assign(new Error('spawn claude ENOENT'), { code: 'ENOENT' });
+      (proc as EventEmitter).emit('error', err);
+
+      const logs = svc.getRunLogs(1);
+      expect(logs).toHaveLength(1);
+      expect(logs[0].exit_code).toBe(1);
+      expect(logs[0].events[0]).toEqual({ kind: 'error', message: 'claude CLI not found in PATH' });
+
+      db.close();
+    });
+  });
+
   // --- NDJSON parsing ---
 
   describe('stdout NDJSON parsing', () => {

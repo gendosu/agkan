@@ -115,6 +115,27 @@ export class ClaudeProcessService {
     }
 
     let lineBuffer = '';
+    let spawnError = false;
+
+    child.on('error', (err: NodeJS.ErrnoException) => {
+      spawnError = true;
+      const message = err.code === 'ENOENT' ? 'claude CLI not found in PATH' : err.message;
+      const errorEvent: OutputEvent = { kind: 'error', message };
+      info.processedEvents.push(errorEvent);
+      info.subscribers.forEach((cb) => cb(errorEvent));
+
+      const doneEvent: OutputEvent = { kind: 'done', exitCode: 1 };
+      info.subscribers.forEach((cb) => cb(doneEvent));
+
+      if (this.db && info.runLogId) {
+        const finishedAt = new Date().toISOString();
+        this.db
+          .prepare(`UPDATE task_run_logs SET finished_at = ?, exit_code = ?, events = ? WHERE id = ?`)
+          .run(finishedAt, 1, JSON.stringify(info.processedEvents), info.runLogId);
+      }
+
+      this.processes.delete(taskId);
+    });
 
     child.stdout?.on('data', (chunk: Buffer) => {
       lineBuffer += chunk.toString();
@@ -145,6 +166,7 @@ export class ClaudeProcessService {
     });
 
     child.on('close', (code) => {
+      if (spawnError) return;
       // Process any remaining buffered line
       const remaining = lineBuffer.trim();
       if (remaining) {
