@@ -54,6 +54,7 @@ interface ProcessInfo {
   outputBuffer: ClaudeStreamEvent[];
   processedEvents: OutputEvent[];
   subscribers: Set<SubscribeCallback>;
+  runLogId: number | null;
 }
 
 // ---- ClaudeProcessService ----
@@ -99,9 +100,19 @@ export class ClaudeProcessService {
       outputBuffer: [],
       processedEvents: [],
       subscribers: new Set(),
+      runLogId: null,
     };
 
     this.processes.set(taskId, info);
+
+    if (this.db) {
+      const result = this.db
+        .prepare(
+          `INSERT INTO task_run_logs (task_id, started_at, finished_at, exit_code, events) VALUES (?, ?, NULL, NULL, '[]')`
+        )
+        .run(info.taskId, info.startedAt.toISOString());
+      info.runLogId = result.lastInsertRowid as number;
+    }
 
     let lineBuffer = '';
 
@@ -155,9 +166,21 @@ export class ClaudeProcessService {
       const doneEvent: OutputEvent = { kind: 'done', exitCode };
       info.subscribers.forEach((cb) => cb(doneEvent));
 
-      // Save log to DB before removing process
-      if (this.db) {
-        this._saveRunLog(info, exitCode);
+      // Finalize log in DB before removing process
+      if (this.db && info.runLogId) {
+        const finishedAt = new Date().toISOString();
+        this.db
+          .prepare(`UPDATE task_run_logs SET finished_at = ?, exit_code = ?, events = ? WHERE id = ?`)
+          .run(finishedAt, exitCode, JSON.stringify(info.processedEvents), info.runLogId);
+        // Rotate: keep only latest 5 per task
+        const rows = this.db
+          .prepare(`SELECT id FROM task_run_logs WHERE task_id = ? ORDER BY started_at DESC`)
+          .all(info.taskId) as { id: number }[];
+        if (rows.length > 5) {
+          const toDelete = rows.slice(5).map((r) => r.id);
+          const placeholders = toDelete.map(() => '?').join(',');
+          this.db.prepare(`DELETE FROM task_run_logs WHERE id IN (${placeholders})`).run(...toDelete);
+        }
       }
 
       this.processes.delete(taskId);
@@ -249,40 +272,27 @@ export class ClaudeProcessService {
 
   // ---- Private helpers ----
 
-  private _saveRunLog(info: ProcessInfo, exitCode: number): void {
-    const db = this.db!;
-    const finishedAt = new Date().toISOString();
-    const eventsJson = JSON.stringify(info.processedEvents);
-
-    db.prepare(
-      `INSERT INTO task_run_logs (task_id, started_at, finished_at, exit_code, events) VALUES (?, ?, ?, ?, ?)`
-    ).run(info.taskId, info.startedAt.toISOString(), finishedAt, exitCode, eventsJson);
-
-    // Rotate: keep only latest 5 per task
-    const rows = db
-      .prepare(`SELECT id FROM task_run_logs WHERE task_id = ? ORDER BY started_at DESC`)
-      .all(info.taskId) as { id: number }[];
-
-    if (rows.length > 5) {
-      const toDelete = rows.slice(5).map((r) => r.id);
-      const placeholders = toDelete.map(() => '?').join(',');
-      db.prepare(`DELETE FROM task_run_logs WHERE id IN (${placeholders})`).run(...toDelete);
-    }
-  }
-
   private _notifySubscribers(info: ProcessInfo, event: ClaudeStreamEvent): void {
     if (event.type === 'assistant') {
       const assistantEvent = event as Extract<ClaudeStreamEvent, { type: 'assistant' }>;
+      let added = false;
       for (const content of assistantEvent.message.content) {
         if (content.type === 'text') {
           const outputEvent: OutputEvent = { kind: 'text', text: content.text };
           info.processedEvents.push(outputEvent);
           info.subscribers.forEach((cb) => cb(outputEvent));
+          added = true;
         } else if (content.type === 'tool_use') {
           const outputEvent: OutputEvent = { kind: 'tool_use', name: content.name, input: content.input };
           info.processedEvents.push(outputEvent);
           info.subscribers.forEach((cb) => cb(outputEvent));
+          added = true;
         }
+      }
+      if (added && this.db && info.runLogId) {
+        this.db
+          .prepare(`UPDATE task_run_logs SET events = ? WHERE id = ?`)
+          .run(JSON.stringify(info.processedEvents), info.runLogId);
       }
     }
     // 'result' and 'system' events are buffered but not forwarded as OutputEvents
