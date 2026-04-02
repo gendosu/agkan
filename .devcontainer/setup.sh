@@ -10,6 +10,7 @@ fi
 mkdir -p /workspace/dist /workspace/tmp
 touch /workspace/.eslintcache
 
+mkdir -p "$PNPM_HOME"
 pnpm install
 pnpm link --global
 

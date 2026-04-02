@@ -26,7 +26,7 @@ RUN echo 'node ALL=(ALL) NOPASSWD: ALL' > /etc/sudoers.d/node && chmod 0440 /etc
 RUN mkdir -p /home/node && chown -R node:node /home/node
 
 # Install pnpm
-RUN npm install -g pnpm
+RUN npm install -g pnpm@10.33.0
 
 # Configure pnpm global bin directory
 ENV PNPM_HOME="/root/.local/share/pnpm"
