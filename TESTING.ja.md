@@ -33,7 +33,7 @@ pnpm run build
 
 すべてのテストを実行:
 ```bash
-npm test
+pnpm test
 ```
 
 ### Vitestの各種オプション
