@@ -10,8 +10,8 @@ fi
 mkdir -p /workspace/dist /workspace/tmp
 touch /workspace/.eslintcache
 
-npm install
-sudo npm link
+pnpm install
+pnpm link --global
 
 # Execute CMD (passed as arguments from docker-compose command)
 exec "$@"

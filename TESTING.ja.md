@@ -13,18 +13,18 @@
 ### 前提条件
 
 - Node.js 20以上
-- npm
+- pnpm
 
 ### セットアップ手順
 
 1. プロジェクトの依存パッケージをインストール:
 ```bash
-npm install
+pnpm install
 ```
 
 2. TypeScriptコードをビルド（テスト実行前に推奨）:
 ```bash
-npm run build
+pnpm run build
 ```
 
 ## テストの実行方法
@@ -122,12 +122,12 @@ beforeEach(() => {
 
 1. **依存パッケージの確認**:
 ```bash
-npm install
+pnpm install
 ```
 
 2. **TypeScriptビルドエラーの確認**:
 ```bash
-npm run build
+pnpm run build
 ```
 
 3. **データベースファイルの削除**:
@@ -151,13 +151,13 @@ CI/CD環境では、以下のコマンドを順次実行します:
 
 ```bash
 # 依存パッケージのインストール
-npm install
+pnpm install
 
 # TypeScriptビルド
-npm run build
+pnpm run build
 
 # テスト実行
-npm test
+pnpm test
 ```
 
 ## 参考情報

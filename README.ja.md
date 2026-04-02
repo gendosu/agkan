@@ -820,11 +820,11 @@ export AGENT_KANBAN_DB_PATH=./dev/data.db      # 開発環境
 export AGENT_KANBAN_DB_PATH=./staging/data.db  # ステージング環境
 
 # テストの実行
-NODE_ENV=test npm test
+NODE_ENV=test pnpm test
 # デフォルトで .agkan-test/data.db を使用
 
 # カスタムテストDBで実行
-NODE_ENV=test AGENT_KANBAN_DB_PATH=/tmp/test.db npm test
+NODE_ENV=test AGENT_KANBAN_DB_PATH=/tmp/test.db pnpm test
 ```
 
 #### デフォルトの動作
@@ -1075,17 +1075,17 @@ cd agkan
 
 2. 依存パッケージをインストール:
 ```bash
-npm install
+pnpm install
 ```
 
 3. TypeScriptコードをビルド:
 ```bash
-npm run build
+pnpm run build
 ```
 
 4. グローバルコマンドとして登録:
 ```bash
-npm link
+pnpm link --global
 ```
 
 ### 開発ガイドライン
@@ -1102,10 +1102,10 @@ npm link
 このプロジェクトではコード品質のためにESLintとPrettierを使用しています:
 
 ```bash
-npm run lint        # コードをチェック
-npm run lint:fix    # 問題を自動修正
-npm run format      # コードをフォーマット
-npm run check       # 全チェックを実行
+pnpm run lint        # コードをチェック
+pnpm run lint:fix    # 問題を自動修正
+pnpm run format      # コードをフォーマット
+pnpm run check       # 全チェックを実行
 ```
 
 ### テスト
@@ -1114,7 +1114,7 @@ npm run check       # 全チェックを実行
 
 Vitestを使用したユニットテストを実行:
 ```bash
-npm test
+pnpm test
 ```
 
 全てのサービス層とモデル層がテストされています。
@@ -1123,7 +1123,7 @@ npm test
 
 実際のCLIコマンドを実行する包括的なE2Eテストを実行:
 ```bash
-npm run test:e2e
+pnpm run test:e2e
 ```
 
 E2Eテストは以下の機能をカバーします:
@@ -1138,13 +1138,13 @@ E2Eテストは以下の機能をカバーします:
 ### ビルド
 
 ```bash
-npm run build
+pnpm run build
 ```
 
 ### 開発時の自動ビルド
 
 ```bash
-npm run dev
+pnpm run dev
 ```
 
 ### TypeScript型チェック

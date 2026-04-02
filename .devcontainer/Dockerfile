@@ -25,8 +25,11 @@ RUN echo 'node ALL=(ALL) NOPASSWD: ALL' > /etc/sudoers.d/node && chmod 0440 /etc
 # Create node user home directory
 RUN mkdir -p /home/node && chown -R node:node /home/node
 
+# Install pnpm
+RUN npm install -g pnpm
+
 # Install TypeScript and TypeScript Language Server globally
-RUN npm install -g typescript-language-server typescript
+RUN pnpm add -g typescript-language-server typescript
 
 # Switch to node user
 USER node
