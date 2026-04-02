@@ -7,7 +7,7 @@ Thank you for your interest in contributing to this project.
 ### Requirements
 
 - Node.js 20 or higher
-- npm 9 or higher
+- pnpm 10 or higher
 - Git
 
 ### Setup Instructions
@@ -18,13 +18,13 @@ git clone https://github.com/gendosu/agkan.git
 cd agkan
 
 # Install dependencies
-npm install
+pnpm install
 
 # Verify the build
-npm run build
+pnpm run build
 
 # Run tests
-npm test
+pnpm test
 ```
 
 ## Development Process
@@ -94,19 +94,19 @@ This project uses ESLint and Prettier.
 
 ```bash
 # Format code
-npm run format
+pnpm run format
 
 # Check formatting
-npm run format:check
+pnpm run format:check
 
 # Run linter
-npm run lint
+pnpm run lint
 
 # Auto-fix lint issues
-npm run lint:fix
+pnpm run lint:fix
 
 # Type check
-npm run type-check
+pnpm run type-check
 ```
 
 ### Code Style
@@ -122,10 +122,10 @@ npm run type-check
 
 ```bash
 # Run all tests
-npm test
+pnpm test
 
 # Generate coverage report
-npm run test -- --coverage
+pnpm test -- --coverage
 
 # Run E2E tests
 ./test-e2e.sh
@@ -179,17 +179,17 @@ They can be viewed from the Checks tab of a pull request.
 
 1. Verify all tests pass
    ```bash
-   npm test
+   pnpm test
    ```
 
 2. Check linter and formatter
    ```bash
-   npm run check
+   pnpm run check
    ```
 
 3. Verify the build succeeds
    ```bash
-   npm run build
+   pnpm run build
    ```
 
 **Note**: The pre-push hook automatically runs tests before pushing.

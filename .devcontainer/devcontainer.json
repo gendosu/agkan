@@ -30,5 +30,5 @@
     "GITHUB_ID": "${localEnv:GITHUB_ID}"
   },
   "remoteUser": "node",
-  "postCreateCommand": "npm install"
+  "postCreateCommand": "pnpm install"
 }

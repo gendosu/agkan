@@ -1,4 +1,5 @@
 node_modules
+.pnpm-store/
 dist
 data/
 attachments/
@@ -17,3 +18,4 @@ coverage/
 tmp
 .worktree
 docs
+.eslintcache

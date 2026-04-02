@@ -25,12 +25,23 @@ RUN echo 'node ALL=(ALL) NOPASSWD: ALL' > /etc/sudoers.d/node && chmod 0440 /etc
 # Create node user home directory
 RUN mkdir -p /home/node && chown -R node:node /home/node
 
+# Install pnpm
+RUN npm install -g pnpm@10.33.0
+
+# Configure pnpm global bin directory
+ENV PNPM_HOME="/root/.local/share/pnpm"
+ENV PATH="${PNPM_HOME}:${PATH}"
+
 # Install TypeScript and TypeScript Language Server globally
-RUN npm install -g typescript-language-server typescript
+RUN pnpm add -g typescript-language-server typescript
 
 # Switch to node user
 USER node
 WORKDIR /workspace
+
+# Configure pnpm global bin directory for node user
+ENV PNPM_HOME="/home/node/.local/share/pnpm"
+ENV PATH="/home/node/.local/share/pnpm:${PATH}"
 
 RUN echo 'alias claude-skip="claude --dangerously-skip-permissions"' >> ~/.bash_aliases
 

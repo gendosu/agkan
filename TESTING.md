@@ -13,18 +13,18 @@ This document describes the test environment and testing methods for the agkan p
 ### Prerequisites
 
 - Node.js 20 or later
-- npm
+- pnpm
 
 ### Setup Steps
 
 1. Install project dependencies:
 ```bash
-npm install
+pnpm install
 ```
 
 2. Build TypeScript code (recommended before running tests):
 ```bash
-npm run build
+pnpm run build
 ```
 
 ## Running Tests
@@ -33,7 +33,7 @@ npm run build
 
 Run all tests:
 ```bash
-npm test
+pnpm test
 ```
 
 ### Vitest Options
@@ -66,7 +66,7 @@ npx vitest --coverage
 Check coverage thresholds:
 ```bash
 # Run tests with coverage and check thresholds
-npm test -- --coverage
+pnpm test -- --coverage
 # This will fail if coverage is below 80% threshold
 ```
 
@@ -188,12 +188,12 @@ The 20 currently implemented test cases comprehensively cover the following func
 
 1. **Verify dependencies**:
 ```bash
-npm install
+pnpm install
 ```
 
 2. **Check TypeScript build errors**:
 ```bash
-npm run build
+pnpm run build
 ```
 
 3. **Delete database file**:
@@ -217,13 +217,13 @@ In CI/CD environments, execute the following commands in order:
 
 ```bash
 # Install dependencies
-npm install
+pnpm install
 
 # Build TypeScript
-npm run build
+pnpm run build
 
 # Run tests
-npm test
+pnpm test
 ```
 
 ## Reference

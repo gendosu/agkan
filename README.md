@@ -848,11 +848,11 @@ Test mode (`NODE_ENV=test`) automatically isolates test data from production dat
 3. **Testing:**
    ```bash
    # Automated tests with isolated database
-   NODE_ENV=test npm test
+   NODE_ENV=test pnpm test
    # Uses .agkan-test/data.db by default
 
    # Override with custom test database
-   NODE_ENV=test AGENT_KANBAN_DB_PATH=/tmp/test.db npm test
+   NODE_ENV=test AGENT_KANBAN_DB_PATH=/tmp/test.db pnpm test
    ```
 
 #### Default Behavior
@@ -1107,17 +1107,17 @@ cd agkan
 
 2. Install dependencies:
 ```bash
-npm install
+pnpm install
 ```
 
 3. Build the TypeScript code:
 ```bash
-npm run build
+pnpm run build
 ```
 
 4. Register as a global command:
 ```bash
-npm link
+pnpm link --global
 ```
 
 ### Development Guidelines
@@ -1134,10 +1134,10 @@ For comprehensive development information, see the following documentation:
 This project uses ESLint and Prettier for code quality:
 
 ```bash
-npm run lint        # Check code
-npm run lint:fix    # Auto-fix issues
-npm run format      # Format code
-npm run check       # Run all checks
+pnpm run lint        # Check code
+pnpm run lint:fix    # Auto-fix issues
+pnpm run format      # Format code
+pnpm run check       # Run all checks
 ```
 
 ### Testing
@@ -1146,7 +1146,7 @@ npm run check       # Run all checks
 
 Run unit tests with Vitest:
 ```bash
-npm test
+pnpm test
 ```
 
 All service and model layers are tested.
@@ -1155,7 +1155,7 @@ All service and model layers are tested.
 
 Run comprehensive e2e tests that execute actual CLI commands:
 ```bash
-npm run test:e2e
+pnpm run test:e2e
 ```
 
 E2E tests cover the following features:
@@ -1170,13 +1170,13 @@ Tests use a local test database (`.agkan-test/test-e2e.db`) and are automaticall
 ### Build
 
 ```bash
-npm run build
+pnpm run build
 ```
 
 ### Auto-build During Development
 
 ```bash
-npm run dev
+pnpm run dev
 ```
 
 ### TypeScript Type Checking
