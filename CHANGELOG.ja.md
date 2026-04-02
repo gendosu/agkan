@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.0.0-rc6] - 2026-04-02
+
+### 修正
+- ボードヘッダーの読み込みインジケーターが h1 で改行される問題を修正
+- 詳細パネルのコピー ID ボタンのレイアウトとスタイルを修正
+
 ## [3.0.0-rc5] - 2026-03-31
 
 ### 修正

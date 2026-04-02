@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.0.0-rc6] - 2026-04-02
+
+### Fixed
+- Fix loading indicator breaking to new line in h1 in board header
+- Fix detail panel copy ID button layout and styling
+
 ## [3.0.0-rc5] - 2026-03-31
 
 ### Fixed
