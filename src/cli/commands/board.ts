@@ -76,27 +76,72 @@ function handleForeground(options: BoardOptions): void {
 }
 
 export function setupBoardCommand(program: Command): void {
-  program
+  const boardCommand = program
     .command('board')
     .description('Start a local Kanban board viewer at localhost')
-    .argument('[subcommand]', 'Daemon command: start, stop, or restart')
     .option('-p, --port <number>', 'Port to listen on')
     .option('-t, --title <text>', 'Board title to display in the header')
-    .option('--verbose', 'Enable verbose logging')
-    .action((subcommand: string | undefined, options: BoardOptions) => {
+    .option('--verbose', 'Enable verbose logging');
+
+  // Helper to merge parent and subcommand options
+  const mergeOptions = (subOptions: BoardOptions, parent: Command): BoardOptions => {
+    const parentOpts: BoardOptions = {};
+    const parentCmd = parent.parent;
+    if (parentCmd) {
+      const opts = (parentCmd.opts && parentCmd.opts()) || {};
+      if (opts.port) parentOpts.port = opts.port;
+      if (opts.title) parentOpts.title = opts.title;
+      if (opts.verbose) parentOpts.verbose = opts.verbose;
+    }
+    return { ...parentOpts, ...subOptions };
+  };
+
+  // Main board command (foreground mode) - no subcommand
+  boardCommand.action((options: BoardOptions) => {
+    try {
+      handleForeground(options);
+    } catch (error) {
+      handleError(error as Error, {});
+    }
+  });
+
+  // board start subcommand
+  boardCommand
+    .command('start')
+    .description('Start board server as a daemon')
+    .option('-p, --port <number>', 'Port to listen on')
+    .option('-t, --title <text>', 'Board title to display in the header')
+    .action((options: BoardOptions, command: Command) => {
       try {
-        if (subcommand === 'start') {
-          handleStart(options);
-        } else if (subcommand === 'stop') {
-          handleStop();
-        } else if (subcommand === 'restart') {
-          handleRestart(options);
-        } else if (!subcommand) {
-          handleForeground(options);
-        } else {
-          console.error(`Unknown subcommand: ${subcommand}. Use start, stop, or restart.`);
-          process.exit(1);
-        }
+        const mergedOptions = mergeOptions(options, command);
+        handleStart(mergedOptions);
+      } catch (error) {
+        handleError(error as Error, {});
+      }
+    });
+
+  // board stop subcommand
+  boardCommand
+    .command('stop')
+    .description('Stop the running board server daemon')
+    .action(() => {
+      try {
+        handleStop();
+      } catch (error) {
+        handleError(error as Error, {});
+      }
+    });
+
+  // board restart subcommand
+  boardCommand
+    .command('restart')
+    .description('Restart the board server daemon')
+    .option('-p, --port <number>', 'Port to listen on')
+    .option('-t, --title <text>', 'Board title to display in the header')
+    .action((options: BoardOptions, command: Command) => {
+      try {
+        const mergedOptions = mergeOptions(options, command);
+        handleRestart(mergedOptions);
       } catch (error) {
         handleError(error as Error, {});
       }
