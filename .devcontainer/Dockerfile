@@ -39,6 +39,10 @@ RUN pnpm add -g typescript-language-server typescript
 USER node
 WORKDIR /workspace
 
+# Configure pnpm global bin directory for node user
+ENV PNPM_HOME="/home/node/.local/share/pnpm"
+ENV PATH="/home/node/.local/share/pnpm:${PATH}"
+
 RUN echo 'alias claude-skip="claude --dangerously-skip-permissions"' >> ~/.bash_aliases
 
 # Install Claude Code
