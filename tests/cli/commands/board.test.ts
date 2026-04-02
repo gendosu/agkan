@@ -18,16 +18,32 @@ vi.mock('../../../src/cli/utils/board-daemon', () => ({
   isBoardRunning: vi.fn(),
   spawnBoardDaemon: vi.fn(() => 12345),
   killBoardProcess: vi.fn(() => true),
+  readBoardPid: vi.fn(() => 12345),
 }));
+
+vi.mock('../../../src/services/TaskService', () => {
+  const TaskService = vi.fn();
+  TaskService.prototype.getTaskCountByStatus = vi.fn(() => ({
+    icebox: 5,
+    backlog: 12,
+    ready: 8,
+    in_progress: 3,
+    review: 2,
+    done: 25,
+    closed: 10,
+  }));
+  return { TaskService };
+});
 
 import { startBoardServer } from '../../../src/board/server';
 import { loadConfig } from '../../../src/db/config';
-import { isBoardRunning, spawnBoardDaemon, killBoardProcess } from '../../../src/cli/utils/board-daemon';
+import { isBoardRunning, spawnBoardDaemon, killBoardProcess, readBoardPid } from '../../../src/cli/utils/board-daemon';
 
 const mockLoadConfig = vi.mocked(loadConfig);
 const mockIsBoardRunning = vi.mocked(isBoardRunning);
 const mockSpawnBoardDaemon = vi.mocked(spawnBoardDaemon);
 const mockKillBoardProcess = vi.mocked(killBoardProcess);
+const mockReadBoardPid = vi.mocked(readBoardPid);
 
 function createProgram(): Command {
   const prog = new Command();
@@ -300,6 +316,90 @@ describe('setupBoardCommand', () => {
       await program.parseAsync(['node', 'test', 'board', 'restart']);
 
       expect(mockSpawnBoardDaemon).toHaveBeenCalled();
+    });
+  });
+
+  describe('board status subcommand', () => {
+    it('should show running status with PID when board is running', async () => {
+      mockIsBoardRunning.mockReturnValue(true);
+      mockReadBoardPid.mockReturnValue(12345);
+      const logs: string[] = [];
+      const spy = vi.spyOn(console, 'log').mockImplementation((...a) => logs.push(a.join(' ')));
+
+      await program.parseAsync(['node', 'test', 'board', 'status']);
+
+      expect(logs.some((l) => l.includes('Board Status'))).toBe(true);
+      expect(logs.some((l) => l.includes('RUNNING'))).toBe(true);
+      expect(logs.some((l) => l.includes('12345'))).toBe(true);
+      spy.mockRestore();
+    });
+
+    it('should show stopped status when board is not running', async () => {
+      mockIsBoardRunning.mockReturnValue(false);
+      mockReadBoardPid.mockReturnValue(null);
+      const logs: string[] = [];
+      const spy = vi.spyOn(console, 'log').mockImplementation((...a) => logs.push(a.join(' ')));
+
+      await program.parseAsync(['node', 'test', 'board', 'status']);
+
+      expect(logs.some((l) => l.includes('STOPPED'))).toBe(true);
+      spy.mockRestore();
+    });
+
+    it('should show task summary with counts', async () => {
+      mockIsBoardRunning.mockReturnValue(false);
+      mockReadBoardPid.mockReturnValue(null);
+      const logs: string[] = [];
+      const spy = vi.spyOn(console, 'log').mockImplementation((...a) => logs.push(a.join(' ')));
+
+      await program.parseAsync(['node', 'test', 'board', 'status']);
+
+      expect(logs.some((l) => l.includes('Task Summary'))).toBe(true);
+      expect(logs.some((l) => l.includes('Icebox'))).toBe(true);
+      expect(logs.some((l) => l.includes('Done'))).toBe(true);
+      spy.mockRestore();
+    });
+
+    it('should respect custom port option when running', async () => {
+      mockIsBoardRunning.mockReturnValue(true);
+      mockReadBoardPid.mockReturnValue(12345);
+      const logs: string[] = [];
+      const spy = vi.spyOn(console, 'log').mockImplementation((...a) => logs.push(a.join(' ')));
+
+      await program.parseAsync(['node', 'test', 'board', '--port', '3000', 'status']);
+
+      expect(logs.some((l) => l.includes('Port: 3000'))).toBe(true);
+      spy.mockRestore();
+    });
+
+    it('should use port from config when --port is not provided', async () => {
+      mockIsBoardRunning.mockReturnValue(true);
+      mockReadBoardPid.mockReturnValue(12345);
+      mockLoadConfig.mockReturnValue({ board: { port: 9090 } });
+      program = createProgram();
+      const logs: string[] = [];
+      const spy = vi.spyOn(console, 'log').mockImplementation((...a) => logs.push(a.join(' ')));
+
+      await program.parseAsync(['node', 'test', 'board', 'status']);
+
+      expect(logs.some((l) => l.includes('Port: 9090'))).toBe(true);
+      spy.mockRestore();
+    });
+
+    it('should exit with code 1 for invalid port', async () => {
+      let exitCode: number | undefined;
+      const originalExit = process.exit;
+      process.exit = ((code?: number) => {
+        exitCode = code;
+      }) as never;
+
+      try {
+        await program.parseAsync(['node', 'test', 'board', '--port', 'invalid', 'status']);
+      } finally {
+        process.exit = originalExit;
+      }
+
+      expect(exitCode).toBe(1);
     });
   });
 });
