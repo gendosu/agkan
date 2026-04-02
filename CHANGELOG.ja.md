@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.0.0-rc7] - 2026-04-03
+
+### 追加
+- ボードのデーモン start/stop/restart サブコマンドを追加
+- ボードコマンドを適切なサブコマンド構造に変換
+- サーバーステータスとタスクサマリーを表示する status サブコマンドを追加
+
+### 変更
+- .npmrc に minimum-release-age 設定を追加
+
 ## [3.0.0-rc6] - 2026-04-02
 
 ### 修正

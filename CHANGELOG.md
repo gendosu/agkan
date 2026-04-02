@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.0.0-rc7] - 2026-04-03
+
+### Added
+- Add daemon start/stop/restart subcommands for board
+- Convert board command to proper subcommand structure
+- Add status subcommand to show server status and task summary
+
+### Changed
+- Add .npmrc with minimum-release-age setting
+
 ## [3.0.0-rc6] - 2026-04-02
 
 ### Fixed
