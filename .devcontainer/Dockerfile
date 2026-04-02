@@ -28,6 +28,10 @@ RUN mkdir -p /home/node && chown -R node:node /home/node
 # Install pnpm
 RUN npm install -g pnpm
 
+# Configure pnpm global bin directory
+ENV PNPM_HOME="/root/.local/share/pnpm"
+ENV PATH="${PNPM_HOME}:${PATH}"
+
 # Install TypeScript and TypeScript Language Server globally
 RUN pnpm add -g typescript-language-server typescript
 
