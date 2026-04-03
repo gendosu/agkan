@@ -108,6 +108,7 @@ function createSVGOverlay(): SVGSVGElement {
   if (existing) {
     existing.remove();
   }
+  arrowMarkers.clear();
 
   const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
   svg.setAttribute('id', 'dependency-svg');
