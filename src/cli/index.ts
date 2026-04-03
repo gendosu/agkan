@@ -14,6 +14,7 @@ import { setupTaskCountCommand } from './commands/task/count';
 import { setupTaskUpdateParentCommand } from './commands/task/update-parent';
 import { setupTaskDeleteCommand } from './commands/task/delete';
 import { setupTaskPurgeCommand } from './commands/task/purge';
+import { setupTaskCopyCommand } from './commands/task/copy';
 
 // Block command handlers
 import { setupBlockAddCommand } from './commands/block/add';
@@ -74,6 +75,7 @@ setupTaskCountCommand(program);
 setupTaskUpdateParentCommand(program);
 setupTaskDeleteCommand(program);
 setupTaskPurgeCommand(program);
+setupTaskCopyCommand(program);
 
 // Register block commands (block and tag handlers create their own subcommands)
 setupBlockAddCommand(program);
