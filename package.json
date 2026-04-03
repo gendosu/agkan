@@ -1,6 +1,6 @@
 {
   "name": "agkan",
-  "version": "3.0.0-rc8",
+  "version": "3.0.0-rc9",
   "description": "TypeScript-based CLI task management tool with SQLite storage",
   "main": "dist/cli/index.js",
   "bin": {
