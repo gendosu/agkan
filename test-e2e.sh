@@ -43,6 +43,7 @@ source "$E2E_DIR/test_env_var.sh"
 source "$E2E_DIR/test_test_mode.sh"
 source "$E2E_DIR/test_board.sh"
 source "$E2E_DIR/test_task_comments.sh"
+source "$E2E_DIR/test_task_copy.sh"
 
 ################################################################################
 # Main Test Execution
@@ -69,6 +70,7 @@ main() {
     test_test_mode_config
     test_board
     test_task_comments
+    test_task_copy
 
     # Cleanup
     cleanup_test_db
