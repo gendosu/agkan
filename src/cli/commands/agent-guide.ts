@@ -49,6 +49,12 @@ agkan task count --status ready --quiet  # Output number only
 # Update parent-child relationship
 agkan task update-parent <id> <parent_id>
 agkan task update-parent <id> null  # Remove parent
+
+# Copy a task
+agkan task copy <id>
+agkan task copy <id> --status ready    # Specify destination status (default: backlog)
+agkan task copy <id> --no-tags         # Do not copy tags
+agkan task copy <id> --json            # Output in JSON format
 \`\`\`
 
 ### Blocking Relationships
