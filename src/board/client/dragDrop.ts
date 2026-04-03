@@ -11,6 +11,7 @@ export function registerDependencyRedrawCallback(callback: () => void): void {
 
 export let draggedCard: HTMLElement | null = null;
 export let sourceBody: HTMLElement | null = null;
+export let isPendingStatusUpdate = false;
 
 // Track mouse position and drag offset for virtual rect calculation
 let _dragMouseX = 0;
@@ -53,6 +54,7 @@ async function handleDrop(e: DragEvent, newStatus: string, colEl: HTMLElement): 
   updateCount(newStatus);
   updateCardButton(draggedCard as HTMLElement, newStatus);
 
+  isPendingStatusUpdate = true;
   try {
     const res = await fetch('/api/tasks/' + taskId, {
       method: 'PATCH',
@@ -72,6 +74,8 @@ async function handleDrop(e: DragEvent, newStatus: string, colEl: HTMLElement): 
       updateCount(newStatus);
     }
     showToast();
+  } finally {
+    isPendingStatusUpdate = false;
   }
 }
 

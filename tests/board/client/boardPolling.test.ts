@@ -16,6 +16,7 @@ import {
   applyIncrementalCardUpdate,
 } from '../../../src/board/client/boardPolling';
 import { updateButtonStates } from '../../../src/board/client/claudeButton';
+import * as dragDropModule from '../../../src/board/client/dragDrop';
 
 beforeEach(() => {
   vi.restoreAllMocks();
@@ -219,6 +220,41 @@ describe('pollBoardUpdates', () => {
     await pollBoardUpdates();
 
     expect(fetchCalls.some((u) => u.includes('board/cards'))).toBe(true);
+  });
+
+  it('skips polling when isPendingStatusUpdate is true', async () => {
+    setLastUpdatedAt('2026-01-01T00:00:00.000Z');
+    vi.spyOn(dragDropModule, 'isPendingStatusUpdate', 'get').mockReturnValue(true);
+
+    global.fetch = vi.fn();
+
+    await pollBoardUpdates();
+
+    expect(global.fetch).not.toHaveBeenCalled();
+  });
+
+  it('resumes polling after isPendingStatusUpdate clears to false', async () => {
+    setLastUpdatedAt('2026-01-01T00:00:00.000Z');
+    vi.spyOn(dragDropModule, 'isPendingStatusUpdate', 'get').mockReturnValue(false);
+
+    const fetchCalls: string[] = [];
+    global.fetch = vi.fn().mockImplementation((url: string) => {
+      fetchCalls.push(String(url));
+      if (String(url).includes('updated-at')) {
+        return Promise.resolve({
+          ok: true,
+          json: vi.fn().mockResolvedValue({ updatedAt: '2026-01-02T00:00:00.000Z' }),
+        });
+      }
+      return Promise.resolve({
+        ok: true,
+        json: vi.fn().mockResolvedValue({ columns: [] }),
+      });
+    });
+
+    await pollBoardUpdates();
+
+    expect(fetchCalls.some((u) => u.includes('updated-at'))).toBe(true);
   });
 });
 
