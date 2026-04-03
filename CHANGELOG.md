@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.0.0-rc8] - 2026-04-03
+
+### Added
+- Add task copy command
+
+### Fixed
+- Fix dependency arrow rendering for same-column tasks in board
+- Clear arrowMarkers cache when SVG overlay is recreated in board
+- Prevent stale polling overwrite after drag-drop status update in board
+
 ## [3.0.0-rc7] - 2026-04-03
 
 ### Added

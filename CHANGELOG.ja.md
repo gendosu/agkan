@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.0.0-rc8] - 2026-04-03
+
+### 追加
+- タスクコピーコマンドを追加
+
+### 修正
+- ボードの同一カラム内タスクの依存関係矢印レンダリングを修正
+- SVGオーバーレイ再作成時に arrowMarkers キャッシュをクリア
+- ドラッグ＆ドロップのステータス更新後に古いポーリングで上書きされる問題を修正
+
 ## [3.0.0-rc7] - 2026-04-03
 
 ### 追加
