@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.0.0-rc10] - 2026-04-04
+
+### 追加
+- ボードの詳細パネルで「Blocked by」「Blocking」「Parent」関係項目をクリック可能に
+
+### 修正
+- ボードの依存関係変更を検出するためポーリングシグネチャに task_blocks を含めるよう修正
+
 ## [3.0.0-rc9] - 2026-04-03
 
 ### 変更

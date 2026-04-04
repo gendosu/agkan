@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.0.0-rc10] - 2026-04-04
+
+### Added
+- Make Blocked by, Blocking, and Parent relation items clickable in board detail panel
+
+### Fixed
+- Include task_blocks in polling signature to detect dependency changes in board
+
 ## [3.0.0-rc9] - 2026-04-03
 
 ### Changed
