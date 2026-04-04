@@ -399,7 +399,7 @@ class SQLiteMetadataRepository implements MetadataRepository {
 
   findByTaskId(taskId: number): TaskMetadata[] {
     return this.db
-      .prepare('SELECT * FROM task_metadata WHERE task_id = ? ORDER BY created_at DESC')
+      .prepare('SELECT * FROM task_metadata WHERE task_id = ? ORDER BY created_at DESC, id DESC')
       .all(taskId) as unknown as TaskMetadata[];
   }
 
@@ -415,7 +415,7 @@ class SQLiteMetadataRepository implements MetadataRepository {
 
   findAllGroupedByTaskId(): Map<number, TaskMetadata[]> {
     const rows = this.db
-      .prepare('SELECT * FROM task_metadata ORDER BY task_id, created_at DESC')
+      .prepare('SELECT * FROM task_metadata ORDER BY task_id, created_at DESC, id DESC')
       .all() as unknown as TaskMetadata[];
 
     const result = new Map<number, TaskMetadata[]>();
