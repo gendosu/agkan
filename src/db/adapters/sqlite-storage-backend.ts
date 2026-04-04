@@ -593,9 +593,13 @@ export class SQLiteStorageBackend implements StorageBackend {
     const tagsRow = this.db
       .prepare('SELECT MAX(created_at) as max_created_at, COUNT(*) as count FROM task_tags')
       .get() as { max_created_at: string | null; count: number };
+    const blocksRow = this.db
+      .prepare('SELECT MAX(created_at) as max_created_at, COUNT(*) as count FROM task_blocks')
+      .get() as { max_created_at: string | null; count: number };
 
-    if (baseRow.max_updated_at === null && tagsRow.max_created_at === null) return null;
-    return `${baseRow.max_updated_at}|${tagsRow.max_created_at}|${tagsRow.count}`;
+    if (baseRow.max_updated_at === null && tagsRow.max_created_at === null && blocksRow.max_created_at === null)
+      return null;
+    return `${baseRow.max_updated_at}|${tagsRow.max_created_at}|${tagsRow.count}|${blocksRow.max_created_at}|${blocksRow.count}`;
   }
 
   close(): void {
