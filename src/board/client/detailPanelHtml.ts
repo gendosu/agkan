@@ -103,7 +103,9 @@ export function renderRelationsHtml(
     html += '<div class="detail-relation-row">';
     html += '<span class="detail-relation-label">Parent</span>';
     html +=
-      '<div class="detail-relation-ids"><span class="detail-relation-id">#' +
+      '<div class="detail-relation-ids"><span class="detail-relation-id detail-relation-link" data-task-id="' +
+      parent.id +
+      '">#' +
       parent.id +
       ' ' +
       escapeHtmlClient(parent.title) +
@@ -114,7 +116,7 @@ export function renderRelationsHtml(
     html += '<div class="detail-relation-row"><span class="detail-relation-label">Blocked by</span>';
     html += '<div class="detail-relation-ids">';
     blockedBy.forEach((t) => {
-      html += '<span class="detail-relation-id">#' + t.id + '</span>';
+      html += '<span class="detail-relation-id detail-relation-link" data-task-id="' + t.id + '">#' + t.id + '</span>';
     });
     html += '</div></div>';
   }
@@ -122,7 +124,7 @@ export function renderRelationsHtml(
     html += '<div class="detail-relation-row"><span class="detail-relation-label">Blocking</span>';
     html += '<div class="detail-relation-ids">';
     blocking.forEach((t) => {
-      html += '<span class="detail-relation-id">#' + t.id + '</span>';
+      html += '<span class="detail-relation-id detail-relation-link" data-task-id="' + t.id + '">#' + t.id + '</span>';
     });
     html += '</div></div>';
   }

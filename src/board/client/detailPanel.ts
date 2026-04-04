@@ -239,6 +239,14 @@ export function renderDetailPanel(data: TaskDetail): void {
   if (detailsPane) {
     detailsPane.innerHTML = renderDetailPanelHtml(data);
     detailsPane.style.padding = '20px';
+
+    detailsPane.querySelectorAll<HTMLElement>('.detail-relation-link[data-task-id]').forEach((el) => {
+      el.style.cursor = 'pointer';
+      el.addEventListener('click', () => {
+        const tid = el.dataset.taskId;
+        if (tid) void openTaskDetail(tid);
+      });
+    });
   }
 
   // Update footer with timestamp and save button
