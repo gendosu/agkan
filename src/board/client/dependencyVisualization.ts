@@ -55,10 +55,22 @@ function drawBezierLine(
 
   // Horizontal bezier: control points extend horizontally from each endpoint
   const dx = Math.abs(x2 - x1);
-  const cpOffset = Math.max(dx * 0.5, 60);
-  // Adjust control point direction based on line direction
-  const cp1x = x1 < x2 ? x1 + cpOffset : x1 - cpOffset;
-  const cp2x = x1 < x2 ? x2 - cpOffset : x2 + cpOffset;
+  const isSameSide = dx < 10; // Same side when endpoints are very close horizontally
+
+  let cp1x: number;
+  let cp2x: number;
+
+  if (isSameSide) {
+    // Same side (e.g., right → right): both control points extend outward (to the right)
+    const cpOffset = 80; // Fixed offset for same-side curves
+    cp1x = x1 + cpOffset;
+    cp2x = x2 + cpOffset;
+  } else {
+    // Different sides: control points move towards each other
+    const cpOffset = Math.max(dx * 0.5, 60);
+    cp1x = x1 < x2 ? x1 + cpOffset : x1 - cpOffset;
+    cp2x = x1 < x2 ? x2 - cpOffset : x2 + cpOffset;
+  }
 
   const pathData = `M ${x1} ${y1} C ${cp1x} ${y1}, ${cp2x} ${y2}, ${x2} ${y2}`;
   path.setAttribute('d', pathData);
@@ -89,10 +101,24 @@ function getCardEdgePoints(
 
   const fromCenterX = fromRect.left + fromRect.width / 2;
   const toCenterX = toRect.left + toRect.width / 2;
+  const columnThreshold = 50; // Allow some tolerance for "same column"
 
-  // Connect right edge → left edge when target is to the right, otherwise left → right
-  const fromX = fromCenterX <= toCenterX ? fromRect.right - boardRect.left : fromRect.left - boardRect.left;
-  const toX = fromCenterX <= toCenterX ? toRect.left - boardRect.left : toRect.right - boardRect.left;
+  let fromX: number;
+  let toX: number;
+
+  if (Math.abs(fromCenterX - toCenterX) < columnThreshold) {
+    // Same column: connect right → right for U-curve
+    fromX = fromRect.right - boardRect.left;
+    toX = toRect.right - boardRect.left;
+  } else if (fromCenterX <= toCenterX) {
+    // From is left of to: right → left
+    fromX = fromRect.right - boardRect.left;
+    toX = toRect.left - boardRect.left;
+  } else {
+    // From is right of to: left → right
+    fromX = fromRect.left - boardRect.left;
+    toX = toRect.right - boardRect.left;
+  }
 
   return {
     x1: fromX,
@@ -108,6 +134,7 @@ function createSVGOverlay(): SVGSVGElement {
   if (existing) {
     existing.remove();
   }
+  arrowMarkers.clear();
 
   const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
   svg.setAttribute('id', 'dependency-svg');
