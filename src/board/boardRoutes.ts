@@ -1,4 +1,5 @@
 import { Hono } from 'hono';
+import { verboseLog } from '../utils/logger';
 import { TaskService } from '../services/TaskService';
 import { TaskTagService } from '../services/TaskTagService';
 import { TagService } from '../services/TagService';
@@ -6,6 +7,7 @@ import { MetadataService } from '../services/MetadataService';
 import { CommentService } from '../services/CommentService';
 import { TaskBlockService } from '../services/TaskBlockService';
 import { ExportImportService, ExportData } from '../services/ExportImportService';
+import { ClaudeProcessService } from '../services/ClaudeProcessService';
 import { TaskStatus, isPriority, Priority } from '../models';
 import { StorageBackend } from '../db/types/repository';
 import { readBoardConfig, writeBoardConfig, DETAIL_PANE_MAX_WIDTH, VALID_THEMES, ThemePreference } from './boardConfig';
@@ -28,6 +30,7 @@ export type BoardServices = {
   database: StorageBackend;
   boardTitle?: string;
   configDir: string;
+  claudeProcessService?: ClaudeProcessService;
 };
 
 type TaskPatchBody = {
@@ -378,8 +381,122 @@ function parseBoardCardFilters(query: {
   return filters;
 }
 
+function registerClaudeRoutes(app: Hono, claudeProcess: ClaudeProcessService, ts: TaskService): void {
+  app.post('/api/claude/tasks/:taskId/run', async (c) => {
+    const taskId = Number(c.req.param('taskId'));
+    if (isNaN(taskId)) return c.json({ error: 'Invalid taskId' }, 400);
+    if (!ts.getTask(taskId)) return c.json({ error: 'Task not found' }, 404);
+
+    const body = (await c.req.json().catch(() => ({}))) as { command?: string };
+    const command = body.command === 'planning' ? 'planning' : body.command === 'pr' ? 'pr' : 'run';
+    const prompt =
+      command === 'planning'
+        ? `Task ID: ${taskId}\n/agkan-planning-subtask`
+        : command === 'pr'
+          ? `Task ID: ${taskId}\n/agkan-subtask`
+          : `Task ID: ${taskId}\n/agkan-subtask-direct`;
+
+    try {
+      claudeProcess.startProcess(taskId, prompt, command);
+    } catch (e) {
+      if (e instanceof Error && e.message.includes('already running')) {
+        console.error(
+          `[boardRoutes] 409 already running taskId=${taskId} command=${command} running=${JSON.stringify(claudeProcess.listRunningTasks())}`
+        );
+        return c.json({ error: e.message }, 409);
+      }
+      return c.json({ error: e instanceof Error ? e.message : 'Failed to start process' }, 500);
+    }
+
+    if (command === 'pr' || command === 'run') {
+      const targetStatus = command === 'pr' ? 'review' : 'done';
+      const unsubscribe = claudeProcess.subscribeOutput(taskId, (evt) => {
+        if (evt.kind === 'done' && evt.exitCode === 0) {
+          ts.updateTask(taskId, { status: targetStatus });
+        }
+        if (evt.kind === 'done' || evt.kind === 'error') {
+          unsubscribe();
+        }
+      });
+    }
+
+    return c.json({ taskId, started: true }, 201);
+  });
+
+  app.delete('/api/claude/tasks/:taskId/run', (c) => {
+    const taskId = Number(c.req.param('taskId'));
+    if (isNaN(taskId)) return c.json({ error: 'Invalid taskId' }, 400);
+    const stopped = claudeProcess.stopProcess(taskId);
+    if (!stopped) return c.json({ error: 'No running process for this taskId' }, 404);
+    return c.json({ success: true });
+  });
+
+  app.get('/api/claude/tasks/:taskId/stream', (c) => {
+    const taskId = Number(c.req.param('taskId'));
+    if (isNaN(taskId)) {
+      return c.json({ error: 'Invalid taskId' }, 400);
+    }
+
+    const stream = new ReadableStream({
+      start(controller) {
+        const encode = (event: string, data: unknown): Uint8Array => {
+          const payload = `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
+          return new TextEncoder().encode(payload);
+        };
+
+        const stop = claudeProcess.subscribeOutput(taskId, (evt) => {
+          if (evt.kind === 'text') {
+            controller.enqueue(encode('text', { text: evt.text }));
+          } else if (evt.kind === 'tool_use') {
+            controller.enqueue(encode('tool_use', { name: evt.name, input: evt.input }));
+          } else if (evt.kind === 'done') {
+            controller.enqueue(encode('end', { exitCode: evt.exitCode }));
+            controller.close();
+          } else if (evt.kind === 'error') {
+            controller.enqueue(encode('error', { message: evt.message }));
+            controller.close();
+          }
+        });
+
+        c.req.raw.signal?.addEventListener('abort', () => {
+          stop();
+          controller.close();
+        });
+      },
+    });
+
+    return new Response(stream, {
+      headers: {
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache',
+        Connection: 'keep-alive',
+      },
+    });
+  });
+
+  app.get('/api/running-tasks', (c) => {
+    const tasks = claudeProcess.listRunningTasks();
+    return c.json({ tasks });
+  });
+
+  app.get('/api/claude/tasks/:taskId/run-logs', (c) => {
+    const taskId = Number(c.req.param('taskId'));
+    if (isNaN(taskId)) return c.json({ error: 'Invalid taskId' }, 400);
+    if (!ts.getTask(taskId)) return c.json({ error: 'Task not found' }, 404);
+    const logs = claudeProcess.getRunLogs(taskId);
+    return c.json({ logs });
+  });
+}
+
 export function registerBoardRoutes(app: Hono, services: BoardServices): void {
   const { ts, tts, tbs, database, boardTitle, configDir } = services;
+
+  app.use('*', async (c, next) => {
+    verboseLog(`[boardRoutes] ${c.req.method} ${c.req.path}`);
+    await next();
+    verboseLog(`[boardRoutes] ${c.req.method} ${c.req.path} -> ${c.res.status}`);
+  });
+
   app.get('/', (c) => {
     const tasksByStatus = buildTasksByStatus(ts.listTasks({}, 'id', 'asc'));
     const boardConfig = readBoardConfig(configDir);
@@ -401,4 +518,7 @@ export function registerBoardRoutes(app: Hono, services: BoardServices): void {
   });
   registerTaskApiRoutes(app, services);
   registerConfigApiRoutes(app, configDir);
+  if (services.claudeProcessService) {
+    registerClaudeRoutes(app, services.claudeProcessService, ts);
+  }
 }
