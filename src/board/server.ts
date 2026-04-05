@@ -7,6 +7,7 @@ import { TagService } from '../services/TagService';
 import { MetadataService } from '../services/MetadataService';
 import { CommentService } from '../services/CommentService';
 import { TaskBlockService } from '../services/TaskBlockService';
+import { ClaudeProcessService } from '../services/ClaudeProcessService';
 import { getStorageBackend } from '../db/connection';
 import { StorageBackend } from '../db/types/repository';
 import { getDefaultDirName } from '../db/config';
@@ -21,7 +22,8 @@ export function createBoardApp(
   tagService?: TagService,
   configDir?: string,
   commentService?: CommentService,
-  taskBlockService?: TaskBlockService
+  taskBlockService?: TaskBlockService,
+  claudeProcessService?: ClaudeProcessService
 ): Hono {
   const app = new Hono();
   const resolvedConfigDir = configDir ?? path.join(process.cwd(), getDefaultDirName());
@@ -36,13 +38,25 @@ export function createBoardApp(
     database: resolvedDb,
     boardTitle,
     configDir: resolvedConfigDir,
+    claudeProcessService,
   };
   registerBoardRoutes(app, services);
   return app;
 }
 
 export function startBoardServer(port: number, boardTitle?: string): void {
-  const app = createBoardApp(undefined, undefined, undefined, undefined, boardTitle);
+  const app = createBoardApp(
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    boardTitle,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    new ClaudeProcessService(getStorageBackend())
+  );
   serve(
     {
       fetch: app.fetch,

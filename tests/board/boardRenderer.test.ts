@@ -134,6 +134,34 @@ describe('renderCard', () => {
     expect(html).toContain('high');
   });
 
+  it('renders run button for ready status', () => {
+    const task = makeTask({ status: 'ready' });
+    const html = renderCard(task, []);
+    expect(html).toContain('claude-run-btn');
+    expect(html).not.toContain('claude-plan-btn');
+  });
+
+  it('renders run button for in_progress status', () => {
+    const task = makeTask({ status: 'in_progress' });
+    const html = renderCard(task, []);
+    expect(html).toContain('claude-run-btn');
+    expect(html).not.toContain('claude-plan-btn');
+  });
+
+  it('renders planning button for backlog status', () => {
+    const task = makeTask({ status: 'backlog' });
+    const html = renderCard(task, []);
+    expect(html).toContain('claude-plan-btn');
+    expect(html).not.toContain('claude-run-btn');
+  });
+
+  it('renders no action button for done status', () => {
+    const task = makeTask({ status: 'done' });
+    const html = renderCard(task, []);
+    expect(html).not.toContain('claude-run-btn');
+    expect(html).not.toContain('claude-plan-btn');
+  });
+
   it('renders the card as draggable', () => {
     const html = renderCard(makeTask(), []);
     expect(html).toContain('draggable="true"');

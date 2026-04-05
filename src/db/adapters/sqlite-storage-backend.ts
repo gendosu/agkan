@@ -13,6 +13,8 @@ import type {
   TaskTagRepository,
   MetadataRepository,
   CommentRepository,
+  RunLogRepository,
+  RunLogRow,
   StorageBackend,
   TaskFilter,
   TaskSortOptions,
@@ -497,6 +499,59 @@ class SQLiteCommentRepository implements CommentRepository {
   }
 }
 
+class SQLiteRunLogRepository implements RunLogRepository {
+  constructor(private db: Database.Database) {}
+
+  create(taskId: number, startedAt: string): number {
+    const result = this.db
+      .prepare(
+        `INSERT INTO task_run_logs (task_id, started_at, finished_at, exit_code, events) VALUES (?, ?, NULL, NULL, '[]')`
+      )
+      .run(taskId, startedAt);
+    return result.lastInsertRowid as number;
+  }
+
+  updateFinished(id: number, finishedAt: string, exitCode: number, events: string): void {
+    this.db
+      .prepare(`UPDATE task_run_logs SET finished_at = ?, exit_code = ?, events = ? WHERE id = ?`)
+      .run(finishedAt, exitCode, events, id);
+  }
+
+  updateSessionId(id: number, sessionId: string): void {
+    this.db.prepare(`UPDATE task_run_logs SET session_id = ? WHERE id = ?`).run(sessionId, id);
+  }
+
+  updateEvents(id: number, events: string): void {
+    this.db.prepare(`UPDATE task_run_logs SET events = ? WHERE id = ?`).run(events, id);
+  }
+
+  findLatestByTaskId(taskId: number): RunLogRow | null {
+    const row = this.db
+      .prepare(`SELECT * FROM task_run_logs WHERE task_id = ? ORDER BY started_at DESC LIMIT 1`)
+      .get(taskId) as RunLogRow | undefined;
+    return row ?? null;
+  }
+
+  findByTaskId(taskId: number, limit: number): RunLogRow[] {
+    return this.db
+      .prepare(`SELECT * FROM task_run_logs WHERE task_id = ? ORDER BY started_at DESC LIMIT ?`)
+      .all(taskId, limit) as unknown as RunLogRow[];
+  }
+
+  findIdsByTaskId(taskId: number): number[] {
+    const rows = this.db
+      .prepare(`SELECT id FROM task_run_logs WHERE task_id = ? ORDER BY started_at DESC`)
+      .all(taskId) as { id: number }[];
+    return rows.map((r) => r.id);
+  }
+
+  deleteMany(ids: number[]): void {
+    if (ids.length === 0) return;
+    const placeholders = ids.map(() => '?').join(',');
+    this.db.prepare(`DELETE FROM task_run_logs WHERE id IN (${placeholders})`).run(...ids);
+  }
+}
+
 /**
  * SQLite implementation of StorageBackend
  */
@@ -507,6 +562,7 @@ export class SQLiteStorageBackend implements StorageBackend {
   readonly taskTags: TaskTagRepository;
   readonly metadata: MetadataRepository;
   readonly comments: CommentRepository;
+  readonly runLogs: RunLogRepository;
 
   constructor(private db: Database.Database) {
     this.tasks = new SQLiteTaskRepository(db);
@@ -515,6 +571,7 @@ export class SQLiteStorageBackend implements StorageBackend {
     this.taskTags = new SQLiteTaskTagRepository(db);
     this.metadata = new SQLiteMetadataRepository(db);
     this.comments = new SQLiteCommentRepository(db);
+    this.runLogs = new SQLiteRunLogRepository(db);
   }
 
   transaction<T>(fn: () => T): T {
@@ -536,9 +593,13 @@ export class SQLiteStorageBackend implements StorageBackend {
     const tagsRow = this.db
       .prepare('SELECT MAX(created_at) as max_created_at, COUNT(*) as count FROM task_tags')
       .get() as { max_created_at: string | null; count: number };
+    const blocksRow = this.db
+      .prepare('SELECT MAX(created_at) as max_created_at, COUNT(*) as count FROM task_blocks')
+      .get() as { max_created_at: string | null; count: number };
 
-    if (baseRow.max_updated_at === null && tagsRow.max_created_at === null) return null;
-    return `${baseRow.max_updated_at}|${tagsRow.max_created_at}|${tagsRow.count}`;
+    if (baseRow.max_updated_at === null && tagsRow.max_created_at === null && blocksRow.max_created_at === null)
+      return null;
+    return `${baseRow.max_updated_at}|${tagsRow.max_created_at}|${tagsRow.count}|${blocksRow.max_created_at}|${blocksRow.count}`;
   }
 
   close(): void {

@@ -926,6 +926,24 @@ describe('GET /api/board/updated-at', () => {
     const data = (await res.json()) as { updatedAt: string | null };
     expect(data).toHaveProperty('updatedAt');
   });
+
+  it('changes signature when task_blocks are added', async () => {
+    const services = buildServices();
+    const app = buildApp(services);
+
+    const task1 = services.ts.createTask({ title: 'Task 1', status: 'backlog' });
+    const task2 = services.ts.createTask({ title: 'Task 2', status: 'backlog' });
+
+    const res1 = await app.fetch(new Request('http://localhost/api/board/updated-at'));
+    const data1 = (await res1.json()) as { updatedAt: string | null };
+
+    services.tbs.addBlock({ blocker_task_id: task1.id, blocked_task_id: task2.id });
+
+    const res2 = await app.fetch(new Request('http://localhost/api/board/updated-at'));
+    const data2 = (await res2.json()) as { updatedAt: string | null };
+
+    expect(data2.updatedAt).not.toBe(data1.updatedAt);
+  });
 });
 
 describe('GET /api/board/cards', () => {

@@ -12,3 +12,5 @@ export { MetadataService } from './MetadataService';
 export { CommentService } from './CommentService';
 export { ExportImportService } from './ExportImportService';
 export type { ExportData, ExportedTask, ExportedComment, ImportResult } from './ExportImportService';
+export { ClaudeProcessService } from './ClaudeProcessService';
+export type { ClaudeStreamEvent, OutputEvent, SubscribeCallback } from './ClaudeProcessService';

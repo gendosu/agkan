@@ -40,6 +40,21 @@ function setupMinimalBoardDOM(): void {
     completed: 'Completed',
   };
   (window as unknown as Record<string, unknown>).allPriorities = ['low', 'medium', 'high'];
+
+  // jsdom does not implement matchMedia — provide a no-op stub
+  Object.defineProperty(window, 'matchMedia', {
+    writable: true,
+    value: vi.fn().mockImplementation((query: string) => ({
+      matches: false,
+      media: query,
+      onchange: null,
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      dispatchEvent: vi.fn(),
+    })),
+  });
 }
 
 function makeTaskDetail(overrides = {}) {
@@ -897,6 +912,36 @@ describe('Detail panel design updates', () => {
     expect(textarea.style.height).toBeTruthy();
   });
 
+  it('textarea is auto-resized after panel opens with 5+ line description', async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ comments: [] }),
+    });
+
+    const { renderDetailPanel } = await import('../../../src/board/client/detailPanel');
+    const longBody = 'line1\nline2\nline3\nline4\nline5\nline6';
+    const data = makeTaskDetail({
+      task: {
+        ...makeTaskDetail().task,
+        body: longBody,
+      },
+    });
+    renderDetailPanel(data);
+
+    // Dispatch transitionend to simulate panel width transition completing.
+    const detailPanel = document.getElementById('detail-panel') as HTMLElement;
+    const transitionEvent = new TransitionEvent('transitionend', { propertyName: 'width' });
+    detailPanel.dispatchEvent(transitionEvent);
+
+    // Allow double rAF (each resolves as setTimeout(0) in jsdom) to flush.
+    await new Promise((resolve) => setTimeout(resolve, 50));
+
+    const textarea = document.getElementById('detail-edit-body') as HTMLTextAreaElement;
+    expect(textarea).not.toBeNull();
+    // autoResizeTextarea should have set style.height after the double rAF.
+    expect(textarea.style.height).toBeTruthy();
+  });
+
   it('detail tab content div is rendered with active class', async () => {
     global.fetch = vi.fn().mockResolvedValue({
       ok: true,
@@ -1000,6 +1045,208 @@ describe('Escape key closes detail panel', () => {
 
     document.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true }));
     expect(panel.classList.contains('open')).toBe(true);
+  });
+});
+
+describe('copy task ID button', () => {
+  beforeEach(() => {
+    vi.resetModules();
+    document.body.innerHTML = '<div class="board-container"></div>';
+    Object.defineProperty(window, 'matchMedia', {
+      writable: true,
+      value: vi.fn().mockImplementation((query: string) => ({
+        matches: false,
+        media: query,
+        onchange: null,
+        addListener: vi.fn(),
+        removeListener: vi.fn(),
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+        dispatchEvent: vi.fn(),
+      })),
+    });
+    (window as unknown as Record<string, unknown>).allStatuses = ['pending'];
+    (window as unknown as Record<string, unknown>).statusLabels = { pending: 'Pending' };
+    (window as unknown as Record<string, unknown>).allPriorities = ['low', 'medium', 'high'];
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('copy button is present in the detail panel header', async () => {
+    global.fetch = vi.fn().mockImplementation((url: string) => {
+      if (String(url).includes('/api/config')) {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve({}) });
+      }
+      return Promise.resolve({ ok: true, json: () => Promise.resolve({ comments: [] }) });
+    });
+
+    const { initDetailPanel } = await import('../../../src/board/client/detailPanel');
+    initDetailPanel();
+
+    const copyBtn = document.getElementById('detail-panel-copy-id');
+    expect(copyBtn).not.toBeNull();
+  });
+
+  it('clicking copy button writes task ID to clipboard', async () => {
+    const writeTextMock = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, 'clipboard', {
+      value: { writeText: writeTextMock },
+      writable: true,
+    });
+
+    global.fetch = vi.fn().mockImplementation((url: string) => {
+      if (String(url).includes('/api/config')) {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve({}) });
+      }
+      return Promise.resolve({ ok: true, json: () => Promise.resolve({ comments: [] }) });
+    });
+
+    const { initDetailPanel, renderDetailPanel } = await import('../../../src/board/client/detailPanel');
+    initDetailPanel();
+    renderDetailPanel(makeTaskDetail({ task: { ...makeTaskDetail().task, id: 42 } }));
+
+    await new Promise((resolve) => setTimeout(resolve, 50));
+
+    const copyBtn = document.getElementById('detail-panel-copy-id') as HTMLButtonElement;
+    expect(copyBtn).not.toBeNull();
+    copyBtn.click();
+
+    await new Promise((resolve) => setTimeout(resolve, 10));
+
+    expect(writeTextMock).toHaveBeenCalledWith('42');
+  });
+
+  it('clicking copy button does not throw when no task is loaded', async () => {
+    const writeTextMock = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, 'clipboard', {
+      value: { writeText: writeTextMock },
+      writable: true,
+    });
+
+    global.fetch = vi.fn().mockImplementation((url: string) => {
+      if (String(url).includes('/api/config')) {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve({}) });
+      }
+      return Promise.resolve({ ok: true, json: () => Promise.resolve({ comments: [] }) });
+    });
+
+    const { initDetailPanel } = await import('../../../src/board/client/detailPanel');
+    initDetailPanel();
+
+    const copyBtn = document.getElementById('detail-panel-copy-id') as HTMLButtonElement;
+    expect(copyBtn).not.toBeNull();
+
+    expect(() => copyBtn.click()).not.toThrow();
+    expect(writeTextMock).not.toHaveBeenCalled();
+  });
+});
+
+describe('loadComments race condition - stale task ignored', () => {
+  beforeEach(() => {
+    vi.resetModules();
+    setupMinimalBoardDOM();
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('does not update comments tab when task switches before fetch completes', async () => {
+    let resolveTaskAComments!: (value: unknown) => void;
+    const taskACommentsPromise = new Promise((resolve) => {
+      resolveTaskAComments = resolve;
+    });
+
+    // fetch for task 1 (task A) comments is delayed; task 2 (task B) resolves immediately
+    global.fetch = vi.fn().mockImplementation((url: string) => {
+      const urlStr = String(url);
+      if (urlStr.includes('/api/tasks/1/comments')) {
+        return taskACommentsPromise.then(() =>
+          Promise.resolve({
+            ok: true,
+            json: () =>
+              Promise.resolve({
+                comments: [{ id: 10, content: 'Old comment', author: null, created_at: '2026-01-01T00:00:00.000Z' }],
+              }),
+          })
+        );
+      }
+      // task 2 comments, tags, run-logs, task detail fetches
+      return Promise.resolve({
+        ok: true,
+        json: () =>
+          Promise.resolve({
+            comments: [],
+            task: {
+              id: 2,
+              title: 'Task B',
+              body: '',
+              status: 'pending',
+              priority: null,
+              created_at: '2026-01-01T00:00:00.000Z',
+              updated_at: '2026-01-01T00:00:00.000Z',
+            },
+            tags: [],
+            metadata: [],
+            blockedBy: [],
+            blocking: [],
+            parent: null,
+            logs: [],
+          }),
+      });
+    });
+
+    const { renderDetailPanel } = await import('../../../src/board/client/detailPanel');
+
+    // Render task A (id=1) — triggers slow loadComments(1)
+    renderDetailPanel(
+      makeTaskDetail({
+        task: {
+          id: 1,
+          title: 'Task A',
+          body: '',
+          status: 'pending',
+          priority: null,
+          created_at: '2026-01-01T00:00:00.000Z',
+          updated_at: '2026-01-01T00:00:00.000Z',
+        },
+      })
+    );
+
+    // Immediately render task B (id=2) — detailTaskId is now 2
+    renderDetailPanel(
+      makeTaskDetail({
+        task: {
+          id: 2,
+          title: 'Task B',
+          body: '',
+          status: 'pending',
+          priority: null,
+          created_at: '2026-01-01T00:00:00.000Z',
+          updated_at: '2026-01-01T00:00:00.000Z',
+        },
+      })
+    );
+
+    // Let task B's comments load (empty, resolves immediately)
+    await new Promise((resolve) => setTimeout(resolve, 50));
+
+    const tabBtn = document.getElementById('detail-tab-comments');
+    // After task B loads, tab shows "Comments (0)"
+    expect(tabBtn?.textContent).toBe('Comments (0)');
+
+    // Now resolve task A's delayed comments fetch
+    resolveTaskAComments(undefined);
+    await new Promise((resolve) => setTimeout(resolve, 50));
+
+    // Tab should still show task B's count — task A's stale result must be ignored
+    expect(tabBtn?.textContent).toBe('Comments (0)');
+
+    // Comments pane should not contain task A's old comment
+    const pane = document.getElementById('detail-tab-content-comments');
+    expect(pane?.innerHTML).not.toContain('Old comment');
   });
 });
 
