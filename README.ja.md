@@ -293,6 +293,16 @@ agkan board -p 3000
 
 デフォルトでは `http://localhost:8080` でボードが提供されます。
 
+#### ボードのClaude連携機能
+
+ボードUIにはブラウザから直接Claudeを実行するための機能が組み込まれています:
+
+- **Runボタン**: タスクカードにある「Run」ボタンをクリックすると、そのタスクに対して `claude` を起動します。ボタン横のドロップダウンからプランモードで実行することもできます。
+- **Planボタン**: タスクを実行せずに計画のみを生成するプランモードで `claude` を起動します。
+- **ストリームモーダル**: Claude実行中はモーダルウィンドウにリアルタイムで出力が表示されます。「Stop」ボタンでプロセスを終了できます。
+- **実行中インジケーター**: Claudeプロセスが動作中の場合、ヘッダーにインジケーターが表示されます。
+- **実行ログタブ**: タスク詳細パネルの「Run Logs」タブに、過去のClaude実行履歴（タイムスタンプと全出力）が表示されます。
+
 ### Claudeプロセスの状態確認
 
 現在実行中のClaudeプロセスを一覧表示します（ボードサーバーが起動している必要があります）:
@@ -966,246 +976,15 @@ board:
 
 ## プロジェクト構成
 
-```
-agkan/
-├── bin/
-│   └── agkan                        # CLIエントリーポイント
-├── src/
-│   ├── cli/
-│   │   ├── commands/
-│   │   │   ├── block/               # ブロック関係コマンド
-│   │   │   │   ├── add.ts
-│   │   │   │   ├── list.ts
-│   │   │   │   └── remove.ts
-│   │   │   ├── meta/                # メタデータコマンド
-│   │   │   │   ├── delete.ts
-│   │   │   │   ├── get.ts
-│   │   │   │   ├── list.ts
-│   │   │   │   └── set.ts
-│   │   │   ├── tag/                 # タグコマンド
-│   │   │   │   ├── add.ts
-│   │   │   │   ├── attach.ts
-│   │   │   │   ├── delete.ts
-│   │   │   │   ├── detach.ts
-│   │   │   │   ├── list.ts
-│   │   │   │   └── show.ts
-│   │   │   └── task/                # タスクコマンド
-│   │   │       ├── add.ts
-│   │   │       ├── count.ts
-│   │   │       ├── delete.ts
-│   │   │       ├── find.ts
-│   │   │       ├── get.ts
-│   │   │       ├── list.ts
-│   │   │       ├── update-parent.ts
-│   │   │       └── update.ts
-│   │   ├── utils/                   # CLIユーティリティ
-│   │   └── index.ts                 # CLIエントリー・コマンド登録
-│   ├── db/
-│   │   ├── config.ts                # DB設定
-│   │   ├── connection.ts            # データベース接続管理
-│   │   ├── schema.ts                # スキーマ定義・マイグレーション
-│   │   └── reset.ts                 # テスト用DBリセット
-│   ├── models/
-│   │   ├── Task.ts                  # タスクモデル
-│   │   ├── Tag.ts                   # タグモデル
-│   │   ├── TaskBlock.ts             # ブロック関係モデル
-│   │   ├── TaskMetadata.ts          # メタデータモデル
-│   │   ├── TaskTag.ts               # タスク-タグ関連モデル
-│   │   └── index.ts
-│   ├── services/
-│   │   ├── TaskService.ts           # タスク管理ビジネスロジック
-│   │   ├── TagService.ts            # タグ管理ビジネスロジック
-│   │   ├── TaskBlockService.ts      # ブロック関係管理
-│   │   ├── TaskTagService.ts        # タスク-タグ関連管理
-│   │   ├── MetadataService.ts       # メタデータ管理
-│   │   ├── FileService.ts           # ファイル読み込み
-│   │   └── index.ts
-│   └── utils/
-│       ├── format.ts                # フォーマットユーティリティ
-│       ├── cycle-detector.ts        # 循環参照検出
-│       ├── input-validators.ts      # 入力バリデーション
-│       └── security.ts              # セキュリティユーティリティ
-├── dist/                            # ビルド出力ディレクトリ
-├── package.json
-├── tsconfig.json
-└── README.md
-```
+詳細なディレクトリ構成は [docs/project-structure.ja.md](docs/project-structure.ja.md) を参照してください。
 
 ## データベーススキーマ
 
-### tasks テーブル
-
-| カラム名 | 型 | 説明 |
-|---------|-----|------|
-| id | INTEGER | 主キー（自動採番） |
-| title | TEXT | タスクタイトル（必須） |
-| body | TEXT | タスク本文 |
-| status | TEXT | ステータス（icebox, backlog, ready, in_progress, review, done, closed） |
-| author | TEXT | 作成者 |
-| parent_id | INTEGER | 親タスクID（外部キー、NULL可） |
-| created_at | TEXT | 作成日時（ISO 8601形式） |
-| updated_at | TEXT | 更新日時（ISO 8601形式） |
-
-注意事項:
-- `parent_id`は親タスクが削除されると自動的にNULLに設定されます（ON DELETE SET NULL）
-
-### attachments テーブル
-
-| カラム名 | 型 | 説明 |
-|---------|-----|------|
-| id | INTEGER | 主キー（自動採番） |
-| task_id | INTEGER | タスクID（外部キー） |
-| file_path | TEXT | ファイルパス（必須） |
-| created_at | TEXT | 作成日時（ISO 8601形式） |
-
-### task_blocks テーブル
-
-| カラム名 | 型 | 説明 |
-|---------|-----|------|
-| id | INTEGER | 主キー（自動採番） |
-| blocker_task_id | INTEGER | ブロックするタスクID（外部キー） |
-| blocked_task_id | INTEGER | ブロックされるタスクID（外部キー） |
-| created_at | TEXT | 作成日時（ISO 8601形式） |
-
-注意事項:
-- `blocker_task_id`と`blocked_task_id`の組み合わせはユニーク制約があります
-- いずれかのタスクが削除されるとブロック関係も自動的に削除されます（ON DELETE CASCADE）
-
-### tags テーブル
-
-| カラム名 | 型 | 説明 |
-|---------|-----|------|
-| id | INTEGER | 主キー（自動採番） |
-| name | TEXT | タグ名（必須、ユニーク） |
-| created_at | TEXT | 作成日時（ISO 8601形式） |
-
-### task_tags テーブル
-
-| カラム名 | 型 | 説明 |
-|---------|-----|------|
-| id | INTEGER | 主キー（自動採番） |
-| task_id | INTEGER | タスクID（外部キー） |
-| tag_id | INTEGER | タグID（外部キー） |
-| created_at | TEXT | 作成日時（ISO 8601形式） |
-
-注意事項:
-- `task_id`と`tag_id`の組み合わせはユニーク制約があります
-- タスクまたはタグが削除されると関連付けも自動的に削除されます（ON DELETE CASCADE）
-
-### task_metadata テーブル
-
-| カラム名 | 型 | 説明 |
-|---------|-----|------|
-| id | INTEGER | 主キー（自動採番） |
-| task_id | INTEGER | タスクID（外部キー） |
-| key | TEXT | メタデータのキー |
-| value | TEXT | メタデータの値 |
-| created_at | TEXT | 作成日時（ISO 8601形式） |
-
-注意事項:
-- `task_id`と`key`の組み合わせはユニーク制約があります
-- タスクが削除されるとメタデータも自動的に削除されます（ON DELETE CASCADE）
+詳細なスキーマ情報は [docs/database-schema.ja.md](docs/database-schema.ja.md) を参照してください。
 
 ## 開発
 
-### 開発者向けセットアップ
-
-agkan自体の開発に参加したい開発者向けの手順:
-
-1. リポジトリをクローン:
-```bash
-git clone https://github.com/gendosu/agkan.git
-cd agkan
-```
-
-2. 依存パッケージをインストール:
-```bash
-pnpm install
-```
-
-3. TypeScriptコードをビルド:
-```bash
-pnpm run build
-```
-
-4. グローバルコマンドとして登録:
-```bash
-pnpm link --global
-```
-
-### 開発ガイドライン
-
-包括的な開発情報については、以下のドキュメントを参照してください:
-
-- **[TESTING.md](TESTING.md)** - テストガイド、カバレッジ実行、テストパターン
-- **[CONTRIBUTING.md](CONTRIBUTING.md)** - コントリビューションガイドラインとTDDプラクティス
-- **[docs/TDD-GUIDE.md](docs/TDD-GUIDE.md)** - 実践例を含むテスト駆動開発ガイド
-- **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)** - プロジェクトアーキテクチャとデザインパターン
-
-### コード品質
-
-このプロジェクトではコード品質のためにESLintとPrettierを使用しています:
-
-```bash
-pnpm run lint        # コードをチェック
-pnpm run lint:fix    # 問題を自動修正
-pnpm run format      # コードをフォーマット
-pnpm run check       # 全チェックを実行
-```
-
-### テスト
-
-#### ユニットテスト
-
-Vitestを使用したユニットテストを実行:
-```bash
-pnpm test
-```
-
-全てのサービス層とモデル層がテストされています。
-
-#### E2Eテスト
-
-実際のCLIコマンドを実行する包括的なE2Eテストを実行:
-```bash
-pnpm run test:e2e
-```
-
-E2Eテストは以下の機能をカバーします:
-- ビルドとユニットテスト
-- タグ管理機能（作成、一覧、削除、重複チェック）
-- タグ付与機能（付与、解除、表示、重複チェック）
-- タグフィルタリング（単一タグ、複数タグ、ステータス組み合わせ）
-- CASCADE削除（データベース整合性確認）
-
-テストはローカルのテスト用データベース（`.agkan-test/test-e2e.db`）を使用し、実行後に自動的にクリーンアップされます。
-
-### ビルド
-
-```bash
-pnpm run build
-```
-
-### 開発時の自動ビルド
-
-```bash
-pnpm run dev
-```
-
-### TypeScript型チェック
-
-```bash
-npx tsc --noEmit
-```
-
-### データベースの初期化
-
-データベースは最初のコマンド実行時に自動的に作成されます。手動で再作成する場合:
-
-```bash
-rm -rf data/agkan.db
-agkan task list  # データベースが再作成されます
-```
+セットアップ手順、テスト、ビルド情報については [docs/development.ja.md](docs/development.ja.md) を参照してください。
 
 ## ライセンス
 
@@ -1213,4 +992,4 @@ ISC
 
 ## 作成者
 
-Generated with Claude Code
+GENDOSU

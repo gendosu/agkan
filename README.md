@@ -534,6 +534,16 @@ agkan board -p 3000
 
 The board is served at `http://localhost:8080` by default.
 
+#### Claude Integration in the Board
+
+The board UI includes built-in Claude integration for running tasks directly from the browser:
+
+- **Run button**: Each task card has a "Run" button that launches `claude` for that task. A dropdown arrow next to the button also allows running in plan mode.
+- **Plan button**: Runs `claude` in plan mode to generate a plan for the task without executing.
+- **Stream modal**: When Claude is running, a modal window displays the live output stream in real time. A "Stop" button allows terminating the process.
+- **Running indicator**: A header indicator shows when any Claude process is currently active.
+- **Run Logs tab**: The task detail panel includes a "Run Logs" tab that shows the history of all past Claude executions for that task, with timestamps and full output.
+
 ### Claude Process Status
 
 List currently executing Claude processes (requires the board server to be running):
@@ -981,249 +991,15 @@ For detailed information about planned features, see [docs/planned-features.md](
 
 ## Project Structure
 
-```
-agkan/
-├── bin/
-│   └── agkan                        # CLI entry point
-├── src/
-│   ├── cli/
-│   │   ├── commands/
-│   │   │   ├── block/               # Blocking relationship commands
-│   │   │   │   ├── add.ts
-│   │   │   │   ├── list.ts
-│   │   │   │   └── remove.ts
-│   │   │   ├── meta/                # Metadata commands
-│   │   │   │   ├── delete.ts
-│   │   │   │   ├── get.ts
-│   │   │   │   ├── list.ts
-│   │   │   │   └── set.ts
-│   │   │   ├── tag/                 # Tag commands
-│   │   │   │   ├── add.ts
-│   │   │   │   ├── attach.ts
-│   │   │   │   ├── delete.ts
-│   │   │   │   ├── detach.ts
-│   │   │   │   ├── list.ts
-│   │   │   │   └── show.ts
-│   │   │   ├── board.ts             # Kanban board command
-│   │   │   └── task/                # Task commands
-│   │   │       ├── add.ts
-│   │   │       ├── count.ts
-│   │   │       ├── delete.ts
-│   │   │       ├── find.ts
-│   │   │       ├── get.ts
-│   │   │       ├── list.ts
-│   │   │       ├── update-parent.ts
-│   │   │       └── update.ts
-│   │   ├── utils/                   # CLI utilities
-│   │   └── index.ts                 # CLI entry point and command registration
-│   ├── board/
-│   │   └── server.ts                # Kanban board web server (Hono)
-│   ├── db/
-│   │   ├── config.ts                # DB configuration
-│   │   ├── connection.ts            # Database connection management
-│   │   ├── schema.ts                # Schema definition and migration
-│   │   └── reset.ts                 # DB reset for testing
-│   ├── models/
-│   │   ├── Task.ts                  # Task model
-│   │   ├── Tag.ts                   # Tag model
-│   │   ├── TaskBlock.ts             # Blocking relationship model
-│   │   ├── TaskMetadata.ts          # Metadata model
-│   │   ├── TaskTag.ts               # Task-tag association model
-│   │   └── index.ts
-│   ├── services/
-│   │   ├── TaskService.ts           # Task management business logic
-│   │   ├── TagService.ts            # Tag management business logic
-│   │   ├── TaskBlockService.ts      # Blocking relationship management
-│   │   ├── TaskTagService.ts        # Task-tag association management
-│   │   ├── MetadataService.ts       # Metadata management
-│   │   ├── FileService.ts           # File reading
-│   │   └── index.ts
-│   └── utils/
-│       ├── format.ts                # Format utilities
-│       ├── cycle-detector.ts        # Circular reference detection
-│       ├── input-validators.ts      # Input validation
-│       └── security.ts              # Security utilities
-├── dist/                            # Build output directory
-├── package.json
-├── tsconfig.json
-└── README.md
-```
+See [docs/project-structure.md](docs/project-structure.md) for the full directory layout.
 
 ## Database Schema
 
-### tasks Table
-
-| Column Name | Type | Description |
-|-------------|------|-------------|
-| id | INTEGER | Primary key (auto-increment) |
-| title | TEXT | Task title (required) |
-| body | TEXT | Task body |
-| status | TEXT | Status (icebox, backlog, ready, in_progress, review, done, closed) |
-| author | TEXT | Creator/author |
-| parent_id | INTEGER | Parent task ID (foreign key, nullable) |
-| created_at | TEXT | Creation timestamp (ISO 8601 format) |
-| updated_at | TEXT | Update timestamp (ISO 8601 format) |
-
-Notes:
-- `parent_id` is automatically set to NULL when parent task is deleted (ON DELETE SET NULL)
-
-### attachments Table
-
-| Column Name | Type | Description |
-|-------------|------|-------------|
-| id | INTEGER | Primary key (auto-increment) |
-| task_id | INTEGER | Task ID (foreign key) |
-| file_path | TEXT | File path (required) |
-| created_at | TEXT | Creation timestamp (ISO 8601 format) |
-
-### task_blocks Table
-
-| Column Name | Type | Description |
-|-------------|------|-------------|
-| id | INTEGER | Primary key (auto-increment) |
-| blocker_task_id | INTEGER | Task ID that blocks (foreign key) |
-| blocked_task_id | INTEGER | Task ID that is blocked (foreign key) |
-| created_at | TEXT | Creation timestamp (ISO 8601 format) |
-
-Notes:
-- `blocker_task_id` and `blocked_task_id` combination has a unique constraint
-- Blocking relationships are automatically deleted when either task is deleted (ON DELETE CASCADE)
-
-### tags Table
-
-| Column Name | Type | Description |
-|-------------|------|-------------|
-| id | INTEGER | Primary key (auto-increment) |
-| name | TEXT | Tag name (required, unique) |
-| created_at | TEXT | Creation timestamp (ISO 8601 format) |
-
-### task_tags Table
-
-| Column Name | Type | Description |
-|-------------|------|-------------|
-| id | INTEGER | Primary key (auto-increment) |
-| task_id | INTEGER | Task ID (foreign key) |
-| tag_id | INTEGER | Tag ID (foreign key) |
-| created_at | TEXT | Creation timestamp (ISO 8601 format) |
-
-Notes:
-- `task_id` and `tag_id` combination has a unique constraint
-- Associations are automatically deleted when task or tag is deleted (ON DELETE CASCADE)
-
-### task_metadata Table
-
-| Column Name | Type | Description |
-|-------------|------|-------------|
-| id | INTEGER | Primary key (auto-increment) |
-| task_id | INTEGER | Task ID (foreign key) |
-| key | TEXT | Metadata key |
-| value | TEXT | Metadata value |
-| created_at | TEXT | Creation timestamp (ISO 8601 format) |
-
-Notes:
-- `task_id` and `key` combination has a unique constraint
-- Metadata is automatically deleted when the task is deleted (ON DELETE CASCADE)
+See [docs/database-schema.md](docs/database-schema.md) for the full schema reference.
 
 ## Development
 
-### Developer Setup
-
-For contributors and developers who want to work on agkan itself:
-
-1. Clone the repository:
-```bash
-git clone https://github.com/gendosu/agkan.git
-cd agkan
-```
-
-2. Install dependencies:
-```bash
-pnpm install
-```
-
-3. Build the TypeScript code:
-```bash
-pnpm run build
-```
-
-4. Register as a global command:
-```bash
-pnpm link --global
-```
-
-### Development Guidelines
-
-For comprehensive development information, see the following documentation:
-
-- **[TESTING.md](TESTING.md)** - Testing guide, coverage execution, and test patterns
-- **[CONTRIBUTING.md](CONTRIBUTING.md)** - Contribution guidelines and TDD practices
-- **[docs/TDD-GUIDE.md](docs/TDD-GUIDE.md)** - Test-Driven Development guide with practical examples
-- **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)** - Project architecture and design patterns
-
-### Code Quality
-
-This project uses ESLint and Prettier for code quality:
-
-```bash
-pnpm run lint        # Check code
-pnpm run lint:fix    # Auto-fix issues
-pnpm run format      # Format code
-pnpm run check       # Run all checks
-```
-
-### Testing
-
-#### Unit Tests
-
-Run unit tests with Vitest:
-```bash
-pnpm test
-```
-
-All service and model layers are tested.
-
-#### End-to-End Tests
-
-Run comprehensive e2e tests that execute actual CLI commands:
-```bash
-pnpm run test:e2e
-```
-
-E2E tests cover the following features:
-- Build and unit tests
-- Tag management (create, list, delete, duplicate check)
-- Tag assignment (attach, detach, display, duplicate check)
-- Tag filtering (single tag, multiple tags, status combinations)
-- CASCADE delete (database integrity verification)
-
-Tests use a local test database (`.agkan-test/test-e2e.db`) and are automatically cleaned up after execution.
-
-### Build
-
-```bash
-pnpm run build
-```
-
-### Auto-build During Development
-
-```bash
-pnpm run dev
-```
-
-### TypeScript Type Checking
-
-```bash
-npx tsc --noEmit
-```
-
-### Initialize Database
-
-The database is automatically created on first command execution. To manually recreate:
-
-```bash
-rm -rf data/agkan.db
-agkan task list  # Database will be recreated
-```
+See [docs/development.md](docs/development.md) for setup instructions, testing, and build information.
 
 ## License
 
@@ -1231,4 +1007,4 @@ ISC
 
 ## Author
 
-Generated with Claude Code
+GENDOSU
