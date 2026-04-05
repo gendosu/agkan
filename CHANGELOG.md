@@ -7,6 +7,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.15.0] - 2026-04-04
+
+### Added
+- Add `board status` subcommand to show server status and task summary (#185)
+- Add `board start`, `board stop`, `board restart` daemon subcommands
+- Add `task copy` command to duplicate tasks (#181)
+- Add ability to create new tags from tag selectors in board (#172)
+- Add copy task ID button to detail panel header (#172)
+- Add dependency visualization SVG overlay with bezier lines on board (#164)
+- Add favicon to board HTML page (#174)
+- Set default priority to medium for task creation (#169)
+
+### Changed
+- Convert `board` command to proper subcommand structure (#185)
+- Migrate from npm to pnpm (#177)
+
+### Fixed
+- Make Blocked by, Blocking, and Parent relation items clickable in detail panel (#186)
+- Fix dependency arrow rendering for same-column tasks (#182)
+- Fix bezier line direction when cards are on both sides (#173)
+- Prevent dependency lines from rendering above detail panel (#173)
+- Fix board toast z-index so it appears above detail panel (#183)
+- Fix detail panel copy ID button layout and styling (#172)
+- Update task updated_at when tags are added or removed via CLI (#171)
+- Fix stable sort for task metadata ORDER BY (#182)
+
+### Refactored
+- Migrate StorageProvider to Repository pattern (#161)
+- Migrate priority from metadata to DB column (#162)
+- Introduce migration framework with initial_schema (#167)
+- Replace SQLite-specific migration checks with generic runner (#167)
+
 ## [2.14.3] - 2026-03-24
 
 ### Fixed
