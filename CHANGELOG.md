@@ -7,6 +7,77 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.0.0-rc10] - 2026-04-04
+
+### Added
+- Make Blocked by, Blocking, and Parent relation items clickable in board detail panel
+
+### Fixed
+- Include task_blocks in polling signature to detect dependency changes in board
+
+## [3.0.0-rc9] - 2026-04-03
+
+### Changed
+- Add task copy command to agent guide
+
+## [3.0.0-rc8] - 2026-04-03
+
+### Added
+- Add task copy command
+
+### Fixed
+- Fix dependency arrow rendering for same-column tasks in board
+- Clear arrowMarkers cache when SVG overlay is recreated in board
+- Prevent stale polling overwrite after drag-drop status update in board
+
+## [3.0.0-rc7] - 2026-04-03
+
+### Added
+- Add daemon start/stop/restart subcommands for board
+- Convert board command to proper subcommand structure
+- Add status subcommand to show server status and task summary
+
+### Changed
+- Add .npmrc with minimum-release-age setting
+
+## [3.0.0-rc6] - 2026-04-02
+
+### Fixed
+- Fix loading indicator breaking to new line in h1 in board header
+- Fix detail panel copy ID button layout and styling
+
+## [3.0.0-rc5] - 2026-03-31
+
+### Fixed
+- Move running indicator inside h1 tag in board header
+
+## [3.0.0-rc4] - 2026-03-31
+
+### Added
+- Add running indicator spinner to board header
+
+### Fixed
+- Move running indicator to immediately after h1 in board header
+
+## [3.0.0-rc3] - 2026-03-31
+
+### Added
+- Set default priority to medium for task creation
+
+### Fixed
+- Fix textarea resize on task switch in board using double rAF
+
+### Refactored
+- Replace pragma_table_info() with addColumnIfNotExists helper in migration
+- Replace sqlite_master with SAVEPOINT-based CHECK constraint check in migration
+
+## [3.0.0-rc2] - 2026-03-30
+
+### Fixed
+- Fix reload button size in detail panel async update warning
+
+## [3.0.0-rc1] - 2026-03-30
+
 ## [2.15.0] - 2026-04-04
 
 ### Added
