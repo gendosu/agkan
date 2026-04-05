@@ -1,7 +1,8 @@
 // Board polling: update data in background when updated_at changes
 
-import { draggedCard, attachDragListeners } from './dragDrop';
+import { draggedCard, isPendingStatusUpdate, attachDragListeners } from './dragDrop';
 import { attachAutoScrollToBody } from './autoScroll';
+import { attachClaudeButtonListeners, getRunningTaskIds, updateButtonStates } from './claudeButton';
 import type { ActiveFilters, TaskDetail } from './types';
 
 let lastUpdatedAt: string | null = null;
@@ -136,6 +137,8 @@ function updateColumnHtml(col: { status: string; html: string; count: number }):
   }
   attachCardListeners(body);
   attachAutoScrollToBody(body);
+  attachClaudeButtonListeners(body);
+  updateButtonStates(getRunningTaskIds());
 }
 
 function isEditingDetailPanel(): boolean {
@@ -189,7 +192,7 @@ export async function refreshBoardCards(): Promise<void> {
 }
 
 export async function pollBoardUpdates(): Promise<void> {
-  if (draggedCard !== null) return;
+  if (draggedCard !== null || isPendingStatusUpdate) return;
   try {
     const res = await fetch('/api/board/updated-at');
     if (!res.ok) return;
