@@ -14,6 +14,7 @@ import {
   syncTimestampAfterSave,
   fetchPanelWidthFromConfig,
   savePanelWidthToConfig,
+  fetchRunLogs,
   PANEL_MIN_WIDTH,
   PANEL_MAX_WIDTH,
 } from './detailPanelApi';
@@ -21,6 +22,7 @@ import {
   renderCommentItemHtml,
   renderAddCommentFormHtml,
   renderDetailPanelHtml,
+  renderRunLogsHtml,
   buildDetailPanelHtml,
   autoResizeTextarea,
 } from './detailPanelHtml';
@@ -28,6 +30,15 @@ import {
 // State
 let detailTaskId: number | null = null;
 let lastTab = 'details';
+let runLogPollingInterval: ReturnType<typeof setInterval> | null = null;
+let currentFetchController: AbortController | null = null;
+
+function stopRunLogPolling(): void {
+  if (runLogPollingInterval !== null) {
+    clearInterval(runLogPollingInterval);
+    runLogPollingInterval = null;
+  }
+}
 
 // Exported getter for other modules to access the current task ID
 export function getDetailTaskId(): number | null {
@@ -45,6 +56,7 @@ export function setActiveCard(taskId: number | null): void {
 }
 
 export function closeDetailPanel(): void {
+  stopRunLogPolling();
   const detailPanel = document.getElementById('detail-panel') as HTMLElement;
   detailPanel.classList.remove('open');
   detailPanel.style.width = '';
@@ -53,6 +65,9 @@ export function closeDetailPanel(): void {
 }
 
 function switchTab(tabName: string): void {
+  if (tabName !== 'run-logs') {
+    stopRunLogPolling();
+  }
   lastTab = tabName;
   document.querySelectorAll('.detail-tab').forEach((btn) => {
     (btn as HTMLElement).classList.toggle('active', (btn as HTMLElement).dataset.tab === tabName);
@@ -62,18 +77,25 @@ function switchTab(tabName: string): void {
   });
   const footer = document.getElementById('detail-panel-footer');
   if (footer) footer.style.display = tabName === 'details' ? '' : 'none';
+  if (tabName === 'run-logs' && detailTaskId !== null) {
+    loadRunLogs(detailTaskId).catch((err) => {
+      console.error('[agkan] switchTab loadRunLogs failed', err);
+    });
+  }
 }
 
 async function loadComments(taskId: number): Promise<void> {
-  const tabBtn = document.getElementById('detail-tab-comments');
   const pane = document.getElementById('detail-tab-content-comments');
   if (!pane) return;
   try {
     const comments = await fetchComments(taskId);
+    if (detailTaskId !== taskId) return;
+    const tabBtn = document.getElementById('detail-tab-comments');
     if (tabBtn) tabBtn.textContent = 'Comments (' + comments.length + ')';
     renderComments(taskId, comments);
   } catch (err) {
     console.error('[agkan] loadComments failed for task', taskId, err);
+    if (detailTaskId !== taskId) return;
     if (pane) pane.innerHTML = '<div style="padding:20px;font-size:12px;color:#94a3b8;">Failed to load comments</div>';
   }
 }
@@ -224,6 +246,89 @@ function handleCommentAction(e: MouseEvent): void {
   dispatchCommentAction(action, commentId, taskId);
 }
 
+function renderRunLogsInPane(pane: HTMLElement, logs: Awaited<ReturnType<typeof fetchRunLogs>>): void {
+  // Save open state and scroll positions keyed by log ID
+  const bodyScrollState = new Map<number, { scrollTop: number; isNearBottom: boolean }>();
+  const openLogIds = new Set<number>();
+  const hadPreviousItems = pane.querySelector('.run-log-item') !== null;
+
+  pane.querySelectorAll<HTMLElement>('.run-log-item.open').forEach((item) => {
+    const logId = Number(item.dataset.logId);
+    if (!logId) return;
+    openLogIds.add(logId);
+    const body = item.querySelector<HTMLElement>('.run-log-body');
+    if (body) {
+      const isNearBottom = body.scrollHeight - body.scrollTop - body.clientHeight <= 50;
+      bodyScrollState.set(logId, { scrollTop: body.scrollTop, isNearBottom });
+    }
+  });
+
+  pane.innerHTML = renderRunLogsHtml(logs);
+
+  requestAnimationFrame(() => {
+    pane.querySelectorAll<HTMLElement>('.run-log-item').forEach((item) => {
+      const logId = Number(item.dataset.logId);
+      if (!logId) return;
+      const body = item.querySelector<HTMLElement>('.run-log-body');
+      if (!body) return;
+
+      if (hadPreviousItems) {
+        // Restore open/closed state from before the re-render
+        if (openLogIds.has(logId)) {
+          item.classList.add('open');
+          const state = bodyScrollState.get(logId);
+          if (state) {
+            body.scrollTop = state.isNearBottom ? body.scrollHeight : state.scrollTop;
+          } else {
+            body.scrollTop = body.scrollHeight;
+          }
+        } else {
+          item.classList.remove('open');
+        }
+      } else {
+        // First render: keep default open state and scroll to bottom
+        if (item.classList.contains('open')) {
+          body.scrollTop = body.scrollHeight;
+        }
+      }
+    });
+  });
+}
+
+async function loadRunLogs(taskId: number): Promise<void> {
+  stopRunLogPolling();
+  const pane = document.getElementById('detail-tab-content-run-logs');
+  if (!pane) return;
+  pane.removeEventListener('click', handleRunLogToggle);
+  pane.addEventListener('click', handleRunLogToggle);
+  try {
+    const logs = await fetchRunLogs(taskId);
+    renderRunLogsInPane(pane, logs);
+    runLogPollingInterval = setInterval(() => {
+      if (detailTaskId !== taskId) {
+        stopRunLogPolling();
+        return;
+      }
+      fetchRunLogs(taskId)
+        .then((updated) => {
+          const p = document.getElementById('detail-tab-content-run-logs');
+          if (p) renderRunLogsInPane(p, updated);
+        })
+        .catch(() => stopRunLogPolling());
+    }, 2000);
+  } catch (err) {
+    console.error('[agkan] loadRunLogs failed for task', taskId, err);
+    pane.innerHTML = '<div style="padding:20px;font-size:12px;color:#94a3b8;">Failed to load run logs</div>';
+  }
+}
+
+function handleRunLogToggle(e: MouseEvent): void {
+  const target = (e.target as HTMLElement).closest<HTMLElement>('[data-action="toggle-run-log"]');
+  if (!target) return;
+  const item = target.closest<HTMLElement>('.run-log-item');
+  if (item) item.classList.toggle('open');
+}
+
 export function renderDetailPanel(data: TaskDetail): void {
   // Remove stale update-warning bar so it does not persist after reload
   document.getElementById('detail-panel-update-warning')?.remove();
@@ -265,12 +370,47 @@ export function renderDetailPanel(data: TaskDetail): void {
   // Set up textarea auto-resize
   const textarea = document.getElementById('detail-edit-body') as HTMLTextAreaElement;
   if (textarea) {
-    // Delay the initial resize until after the panel has been rendered with its correct width.
-    // If autoResizeTextarea is called while the panel width is still 0 (before the .open class
-    // is applied), scrollHeight is inflated due to text wrapping, causing an oversized textarea.
-    requestAnimationFrame(() => {
-      autoResizeTextarea(textarea);
-    });
+    const detailPanel = document.getElementById('detail-panel') as HTMLElement;
+    if (detailPanel && !detailPanel.classList.contains('open')) {
+      // Panel is about to open — wait for the CSS width transition to complete
+      // before measuring scrollHeight, otherwise the textarea is sized against
+      // a partially-transitioned (narrow) panel width.
+      const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      if (prefersReducedMotion) {
+        // No transition will run — resize immediately.
+        autoResizeTextarea(textarea);
+      } else {
+        let done = false;
+        const finish = () => {
+          if (done) return;
+          done = true;
+          detailPanel.removeEventListener('transitionend', onTransitionEnd);
+          // Double rAF ensures browser reflow after the width transition completes
+          // before measuring scrollHeight, so tall descriptions size correctly.
+          requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+              autoResizeTextarea(textarea);
+            });
+          });
+        };
+        const onTransitionEnd = (e: TransitionEvent) => {
+          if (e.propertyName === 'width') finish();
+        };
+        detailPanel.addEventListener('transitionend', onTransitionEnd);
+        // Fallback: if transitionend fired before listener was registered,
+        // or if the transition is disabled/skipped, call after 260ms (> 250ms transition).
+        setTimeout(finish, 260);
+      }
+    } else {
+      // Panel is already open (task switch) — double rAF ensures reflow after
+      // innerHTML update before measuring scrollHeight, so tall descriptions
+      // size correctly on task switch.
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          autoResizeTextarea(textarea);
+        });
+      });
+    }
     textarea.addEventListener('input', () => {
       autoResizeTextarea(textarea);
     });
@@ -287,6 +427,13 @@ export function renderDetailPanel(data: TaskDetail): void {
   // Load comments into the comments tab
   loadComments(task.id);
 
+  // Load run logs only when the run-logs tab is active
+  if (lastTab === 'run-logs') {
+    loadRunLogs(task.id).catch((err) => {
+      console.error('[agkan] renderDetailPanel loadRunLogs failed', err);
+    });
+  }
+
   // Restore last tab
   switchTab(lastTab);
 }
@@ -294,16 +441,28 @@ export function renderDetailPanel(data: TaskDetail): void {
 export async function openTaskDetail(taskId: string): Promise<void> {
   const detailPanel = document.getElementById('detail-panel') as HTMLElement;
   const PANEL_DEFAULT_WIDTH = 400;
+
+  // Set active card immediately to prevent flickering during concurrent clicks
+  setActiveCard(Number(taskId));
+
+  // Cancel any in-flight fetch from a previous click
+  if (currentFetchController) {
+    currentFetchController.abort();
+  }
+  currentFetchController = new AbortController();
+  const { signal } = currentFetchController;
+
   try {
-    const data = await fetchTaskDetail(taskId);
+    const data = await fetchTaskDetail(taskId, signal);
+    currentFetchController = null;
     renderDetailPanel(data);
-    setActiveCard(Number(taskId));
     if (!detailPanel.classList.contains('open')) {
       const preferredWidth = detailPanel.dataset.preferredWidth || String(PANEL_DEFAULT_WIDTH);
       detailPanel.style.width = preferredWidth + 'px';
       detailPanel.classList.add('open');
     }
   } catch (err) {
+    if (err instanceof DOMException && err.name === 'AbortError') return;
     console.error('[agkan] openTaskDetail failed for task', taskId, err);
     showToast('Failed to load task details');
   }
@@ -333,7 +492,7 @@ function buildUpdateWarningReloadBtn(): HTMLButtonElement {
   reloadBtn.title = 'Reload latest data';
   reloadBtn.textContent = '↺';
   reloadBtn.style.cssText =
-    'background: none; border: none; cursor: pointer; font-size: 1.1em; color: red; padding: 0 2px; line-height: 1; flex-shrink: 0;';
+    'background: none; border: none; cursor: pointer; font-size: 1.5em; color: red; padding: 0 4px; line-height: 1; flex-shrink: 0;';
   reloadBtn.addEventListener('click', async () => {
     try {
       if (detailTaskId !== null) {

@@ -43,8 +43,8 @@ export async function postComment(taskId: number, content: string): Promise<void
   if (!res.ok) throw new Error('Server error');
 }
 
-export async function fetchTaskDetail(taskId: number | string): Promise<TaskDetail> {
-  const res = await fetch('/api/tasks/' + taskId);
+export async function fetchTaskDetail(taskId: number | string, signal?: AbortSignal): Promise<TaskDetail> {
+  const res = await fetch('/api/tasks/' + taskId, signal ? { signal } : undefined);
   if (!res.ok) throw new Error('Server error');
   return res.json();
 }
@@ -97,6 +97,21 @@ export function savePanelWidthToConfig(width: number): void {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ board: { detailPaneWidth: width } }),
   }).catch(function () {});
+}
+
+export async function fetchRunLogs(taskId: number): Promise<
+  Array<{
+    id: number;
+    started_at: string;
+    finished_at: string | null;
+    exit_code: number | null;
+    events: Array<{ kind: string; text?: string; name?: string; input?: Record<string, unknown> }>;
+  }>
+> {
+  const res = await fetch('/api/claude/tasks/' + taskId + '/run-logs');
+  if (!res.ok) throw new Error('Server error');
+  const data = await res.json();
+  return data.logs || [];
 }
 
 export { showToast, refreshBoardCards };
