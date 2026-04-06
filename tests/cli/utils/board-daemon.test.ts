@@ -117,7 +117,10 @@ describe('board-daemon', () => {
         expect.objectContaining({ detached: true, stdio: 'ignore' })
       );
       expect(fakeChild.unref).toHaveBeenCalled();
-      expect(mockFs.writeFileSync).toHaveBeenCalledWith(expectedPidFile, String(fakePid), 'utf8');
+      expect(mockFs.writeFileSync).toHaveBeenCalledWith(expectedPidFile, String(fakePid), {
+        encoding: 'utf8',
+        mode: 0o600,
+      });
     });
   });
 
