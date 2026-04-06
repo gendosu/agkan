@@ -93,17 +93,19 @@ function registerTaskCrudRoutes(
     }
     const status = body.status && STATUSES.includes(body.status) ? body.status : 'backlog';
     const priority = body.priority && isPriority(body.priority) ? body.priority : undefined;
-    const task = ts.createTask({ title: body.title.trim(), body: body.body || undefined, status, priority });
 
-    // Attach tags if provided
-    if (Array.isArray(body.tags)) {
-      for (const tagId of body.tags) {
-        const numericTagId = Number(tagId);
-        if (!isNaN(numericTagId) && tags.getTag(numericTagId)) {
-          tts.addTagToTask({ task_id: task.id, tag_id: numericTagId });
-        }
-      }
-    }
+    // Resolve valid tag IDs before task creation
+    const tagIds = Array.isArray(body.tags)
+      ? body.tags.map(Number).filter((n) => !isNaN(n) && tags.getTag(n))
+      : undefined;
+
+    const task = ts.createTask({
+      title: body.title.trim(),
+      body: body.body || undefined,
+      status,
+      priority,
+      tagIds: tagIds && tagIds.length > 0 ? tagIds : undefined,
+    });
 
     // Store metadata if provided
     if (Array.isArray(body.metadata)) {
