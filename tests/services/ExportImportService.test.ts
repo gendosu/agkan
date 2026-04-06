@@ -536,6 +536,66 @@ describe('ExportImportService', () => {
       expect(taskService.listTasks()).toHaveLength(1);
     });
 
+    it('should roll back all changes when import fails midway', () => {
+      const backend = getStorageBackend();
+
+      // Spy on importTaskTags by making the second task's tag creation throw
+      let taskCreationCount = 0;
+      const originalCreate = backend.tasks.create.bind(backend.tasks);
+      backend.tasks.create = (...args) => {
+        taskCreationCount++;
+        if (taskCreationCount === 2) {
+          throw new Error('Simulated failure during second task creation');
+        }
+        return originalCreate(...args);
+      };
+
+      const failingService = new ExportImportService(backend);
+
+      const exportData: ExportData = {
+        version: '1.0.0',
+        exported_at: '2026-01-01T00:00:00.000Z',
+        tasks: [
+          {
+            id: 1,
+            title: 'Task 1',
+            body: null,
+            author: null,
+            assignees: null,
+            status: 'backlog',
+            parent_id: null,
+            created_at: '2026-01-01T10:00:00.000Z',
+            updated_at: '2026-01-01T10:00:00.000Z',
+            tags: [],
+            metadata: {},
+            comments: [],
+            blocked_by: [],
+          },
+          {
+            id: 2,
+            title: 'Task 2',
+            body: null,
+            author: null,
+            assignees: null,
+            status: 'ready',
+            parent_id: null,
+            created_at: '2026-01-01T11:00:00.000Z',
+            updated_at: '2026-01-01T11:00:00.000Z',
+            tags: [],
+            metadata: {},
+            comments: [],
+            blocked_by: [],
+          },
+        ],
+      };
+
+      expect(() => failingService.importData(exportData)).toThrow('Simulated failure during second task creation');
+
+      // Verify no partial data was committed (full rollback)
+      const tasks = taskService.listTasks();
+      expect(tasks).toHaveLength(0);
+    });
+
     it('should return correct importedCount', () => {
       const exportData: ExportData = {
         version: '1.0.0',
