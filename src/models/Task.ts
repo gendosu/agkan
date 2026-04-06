@@ -45,6 +45,8 @@ export interface CreateTaskInput {
   status?: TaskStatus;
   priority?: Priority | null;
   parent_id?: number | null;
+  /** Optional tag IDs to attach atomically with task creation */
+  tagIds?: number[];
 }
 
 /**
