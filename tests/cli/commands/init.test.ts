@@ -7,6 +7,7 @@ import { Command } from 'commander';
 import fs from 'fs';
 import path from 'path';
 import { setupInitCommand } from '../../../src/cli/commands/init';
+import { createProgram } from '../../helpers/command-test-utils';
 
 vi.mock('../../../src/db/config', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../../../src/db/config')>();
@@ -22,13 +23,6 @@ import { getConfigFileName, getDefaultDirName } from '../../../src/db/config';
 const mockGetConfigFileName = vi.mocked(getConfigFileName);
 const mockGetDefaultDirName = vi.mocked(getDefaultDirName);
 
-function createProgram(): Command {
-  const prog = new Command();
-  prog.exitOverride();
-  setupInitCommand(prog);
-  return prog;
-}
-
 describe('setupInitCommand', () => {
   let program: Command;
   let logs: string[];
@@ -40,7 +34,7 @@ describe('setupInitCommand', () => {
     vi.clearAllMocks();
     mockGetConfigFileName.mockReturnValue('.agkan.yml');
     mockGetDefaultDirName.mockReturnValue('.agkan');
-    program = createProgram();
+    program = createProgram(setupInitCommand);
 
     logs = [];
     originalLog = console.log;

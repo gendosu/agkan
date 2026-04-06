@@ -7,27 +7,7 @@ import { Command } from 'commander';
 import { setupTaskUpdateCommand } from '../../../../src/cli/commands/task/update';
 import { resetDatabase } from '../../../../src/db/reset';
 import { TaskService } from '../../../../src/services';
-
-async function runCommand(program: Command, args: string[]): Promise<{ logs: string[]; exitCode: number | undefined }> {
-  const logs: string[] = [];
-  const originalLog = console.log;
-  console.log = (...a: unknown[]) => logs.push(a.join(' '));
-
-  let exitCode: number | undefined;
-  const originalExit = process.exit;
-  process.exit = ((code?: number) => {
-    exitCode = code;
-  }) as never;
-
-  try {
-    await program.parseAsync(['node', 'test', ...args]);
-  } finally {
-    console.log = originalLog;
-    process.exit = originalExit;
-  }
-
-  return { logs, exitCode };
-}
+import { createProgram, runCommand } from '../../../helpers/command-test-utils';
 
 describe('setupTaskUpdateCommand', () => {
   let program: Command;
@@ -36,10 +16,10 @@ describe('setupTaskUpdateCommand', () => {
     // Reset database before each test (ensures schema migrations have run)
     resetDatabase();
 
-    program = new Command();
-    program.exitOverride();
-    program.command('task').description('Task management commands');
-    setupTaskUpdateCommand(program);
+    program = createProgram((prog) => {
+      prog.command('task').description('Task management commands');
+      setupTaskUpdateCommand(prog);
+    });
   });
 
   afterEach(() => {

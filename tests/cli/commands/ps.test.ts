@@ -5,6 +5,7 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { Command } from 'commander';
 import { setupPsCommand } from '../../../src/cli/commands/ps';
+import { createProgram } from '../../helpers/command-test-utils';
 
 vi.mock('../../../src/db/config', () => ({
   loadConfig: vi.fn(() => ({})),
@@ -28,13 +29,6 @@ import { loadConfig } from '../../../src/db/config';
 
 const mockLoadConfig = vi.mocked(loadConfig);
 
-function createProgram(): Command {
-  const prog = new Command();
-  prog.exitOverride();
-  setupPsCommand(prog);
-  return prog;
-}
-
 function mockFetch(response: unknown, ok = true): void {
   global.fetch = vi.fn().mockResolvedValue({
     ok,
@@ -51,7 +45,7 @@ describe('setupPsCommand', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockLoadConfig.mockReturnValue({});
-    program = createProgram();
+    program = createProgram(setupPsCommand);
     consoleLogs = [];
     consoleErrors = [];
     vi.spyOn(console, 'log').mockImplementation((...args) => consoleLogs.push(args.join(' ')));
@@ -137,7 +131,7 @@ describe('setupPsCommand', () => {
 
   it('uses port from config when --port flag is not provided', async () => {
     mockLoadConfig.mockReturnValue({ board: { port: 9090 } });
-    program = createProgram();
+    program = createProgram(setupPsCommand);
     mockFetch({ tasks: [] });
     await program.parseAsync(['node', 'test', 'ps']);
     expect(global.fetch).toHaveBeenCalledWith('http://localhost:9090/api/running-tasks');
