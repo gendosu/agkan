@@ -60,8 +60,11 @@ export function killBoardProcess(): boolean {
     process.kill(pid, 'SIGTERM');
     removePidFile();
     return true;
-  } catch {
-    removePidFile();
-    return false;
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code === 'ESRCH') {
+      removePidFile();
+      return false;
+    }
+    throw err;
   }
 }
