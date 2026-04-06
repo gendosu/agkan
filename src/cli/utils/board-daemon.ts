@@ -48,7 +48,10 @@ export function spawnBoardDaemon(boardArgs: string[]): number {
     stdio: 'ignore',
   });
   child.unref();
-  const pid = child.pid!;
+  if (child.pid === undefined) {
+    throw new Error('Failed to spawn board daemon: child process has no PID');
+  }
+  const pid = child.pid;
   writePidFile(pid);
   return pid;
 }
