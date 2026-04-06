@@ -1,5 +1,6 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { TaskService } from '../src/services/TaskService';
+import { TagService } from '../src/services/TagService';
 import { resetDatabase } from '../src/db/reset';
 import { createMockStorageBackend } from './utils/mock-database';
 import type { StorageBackend } from '../src/db/types/repository';
@@ -1926,6 +1927,95 @@ describe('TaskService', () => {
       const retrievedParent = taskService.getParentTask(child.id);
       expect(retrievedParent).not.toBeNull();
       expect(retrievedParent!.id).toBe(parent.id);
+    });
+  });
+
+  describe('createTask with tagIds (transactional tag attachment)', () => {
+    let mockBackend: StorageBackend;
+    let taskService: TaskService;
+    let tagService: TagService;
+
+    beforeEach(() => {
+      mockBackend = createMockStorageBackend();
+      taskService = new TaskService(mockBackend);
+      tagService = new TagService(mockBackend);
+    });
+
+    afterEach(() => {
+      mockBackend.close();
+    });
+
+    it('creates task without tags when tagIds is not provided', () => {
+      const task = taskService.createTask({ title: 'No tags task' });
+
+      expect(task.id).toBeDefined();
+      const attachedTags = mockBackend.taskTags.findTagsByTaskId(task.id);
+      expect(attachedTags).toHaveLength(0);
+    });
+
+    it('creates task without tags when tagIds is empty array', () => {
+      const task = taskService.createTask({ title: 'Empty tags task', tagIds: [] });
+
+      expect(task.id).toBeDefined();
+      const attachedTags = mockBackend.taskTags.findTagsByTaskId(task.id);
+      expect(attachedTags).toHaveLength(0);
+    });
+
+    it('creates task and attaches tags atomically when tagIds is provided', () => {
+      const tag1 = tagService.createTag({ name: 'frontend' });
+      const tag2 = tagService.createTag({ name: 'backend' });
+
+      const task = taskService.createTask({
+        title: 'Tagged task',
+        tagIds: [tag1.id, tag2.id],
+      });
+
+      expect(task.id).toBeDefined();
+      const attachedTags = mockBackend.taskTags.findTagsByTaskId(task.id);
+      expect(attachedTags).toHaveLength(2);
+      const attachedTagIds = attachedTags.map((t) => t.id).sort();
+      expect(attachedTagIds).toEqual([tag1.id, tag2.id].sort());
+    });
+
+    it('rolls back task creation when tag attachment fails (orphan prevention)', () => {
+      const tag = tagService.createTag({ name: 'valid-tag' });
+      const nonExistentTagId = 99999;
+
+      // Spy on taskTags.create to make it fail on the second call (non-existent tag)
+      const originalCreate = mockBackend.taskTags.create.bind(mockBackend.taskTags);
+      vi.spyOn(mockBackend.taskTags, 'create').mockImplementation((input) => {
+        if (input.tag_id === nonExistentTagId) {
+          throw new Error('FOREIGN KEY constraint failed');
+        }
+        return originalCreate(input);
+      });
+
+      const tasksBefore = taskService.listTasks();
+
+      expect(() => {
+        taskService.createTask({
+          title: 'Task with invalid tag',
+          tagIds: [tag.id, nonExistentTagId],
+        });
+      }).toThrow();
+
+      // The task should not exist — transaction was rolled back
+      const tasksAfter = taskService.listTasks();
+      expect(tasksAfter).toHaveLength(tasksBefore.length);
+    });
+
+    it('transaction ensures all tags are attached or none', () => {
+      const tag1 = tagService.createTag({ name: 'tag-a' });
+      const tag2 = tagService.createTag({ name: 'tag-b' });
+
+      // Both tags exist — all should be attached successfully
+      const task = taskService.createTask({
+        title: 'All-or-nothing task',
+        tagIds: [tag1.id, tag2.id],
+      });
+
+      const attachedTags = mockBackend.taskTags.findTagsByTaskId(task.id);
+      expect(attachedTags).toHaveLength(2);
     });
   });
 });
