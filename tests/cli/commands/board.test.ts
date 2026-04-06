@@ -5,6 +5,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { Command } from 'commander';
 import { setupBoardCommand } from '../../../src/cli/commands/board';
+import { createProgram } from '../../helpers/command-test-utils';
 
 vi.mock('../../../src/board/server', () => ({
   startBoardServer: vi.fn(),
@@ -45,13 +46,6 @@ const mockSpawnBoardDaemon = vi.mocked(spawnBoardDaemon);
 const mockKillBoardProcess = vi.mocked(killBoardProcess);
 const mockReadBoardPid = vi.mocked(readBoardPid);
 
-function createProgram(): Command {
-  const prog = new Command();
-  prog.exitOverride();
-  setupBoardCommand(prog);
-  return prog;
-}
-
 describe('setupBoardCommand', () => {
   let program: Command;
 
@@ -61,7 +55,7 @@ describe('setupBoardCommand', () => {
     mockIsBoardRunning.mockReturnValue(false);
     mockSpawnBoardDaemon.mockReturnValue(12345);
     mockKillBoardProcess.mockReturnValue(true);
-    program = createProgram();
+    program = createProgram(setupBoardCommand);
   });
 
   it('should register the board command', () => {
@@ -135,42 +129,42 @@ describe('setupBoardCommand', () => {
   describe('config file integration', () => {
     it('should use port from config when --port flag is not provided', async () => {
       mockLoadConfig.mockReturnValue({ board: { port: 9090 } });
-      program = createProgram();
+      program = createProgram(setupBoardCommand);
       await program.parseAsync(['node', 'test', 'board']);
       expect(startBoardServer).toHaveBeenCalledWith(9090, undefined);
     });
 
     it('should use title from config when --title flag is not provided', async () => {
       mockLoadConfig.mockReturnValue({ board: { title: 'Config Title' } });
-      program = createProgram();
+      program = createProgram(setupBoardCommand);
       await program.parseAsync(['node', 'test', 'board']);
       expect(startBoardServer).toHaveBeenCalledWith(8080, 'Config Title');
     });
 
     it('should use both port and title from config', async () => {
       mockLoadConfig.mockReturnValue({ board: { port: 4000, title: 'My Board' } });
-      program = createProgram();
+      program = createProgram(setupBoardCommand);
       await program.parseAsync(['node', 'test', 'board']);
       expect(startBoardServer).toHaveBeenCalledWith(4000, 'My Board');
     });
 
     it('should prefer CLI --port flag over config port', async () => {
       mockLoadConfig.mockReturnValue({ board: { port: 9090 } });
-      program = createProgram();
+      program = createProgram(setupBoardCommand);
       await program.parseAsync(['node', 'test', 'board', '--port', '3000']);
       expect(startBoardServer).toHaveBeenCalledWith(3000, undefined);
     });
 
     it('should prefer CLI --title flag over config title', async () => {
       mockLoadConfig.mockReturnValue({ board: { title: 'Config Title' } });
-      program = createProgram();
+      program = createProgram(setupBoardCommand);
       await program.parseAsync(['node', 'test', 'board', '--title', 'CLI Title']);
       expect(startBoardServer).toHaveBeenCalledWith(8080, 'CLI Title');
     });
 
     it('should prefer CLI flags over all config values', async () => {
       mockLoadConfig.mockReturnValue({ board: { port: 9090, title: 'Config Title' } });
-      program = createProgram();
+      program = createProgram(setupBoardCommand);
       await program.parseAsync(['node', 'test', 'board', '--port', '3000', '--title', 'CLI Title']);
       expect(startBoardServer).toHaveBeenCalledWith(3000, 'CLI Title');
     });
@@ -212,14 +206,14 @@ describe('setupBoardCommand', () => {
 
     it('should use port from config', async () => {
       mockLoadConfig.mockReturnValue({ board: { port: 9090 } });
-      program = createProgram();
+      program = createProgram(setupBoardCommand);
       await program.parseAsync(['node', 'test', 'board', 'start']);
       expect(mockSpawnBoardDaemon).toHaveBeenCalledWith(['--port', '9090']);
     });
 
     it('should use title from config', async () => {
       mockLoadConfig.mockReturnValue({ board: { title: 'Config Board' } });
-      program = createProgram();
+      program = createProgram(setupBoardCommand);
       await program.parseAsync(['node', 'test', 'board', 'start']);
       expect(mockSpawnBoardDaemon).toHaveBeenCalledWith(['--port', '8080', '--title', 'Config Board']);
     });
@@ -376,7 +370,7 @@ describe('setupBoardCommand', () => {
       mockIsBoardRunning.mockReturnValue(true);
       mockReadBoardPid.mockReturnValue(12345);
       mockLoadConfig.mockReturnValue({ board: { port: 9090 } });
-      program = createProgram();
+      program = createProgram(setupBoardCommand);
       const logs: string[] = [];
       const spy = vi.spyOn(console, 'log').mockImplementation((...a) => logs.push(a.join(' ')));
 

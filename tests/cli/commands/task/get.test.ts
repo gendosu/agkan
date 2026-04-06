@@ -7,6 +7,7 @@ import { Command } from 'commander';
 import { setupTaskGetCommand } from '../../../../src/cli/commands/task/get';
 import { getDatabase } from '../../../../src/db/connection';
 import { TaskService, TaskBlockService, TaskTagService, TagService } from '../../../../src/services';
+import { createProgram, runCommand } from '../../../helpers/command-test-utils';
 
 function resetDatabase() {
   const db = getDatabase();
@@ -18,41 +19,15 @@ function resetDatabase() {
   db.exec("DELETE FROM sqlite_sequence WHERE name='tags'");
 }
 
-function createProgram(): Command {
-  const prog = new Command();
-  prog.exitOverride();
-  prog.command('task').description('Task management commands');
-  setupTaskGetCommand(prog);
-  return prog;
-}
-
-async function runCommand(program: Command, args: string[]): Promise<{ logs: string[]; exitCode: number | undefined }> {
-  const logs: string[] = [];
-  const originalLog = console.log;
-  console.log = (...a: unknown[]) => logs.push(a.join(' '));
-
-  let exitCode: number | undefined;
-  const originalExit = process.exit;
-  process.exit = ((code?: number) => {
-    exitCode = code;
-  }) as never;
-
-  try {
-    await program.parseAsync(['node', 'test', ...args]);
-  } finally {
-    console.log = originalLog;
-    process.exit = originalExit;
-  }
-
-  return { logs, exitCode };
-}
-
 describe('setupTaskGetCommand', () => {
   let program: Command;
 
   beforeEach(() => {
     resetDatabase();
-    program = createProgram();
+    program = createProgram((prog) => {
+      prog.command('task').description('Task management commands');
+      setupTaskGetCommand(prog);
+    });
   });
 
   afterEach(() => {
@@ -286,7 +261,10 @@ describe('setupTaskGetCommand', () => {
       expect(blockedParsed.blockedBy).toHaveLength(1);
       expect(blockedParsed.blockedBy[0].id).toBe(blocker.id);
 
-      const prog2 = createProgram();
+      const prog2 = createProgram((prog) => {
+        prog.command('task').description('Task management commands');
+        setupTaskGetCommand(prog);
+      });
       const { exitCode: e2, logs: l2 } = await runCommand(prog2, ['task', 'get', String(blocker.id), '--json']);
       expect(e2).toBeUndefined();
       const blockerParsed = JSON.parse(l2[0]);

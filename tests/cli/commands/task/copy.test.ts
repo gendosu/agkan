@@ -9,35 +9,7 @@ import { getDatabase } from '../../../../src/db/connection';
 import { TaskService } from '../../../../src/services/TaskService';
 import { TagService } from '../../../../src/services/TagService';
 import { TaskTagService } from '../../../../src/services/TaskTagService';
-
-function createProgram(): Command {
-  const prog = new Command();
-  prog.exitOverride();
-  prog.command('task').description('Task management commands');
-  setupTaskCopyCommand(prog);
-  return prog;
-}
-
-async function runCommand(program: Command, args: string[]): Promise<{ logs: string[]; exitCode: number | undefined }> {
-  const logs: string[] = [];
-  const originalLog = console.log;
-  console.log = (...a: unknown[]) => logs.push(a.join(' '));
-
-  let exitCode: number | undefined;
-  const originalExit = process.exit;
-  process.exit = ((code?: number) => {
-    exitCode = code;
-  }) as never;
-
-  try {
-    await program.parseAsync(['node', 'test', ...args]);
-  } finally {
-    console.log = originalLog;
-    process.exit = originalExit;
-  }
-
-  return { logs, exitCode };
-}
+import { createProgram, runCommand } from '../../../helpers/command-test-utils';
 
 describe('setupTaskCopyCommand', () => {
   let program: Command;
@@ -57,7 +29,10 @@ describe('setupTaskCopyCommand', () => {
     taskService = new TaskService();
     tagService = new TagService();
     taskTagService = new TaskTagService();
-    program = createProgram();
+    program = createProgram((prog) => {
+      prog.command('task').description('Task management commands');
+      setupTaskCopyCommand(prog);
+    });
   });
 
   afterEach(() => {

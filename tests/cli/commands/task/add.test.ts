@@ -7,35 +7,7 @@ import { Command } from 'commander';
 import { setupTaskAddCommand } from '../../../../src/cli/commands/task/add';
 import { getDatabase } from '../../../../src/db/connection';
 import { TaskService } from '../../../../src/services';
-
-function createProgram(): Command {
-  const prog = new Command();
-  prog.exitOverride();
-  prog.command('task').description('Task management commands');
-  setupTaskAddCommand(prog);
-  return prog;
-}
-
-async function runCommand(program: Command, args: string[]): Promise<{ logs: string[]; exitCode: number | undefined }> {
-  const logs: string[] = [];
-  const originalLog = console.log;
-  console.log = (...a: unknown[]) => logs.push(a.join(' '));
-
-  let exitCode: number | undefined;
-  const originalExit = process.exit;
-  process.exit = ((code?: number) => {
-    exitCode = code;
-  }) as never;
-
-  try {
-    await program.parseAsync(['node', 'test', ...args]);
-  } finally {
-    console.log = originalLog;
-    process.exit = originalExit;
-  }
-
-  return { logs, exitCode };
-}
+import { createProgram, runCommand } from '../../../helpers/command-test-utils';
 
 describe('setupTaskAddCommand', () => {
   let program: Command;
@@ -47,7 +19,10 @@ describe('setupTaskAddCommand', () => {
     db.exec('DELETE FROM task_blocks');
     db.exec("DELETE FROM sqlite_sequence WHERE name='tasks'");
 
-    program = createProgram();
+    program = createProgram((prog) => {
+      prog.command('task').description('Task management commands');
+      setupTaskAddCommand(prog);
+    });
   });
 
   afterEach(() => {
