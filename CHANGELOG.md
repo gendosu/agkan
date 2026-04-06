@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.0.0] - 2026-04-06
+
+### Added
+- Add Claude process integration with ps command to list running Claude processes
+- Add ClaudeProcessService for managing claude CLI processes
+- Add RunLog repository for task process run history
+- Add Run Logs tab to board detail panel with polling and log viewer
+- Add Claude run/plan buttons on board cards with stream modal
+- Add Claude API routes for process start/stop/stream and run logs
+- Add verbose logging utility
+
+### Changed
+- Move documentation to docs/ directory and extract README sections
+
 ## [3.0.0-rc10] - 2026-04-04
 
 ### Added
