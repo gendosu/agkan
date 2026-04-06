@@ -25,7 +25,9 @@ git checkout main && git pull -p
 npm run test:all
 ```
 
-If tests fail, abort the release and fix the issues first.
+**Important**: `test:all` can take up to 10 minutes to complete. Wait the full duration (up to 600 seconds / 10 minutes) before evaluating results. Do not time out early.
+
+If tests fail, re-run once to check for flaky tests. If they fail consistently, abort the release and fix the issues first.
 
 ### 3. Determine the version bump type
 
