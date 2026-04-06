@@ -23,6 +23,8 @@ export class TaskService {
 
   /**
    * Create a new task
+   * If `tagIds` is provided, the task creation and tag attachments are wrapped
+   * in a single transaction to prevent orphaned tasks when tag attachment fails.
    * @param input - Task creation input
    * @returns Created task
    */
@@ -44,11 +46,28 @@ export class TaskService {
       }
     }
 
-    return this.backend.tasks.create({
-      ...input,
-      status,
-      created_at: now,
-      updated_at: now,
+    const { tagIds, ...taskInput } = input;
+
+    if (!tagIds || tagIds.length === 0) {
+      return this.backend.tasks.create({
+        ...taskInput,
+        status,
+        created_at: now,
+        updated_at: now,
+      });
+    }
+
+    return this.backend.transaction(() => {
+      const task = this.backend.tasks.create({
+        ...taskInput,
+        status,
+        created_at: now,
+        updated_at: now,
+      });
+      for (const tagId of tagIds) {
+        this.backend.taskTags.create({ task_id: task.id, tag_id: tagId, created_at: now });
+      }
+      return task;
     });
   }
 
