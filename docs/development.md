@@ -47,30 +47,13 @@ pnpm run check       # Run all checks
 
 ## Testing
 
-### Unit Tests
+For full testing documentation, see **[TESTING.md](TESTING.md)**.
 
-Run unit tests with Vitest:
+Quick commands:
 ```bash
-pnpm test
+pnpm test          # Run unit tests
+pnpm run test:e2e  # Run end-to-end tests
 ```
-
-All service and model layers are tested.
-
-### End-to-End Tests
-
-Run comprehensive e2e tests that execute actual CLI commands:
-```bash
-pnpm run test:e2e
-```
-
-E2E tests cover the following features:
-- Build and unit tests
-- Tag management (create, list, delete, duplicate check)
-- Tag assignment (attach, detach, display, duplicate check)
-- Tag filtering (single tag, multiple tags, status combinations)
-- CASCADE delete (database integrity verification)
-
-Tests use a local test database (`.agkan-test/test-e2e.db`) and are automatically cleaned up after execution.
 
 ## Build
 
