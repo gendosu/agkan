@@ -139,16 +139,31 @@ describe('board-daemon', () => {
       killSpy.mockRestore();
     });
 
-    it('removes stale PID file and returns false when process does not exist', () => {
+    it('removes stale PID file and returns false when process does not exist (ESRCH)', () => {
       mockFs.existsSync = vi.fn().mockReturnValue(true);
       mockFs.readFileSync = vi.fn().mockReturnValue('99999');
       mockFs.unlinkSync = vi.fn();
+      const esrchError = Object.assign(new Error('ESRCH'), { code: 'ESRCH' });
       const killSpy = vi.spyOn(process, 'kill').mockImplementation(() => {
-        throw new Error('ESRCH');
+        throw esrchError;
       });
 
       expect(killBoardProcess()).toBe(false);
       expect(mockFs.unlinkSync).toHaveBeenCalledWith(expectedPidFile);
+      killSpy.mockRestore();
+    });
+
+    it('preserves PID file and throws when process exists but cannot be killed (EPERM)', () => {
+      mockFs.existsSync = vi.fn().mockReturnValue(true);
+      mockFs.readFileSync = vi.fn().mockReturnValue('99999');
+      mockFs.unlinkSync = vi.fn();
+      const epermError = Object.assign(new Error('EPERM'), { code: 'EPERM' });
+      const killSpy = vi.spyOn(process, 'kill').mockImplementation(() => {
+        throw epermError;
+      });
+
+      expect(() => killBoardProcess()).toThrow(epermError);
+      expect(mockFs.unlinkSync).not.toHaveBeenCalled();
       killSpy.mockRestore();
     });
   });
