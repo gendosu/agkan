@@ -213,28 +213,30 @@ export class ExportImportService {
    * @returns Import result with count and ID mapping
    */
   importData(data: ExportData): ImportResult {
-    const idMapping = new Map<number, number>();
-    const sortedTasks = this.sortTasksByParent(data.tasks);
+    return this.backend.transaction(() => {
+      const idMapping = new Map<number, number>();
+      const sortedTasks = this.sortTasksByParent(data.tasks);
 
-    for (const exportedTask of sortedTasks) {
-      const newTaskId = this.importTask(exportedTask, idMapping);
-      idMapping.set(exportedTask.id, newTaskId);
+      for (const exportedTask of sortedTasks) {
+        const newTaskId = this.importTask(exportedTask, idMapping);
+        idMapping.set(exportedTask.id, newTaskId);
 
-      this.importTaskTags(newTaskId, exportedTask.tags);
+        this.importTaskTags(newTaskId, exportedTask.tags);
 
-      for (const [key, value] of Object.entries(exportedTask.metadata)) {
-        this.metadataService.setMetadata({ task_id: newTaskId, key, value });
+        for (const [key, value] of Object.entries(exportedTask.metadata)) {
+          this.metadataService.setMetadata({ task_id: newTaskId, key, value });
+        }
+
+        this.importTaskComments(newTaskId, exportedTask.comments);
       }
 
-      this.importTaskComments(newTaskId, exportedTask.comments);
-    }
+      this.importBlockRelationships(data.tasks, idMapping);
 
-    this.importBlockRelationships(data.tasks, idMapping);
-
-    return {
-      importedCount: sortedTasks.length,
-      idMapping,
-    };
+      return {
+        importedCount: sortedTasks.length,
+        idMapping,
+      };
+    });
   }
 
   /**
