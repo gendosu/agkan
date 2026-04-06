@@ -32,7 +32,7 @@ function writePidFile(pid: number): void {
   if (!fs.existsSync(dir)) {
     fs.mkdirSync(dir, { recursive: true });
   }
-  fs.writeFileSync(pidFile, String(pid), 'utf8');
+  fs.writeFileSync(pidFile, String(pid), { encoding: 'utf8', mode: 0o600 });
 }
 
 export function removePidFile(): void {
