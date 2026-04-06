@@ -122,6 +122,15 @@ describe('board-daemon', () => {
         mode: 0o600,
       });
     });
+
+    it('throws an error when child process has no PID', () => {
+      const fakeChild = { pid: undefined, unref: vi.fn() };
+      mockSpawn.mockReturnValue(fakeChild as never);
+
+      expect(() => spawnBoardDaemon(['--port', '8080'])).toThrow(
+        'Failed to spawn board daemon: child process has no PID'
+      );
+    });
   });
 
   describe('killBoardProcess', () => {
