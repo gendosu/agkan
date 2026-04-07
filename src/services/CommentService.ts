@@ -2,6 +2,7 @@ import { TaskComment, CreateTaskCommentInput } from '../models';
 import { getStorageBackend } from '../db/connection';
 import { StorageBackend } from '../db/types/repository';
 import { validateCommentInput } from '../utils/input-validators';
+import { ValidationError } from '../errors';
 
 /**
  * Comment Service
@@ -22,7 +23,7 @@ export class CommentService {
   addComment(input: CreateTaskCommentInput): TaskComment {
     const errors = validateCommentInput(input);
     if (errors.length > 0) {
-      throw new Error(errors[0].message);
+      throw new ValidationError(errors[0].message);
     }
 
     const now = new Date().toISOString();
@@ -65,7 +66,7 @@ export class CommentService {
   updateComment(id: number, content: string): TaskComment | null {
     const errors = validateCommentInput({ task_id: 0, content });
     if (errors.length > 0) {
-      throw new Error(errors[0].message);
+      throw new ValidationError(errors[0].message);
     }
 
     const now = new Date().toISOString();

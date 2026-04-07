@@ -3,6 +3,7 @@ import { getStorageBackend } from '../db/connection';
 import { validateTaskInput, validateTaskUpdateInput } from '../utils/input-validators';
 import { wouldCreateCycle } from '../utils/cycle-detector';
 import { StorageBackend } from '../db/types/repository';
+import { ValidationError, NotFoundError, ConflictError } from '../errors';
 
 /** Allowed sort fields for task listing */
 export const ALLOWED_SORT_FIELDS = ['id', 'title', 'status', 'created_at', 'updated_at', 'priority'] as const;
@@ -35,14 +36,14 @@ export class TaskService {
     // Validate input fields
     const validationErrors = validateTaskInput(input);
     if (validationErrors.length > 0) {
-      throw new Error(validationErrors[0].message);
+      throw new ValidationError(validationErrors[0].message);
     }
 
     // Validate parent_id: check if parent task exists
     if (input.parent_id !== undefined && input.parent_id !== null) {
       const parentTask = this.getTask(input.parent_id);
       if (!parentTask) {
-        throw new Error(`Parent task with id ${input.parent_id} does not exist`);
+        throw new NotFoundError(`Parent task with id ${input.parent_id} does not exist`);
       }
     }
 
@@ -130,18 +131,18 @@ export class TaskService {
 
     const validationErrors = validateTaskUpdateInput(input);
     if (validationErrors.length > 0) {
-      throw new Error(validationErrors[0].message);
+      throw new ValidationError(validationErrors[0].message);
     }
 
     if (input.parent_id !== undefined) {
       if (wouldCreateCycle(id, input.parent_id, (parentId) => this.getTask(parentId)?.parent_id ?? null)) {
-        throw new Error(`Cannot set parent_id to ${input.parent_id}: would create circular reference`);
+        throw new ConflictError(`Cannot set parent_id to ${input.parent_id}: would create circular reference`);
       }
 
       if (input.parent_id !== null) {
         const parentTask = this.getTask(input.parent_id);
         if (!parentTask) {
-          throw new Error(`Parent task with id ${input.parent_id} does not exist`);
+          throw new NotFoundError(`Parent task with id ${input.parent_id} does not exist`);
         }
       }
     }

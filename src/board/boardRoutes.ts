@@ -9,6 +9,7 @@ import { TaskBlockService } from '../services/TaskBlockService';
 import { ExportImportService, ExportData } from '../services/ExportImportService';
 import { ClaudeProcessService } from '../services/ClaudeProcessService';
 import { TaskStatus, isPriority, Priority } from '../models';
+import { ConflictError } from '../errors';
 import { StorageBackend } from '../db/types/repository';
 import { readBoardConfig, writeBoardConfig, DETAIL_PANE_MAX_WIDTH, VALID_THEMES, ThemePreference } from './boardConfig';
 import {
@@ -401,7 +402,7 @@ function registerClaudeRoutes(app: Hono, claudeProcess: ClaudeProcessService, ts
     try {
       claudeProcess.startProcess(taskId, prompt, command);
     } catch (e) {
-      if (e instanceof Error && e.message.includes('already running')) {
+      if (e instanceof ConflictError) {
         console.error(
           `[boardRoutes] 409 already running taskId=${taskId} command=${command} running=${JSON.stringify(claudeProcess.listRunningTasks())}`
         );

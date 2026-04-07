@@ -9,6 +9,7 @@ import { Tag } from '../../../models';
 import { createFormatter } from '../../utils/output-formatter';
 import { validateNumberInput } from '../../utils/error-handler';
 import { validateTagInput } from '../../../utils/input-validators';
+import { ConflictError } from '../../../errors';
 
 export function setupTagRenameCommand(program: Command): void {
   // Find the tag command group
@@ -88,16 +89,14 @@ export function setupTagRenameCommand(program: Command): void {
             }
           );
         } catch (error) {
-          if (error instanceof Error) {
-            if (error.message.includes('already exists')) {
-              formatter.error(`Tag "${newName}" already exists`, () => {
-                console.log(chalk.red(`\n✗ Error: Tag "${newName}" already exists\n`));
-              });
-            } else {
-              formatter.error(error.message, () => {
-                console.log(chalk.red(`\n✗ Error: ${error.message}\n`));
-              });
-            }
+          if (error instanceof ConflictError) {
+            formatter.error(`Tag "${newName}" already exists`, () => {
+              console.log(chalk.red(`\n✗ Error: Tag "${newName}" already exists\n`));
+            });
+          } else if (error instanceof Error) {
+            formatter.error(error.message, () => {
+              console.log(chalk.red(`\n✗ Error: ${error.message}\n`));
+            });
           } else {
             formatter.error('An unknown error occurred', () => {
               console.log(chalk.red('\n✗ An unknown error occurred\n'));
