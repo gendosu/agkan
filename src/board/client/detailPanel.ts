@@ -251,6 +251,8 @@ function renderRunLogsInPane(pane: HTMLElement, logs: Awaited<ReturnType<typeof 
   const bodyScrollState = new Map<number, { scrollTop: number; isNearBottom: boolean }>();
   const openLogIds = new Set<number>();
   const hadPreviousItems = pane.querySelector('.run-log-item') !== null;
+  const paneScrollTop = pane.scrollTop;
+  const paneIsNearBottom = pane.scrollHeight - pane.scrollTop - pane.clientHeight <= 50;
 
   pane.querySelectorAll<HTMLElement>('.run-log-item.open').forEach((item) => {
     const logId = Number(item.dataset.logId);
@@ -266,6 +268,10 @@ function renderRunLogsInPane(pane: HTMLElement, logs: Awaited<ReturnType<typeof 
   pane.innerHTML = renderRunLogsHtml(logs);
 
   requestAnimationFrame(() => {
+    if (hadPreviousItems) {
+      pane.scrollTop = paneIsNearBottom ? pane.scrollHeight : paneScrollTop;
+    }
+
     pane.querySelectorAll<HTMLElement>('.run-log-item').forEach((item) => {
       const logId = Number(item.dataset.logId);
       if (!logId) return;

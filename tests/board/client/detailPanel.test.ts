@@ -57,6 +57,32 @@ function setupMinimalBoardDOM(): void {
   });
 }
 
+function setupBoardContainerDOM(): void {
+  document.body.innerHTML = `<div class="board-container"></div>`;
+
+  (window as unknown as Record<string, unknown>).allStatuses = ['pending', 'in_progress', 'completed'];
+  (window as unknown as Record<string, unknown>).statusLabels = {
+    pending: 'Pending',
+    in_progress: 'In Progress',
+    completed: 'Completed',
+  };
+  (window as unknown as Record<string, unknown>).allPriorities = ['low', 'medium', 'high'];
+
+  Object.defineProperty(window, 'matchMedia', {
+    writable: true,
+    value: vi.fn().mockImplementation((query: string) => ({
+      matches: false,
+      media: query,
+      onchange: null,
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      dispatchEvent: vi.fn(),
+    })),
+  });
+}
+
 function makeTaskDetail(overrides = {}) {
   return {
     task: {
@@ -154,6 +180,133 @@ describe('renderDetailPanel - tag loading failure', () => {
     // Details pane should contain status select
     const detailsPane = document.getElementById('detail-tab-content-details');
     expect(detailsPane?.innerHTML).toContain('detail-edit-status');
+  });
+});
+
+describe('renderDetailPanel - run logs scroll restoration', () => {
+  let originalRequestAnimationFrame: typeof window.requestAnimationFrame;
+
+  beforeEach(() => {
+    originalRequestAnimationFrame = window.requestAnimationFrame;
+    vi.resetModules();
+    vi.useFakeTimers();
+    const stubbedRequestAnimationFrame = ((cb: FrameRequestCallback) => {
+      cb(0);
+      return 0;
+    }) as typeof window.requestAnimationFrame;
+    window.requestAnimationFrame = stubbedRequestAnimationFrame;
+    (
+      globalThis as typeof globalThis & { requestAnimationFrame: typeof window.requestAnimationFrame }
+    ).requestAnimationFrame = stubbedRequestAnimationFrame;
+    setupBoardContainerDOM();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+    window.requestAnimationFrame = originalRequestAnimationFrame;
+    (
+      globalThis as typeof globalThis & { requestAnimationFrame: typeof window.requestAnimationFrame }
+    ).requestAnimationFrame = originalRequestAnimationFrame;
+    vi.restoreAllMocks();
+  });
+
+  it('preserves the run logs pane scroll position across polling rerenders', async () => {
+    let runLogsFetchCount = 0;
+    const initialLogs = [
+      {
+        id: 1,
+        started_at: '2026-01-01T00:00:00.000Z',
+        finished_at: null,
+        exit_code: null,
+        events: [{ kind: 'text', text: 'first render' }],
+      },
+    ];
+    const updatedLogs = [
+      ...initialLogs,
+      {
+        id: 2,
+        started_at: '2026-01-01T00:05:00.000Z',
+        finished_at: null,
+        exit_code: null,
+        events: [{ kind: 'text', text: 'poll update' }],
+      },
+    ];
+
+    global.fetch = vi.fn().mockImplementation((url: string) => {
+      if (String(url).includes('/api/config')) {
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve({ board: { detailPaneWidth: 400 } }),
+        });
+      }
+      if (String(url).includes('/api/tags')) {
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve({ tags: [] }),
+        });
+      }
+      if (String(url).includes('/api/tasks/1/comments')) {
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve({ comments: [] }),
+        });
+      }
+      if (String(url).includes('/api/claude/tasks/1/run-logs')) {
+        const logs = runLogsFetchCount++ === 0 ? initialLogs : updatedLogs;
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve({ logs }),
+        });
+      }
+      return Promise.reject(new Error('Unexpected fetch: ' + String(url)));
+    });
+
+    const originalInnerHTML = Object.getOwnPropertyDescriptor(Element.prototype, 'innerHTML');
+    expect(originalInnerHTML?.get).toBeDefined();
+    expect(originalInnerHTML?.set).toBeDefined();
+
+    const { initDetailPanel, renderDetailPanel } = await import('../../../src/board/client/detailPanel');
+    initDetailPanel();
+    renderDetailPanel(makeTaskDetail());
+
+    document.getElementById('detail-tab-run-logs')?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+
+    const pane = document.getElementById('detail-tab-content-run-logs') as HTMLElement;
+    let firstBody = pane.querySelector<HTMLElement>('.run-log-body');
+    for (let i = 0; i < 10 && !firstBody; i += 1) {
+      await Promise.resolve();
+      firstBody = pane.querySelector<HTMLElement>('.run-log-body');
+    }
+    expect(firstBody).not.toBeNull();
+    expect(runLogsFetchCount).toBeGreaterThan(0);
+
+    Object.defineProperty(pane, 'scrollHeight', { configurable: true, value: 1000 });
+    Object.defineProperty(pane, 'clientHeight', { configurable: true, value: 400 });
+    if (firstBody) {
+      Object.defineProperty(firstBody, 'scrollHeight', { configurable: true, value: 600 });
+      Object.defineProperty(firstBody, 'clientHeight', { configurable: true, value: 200 });
+    }
+
+    Object.defineProperty(pane, 'innerHTML', {
+      configurable: true,
+      get() {
+        return originalInnerHTML!.get!.call(this);
+      },
+      set(value: string) {
+        originalInnerHTML!.set!.call(this, value);
+        this.scrollTop = 0;
+      },
+    });
+
+    pane.scrollTop = 120;
+    if (firstBody) {
+      firstBody.scrollTop = 77;
+    }
+
+    await vi.advanceTimersByTimeAsync(2000);
+
+    expect(pane.scrollTop).toBe(120);
+    expect(pane.querySelector<HTMLElement>('.run-log-body')?.scrollTop).toBe(77);
   });
 });
 
