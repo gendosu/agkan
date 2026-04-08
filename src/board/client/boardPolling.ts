@@ -40,6 +40,7 @@ let _openTaskDetail: ((taskId: string) => Promise<void>) | null = null;
 let _renderDetailPanel: ((data: TaskDetail) => void) | null = null;
 let _showUpdateWarning: (() => void) | null = null;
 let _getDetailTaskId: (() => number | null) | null = null;
+let _getDetailActiveTab: (() => string) | null = null;
 let _setActiveCard: ((taskId: number | null) => void) | null = null;
 let _redrawDependencies: (() => void) | null = null;
 
@@ -48,12 +49,14 @@ export function registerDetailPanelCallbacks(callbacks: {
   renderDetailPanel: (data: TaskDetail) => void;
   showUpdateWarning: () => void;
   getDetailTaskId: () => number | null;
+  getDetailActiveTab: () => string;
   setActiveCard: (taskId: number | null) => void;
 }): void {
   _openTaskDetail = callbacks.openTaskDetail;
   _renderDetailPanel = callbacks.renderDetailPanel;
   _showUpdateWarning = callbacks.showUpdateWarning;
   _getDetailTaskId = callbacks.getDetailTaskId;
+  _getDetailActiveTab = callbacks.getDetailActiveTab;
   _setActiveCard = callbacks.setActiveCard;
 }
 
@@ -149,6 +152,9 @@ function isEditingDetailPanel(): boolean {
 async function refreshOpenDetailPanel(detailTaskId: number): Promise<void> {
   if (isEditingDetailPanel()) {
     if (_showUpdateWarning) _showUpdateWarning();
+    return;
+  }
+  if (_getDetailActiveTab && _getDetailActiveTab() === 'run-logs') {
     return;
   }
   try {
