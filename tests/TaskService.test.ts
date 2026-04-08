@@ -604,13 +604,40 @@ describe('TaskService', () => {
     });
 
     it('ソートオプションでupdated_at降順にソートできる', () => {
-      const task1 = taskService.createTask({ title: 'Task A', status: 'backlog' });
-      taskService.createTask({ title: 'Task B', status: 'backlog' });
-      // Update task1 to make its updated_at newer
-      taskService.updateTask(task1.id, { title: 'Task A Updated' });
+      vi.useFakeTimers();
+      try {
+        vi.setSystemTime(new Date('2026-01-01T00:00:00.000Z'));
+        const task1 = taskService.createTask({ title: 'Task A', status: 'backlog' });
 
-      const tasks = taskService.listTasks({}, 'updated_at', 'desc');
-      expect(tasks[0].title).toBe('Task A Updated');
+        vi.setSystemTime(new Date('2026-01-01T00:00:01.000Z'));
+        taskService.createTask({ title: 'Task B', status: 'backlog' });
+
+        // task1 を明示的に最新時刻へ更新して、updated_at 降順の先頭を確定させる
+        vi.setSystemTime(new Date('2026-01-01T00:00:02.000Z'));
+        taskService.updateTask(task1.id, { title: 'Task A Updated' });
+
+        const tasks = taskService.listTasks({}, 'updated_at', 'desc');
+        expect(tasks[0].title).toBe('Task A Updated');
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it('updated_atが同値の場合はid降順でソートされる', () => {
+      vi.useFakeTimers();
+      try {
+        const fixedNow = new Date('2026-01-01T00:00:00.000Z');
+        vi.setSystemTime(fixedNow);
+        const task1 = taskService.createTask({ title: 'Task A', status: 'backlog' });
+        const task2 = taskService.createTask({ title: 'Task B', status: 'backlog' });
+        taskService.updateTask(task1.id, { title: 'Task A Updated' });
+
+        const tasks = taskService.listTasks({}, 'updated_at', 'desc');
+        expect(tasks[0].id).toBe(task2.id);
+        expect(tasks[1].id).toBe(task1.id);
+      } finally {
+        vi.useRealTimers();
+      }
     });
 
     it('デフォルトソートはcreated_at降順のまま', () => {
