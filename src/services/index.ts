@@ -14,3 +14,6 @@ export { ExportImportService } from './ExportImportService';
 export type { ExportData, ExportedTask, ExportedComment, ImportResult } from './ExportImportService';
 export { ClaudeProcessService } from './ClaudeProcessService';
 export type { ClaudeStreamEvent, OutputEvent, SubscribeCallback } from './ClaudeProcessService';
+export { CodexProcessService } from './CodexProcessService';
+export type { IProcessService } from './IProcessService';
+export { ProcessServiceFactory } from './ProcessServiceFactory';
