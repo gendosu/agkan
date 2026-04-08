@@ -3,6 +3,7 @@ import { getStorageBackend } from '../db/connection';
 import { TaskService } from './TaskService';
 import { TagService } from './TagService';
 import { StorageBackend } from '../db/types/repository';
+import { NotFoundError, ConflictError } from '../errors';
 
 /**
  * Task Tag Service
@@ -29,18 +30,18 @@ export class TaskTagService {
     // Check if task exists
     const task = this.taskService.getTask(input.task_id);
     if (!task) {
-      throw new Error(`Task with id ${input.task_id} does not exist`);
+      throw new NotFoundError(`Task with id ${input.task_id} does not exist`);
     }
 
     // Check if tag exists
     const tag = this.tagService.getTag(input.tag_id);
     if (!tag) {
-      throw new Error(`Tag with id ${input.tag_id} does not exist`);
+      throw new NotFoundError(`Tag with id ${input.tag_id} does not exist`);
     }
 
     // Check if the association already exists
     if (this.hasTag(input.task_id, input.tag_id)) {
-      throw new Error(`Task ${input.task_id} already has tag ${input.tag_id}`);
+      throw new ConflictError(`Task ${input.task_id} already has tag ${input.tag_id}`);
     }
 
     const now = new Date().toISOString();

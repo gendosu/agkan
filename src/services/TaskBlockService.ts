@@ -2,6 +2,7 @@ import { TaskBlock, CreateTaskBlockInput } from '../models';
 import { getStorageBackend } from '../db/connection';
 import { TaskService } from './TaskService';
 import { StorageBackend } from '../db/types/repository';
+import { NotFoundError, ConflictError } from '../errors';
 
 /**
  * Task Block Service
@@ -25,23 +26,23 @@ export class TaskBlockService {
   addBlock(input: CreateTaskBlockInput): TaskBlock {
     // Check for self-reference: prevent a task from blocking itself
     if (input.blocker_task_id === input.blocked_task_id) {
-      throw new Error('Task cannot block itself');
+      throw new ConflictError('Task cannot block itself');
     }
 
     // Verify both tasks exist in the database
     const blockerTask = this.taskService.getTask(input.blocker_task_id);
     if (!blockerTask) {
-      throw new Error(`Blocker task with id ${input.blocker_task_id} does not exist`);
+      throw new NotFoundError(`Blocker task with id ${input.blocker_task_id} does not exist`);
     }
 
     const blockedTask = this.taskService.getTask(input.blocked_task_id);
     if (!blockedTask) {
-      throw new Error(`Blocked task with id ${input.blocked_task_id} does not exist`);
+      throw new NotFoundError(`Blocked task with id ${input.blocked_task_id} does not exist`);
     }
 
     // Check for circular reference: ensure new blocking relationship doesn't create a cycle
     if (this.wouldCreateBlockCycle(input.blocker_task_id, input.blocked_task_id)) {
-      throw new Error(
+      throw new ConflictError(
         `Cannot create block relationship: would create circular dependency between tasks ${input.blocker_task_id} and ${input.blocked_task_id}`
       );
     }

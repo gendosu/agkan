@@ -13,6 +13,7 @@ import { TagService } from '../../src/services/TagService';
 import { MetadataService } from '../../src/services/MetadataService';
 import { CommentService } from '../../src/services/CommentService';
 import { TaskBlockService } from '../../src/services/TaskBlockService';
+import { ConflictError } from '../../src/errors';
 import { ClaudeProcessService, SubscribeCallback } from '../../src/services/ClaudeProcessService';
 import { getStorageBackend } from '../../src/db/connection';
 import { registerBoardRoutes, BoardServices } from '../../src/board/boardRoutes';
@@ -163,7 +164,7 @@ describe('POST /api/claude/tasks/:taskId/run', () => {
   it('returns 409 when process is already running', async () => {
     const mock = buildMockClaudeProcessService();
     (mock.startProcess as ReturnType<typeof vi.fn>).mockImplementation(() => {
-      throw new Error('Process for taskId 1 is already running');
+      throw new ConflictError('Process for taskId 1 is already running');
     });
     const services = buildServices(mock);
     const task = services.ts.createTask({ title: 'Running Task', status: 'backlog' });

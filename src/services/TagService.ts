@@ -2,6 +2,7 @@ import { Tag, CreateTagInput, UpdateTagInput } from '../models';
 import { getStorageBackend } from '../db/connection';
 import { validateTagInput } from '../utils/input-validators';
 import { StorageBackend } from '../db/types/repository';
+import { ValidationError, ConflictError } from '../errors';
 
 /**
  * Tag Service
@@ -24,13 +25,13 @@ export class TagService {
     // Validate input fields
     const validationErrors = validateTagInput(input);
     if (validationErrors.length > 0) {
-      throw new Error(validationErrors[0].message);
+      throw new ValidationError(validationErrors[0].message);
     }
 
     // Check for duplicate tag names
     const existingTag = this.getTagByName(input.name);
     if (existingTag) {
-      throw new Error(`Tag with name "${input.name}" already exists`);
+      throw new ConflictError(`Tag with name "${input.name}" already exists`);
     }
 
     const now = new Date().toISOString();
@@ -80,13 +81,13 @@ export class TagService {
     // Validate name if being updated
     if (input.name !== undefined) {
       if (!input.name || input.name.trim().length === 0) {
-        throw new Error('Name is required');
+        throw new ValidationError('Name is required');
       }
       if (input.name.length > 50) {
-        throw new Error('Name must not exceed 50 characters');
+        throw new ValidationError('Name must not exceed 50 characters');
       }
       if (/^\d+$/.test(input.name.trim())) {
-        throw new Error('Tag name cannot be purely numeric');
+        throw new ValidationError('Tag name cannot be purely numeric');
       }
     }
 
@@ -94,7 +95,7 @@ export class TagService {
     if (input.name !== undefined && input.name !== existingTag.name) {
       const duplicateTag = this.getTagByName(input.name);
       if (duplicateTag) {
-        throw new Error(`Tag with name "${input.name}" already exists`);
+        throw new ConflictError(`Tag with name "${input.name}" already exists`);
       }
     }
 

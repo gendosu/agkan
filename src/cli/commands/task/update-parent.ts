@@ -8,6 +8,7 @@ import { getServiceContainer } from '../../utils/service-container';
 import { validateNumberInput } from '../../utils/error-handler';
 import { getStatusColor, formatDate } from '../../../utils/format';
 import { createFormatter } from '../../utils/output-formatter';
+import { ConflictError } from '../../../errors';
 
 export function setupTaskUpdateParentCommand(program: Command): void {
   const taskCommand = program.commands.find((cmd) => cmd.name() === 'task');
@@ -54,16 +55,14 @@ export function setupTaskUpdateParentCommand(program: Command): void {
         try {
           task = taskService.updateTask(taskId, { parent_id: parsedParentId });
         } catch (error) {
-          if (error instanceof Error) {
-            if (error.message.includes('cycle') || error.message.includes('circular')) {
-              formatter.error('This would create a circular parent-child relationship', () => {
-                console.log(chalk.red('\n✗ Error: This would create a circular parent-child relationship\n'));
-              });
-            } else {
-              formatter.error(error.message, () => {
-                console.log(chalk.red(`\n✗ Error: ${error.message}\n`));
-              });
-            }
+          if (error instanceof ConflictError) {
+            formatter.error('This would create a circular parent-child relationship', () => {
+              console.log(chalk.red('\n✗ Error: This would create a circular parent-child relationship\n'));
+            });
+          } else if (error instanceof Error) {
+            formatter.error(error.message, () => {
+              console.log(chalk.red(`\n✗ Error: ${error.message}\n`));
+            });
           } else {
             formatter.error('An unknown error occurred', () => {
               console.log(chalk.red('\n✗ An unknown error occurred\n'));

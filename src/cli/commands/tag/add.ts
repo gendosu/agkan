@@ -8,6 +8,7 @@ import { getServiceContainer } from '../../utils/service-container';
 import { formatDate } from '../../../utils/format';
 import { createFormatter } from '../../utils/output-formatter';
 import { validateTagInput } from '../../../utils/input-validators';
+import { ConflictError } from '../../../errors';
 
 export function setupTagAddCommand(program: Command): void {
   // Find the tag command group
@@ -66,16 +67,14 @@ export function setupTagAddCommand(program: Command): void {
             }
           );
         } catch (error) {
-          if (error instanceof Error) {
-            if (error.message.includes('already exists') || error.message.includes('UNIQUE constraint')) {
-              formatter.error(`Tag "${name}" already exists`, () => {
-                console.log(chalk.red(`\n✗ Error: Tag "${name}" already exists\n`));
-              });
-            } else {
-              formatter.error(error.message, () => {
-                console.log(chalk.red(`\n✗ Error: ${error.message}\n`));
-              });
-            }
+          if (error instanceof ConflictError) {
+            formatter.error(`Tag "${name}" already exists`, () => {
+              console.log(chalk.red(`\n✗ Error: Tag "${name}" already exists\n`));
+            });
+          } else if (error instanceof Error) {
+            formatter.error(error.message, () => {
+              console.log(chalk.red(`\n✗ Error: ${error.message}\n`));
+            });
           } else {
             formatter.error('An unknown error occurred', () => {
               console.log(chalk.red('\n✗ An unknown error occurred\n'));

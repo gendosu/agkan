@@ -2,6 +2,7 @@ import { spawn, ChildProcess, execSync } from 'child_process';
 import type { StorageBackend } from '../db/types/repository';
 import type { RunLogRow } from '../db/types/repository';
 import { verboseLog } from '../utils/logger';
+import { ConflictError } from '../errors';
 
 function resolveClaudePath(): string {
   try {
@@ -94,7 +95,7 @@ export class ClaudeProcessService {
       verboseLog(
         `[ClaudeProcessService] startProcess DUPLICATE taskId=${taskId} existing pid=${pid} killed=${killed} exitCode=${exitCode} signalCode=${signalCode} aliveMs=${aliveMs} command=${existing.command}`
       );
-      throw new Error(`Process for taskId ${taskId} is already running`);
+      throw new ConflictError(`Process for taskId ${taskId} is already running`);
     }
 
     verboseLog(`[ClaudeProcessService] startProcess taskId=${taskId} command=${command}`);

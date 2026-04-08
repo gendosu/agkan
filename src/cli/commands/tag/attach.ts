@@ -8,6 +8,7 @@ import { getServiceContainer } from '../../utils/service-container';
 import { Tag } from '../../../models';
 import { createFormatter } from '../../utils/output-formatter';
 import { validateIdInput, validateNumberInput } from '../../utils/error-handler';
+import { ConflictError } from '../../../errors';
 
 export function setupTagAttachCommand(program: Command): void {
   // Find the tag command group
@@ -84,16 +85,14 @@ export function setupTagAttachCommand(program: Command): void {
             }
           );
         } catch (error) {
-          if (error instanceof Error) {
-            if (error.message.includes('already has') || error.message.includes('UNIQUE constraint')) {
-              formatter.error('This task already has this tag attached', () => {
-                console.log(chalk.red('\n✗ Error: This task already has this tag attached\n'));
-              });
-            } else {
-              formatter.error(error.message, () => {
-                console.log(chalk.red(`\n✗ Error: ${error.message}\n`));
-              });
-            }
+          if (error instanceof ConflictError) {
+            formatter.error('This task already has this tag attached', () => {
+              console.log(chalk.red('\n✗ Error: This task already has this tag attached\n'));
+            });
+          } else if (error instanceof Error) {
+            formatter.error(error.message, () => {
+              console.log(chalk.red(`\n✗ Error: ${error.message}\n`));
+            });
           } else {
             formatter.error('An unknown error occurred', () => {
               console.log(chalk.red('\n✗ An unknown error occurred\n'));
