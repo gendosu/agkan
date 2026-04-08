@@ -159,6 +159,35 @@ describe('refreshBoardCards', () => {
     const runBtn = document.querySelector<HTMLButtonElement>('.claude-run-btn')!;
     expect(runBtn.disabled).toBe(true);
   });
+
+  it('does not refresh detail pane while run-logs tab is active', async () => {
+    const renderDetailPanel = vi.fn();
+
+    registerDetailPanelCallbacks({
+      openTaskDetail: vi.fn(),
+      renderDetailPanel,
+      showUpdateWarning: vi.fn(),
+      getDetailTaskId: vi.fn().mockReturnValue(1),
+      getDetailActiveTab: vi.fn().mockReturnValue('run-logs'),
+      setActiveCard: vi.fn(),
+    });
+
+    const fetchCalls: string[] = [];
+    global.fetch = vi.fn().mockImplementation((url: string) => {
+      fetchCalls.push(String(url));
+      return Promise.resolve({
+        ok: true,
+        json: vi.fn().mockResolvedValue({
+          columns: [{ status: 'backlog', html: '', count: 0 }],
+        }),
+      });
+    });
+
+    await refreshBoardCards();
+
+    expect(renderDetailPanel).not.toHaveBeenCalled();
+    expect(fetchCalls.some((u) => u.includes('/api/tasks/1'))).toBe(false);
+  });
 });
 
 describe('pollBoardUpdates', () => {
@@ -266,6 +295,7 @@ describe('registerDetailPanelCallbacks', () => {
         renderDetailPanel: vi.fn(),
         showUpdateWarning: vi.fn(),
         getDetailTaskId: vi.fn().mockReturnValue(null),
+        getDetailActiveTab: vi.fn().mockReturnValue('details'),
         setActiveCard: vi.fn(),
       })
     ).not.toThrow();

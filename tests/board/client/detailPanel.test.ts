@@ -308,6 +308,88 @@ describe('renderDetailPanel - run logs scroll restoration', () => {
     expect(pane.scrollTop).toBe(120);
     expect(pane.querySelector<HTMLElement>('.run-log-body')?.scrollTop).toBe(77);
   });
+
+  it('does not rewrite run logs HTML when polled logs are unchanged', async () => {
+    let runLogsFetchCount = 0;
+    const sameLogs = [
+      {
+        id: 1,
+        started_at: '2026-01-01T00:00:00.000Z',
+        finished_at: null,
+        exit_code: null,
+        events: [{ kind: 'text', text: 'stable log' }],
+      },
+    ];
+
+    global.fetch = vi.fn().mockImplementation((url: string) => {
+      if (String(url).includes('/api/config')) {
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve({ board: { detailPaneWidth: 400 } }),
+        });
+      }
+      if (String(url).includes('/api/tags')) {
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve({ tags: [] }),
+        });
+      }
+      if (String(url).includes('/api/tasks/1/comments')) {
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve({ comments: [] }),
+        });
+      }
+      if (String(url).includes('/api/claude/tasks/1/run-logs')) {
+        runLogsFetchCount += 1;
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve({ logs: sameLogs }),
+        });
+      }
+      return Promise.reject(new Error('Unexpected fetch: ' + String(url)));
+    });
+
+    const originalInnerHTML = Object.getOwnPropertyDescriptor(Element.prototype, 'innerHTML');
+    expect(originalInnerHTML?.get).toBeDefined();
+    expect(originalInnerHTML?.set).toBeDefined();
+
+    const { initDetailPanel, renderDetailPanel } = await import('../../../src/board/client/detailPanel');
+    initDetailPanel();
+    renderDetailPanel(makeTaskDetail());
+
+    document.getElementById('detail-tab-run-logs')?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+
+    const pane = document.getElementById('detail-tab-content-run-logs') as HTMLElement;
+    let firstBody = pane.querySelector<HTMLElement>('.run-log-body');
+    for (let i = 0; i < 10 && !firstBody; i += 1) {
+      await Promise.resolve();
+      firstBody = pane.querySelector<HTMLElement>('.run-log-body');
+    }
+    expect(firstBody).not.toBeNull();
+
+    let rewriteCount = 0;
+    Object.defineProperty(pane, 'innerHTML', {
+      configurable: true,
+      get() {
+        return originalInnerHTML!.get!.call(this);
+      },
+      set(value: string) {
+        rewriteCount += 1;
+        originalInnerHTML!.set!.call(this, value);
+      },
+    });
+
+    pane.scrollTop = 140;
+    if (firstBody) firstBody.scrollTop = 55;
+
+    await vi.advanceTimersByTimeAsync(4000);
+
+    expect(runLogsFetchCount).toBeGreaterThan(1);
+    expect(rewriteCount).toBe(0);
+    expect(pane.scrollTop).toBe(140);
+    expect(pane.querySelector<HTMLElement>('.run-log-body')?.scrollTop).toBe(55);
+  });
 });
 
 describe('renderDetailPanel - successful tag loading', () => {

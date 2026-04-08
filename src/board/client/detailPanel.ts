@@ -32,6 +32,8 @@ let detailTaskId: number | null = null;
 let lastTab = 'details';
 let runLogPollingInterval: ReturnType<typeof setInterval> | null = null;
 let currentFetchController: AbortController | null = null;
+let runLogLoadSeq = 0;
+let runLogsLoadedTaskId: number | null = null;
 
 function stopRunLogPolling(): void {
   if (runLogPollingInterval !== null) {
@@ -43,6 +45,10 @@ function stopRunLogPolling(): void {
 // Exported getter for other modules to access the current task ID
 export function getDetailTaskId(): number | null {
   return detailTaskId;
+}
+
+export function getDetailActiveTab(): string {
+  return lastTab;
 }
 
 export function setActiveCard(taskId: number | null): void {
@@ -57,6 +63,12 @@ export function setActiveCard(taskId: number | null): void {
 
 export function closeDetailPanel(): void {
   stopRunLogPolling();
+  runLogsLoadedTaskId = null;
+  const runLogsPane = document.getElementById('detail-tab-content-run-logs');
+  if (runLogsPane) {
+    delete runLogsPane.dataset.runLogsTaskId;
+    delete runLogsPane.dataset.runLogsSignature;
+  }
   const detailPanel = document.getElementById('detail-panel') as HTMLElement;
   detailPanel.classList.remove('open');
   detailPanel.style.width = '';
@@ -65,19 +77,25 @@ export function closeDetailPanel(): void {
 }
 
 function switchTab(tabName: string): void {
+  const activeTabBtn = document.querySelector<HTMLElement>('.detail-tab.active');
+  const currentTab = activeTabBtn?.dataset.tab ?? null;
+  const isSameTab = currentTab === tabName;
+
   if (tabName !== 'run-logs') {
     stopRunLogPolling();
   }
   lastTab = tabName;
-  document.querySelectorAll('.detail-tab').forEach((btn) => {
-    (btn as HTMLElement).classList.toggle('active', (btn as HTMLElement).dataset.tab === tabName);
-  });
-  document.querySelectorAll('.detail-tab-content').forEach((el) => {
-    (el as HTMLElement).classList.toggle('active', (el as HTMLElement).id === 'detail-tab-content-' + tabName);
-  });
+  if (!isSameTab) {
+    document.querySelectorAll('.detail-tab').forEach((btn) => {
+      (btn as HTMLElement).classList.toggle('active', (btn as HTMLElement).dataset.tab === tabName);
+    });
+    document.querySelectorAll('.detail-tab-content').forEach((el) => {
+      (el as HTMLElement).classList.toggle('active', (el as HTMLElement).id === 'detail-tab-content-' + tabName);
+    });
+  }
   const footer = document.getElementById('detail-panel-footer');
   if (footer) footer.style.display = tabName === 'details' ? '' : 'none';
-  if (tabName === 'run-logs' && detailTaskId !== null) {
+  if (tabName === 'run-logs' && detailTaskId !== null && (!isSameTab || runLogsLoadedTaskId !== detailTaskId)) {
     loadRunLogs(detailTaskId).catch((err) => {
       console.error('[agkan] switchTab loadRunLogs failed', err);
     });
@@ -246,7 +264,14 @@ function handleCommentAction(e: MouseEvent): void {
   dispatchCommentAction(action, commentId, taskId);
 }
 
+function buildRunLogsSignature(logs: Awaited<ReturnType<typeof fetchRunLogs>>): string {
+  return JSON.stringify(logs);
+}
+
 function renderRunLogsInPane(pane: HTMLElement, logs: Awaited<ReturnType<typeof fetchRunLogs>>): void {
+  const nextSignature = buildRunLogsSignature(logs);
+  if (pane.dataset.runLogsSignature === nextSignature) return;
+  pane.dataset.runLogsSignature = nextSignature;
   // Save open state and scroll positions keyed by log ID
   const bodyScrollState = new Map<number, { scrollTop: number; isNearBottom: boolean }>();
   const openLogIds = new Set<number>();
@@ -303,12 +328,19 @@ function renderRunLogsInPane(pane: HTMLElement, logs: Awaited<ReturnType<typeof 
 
 async function loadRunLogs(taskId: number): Promise<void> {
   stopRunLogPolling();
+  const seq = ++runLogLoadSeq;
   const pane = document.getElementById('detail-tab-content-run-logs');
   if (!pane) return;
+  runLogsLoadedTaskId = taskId;
+  if (pane.dataset.runLogsTaskId !== String(taskId)) {
+    pane.dataset.runLogsTaskId = String(taskId);
+    delete pane.dataset.runLogsSignature;
+  }
   pane.removeEventListener('click', handleRunLogToggle);
   pane.addEventListener('click', handleRunLogToggle);
   try {
     const logs = await fetchRunLogs(taskId);
+    if (seq !== runLogLoadSeq) return; // stale — a newer load has been requested
     renderRunLogsInPane(pane, logs);
     runLogPollingInterval = setInterval(() => {
       if (detailTaskId !== taskId) {
@@ -317,6 +349,7 @@ async function loadRunLogs(taskId: number): Promise<void> {
       }
       fetchRunLogs(taskId)
         .then((updated) => {
+          if (seq !== runLogLoadSeq) return;
           const p = document.getElementById('detail-tab-content-run-logs');
           if (p) renderRunLogsInPane(p, updated);
         })
@@ -324,6 +357,9 @@ async function loadRunLogs(taskId: number): Promise<void> {
     }, 2000);
   } catch (err) {
     console.error('[agkan] loadRunLogs failed for task', taskId, err);
+    if (seq !== runLogLoadSeq) return;
+    runLogsLoadedTaskId = null;
+    delete pane.dataset.runLogsSignature;
     pane.innerHTML = '<div style="padding:20px;font-size:12px;color:#94a3b8;">Failed to load run logs</div>';
   }
 }
@@ -433,14 +469,7 @@ export function renderDetailPanel(data: TaskDetail): void {
   // Load comments into the comments tab
   loadComments(task.id);
 
-  // Load run logs only when the run-logs tab is active
-  if (lastTab === 'run-logs') {
-    loadRunLogs(task.id).catch((err) => {
-      console.error('[agkan] renderDetailPanel loadRunLogs failed', err);
-    });
-  }
-
-  // Restore last tab
+  // Restore last tab (switchTab handles loadRunLogs when run-logs tab is active)
   switchTab(lastTab);
 }
 
@@ -637,6 +666,7 @@ export function initDetailPanel(): void {
     renderDetailPanel,
     showUpdateWarning,
     getDetailTaskId,
+    getDetailActiveTab,
     setActiveCard,
   });
 
