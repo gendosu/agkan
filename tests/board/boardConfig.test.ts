@@ -6,7 +6,13 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import fs from 'fs';
 import path from 'path';
 import yaml from 'js-yaml';
-import { readBoardConfig, writeBoardConfig, DETAIL_PANE_MAX_WIDTH, VALID_THEMES } from '../../src/board/boardConfig';
+import {
+  readBoardConfig,
+  writeBoardConfig,
+  DETAIL_PANE_MAX_WIDTH,
+  VALID_THEMES,
+  VALID_LLMS,
+} from '../../src/board/boardConfig';
 
 describe('boardConfig', () => {
   const testConfigDir = path.join(process.cwd(), '.agkan-test');
@@ -27,9 +33,9 @@ describe('boardConfig', () => {
   });
 
   describe('readBoardConfig', () => {
-    it('should return empty config when config file does not exist', () => {
+    it('should return default llm when config file does not exist', () => {
       const config = readBoardConfig(testConfigDir);
-      expect(config).toEqual({});
+      expect(config.llm).toBe('claude');
     });
 
     it('should read detailPaneWidth from config file', () => {
@@ -38,30 +44,32 @@ describe('boardConfig', () => {
 
       const config = readBoardConfig(testConfigDir);
       expect(config.detailPaneWidth).toBe(500);
+      expect(config.llm).toBe('claude');
     });
 
-    it('should return empty config when config file is invalid YAML', () => {
+    it('should return default llm when config file is invalid YAML', () => {
       fs.mkdirSync(testConfigDir, { recursive: true });
       fs.writeFileSync(testConfigFile, 'invalid: yaml: content: [broken', 'utf8');
 
       const config = readBoardConfig(testConfigDir);
-      expect(config).toEqual({});
+      expect(config).toEqual({ llm: 'claude' });
     });
 
-    it('should return empty config when board section is missing', () => {
+    it('should return default llm when board section is missing', () => {
       fs.mkdirSync(testConfigDir, { recursive: true });
       fs.writeFileSync(testConfigFile, yaml.dump({ other: 'data' }), 'utf8');
 
       const config = readBoardConfig(testConfigDir);
-      expect(config).toEqual({});
+      expect(config).toEqual({ llm: 'claude' });
     });
 
-    it('should return empty config when detailPaneWidth is not a number', () => {
+    it('should ignore detailPaneWidth when it is not a number', () => {
       fs.mkdirSync(testConfigDir, { recursive: true });
       fs.writeFileSync(testConfigFile, yaml.dump({ board: { detailPaneWidth: 'not-a-number' } }), 'utf8');
 
       const config = readBoardConfig(testConfigDir);
-      expect(config).toEqual({});
+      expect(config.detailPaneWidth).toBeUndefined();
+      expect(config.llm).toBe('claude');
     });
 
     it('should ignore detailPaneWidth when it exceeds DETAIL_PANE_MAX_WIDTH', () => {
@@ -70,6 +78,7 @@ describe('boardConfig', () => {
 
       const config = readBoardConfig(testConfigDir);
       expect(config.detailPaneWidth).toBeUndefined();
+      expect(config.llm).toBe('claude');
     });
 
     it('should accept detailPaneWidth equal to DETAIL_PANE_MAX_WIDTH', () => {
@@ -110,14 +119,31 @@ describe('boardConfig', () => {
 
       const config = readBoardConfig(testConfigDir);
       expect(config.theme).toBeUndefined();
+      expect(config.llm).toBe('claude');
     });
 
-    it('should ignore theme when value is not a string', () => {
+    it('should read llm "codex" from config file', () => {
       fs.mkdirSync(testConfigDir, { recursive: true });
-      fs.writeFileSync(testConfigFile, yaml.dump({ board: { theme: 123 } }), 'utf8');
+      fs.writeFileSync(testConfigFile, yaml.dump({ board: { llm: 'codex' } }), 'utf8');
 
       const config = readBoardConfig(testConfigDir);
-      expect(config.theme).toBeUndefined();
+      expect(config.llm).toBe('codex');
+    });
+
+    it('should read llm "claude" from config file', () => {
+      fs.mkdirSync(testConfigDir, { recursive: true });
+      fs.writeFileSync(testConfigFile, yaml.dump({ board: { llm: 'claude' } }), 'utf8');
+
+      const config = readBoardConfig(testConfigDir);
+      expect(config.llm).toBe('claude');
+    });
+
+    it('should default llm to "claude" when llm value is invalid', () => {
+      fs.mkdirSync(testConfigDir, { recursive: true });
+      fs.writeFileSync(testConfigFile, yaml.dump({ board: { llm: 'invalid-llm' } }), 'utf8');
+
+      const config = readBoardConfig(testConfigDir);
+      expect(config.llm).toBe('claude');
     });
   });
 
@@ -163,6 +189,14 @@ describe('boardConfig', () => {
       expect(parsed.board?.theme).toBe('dark');
     });
 
+    it('should write llm to config file', () => {
+      writeBoardConfig(testConfigDir, { llm: 'codex' });
+
+      const content = fs.readFileSync(testConfigFile, 'utf8');
+      const parsed = yaml.load(content) as { board?: { llm?: string } };
+      expect(parsed.board?.llm).toBe('codex');
+    });
+
     it('should preserve detailPaneWidth when writing theme', () => {
       fs.mkdirSync(testConfigDir, { recursive: true });
       fs.writeFileSync(testConfigFile, yaml.dump({ board: { detailPaneWidth: 500 } }), 'utf8');
@@ -187,6 +221,13 @@ describe('boardConfig', () => {
       expect(VALID_THEMES).toContain('dark');
       expect(VALID_THEMES).toContain('light');
       expect(VALID_THEMES).toContain('system');
+    });
+  });
+
+  describe('VALID_LLMS', () => {
+    it('should contain codex and claude', () => {
+      expect(VALID_LLMS).toContain('codex');
+      expect(VALID_LLMS).toContain('claude');
     });
   });
 });

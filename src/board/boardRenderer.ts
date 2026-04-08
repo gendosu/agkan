@@ -203,6 +203,21 @@ function getPurgeAndVersionModals(): string {
         <button id="version-info-close">Close</button>
       </div>
     </div>
+  </div>
+  <div class="modal-overlay" id="settings-modal">
+    <div class="modal" style="width:360px;">
+      <h2>Settings</h2>
+      <label for="settings-llm-select">LLM</label>
+      <select id="settings-llm-select">
+        <option value="codex">codex</option>
+        <option value="claude" selected>claude</option>
+      </select>
+      <p id="settings-result" style="font-size:13px;min-height:18px;margin-bottom:8px;"></p>
+      <div class="modal-actions">
+        <button id="settings-cancel-btn">Cancel</button>
+        <button id="settings-save-btn" class="primary">Save</button>
+      </div>
+    </div>
   </div>`;
 }
 
@@ -243,7 +258,7 @@ export function renderBoard(
   </style>
 </head>
 <body>
-  <header><h1>agkan board<div id="header-running-indicator" style="display:none"></div></h1>${titleHtml}<div class="burger-menu-wrapper"><button class="burger-menu-btn" id="burger-menu-btn" title="Menu" aria-label="Menu"><span></span><span></span><span></span></button><div class="burger-menu-dropdown" id="burger-menu-dropdown"><div class="burger-menu-item danger" id="burger-purge-tasks">&#128465; Purge Tasks</div><div class="burger-menu-item" id="burger-archive-tasks">&#128230; Archive Tasks</div><div class="burger-menu-item" id="burger-export-tasks">&#8595; Export Tasks</div><div class="burger-menu-item" id="burger-import-tasks">&#8593; Import Tasks</div><div class="burger-menu-item" id="burger-version-info">&#8505; Version Info</div><div class="burger-menu-separator"></div><div class="burger-menu-item" id="burger-theme-dark">Dark Mode</div><div class="burger-menu-item" id="burger-theme-light">Light Mode</div><div class="burger-menu-item" id="burger-theme-system">System Setting</div></div></div></header>
+  <header><h1>agkan board<div id="header-running-indicator" style="display:none"></div></h1>${titleHtml}<div class="burger-menu-wrapper"><button class="burger-menu-btn" id="burger-menu-btn" title="Menu" aria-label="Menu"><span></span><span></span><span></span></button><div class="burger-menu-dropdown" id="burger-menu-dropdown"><div class="burger-menu-item danger" id="burger-purge-tasks">&#128465; Purge Tasks</div><div class="burger-menu-item" id="burger-archive-tasks">&#128230; Archive Tasks</div><div class="burger-menu-item" id="burger-export-tasks">&#8595; Export Tasks</div><div class="burger-menu-item" id="burger-import-tasks">&#8593; Import Tasks</div><div class="burger-menu-item" id="burger-settings">&#9881; Settings</div><div class="burger-menu-item" id="burger-version-info">&#8505; Version Info</div><div class="burger-menu-separator"></div><div class="burger-menu-item" id="burger-theme-dark">Dark Mode</div><div class="burger-menu-item" id="burger-theme-light">Light Mode</div><div class="burger-menu-item" id="burger-theme-system">System Setting</div></div></div></header>
   <div class="filter-bar" id="filter-bar">
     <div class="filter-group">
       <input type="search" id="filter-search" class="filter-search-input" placeholder="Search tasks...">

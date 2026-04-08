@@ -1860,6 +1860,7 @@ describe('createBoardApp', () => {
       const data = (await res.json()) as { board: { detailPaneWidth?: number } };
       expect(data.board).toBeDefined();
       expect(data.board.detailPaneWidth).toBeUndefined();
+      expect((data.board as { llm?: string }).llm).toBe('claude');
     });
 
     it('should return detailPaneWidth from config file when it exists', async () => {
@@ -1932,6 +1933,32 @@ describe('createBoardApp', () => {
       expect(fs.existsSync(configFile)).toBe(true);
       const saved = yaml.load(fs.readFileSync(configFile, 'utf8')) as { board?: { detailPaneWidth?: number } };
       expect(saved.board?.detailPaneWidth).toBe(450);
+    });
+
+    it('should save llm to config file', async () => {
+      const app = createBoardApp(
+        taskService,
+        taskTagService,
+        metadataService,
+        undefined,
+        undefined,
+        undefined,
+        testConfigDir
+      );
+      const res = await app.fetch(
+        new Request('http://localhost/api/config', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ board: { llm: 'codex' } }),
+        })
+      );
+
+      expect(res.status).toBe(200);
+
+      const configFile = path.join(testConfigDir, 'config.yml');
+      expect(fs.existsSync(configFile)).toBe(true);
+      const saved = yaml.load(fs.readFileSync(configFile, 'utf8')) as { board?: { llm?: string } };
+      expect(saved.board?.llm).toBe('codex');
     });
 
     it('should return 400 when detailPaneWidth exceeds DETAIL_PANE_MAX_WIDTH', async () => {

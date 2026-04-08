@@ -13,7 +13,15 @@ import { ClaudeProcessService } from '../services/ClaudeProcessService';
 import { TaskStatus, isPriority, Priority } from '../models';
 import { ConflictError } from '../errors';
 import { StorageBackend } from '../db/types/repository';
-import { readBoardConfig, writeBoardConfig, DETAIL_PANE_MAX_WIDTH, VALID_THEMES, ThemePreference } from './boardConfig';
+import {
+  readBoardConfig,
+  writeBoardConfig,
+  DETAIL_PANE_MAX_WIDTH,
+  VALID_THEMES,
+  ThemePreference,
+  VALID_LLMS,
+  LlmPreference,
+} from './boardConfig';
 import { daysAgoIso } from '../utils/date';
 import {
   buildTasksByStatus,
@@ -373,7 +381,7 @@ export function registerConfigApiRoutes(app: Hono, configDir: string): void {
   });
 
   app.put('/api/config', async (c) => {
-    const body = await c.req.json<{ board?: { detailPaneWidth?: unknown; theme?: unknown } }>();
+    const body = await c.req.json<{ board?: { detailPaneWidth?: unknown; theme?: unknown; llm?: unknown } }>();
     const boardBody = body?.board ?? {};
 
     if (boardBody.detailPaneWidth !== undefined) {
@@ -393,6 +401,14 @@ export function registerConfigApiRoutes(app: Hono, configDir: string): void {
         return c.json({ error: `theme must be one of: ${VALID_THEMES.join(', ')}` }, 400);
       }
       writeBoardConfig(configDir, { theme: theme as ThemePreference });
+    }
+
+    if (boardBody.llm !== undefined) {
+      const llm = boardBody.llm;
+      if (typeof llm !== 'string' || !(VALID_LLMS as string[]).includes(llm)) {
+        return c.json({ error: 'llm must be one of: ' + VALID_LLMS.join(', ') }, 400);
+      }
+      writeBoardConfig(configDir, { llm: llm as LlmPreference });
     }
 
     return c.json({ success: true });
