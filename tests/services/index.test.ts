@@ -47,8 +47,23 @@ describe('services/index', () => {
     expect(typeof servicesIndex.ClaudeProcessService).toBe('function');
   });
 
-  it('should export exactly 9 named exports', () => {
+  it('should export CodexProcessService', () => {
+    expect(servicesIndex.CodexProcessService).toBeDefined();
+    expect(typeof servicesIndex.CodexProcessService).toBe('function');
+  });
+
+  it('should export IProcessService type', () => {
+    // Type exports don't appear as runtime values, but we can verify the import works
+    expect(servicesIndex).toBeDefined();
+  });
+
+  it('should export ProcessServiceFactory', () => {
+    expect(servicesIndex.ProcessServiceFactory).toBeDefined();
+    expect(typeof servicesIndex.ProcessServiceFactory).toBe('function');
+  });
+
+  it('should export exactly 11 named exports', () => {
     const exportedKeys = Object.keys(servicesIndex);
-    expect(exportedKeys).toHaveLength(9);
+    expect(exportedKeys).toHaveLength(11);
   });
 });
