@@ -1,7 +1,7 @@
 # agkan
 
-[![Test](https://github.com/gendosu/agkan/workflows/Test/badge.svg)](https://github.com/gendosu/agkan/actions/workflows/test.yml)
-[![Quality Check](https://github.com/gendosu/agkan/workflows/Quality%20Check/badge.svg)](https://github.com/gendosu/agkan/actions/workflows/quality.yml)
+[![Test](https://github.com/gendosu/agkan/workflows/Test/badge.svg?branch=main)](https://github.com/gendosu/agkan/actions/workflows/test.yml)
+[![Quality Check](https://github.com/gendosu/agkan/workflows/Quality%20Check/badge.svg?branch=main)](https://github.com/gendosu/agkan/actions/workflows/quality.yml)
 
 A lightweight CLI task management tool implemented in TypeScript. Optimized for collaborative work with AI agents.
 
