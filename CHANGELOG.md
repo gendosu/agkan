@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.0.1] - 2026-04-09
+
+### Fixed
+- Preserve scroll position in run logs by skipping unchanged re-renders (#199)
+
+### Changed
+- Replace generic Error throws with custom error classes in service layer (#200)
+- Define custom error classes in src/errors.ts (#198)
+- Wrap task INSERT + tag attachment in transaction in TaskService (#197)
+- Wrap ExportImportService importData() in a single transaction (#196)
+- Restrict PID file permissions to owner-only for security (#193)
+
 ## [3.0.0] - 2026-04-06
 
 ### Added
