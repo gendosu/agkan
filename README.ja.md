@@ -1,7 +1,7 @@
 # agkan
 
-[![Test](https://github.com/gendosu/agkan/workflows/Test/badge.svg)](https://github.com/gendosu/agkan/actions/workflows/test.yml)
-[![Quality Check](https://github.com/gendosu/agkan/workflows/Quality%20Check/badge.svg)](https://github.com/gendosu/agkan/actions/workflows/quality.yml)
+[![Test](https://github.com/gendosu/agkan/workflows/Test/badge.svg?branch=main)](https://github.com/gendosu/agkan/actions/workflows/test.yml)
+[![Quality Check](https://github.com/gendosu/agkan/workflows/Quality%20Check/badge.svg?branch=main)](https://github.com/gendosu/agkan/actions/workflows/quality.yml)
 
 TypeScriptで実装された軽量なCLIタスク管理ツールです。エージェント（AIアシスタント）との協働作業に最適化されています。
 
