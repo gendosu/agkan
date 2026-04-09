@@ -314,6 +314,18 @@ describe('applyIncrementalCardUpdate', () => {
     return `<div class="card" data-id="${id}" data-status="backlog" data-updated-at="${updatedAt}"><div class="card-title">${title}</div></div>`;
   }
 
+  function makeCardHtmlWithDeps(
+    id: string,
+    title: string,
+    updatedAt = '2026-01-01T00:00:00.000Z',
+    blockedBy: number[] = [],
+    blocking: number[] = []
+  ): string {
+    const dataBlockedBy = blockedBy.length > 0 ? ` data-blocked-by="${blockedBy.join(',')}"` : '';
+    const dataBlocking = blocking.length > 0 ? ` data-blocking="${blocking.join(',')}"` : '';
+    return `<div class="card" data-id="${id}" data-status="backlog" data-updated-at="${updatedAt}"${dataBlockedBy}${dataBlocking}><div class="card-title">${title}</div></div>`;
+  }
+
   it('inserts cards into an empty column body', () => {
     const body = makeBody();
     applyIncrementalCardUpdate(body, makeCardHtml('1', 'Task One'));
@@ -418,5 +430,57 @@ describe('applyIncrementalCardUpdate', () => {
     expect(body.querySelector('[data-id="1"]')).toBe(card1);
     expect(body.querySelector('[data-id="2"]')).toBe(card2);
     expect(body.querySelector('[data-id="3"]')).toBe(card3);
+  });
+
+  it('replaces card when blocked-by dependency is added (updated-at unchanged)', () => {
+    const body = makeBody();
+    // Initial card with no dependencies
+    applyIncrementalCardUpdate(body, makeCardHtmlWithDeps('1', 'Task One', '2026-01-01T00:00:00.000Z'));
+    const originalCard = body.querySelector('[data-id="1"]') as HTMLElement;
+    expect(originalCard.dataset.blockedBy).toBeUndefined();
+
+    // Same updated-at but now has a blocked-by dependency
+    applyIncrementalCardUpdate(body, makeCardHtmlWithDeps('1', 'Task One', '2026-01-01T00:00:00.000Z', [2]));
+    const afterCard = body.querySelector('[data-id="1"]') as HTMLElement;
+    expect(afterCard).not.toBe(originalCard);
+    expect(afterCard.dataset.blockedBy).toBe('2');
+  });
+
+  it('replaces card when blocking dependency is added (updated-at unchanged)', () => {
+    const body = makeBody();
+    applyIncrementalCardUpdate(body, makeCardHtmlWithDeps('1', 'Task One', '2026-01-01T00:00:00.000Z'));
+    const originalCard = body.querySelector('[data-id="1"]') as HTMLElement;
+    expect(originalCard.dataset.blocking).toBeUndefined();
+
+    // Same updated-at but now has a blocking dependency
+    applyIncrementalCardUpdate(body, makeCardHtmlWithDeps('1', 'Task One', '2026-01-01T00:00:00.000Z', [], [3]));
+    const afterCard = body.querySelector('[data-id="1"]') as HTMLElement;
+    expect(afterCard).not.toBe(originalCard);
+    expect(afterCard.dataset.blocking).toBe('3');
+  });
+
+  it('replaces card when blocked-by dependency is removed (updated-at unchanged)', () => {
+    const body = makeBody();
+    applyIncrementalCardUpdate(body, makeCardHtmlWithDeps('1', 'Task One', '2026-01-01T00:00:00.000Z', [2]));
+    const originalCard = body.querySelector('[data-id="1"]') as HTMLElement;
+    expect(originalCard.dataset.blockedBy).toBe('2');
+
+    // Same updated-at but dependency is removed
+    applyIncrementalCardUpdate(body, makeCardHtmlWithDeps('1', 'Task One', '2026-01-01T00:00:00.000Z'));
+    const afterCard = body.querySelector('[data-id="1"]') as HTMLElement;
+    expect(afterCard).not.toBe(originalCard);
+    expect(afterCard.dataset.blockedBy).toBeUndefined();
+  });
+
+  it('does not replace card when dependencies are unchanged (no flicker)', () => {
+    const body = makeBody();
+    const html = makeCardHtmlWithDeps('1', 'Task One', '2026-01-01T00:00:00.000Z', [2], [3]);
+    applyIncrementalCardUpdate(body, html);
+    const originalCard = body.querySelector('[data-id="1"]') as HTMLElement;
+
+    // Same deps — card should be reused
+    applyIncrementalCardUpdate(body, html);
+    const afterCard = body.querySelector('[data-id="1"]') as HTMLElement;
+    expect(afterCard).toBe(originalCard);
   });
 });
