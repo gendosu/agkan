@@ -170,6 +170,17 @@ function getPurgeAndVersionModals(): string {
       </div>
     </div>
   </div>
+  <div class="modal-overlay" id="archive-confirm-modal">
+    <div class="modal">
+      <h2>Archive Tasks</h2>
+      <p style="font-size:13px;color:#64748b;margin-bottom:16px;">Archive all done/closed tasks older than 3 days. Archived tasks are hidden from the board but not deleted.</p>
+      <p id="archive-result" style="font-size:13px;color:#16a34a;min-height:18px;margin-bottom:8px;"></p>
+      <div class="modal-actions">
+        <button id="archive-cancel-btn">Cancel</button>
+        <button id="archive-confirm-btn" class="primary">Archive</button>
+      </div>
+    </div>
+  </div>
   <div class="modal-overlay" id="import-modal">
     <div class="modal" style="width:420px;">
       <h2>Import Tasks</h2>
@@ -252,7 +263,7 @@ export function renderBoard(
   </style>
 </head>
 <body>
-  <header><h1>agkan board<div id="header-running-indicator" style="display:none"></div></h1>${titleHtml}<div class="burger-menu-wrapper"><button class="burger-menu-btn" id="burger-menu-btn" title="Menu" aria-label="Menu"><span></span><span></span><span></span></button><div class="burger-menu-dropdown" id="burger-menu-dropdown"><div class="burger-menu-item danger" id="burger-purge-tasks">&#128465; Purge Tasks</div><div class="burger-menu-item" id="burger-export-tasks">&#8595; Export Tasks</div><div class="burger-menu-item" id="burger-import-tasks">&#8593; Import Tasks</div><div class="burger-menu-item" id="burger-version-info">&#8505; Version Info</div><div class="burger-menu-separator"></div><div class="burger-menu-item" id="burger-theme-dark">Dark Mode</div><div class="burger-menu-item" id="burger-theme-light">Light Mode</div><div class="burger-menu-item" id="burger-theme-system">System Setting</div></div></div></header>
+  <header><h1>agkan board<div id="header-running-indicator" style="display:none"></div></h1>${titleHtml}<div class="burger-menu-wrapper"><button class="burger-menu-btn" id="burger-menu-btn" title="Menu" aria-label="Menu"><span></span><span></span><span></span></button><div class="burger-menu-dropdown" id="burger-menu-dropdown"><div class="burger-menu-item danger" id="burger-purge-tasks">&#128465; Purge Tasks</div><div class="burger-menu-item" id="burger-archive-tasks">&#128230; Archive Tasks</div><div class="burger-menu-item" id="burger-export-tasks">&#8595; Export Tasks</div><div class="burger-menu-item" id="burger-import-tasks">&#8593; Import Tasks</div><div class="burger-menu-item" id="burger-version-info">&#8505; Version Info</div><div class="burger-menu-separator"></div><div class="burger-menu-item" id="burger-theme-dark">Dark Mode</div><div class="burger-menu-item" id="burger-theme-light">Light Mode</div><div class="burger-menu-item" id="burger-theme-system">System Setting</div></div></div></header>
   <div class="filter-bar" id="filter-bar">
     <div class="filter-group">
       <input type="search" id="filter-search" class="filter-search-input" placeholder="Search tasks...">

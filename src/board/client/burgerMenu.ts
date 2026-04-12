@@ -31,6 +31,24 @@ async function executePurge(): Promise<void> {
   }
 }
 
+async function executeArchive(): Promise<{ count: number } | null> {
+  try {
+    const res = await fetch('/api/tasks/archive', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({}),
+    });
+    if (res.ok) {
+      const data = (await res.json()) as { count: number };
+      await refreshBoardCards();
+      return data;
+    }
+  } catch {
+    // Ignore errors during archive
+  }
+  return null;
+}
+
 function initPurgeModal(burgerDropdown: HTMLElement): void {
   const purgeModal = document.getElementById('purge-confirm-modal') as HTMLElement;
   const purgeConfirmBtn = document.getElementById('purge-confirm-btn') as HTMLButtonElement;
@@ -50,6 +68,38 @@ function initPurgeModal(burgerDropdown: HTMLElement): void {
   purgeConfirmBtn.addEventListener('click', () => {
     purgeModal.classList.remove('show');
     void executePurge();
+  });
+}
+
+function initArchiveModal(burgerDropdown: HTMLElement): void {
+  const archiveModal = document.getElementById('archive-confirm-modal');
+  const archiveConfirmBtn = document.getElementById('archive-confirm-btn') as HTMLButtonElement | null;
+  const archiveCancelBtn = document.getElementById('archive-cancel-btn') as HTMLButtonElement | null;
+  const archiveResultEl = document.getElementById('archive-result');
+
+  if (!archiveModal || !archiveConfirmBtn || !archiveCancelBtn || !archiveResultEl) {
+    return;
+  }
+
+  const safeArchiveModal = archiveModal as HTMLElement;
+  const safeArchiveResultEl = archiveResultEl as HTMLElement;
+
+  document.getElementById('burger-archive-tasks')?.addEventListener('click', () => {
+    burgerDropdown.classList.remove('open');
+    safeArchiveResultEl.textContent = '';
+    safeArchiveModal.classList.add('show');
+  });
+
+  archiveCancelBtn.addEventListener('click', () => {
+    safeArchiveModal.classList.remove('show');
+  });
+
+  archiveConfirmBtn.addEventListener('click', async () => {
+    safeArchiveModal.classList.remove('show');
+    const result = await executeArchive();
+    if (result !== null) {
+      safeArchiveResultEl.textContent = `Archived ${result.count} task(s).`;
+    }
   });
 }
 
@@ -190,6 +240,7 @@ export function initBurgerMenu(): void {
 
   initBurgerToggle(burgerBtn, burgerDropdown);
   initPurgeModal(burgerDropdown);
+  initArchiveModal(burgerDropdown);
   initExportModal(burgerDropdown);
   initImportModal(burgerDropdown);
   initVersionModal(burgerDropdown);

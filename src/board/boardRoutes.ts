@@ -280,6 +280,26 @@ function registerUtilityRoutes(app: Hono, ts: TaskService): void {
       tasks: tasks.map((t) => ({ id: t.id, title: t.title, status: t.status, updated_at: t.updated_at })),
     });
   });
+  app.post('/api/tasks/archive', async (c) => {
+    const body = (await c.req.json().catch(() => ({}))) as { beforeDate?: string };
+    let beforeDate: string;
+    if (body.beforeDate !== undefined) {
+      const parsed = new Date(body.beforeDate);
+      if (isNaN(parsed.getTime())) {
+        return c.json({ error: 'Invalid beforeDate. Use ISO 8601 format.' }, 400);
+      }
+      beforeDate = parsed.toISOString();
+    } else {
+      const d = new Date();
+      d.setDate(d.getDate() - 3);
+      beforeDate = d.toISOString();
+    }
+    const tasks = ts.archiveTasksBefore(beforeDate, ['done', 'closed'], false);
+    return c.json({
+      count: tasks.length,
+      tasks: tasks.map((t) => ({ id: t.id, title: t.title, status: t.status, updated_at: t.updated_at })),
+    });
+  });
   app.get('/api/version', (c) => {
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     const { version } = require('../../package.json') as { version: string };

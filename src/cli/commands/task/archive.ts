@@ -14,19 +14,12 @@ import { formatDate } from '../../../utils/format';
 /** Default number of days before which tasks are eligible for archive */
 const DEFAULT_DAYS_BEFORE = 3;
 
-/**
- * Calculate the ISO date string for N days ago from now.
- */
 function daysAgoIso(days: number): string {
   const d = new Date();
   d.setDate(d.getDate() - days);
   return d.toISOString();
 }
 
-/**
- * Resolve and validate the --before option value.
- * Returns an ISO date string, or null on validation failure.
- */
 function resolveBeforeDate(before: string | undefined): { date: string } | { error: string } {
   if (!before) {
     return { date: daysAgoIso(DEFAULT_DAYS_BEFORE) };
@@ -38,10 +31,6 @@ function resolveBeforeDate(before: string | undefined): { date: string } | { err
   return { date: parsed.toISOString() };
 }
 
-/**
- * Resolve and validate the --status option value.
- * Returns an array of TaskStatus values, or an error string.
- */
 function resolveStatuses(statusOption: string): { statuses: TaskStatus[] } | { error: string } {
   const parts = statusOption
     .split(',')
@@ -55,7 +44,7 @@ function resolveStatuses(statusOption: string): { statuses: TaskStatus[] } | { e
   for (const s of parts) {
     if (!validateTaskStatus(s)) {
       return {
-        error: `Invalid status: ${s}. Valid statuses: icebox, backlog, ready, in_progress, review, done, closed, archive`,
+        error: `Invalid status: ${s}. Valid statuses: icebox, backlog, ready, in_progress, review, done, closed`,
       };
     }
   }
@@ -63,9 +52,6 @@ function resolveStatuses(statusOption: string): { statuses: TaskStatus[] } | { e
   return { statuses: parts as TaskStatus[] };
 }
 
-/**
- * Print human-readable archive result.
- */
 function printArchiveResult(tasks: Task[], beforeDate: string, dryRun: boolean): void {
   if (tasks.length === 0) {
     console.log(chalk.yellow('\nNo tasks matched the archive criteria.\n'));
@@ -100,9 +86,9 @@ export function setupTaskArchiveCommand(program: Command): void {
       'Archive tasks last updated before this date (ISO 8601, e.g. 2026-01-01). Defaults to 3 days ago.'
     )
     .option('--status <statuses>', 'Comma-separated list of statuses to target (default: done,closed)', 'done,closed')
-    .option('--dry-run', 'Preview tasks that would be archived without updating them')
+    .option('--dry-run', 'Preview tasks that would be archived without modifying them')
     .option('--json', 'Output in JSON format')
-    .description('Archive done/closed tasks older than a given date')
+    .description('Archive done/closed tasks older than a given date (sets is_archived flag)')
     .action(async (options) => {
       const formatter = createFormatter(options);
       try {
