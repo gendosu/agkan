@@ -197,6 +197,7 @@ class SQLiteTaskRepository implements TaskRepository {
       review: 0,
       done: 0,
       closed: 0,
+      archive: 0,
     };
 
     for (const row of results) {

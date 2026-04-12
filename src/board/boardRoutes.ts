@@ -42,6 +42,7 @@ type TaskPatchBody = {
 };
 
 type TaskUpdateInput = { title?: string; body?: string; status?: TaskStatus; priority?: Priority | null };
+const NON_ARCHIVE_STATUSES: TaskStatus[] = ['icebox', 'backlog', 'ready', 'in_progress', 'review', 'done', 'closed'];
 
 function buildTaskUpdateInput(body: TaskPatchBody): { input: TaskUpdateInput; error?: string } {
   const input: TaskUpdateInput = {};
@@ -79,7 +80,13 @@ function registerTaskCrudRoutes(
   ms: MetadataService,
   tags: TagService
 ): void {
-  app.get('/api/tasks', (c) => c.json({ tasks: ts.listTasks({}, 'id', 'asc') }));
+  app.get('/api/tasks', (c) => {
+    const includeAll = c.req.query('all') === 'true' || c.req.query('all') === '1';
+    if (includeAll) {
+      return c.json({ tasks: ts.listTasks({}, 'id', 'asc') });
+    }
+    return c.json({ tasks: ts.listTasks({ status: NON_ARCHIVE_STATUSES }, 'id', 'asc') });
+  });
   app.post('/api/tasks', async (c) => {
     const body = await c.req.json<{
       title: string;
@@ -352,7 +359,13 @@ export function registerConfigApiRoutes(app: Hono, configDir: string): void {
   });
 }
 
-type BoardCardFilters = { tagIds?: number[]; priority?: string[]; assignees?: string; search?: string };
+type BoardCardFilters = {
+  status?: TaskStatus[];
+  tagIds?: number[];
+  priority?: string[];
+  assignees?: string;
+  search?: string;
+};
 
 function parseBoardCardFilters(query: {
   tags?: string;
@@ -360,7 +373,7 @@ function parseBoardCardFilters(query: {
   assignee?: string;
   search?: string;
 }): BoardCardFilters {
-  const filters: BoardCardFilters = {};
+  const filters: BoardCardFilters = { status: NON_ARCHIVE_STATUSES };
   if (query.tags) {
     const tagIds = query.tags
       .split(',')
@@ -501,7 +514,7 @@ export function registerBoardRoutes(app: Hono, services: BoardServices): void {
   });
 
   app.get('/', (c) => {
-    const tasksByStatus = buildTasksByStatus(ts.listTasks({}, 'id', 'asc'));
+    const tasksByStatus = buildTasksByStatus(ts.listTasks({ status: NON_ARCHIVE_STATUSES }, 'id', 'asc'));
     const boardConfig = readBoardConfig(configDir);
     const blockMap = buildBlockMap(tbs.getAllBlocks());
     return c.html(renderBoard(tasksByStatus, tts.getAllTaskTags(), boardTitle, boardConfig.theme, blockMap));

@@ -69,7 +69,7 @@ function replaceWithDetailBtn(btn: HTMLButtonElement, taskId: number): void {
 
 function replaceWithRunOrPlanBtn(btn: HTMLButtonElement, taskId: number, status: string | undefined): void {
   _planningTaskIds.delete(taskId);
-  if (['review', 'done', 'closed'].includes(status ?? '')) {
+  if (['review', 'done', 'closed', 'archive'].includes(status ?? '')) {
     btn.remove();
     return;
   }
@@ -245,7 +245,7 @@ export function updateCardButton(card: HTMLElement, newStatus: string): void {
   const existingEl = card.querySelector<HTMLElement>('.claude-run-split, .claude-plan-btn, .claude-detail-btn');
   if (!existingEl) return;
 
-  if (['review', 'done', 'closed'].includes(newStatus)) {
+  if (['review', 'done', 'closed', 'archive'].includes(newStatus)) {
     existingEl.remove();
   } else if (['ready', 'in_progress'].includes(newStatus)) {
     if (!existingEl.classList.contains('claude-run-split')) {

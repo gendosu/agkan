@@ -13,7 +13,16 @@ import { isPathSafe } from '../../utils/security';
  * @returns true if valid, false otherwise
  */
 export function validateTaskStatus(status: string): boolean {
-  const validStatuses: TaskStatus[] = ['icebox', 'backlog', 'ready', 'in_progress', 'review', 'done', 'closed'];
+  const validStatuses: TaskStatus[] = [
+    'icebox',
+    'backlog',
+    'ready',
+    'in_progress',
+    'review',
+    'done',
+    'closed',
+    'archive',
+  ];
   return validStatuses.includes(status as TaskStatus);
 }
 

@@ -33,7 +33,11 @@ export function setupTaskAddCommand(program: Command): void {
     .argument('[body]', 'Task body')
     .option('-a, --author <author>', 'Task author')
     .option('--assignees <assignees>', 'Task assignees (comma-separated)')
-    .option('-s, --status <status>', 'Task status (backlog, ready, in_progress, review, done, closed)', 'backlog')
+    .option(
+      '-s, --status <status>',
+      'Task status (icebox, backlog, ready, in_progress, review, done, closed, archive)',
+      'backlog'
+    )
     .option('--priority <priority>', 'Task priority (critical, high, medium, low)', 'medium')
     .option('-p, --parent <id>', 'Parent task ID')
     .option('--file <path>', 'Read body from markdown file')
@@ -82,10 +86,10 @@ export function setupTaskAddCommand(program: Command): void {
         }
 
         if (!validateTaskStatus(options.status)) {
-          const message = `Invalid status: ${options.status}. Valid statuses: backlog, ready, in_progress, review, done, closed`;
+          const message = `Invalid status: ${options.status}. Valid statuses: icebox, backlog, ready, in_progress, review, done, closed, archive`;
           formatter.error(message, () => {
             console.log(chalk.red(`Invalid status: ${options.status}`));
-            console.log('Valid statuses: backlog, ready, in_progress, review, done, closed');
+            console.log('Valid statuses: icebox, backlog, ready, in_progress, review, done, closed, archive');
           });
           process.exit(1);
         }

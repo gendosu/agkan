@@ -45,10 +45,10 @@ export function setupTaskCountCommand(program: Command): void {
 
           if (!validateTaskStatus(status)) {
             formatter.error(
-              `Invalid status: ${status}. Valid statuses: icebox, backlog, ready, in_progress, review, done, closed`,
+              `Invalid status: ${status}. Valid statuses: icebox, backlog, ready, in_progress, review, done, closed, archive`,
               () => {
                 console.log(chalk.red(`\nInvalid status: ${status}`));
-                console.log('Valid statuses: icebox, backlog, ready, in_progress, review, done, closed\n');
+                console.log('Valid statuses: icebox, backlog, ready, in_progress, review, done, closed, archive\n');
               }
             );
             process.exit(1);
@@ -82,6 +82,7 @@ export function setupTaskCountCommand(program: Command): void {
           { status: 'review', count: statusCounts.review },
           { status: 'done', count: statusCounts.done },
           { status: 'closed', count: statusCounts.closed },
+          { status: 'archive', count: statusCounts.archive },
         ];
 
         formatter.output(

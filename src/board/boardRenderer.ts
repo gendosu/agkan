@@ -6,9 +6,10 @@ import { StorageBackend } from '../db/types/repository';
 import { BOARD_STYLES } from './boardStyles';
 import { BOARD_FAVICON_BASE64 } from './boardFavicon';
 
-export const STATUSES: TaskStatus[] = ['icebox', 'backlog', 'ready', 'in_progress', 'review', 'done', 'closed'];
+type BoardStatus = Exclude<TaskStatus, 'archive'>;
+export const STATUSES: BoardStatus[] = ['icebox', 'backlog', 'ready', 'in_progress', 'review', 'done', 'closed'];
 
-export const STATUS_LABELS: Record<TaskStatus, string> = {
+export const STATUS_LABELS: Record<BoardStatus, string> = {
   icebox: 'Icebox',
   backlog: 'Backlog',
   ready: 'Ready',
@@ -18,7 +19,7 @@ export const STATUS_LABELS: Record<TaskStatus, string> = {
   closed: 'Closed',
 };
 
-export const STATUS_COLORS: Record<TaskStatus, string> = {
+export const STATUS_COLORS: Record<BoardStatus, string> = {
   icebox: '#6b7280',
   backlog: '#3b82f6',
   ready: '#8b5cf6',
@@ -49,7 +50,7 @@ export function renderCard(task: Task, tags: Tag[], blockedByIds: number[] = [],
   let cardActions = '';
   if (['ready', 'in_progress'].includes(task.status)) {
     cardActions = `<div class="card-actions"><div class="claude-run-split" data-task-id="${task.id}"><button class="claude-run-btn" data-task-id="${task.id}">&#9654; Run</button><button class="claude-run-toggle" data-task-id="${task.id}" title="More options">&#9660;</button><div class="claude-run-menu"><button class="claude-run-menu-item" data-task-id="${task.id}" data-command="direct">&#9654; Run (current branch)</button><button class="claude-run-menu-item" data-task-id="${task.id}" data-command="pr">&#9654; Run (create PR)</button></div></div></div>`;
-  } else if (!['review', 'done', 'closed'].includes(task.status)) {
+  } else if (!['review', 'done', 'closed', 'archive'].includes(task.status)) {
     cardActions = `<div class="card-actions"><button class="claude-plan-btn" data-task-id="${task.id}">&#128203; Planning</button></div>`;
   }
 
@@ -66,7 +67,7 @@ export function renderCard(task: Task, tags: Tag[], blockedByIds: number[] = [],
 }
 
 export function renderColumn(
-  status: TaskStatus,
+  status: BoardStatus,
   tasks: Task[],
   tagMap: Map<number, Tag[]>,
   blockMap: Map<number, { blockedBy: number[]; blocking: number[] }> = new Map()
@@ -293,7 +294,7 @@ export function buildBoardCardsPayload(
   tasksByStatus: Map<TaskStatus, Task[]>,
   tagMap: Map<number, Tag[]>,
   blockMap: Map<number, { blockedBy: number[]; blocking: number[] }> = new Map()
-): { status: TaskStatus; html: string; count: number }[] {
+): { status: BoardStatus; html: string; count: number }[] {
   return STATUSES.map((status) => {
     const tasks = tasksByStatus.get(status) || [];
     const html = tasks

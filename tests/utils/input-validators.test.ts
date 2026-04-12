@@ -324,6 +324,7 @@ describe('Input Validators', () => {
         'review',
         'done',
         'closed',
+        'archive',
       ]);
       expect(errors).toEqual([]);
     });

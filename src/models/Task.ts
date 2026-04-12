@@ -8,7 +8,7 @@ import type { Priority } from './Priority';
 /**
  * Task status type
  */
-export type TaskStatus = 'icebox' | 'backlog' | 'ready' | 'in_progress' | 'review' | 'done' | 'closed';
+export type TaskStatus = 'icebox' | 'backlog' | 'ready' | 'in_progress' | 'review' | 'done' | 'closed' | 'archive';
 
 /**
  * Complete task type definition

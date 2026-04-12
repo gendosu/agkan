@@ -38,10 +38,10 @@ export function setupTaskCopyCommand(program: Command): void {
         }
 
         if (!validateTaskStatus(options.status)) {
-          const message = `Invalid status: ${options.status}. Valid statuses: backlog, ready, in_progress, review, done, closed`;
+          const message = `Invalid status: ${options.status}. Valid statuses: icebox, backlog, ready, in_progress, review, done, closed, archive`;
           formatter.error(message, () => {
             console.log(chalk.red(`Invalid status: ${options.status}`));
-            console.log('Valid statuses: backlog, ready, in_progress, review, done, closed');
+            console.log('Valid statuses: icebox, backlog, ready, in_progress, review, done, closed, archive');
           });
           process.exit(1);
           return;

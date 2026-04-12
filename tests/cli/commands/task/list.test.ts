@@ -127,11 +127,12 @@ describe('setupTaskListCommand', () => {
     expect(output).not.toContain('Bob Task');
   });
 
-  it('should exclude done and closed tasks by default', async () => {
+  it('should exclude done, closed, and archive tasks by default', async () => {
     const taskService = new TaskService();
     taskService.createTask({ title: 'Active Task', status: 'ready' });
     taskService.createTask({ title: 'Done Task', status: 'done' });
     taskService.createTask({ title: 'Closed Task', status: 'closed' });
+    taskService.createTask({ title: 'Archived Task', status: 'archive' });
 
     const consoleLogs: string[] = [];
     const originalLog = console.log;
@@ -151,13 +152,15 @@ describe('setupTaskListCommand', () => {
     expect(output).toContain('Active Task');
     expect(output).not.toContain('Done Task');
     expect(output).not.toContain('Closed Task');
+    expect(output).not.toContain('Archived Task');
   });
 
-  it('should include done and closed tasks with --all option', async () => {
+  it('should include done, closed, and archive tasks with --all option', async () => {
     const taskService = new TaskService();
     taskService.createTask({ title: 'Active Task', status: 'ready' });
     taskService.createTask({ title: 'Done Task', status: 'done' });
     taskService.createTask({ title: 'Closed Task', status: 'closed' });
+    taskService.createTask({ title: 'Archived Task', status: 'archive' });
 
     const consoleLogs: string[] = [];
     const originalLog = console.log;
@@ -177,6 +180,7 @@ describe('setupTaskListCommand', () => {
     expect(output).toContain('Active Task');
     expect(output).toContain('Done Task');
     expect(output).toContain('Closed Task');
+    expect(output).toContain('Archived Task');
   });
 
   it('should output JSON format with --json option', async () => {

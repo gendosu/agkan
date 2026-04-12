@@ -180,17 +180,41 @@ export class TaskService {
    * @returns Array of purged (or would-be-purged) tasks
    */
   purgeTasksBefore(beforeDate: string, statuses: TaskStatus[] = ['done', 'closed'], dryRun: boolean = false): Task[] {
-    if (statuses.length === 0) {
-      return [];
-    }
-
-    const tasks = this.backend.tasks.findForPurge(beforeDate, statuses);
+    const tasks = this.findTasksBeforeByStatuses(beforeDate, statuses);
 
     if (!dryRun && tasks.length > 0) {
       this.backend.tasks.deleteMany(tasks.map((t) => t.id));
     }
 
     return tasks;
+  }
+
+  /**
+   * Archive tasks that match given statuses and were last updated before the given date
+   * @param beforeDate - ISO date string; tasks updated before this date are eligible
+   * @param statuses - Array of statuses to target (default: ['done', 'closed'])
+   * @param dryRun - If true, return matching tasks without updating them
+   * @returns Array of archived (or would-be-archived) tasks
+   */
+  archiveTasksBefore(beforeDate: string, statuses: TaskStatus[] = ['done', 'closed'], dryRun: boolean = false): Task[] {
+    const tasks = this.findTasksBeforeByStatuses(beforeDate, statuses);
+
+    if (!dryRun && tasks.length > 0) {
+      const now = new Date().toISOString();
+      for (const task of tasks) {
+        this.backend.tasks.update(task.id, { status: 'archive', updated_at: now });
+      }
+    }
+
+    return tasks;
+  }
+
+  private findTasksBeforeByStatuses(beforeDate: string, statuses: TaskStatus[]): Task[] {
+    if (statuses.length === 0) {
+      return [];
+    }
+
+    return this.backend.tasks.findForPurge(beforeDate, statuses);
   }
 
   /**
@@ -206,7 +230,7 @@ export class TaskService {
     if (statuses && statuses.length > 0) {
       statusFilter = statuses;
     } else if (!includeAll) {
-      // Exclude done/closed/icebox by filtering to all other statuses
+      // Exclude done/closed/icebox/archive by filtering to all other statuses
       const allStatuses: TaskStatus[] = ['backlog', 'ready', 'in_progress', 'review'];
       statusFilter = allStatuses;
     }
