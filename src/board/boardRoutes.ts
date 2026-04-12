@@ -37,11 +37,12 @@ export type BoardServices = {
 type TaskPatchBody = {
   title?: string;
   body?: string | null;
-  status?: TaskStatus;
+  status?: BoardTaskStatus;
   priority?: string | null;
 };
 
-type TaskUpdateInput = { title?: string; body?: string; status?: TaskStatus; priority?: Priority | null };
+type BoardTaskStatus = Exclude<TaskStatus, 'archive'>;
+type TaskUpdateInput = { title?: string; body?: string; status?: BoardTaskStatus; priority?: Priority | null };
 const NON_ARCHIVE_STATUSES: TaskStatus[] = ['icebox', 'backlog', 'ready', 'in_progress', 'review', 'done', 'closed'];
 
 function buildTaskUpdateInput(body: TaskPatchBody): { input: TaskUpdateInput; error?: string } {
@@ -91,7 +92,7 @@ function registerTaskCrudRoutes(
     const body = await c.req.json<{
       title: string;
       body?: string | null;
-      status?: TaskStatus;
+      status?: BoardTaskStatus;
       priority?: string | null;
       tags?: unknown;
       metadata?: unknown;
