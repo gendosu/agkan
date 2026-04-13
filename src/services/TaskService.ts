@@ -219,6 +219,21 @@ export class TaskService {
   }
 
   /**
+   * Unarchive a single task by ID
+   * @param id - Task ID to unarchive
+   * @returns Unarchived task or null if not found
+   */
+  unarchiveTask(id: number): Task | null {
+    const task = this.backend.tasks.findById(id);
+    if (!task) {
+      return null;
+    }
+
+    this.backend.tasks.unarchiveMany([id]);
+    return this.backend.tasks.findById(id);
+  }
+
+  /**
    * Search tasks
    * @param keyword - Search keyword (LIKE search on title and body)
    * @param includeAll - If true, include done/closed tasks in search (default: false)
