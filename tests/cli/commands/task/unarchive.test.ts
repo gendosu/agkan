@@ -49,9 +49,9 @@ describe('setupTaskUnarchiveCommand', () => {
     const taskCommand = program.commands.find((cmd) => cmd.name() === 'task');
     const unarchiveCommand = taskCommand?.commands.find((cmd) => cmd.name() === 'unarchive');
 
-    expect(unarchiveCommand?.args).toBeDefined();
-    const args = unarchiveCommand?.args || [];
-    expect(args[0].description()).toContain('id');
+    expect(unarchiveCommand?.registeredArguments).toBeDefined();
+    const args = unarchiveCommand?.registeredArguments || [];
+    expect(args[0].name()).toBe('id');
 
     const optionNames = (unarchiveCommand?.options || []).map((opt) => opt.long);
     expect(optionNames).toContain('--dry-run');
