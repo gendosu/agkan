@@ -72,6 +72,8 @@ export interface TaskRepository {
   deleteMany(ids: number[]): number;
   /** Set is_archived=1 on multiple tasks by IDs */
   archiveMany(ids: number[]): number;
+  /** Set is_archived=0 on multiple tasks by IDs */
+  unarchiveMany(ids: number[]): number;
 }
 
 /**
