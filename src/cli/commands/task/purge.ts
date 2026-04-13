@@ -10,18 +10,10 @@ import { handleError } from '../../utils/error-handler';
 import { validateTaskStatus } from '../../utils/validators';
 import { createFormatter } from '../../utils/output-formatter';
 import { formatDate } from '../../../utils/format';
+import { daysAgoIso } from '../../../utils/date';
 
 /** Default number of days before which tasks are eligible for purge */
 const DEFAULT_DAYS_BEFORE = 3;
-
-/**
- * Calculate the ISO date string for N days ago from now.
- */
-function daysAgoIso(days: number): string {
-  const d = new Date();
-  d.setDate(d.getDate() - days);
-  return d.toISOString();
-}
 
 /**
  * Resolve and validate the --before option value.
