@@ -83,7 +83,7 @@ export class TaskService {
 
   /**
    * Get task list
-   * @param filters - Filter criteria (status, author, tagIds)
+   * @param filters - Filter criteria (status, author, tagIds, includeArchived)
    * @param sort - Sort field (default: created_at)
    * @param order - Sort order (default: desc)
    * @returns Array of tasks
@@ -96,22 +96,25 @@ export class TaskService {
       tagIds?: number[];
       priority?: string | string[];
       search?: string;
+      includeArchived?: boolean;
     },
     sort?: SortField,
     order?: SortOrder
   ): Task[] {
-    const sortField = sort && ALLOWED_SORT_FIELDS.includes(sort) ? sort : 'created_at';
+    const sortField: SortField = sort && ALLOWED_SORT_FIELDS.includes(sort) ? sort : 'created_at';
     const sortOrder: SortOrder = order === 'asc' ? 'asc' : 'desc';
+    const { status, author, assignees, tagIds, priority, search, includeArchived } = filters ?? {};
 
     return this.backend.tasks.findAll(
       {
-        status: filters?.status,
-        author: filters?.author,
-        assignees: filters?.assignees,
-        tagIds: filters?.tagIds,
+        status,
+        author,
+        assignees,
+        tagIds,
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        priority: filters?.priority as any,
-        search: filters?.search,
+        priority: priority as any,
+        search,
+        includeArchived,
       },
       { field: sortField, order: sortOrder }
     );
