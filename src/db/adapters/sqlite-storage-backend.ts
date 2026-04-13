@@ -233,6 +233,15 @@ class SQLiteTaskRepository implements TaskRepository {
       .run(...ids);
     return result.changes;
   }
+
+  unarchiveMany(ids: number[]): number {
+    if (ids.length === 0) return 0;
+    const placeholders = ids.map(() => '?').join(', ');
+    const result = this.db
+      .prepare(`UPDATE tasks SET is_archived = 0, updated_at = datetime('now') WHERE id IN (${placeholders})`)
+      .run(...ids);
+    return result.changes;
+  }
 }
 
 class SQLiteTagRepository implements TagRepository {
