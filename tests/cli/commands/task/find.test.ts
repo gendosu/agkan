@@ -34,7 +34,7 @@ describe('setupTaskFindCommand', () => {
 
     const findCommand = taskCommand?.commands.find((cmd) => cmd.name() === 'find');
     expect(findCommand).toBeDefined();
-    expect(findCommand?.description()).toBe('Search tasks by keyword (excludes done/closed/archive by default)');
+    expect(findCommand?.description()).toBe('Search tasks by keyword (excludes done/closed by default)');
   });
 
   it('should have correct options', () => {
@@ -98,7 +98,6 @@ describe('setupTaskFindCommand', () => {
     const taskService = new TaskService();
     taskService.createTask({ title: 'Active task', status: 'ready' });
     taskService.createTask({ title: 'Done task', status: 'done' });
-    taskService.createTask({ title: 'Archived task', status: 'archive' });
 
     const consoleLogs: string[] = [];
     const originalLog = console.log;
@@ -117,14 +116,13 @@ describe('setupTaskFindCommand', () => {
     const output = consoleLogs.join('\n');
     expect(output).toContain('Active task');
     expect(output).not.toContain('Done task');
-    expect(output).not.toContain('Archived task');
   });
 
   it('should include done/closed tasks with --all option', async () => {
     const taskService = new TaskService();
     taskService.createTask({ title: 'Active task', status: 'ready' });
     taskService.createTask({ title: 'Done task', status: 'done' });
-    taskService.createTask({ title: 'Archived task', status: 'archive' });
+    taskService.createTask({ title: 'Closed task', status: 'closed' });
 
     const consoleLogs: string[] = [];
     const originalLog = console.log;
@@ -143,7 +141,7 @@ describe('setupTaskFindCommand', () => {
     const output = consoleLogs.join('\n');
     expect(output).toContain('Active task');
     expect(output).toContain('Done task');
-    expect(output).toContain('Archived task');
+    expect(output).toContain('Closed task');
   });
 
   it('should output JSON format with --json option', async () => {

@@ -324,9 +324,14 @@ describe('Input Validators', () => {
         'review',
         'done',
         'closed',
-        'archive',
       ]);
       expect(errors).toEqual([]);
+    });
+
+    it('should reject archive as an invalid status', () => {
+      const errors = validateMultipleStatuses(['archive']);
+      expect(errors).toHaveLength(1);
+      expect(errors[0].message).toContain('Invalid status: archive');
     });
   });
 });

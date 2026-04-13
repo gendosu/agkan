@@ -33,10 +33,10 @@ export function isFlagMode(options: UpdateOptions, field: string | undefined): b
 export function validateStatus(val: string, formatter: OutputFormatter): boolean {
   if (validateTaskStatus(val)) return true;
   formatter.error(
-    `Invalid status: ${val}. Valid statuses: icebox, backlog, ready, in_progress, review, done, closed, archive`,
+    `Invalid status: ${val}. Valid statuses: icebox, backlog, ready, in_progress, review, done, closed`,
     () => {
       console.log(chalk.red(`\nInvalid status: ${val}`));
-      console.log('Valid statuses: icebox, backlog, ready, in_progress, review, done, closed, archive\n');
+      console.log('Valid statuses: icebox, backlog, ready, in_progress, review, done, closed\n');
     }
   );
   return false;

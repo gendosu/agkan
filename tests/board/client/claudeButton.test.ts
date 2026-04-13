@@ -176,7 +176,7 @@ describe('updateButtonStates', () => {
     expect((runBtns[0] as HTMLButtonElement).dataset.taskId).toBe('3');
   });
 
-  it.each(['review', 'done', 'closed', 'archive'])(
+  it.each(['review', 'done', 'closed'])(
     'removes detail button (no replacement) when task stops running with %s status',
     (status) => {
       const card = makeCardWithDetailBtn(6, status);

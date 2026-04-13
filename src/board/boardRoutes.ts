@@ -41,7 +41,7 @@ type TaskPatchBody = {
   priority?: string | null;
 };
 
-type BoardTaskStatus = Exclude<TaskStatus, 'archive'>;
+type BoardTaskStatus = TaskStatus;
 type TaskUpdateInput = { title?: string; body?: string; status?: BoardTaskStatus; priority?: Priority | null };
 const NON_ARCHIVE_STATUSES: TaskStatus[] = ['icebox', 'backlog', 'ready', 'in_progress', 'review', 'done', 'closed'];
 

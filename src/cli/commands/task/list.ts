@@ -586,10 +586,10 @@ function validateStatuses(statuses: TaskStatus[], formatter: ReturnType<typeof c
   for (const s of statuses) {
     if (!validateTaskStatus(s)) {
       formatter.error(
-        `Invalid status: ${s}. Valid statuses: icebox, backlog, ready, in_progress, review, done, closed, archive`,
+        `Invalid status: ${s}. Valid statuses: icebox, backlog, ready, in_progress, review, done, closed`,
         () => {
           console.log(chalk.red(`Invalid status: ${s}`));
-          console.log('Valid statuses: icebox, backlog, ready, in_progress, review, done, closed, archive');
+          console.log('Valid statuses: icebox, backlog, ready, in_progress, review, done, closed');
         }
       );
       process.exit(1);
@@ -807,11 +807,9 @@ function filterTasks(
 ): TaskRecord[] {
   let displayTasks = tasks;
 
-  // Default: exclude icebox, done, closed, and archive unless --all, --archived, or --status is explicitly specified
+  // Default: exclude icebox, done, and closed unless --all, --archived, or --status is explicitly specified
   if (!options.status && !options.all && !options.archived) {
-    displayTasks = displayTasks.filter(
-      (t) => t.status !== 'icebox' && t.status !== 'done' && t.status !== 'closed' && t.status !== 'archive'
-    );
+    displayTasks = displayTasks.filter((t) => t.status !== 'icebox' && t.status !== 'done' && t.status !== 'closed');
   }
 
   // If --root-only option is specified, filter to only tasks without parent
@@ -990,7 +988,7 @@ export function setupTaskListCommand(program: Command): void {
       '-p, --priority <priorities>',
       `Filter by priority (comma-separated, e.g., "high" or "critical,high"). Valid values: ${PRIORITIES.join(', ')}`
     )
-    .option('--all', 'Include all statuses (including done, closed, and archive)')
+    .option('--all', 'Include all statuses (including done and closed)')
     .option('--archived', 'Include archived tasks (is_archived=1)')
     .option('--tree', 'Display tasks in tree structure')
     .option('--dep-tree', 'Display tasks in dependency (blocking) tree structure')

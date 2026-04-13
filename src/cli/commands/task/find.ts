@@ -22,7 +22,7 @@ export function setupTaskFindCommand(program: Command): void {
     .option('--all', 'Include done, closed, and archived tasks in search results')
     .option('--status <statuses>', 'Filter by status (comma-separated: e.g. ready,in_progress)')
     .option('--json', 'Output in JSON format')
-    .description('Search tasks by keyword (excludes done/closed/archive by default)')
+    .description('Search tasks by keyword (excludes done/closed by default)')
     .action(async (keyword, options) => {
       const formatter = createFormatter(options);
       try {
@@ -108,7 +108,7 @@ export function setupTaskFindCommand(program: Command): void {
             if (statusFilter) {
               filterMessage = chalk.gray(` (filtered by status: ${statusFilter.join(', ')})`);
             } else if (!options.all) {
-              filterMessage = chalk.gray(' (excluding done/closed/archive)');
+              filterMessage = chalk.gray(' (excluding done/closed)');
             }
             console.log(chalk.bold(`\nFound ${tasks.length} task(s) matching "${keyword}"${filterMessage}:\n`));
             console.log(chalk.bold('─'.repeat(80)));

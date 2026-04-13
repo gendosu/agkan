@@ -15,7 +15,6 @@ export function getStatusColor(
     review: 'cyan',
     done: 'green',
     closed: 'magenta',
-    archive: 'white',
   };
   return colorMap[status];
 }

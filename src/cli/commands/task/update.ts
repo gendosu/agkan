@@ -123,7 +123,6 @@ function renderStatusCounts(
     { status: 'review', count: statusCounts.review },
     { status: 'done', count: statusCounts.done },
     { status: 'closed', count: statusCounts.closed },
-    { status: 'archive', count: statusCounts.archive },
   ];
   statusEntries.forEach(({ status, count }) => {
     const color = getStatusColor(status);

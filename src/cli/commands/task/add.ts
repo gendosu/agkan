@@ -35,7 +35,7 @@ export function setupTaskAddCommand(program: Command): void {
     .option('--assignees <assignees>', 'Task assignees (comma-separated)')
     .option(
       '-s, --status <status>',
-      'Task status (icebox, backlog, ready, in_progress, review, done, closed, archive)',
+      'Task status (icebox, backlog, ready, in_progress, review, done, closed)',
       'backlog'
     )
     .option('--priority <priority>', 'Task priority (critical, high, medium, low)', 'medium')
@@ -86,10 +86,10 @@ export function setupTaskAddCommand(program: Command): void {
         }
 
         if (!validateTaskStatus(options.status)) {
-          const message = `Invalid status: ${options.status}. Valid statuses: icebox, backlog, ready, in_progress, review, done, closed, archive`;
+          const message = `Invalid status: ${options.status}. Valid statuses: icebox, backlog, ready, in_progress, review, done, closed`;
           formatter.error(message, () => {
             console.log(chalk.red(`Invalid status: ${options.status}`));
-            console.log('Valid statuses: icebox, backlog, ready, in_progress, review, done, closed, archive');
+            console.log('Valid statuses: icebox, backlog, ready, in_progress, review, done, closed');
           });
           process.exit(1);
         }

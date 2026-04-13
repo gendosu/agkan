@@ -55,7 +55,7 @@ function resolveStatuses(statusOption: string): { statuses: TaskStatus[] } | { e
   for (const s of parts) {
     if (!validateTaskStatus(s)) {
       return {
-        error: `Invalid status: ${s}. Valid statuses: icebox, backlog, ready, in_progress, review, done, closed, archive`,
+        error: `Invalid status: ${s}. Valid statuses: icebox, backlog, ready, in_progress, review, done, closed`,
       };
     }
   }

@@ -104,16 +104,7 @@ export function validateTaskUpdateInput(input: UpdateTaskInput): ValidationError
 /**
  * Valid task statuses
  */
-const VALID_STATUSES: TaskStatus[] = [
-  'icebox',
-  'backlog',
-  'ready',
-  'in_progress',
-  'review',
-  'done',
-  'closed',
-  'archive',
-];
+const VALID_STATUSES: TaskStatus[] = ['icebox', 'backlog', 'ready', 'in_progress', 'review', 'done', 'closed'];
 
 /**
  * Validate multiple status values

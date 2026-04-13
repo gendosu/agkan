@@ -1526,7 +1526,6 @@ describe('TaskService', () => {
       taskService.createTask({ title: 'アクティブなタスク', body: '本文', status: 'in_progress' });
       taskService.createTask({ title: '完了したタスク', body: '本文', status: 'done' });
       taskService.createTask({ title: 'クローズしたタスク', body: '本文', status: 'closed' });
-      taskService.createTask({ title: 'アーカイブしたタスク', body: '本文', status: 'archive' });
 
       // 「タスク」をキーワードに検索
       const results = taskService.searchTasks('タスク');
@@ -1542,17 +1541,15 @@ describe('TaskService', () => {
       taskService.createTask({ title: 'アクティブなタスク', body: '本文', status: 'in_progress' });
       taskService.createTask({ title: '完了したタスク', body: '本文', status: 'done' });
       taskService.createTask({ title: 'クローズしたタスク', body: '本文', status: 'closed' });
-      taskService.createTask({ title: 'アーカイブしたタスク', body: '本文', status: 'archive' });
 
       // includeAll=trueで「タスク」をキーワードに検索
       const results = taskService.searchTasks('タスク', true);
 
-      // 4件すべてのタスクが見つかることを検証
-      expect(results).toHaveLength(4);
+      // 3件すべてのタスクが見つかることを検証
+      expect(results).toHaveLength(3);
       expect(results.map((t) => t.status)).toContain('in_progress');
       expect(results.map((t) => t.status)).toContain('done');
       expect(results.map((t) => t.status)).toContain('closed');
-      expect(results.map((t) => t.status)).toContain('archive');
     });
 
     it('キーワード検索 - マッチするタスクがない場合は空配列を返す', () => {
