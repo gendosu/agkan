@@ -12,6 +12,7 @@ import { TaskStatus, isPriority, Priority } from '../models';
 import { ConflictError } from '../errors';
 import { StorageBackend } from '../db/types/repository';
 import { readBoardConfig, writeBoardConfig, DETAIL_PANE_MAX_WIDTH, VALID_THEMES, ThemePreference } from './boardConfig';
+import { daysAgoIso } from '../utils/date';
 import {
   buildTasksByStatus,
   getBoardUpdatedAt,
@@ -270,9 +271,7 @@ function registerUtilityRoutes(app: Hono, ts: TaskService): void {
       }
       beforeDate = parsed.toISOString();
     } else {
-      const d = new Date();
-      d.setDate(d.getDate() - 3);
-      beforeDate = d.toISOString();
+      beforeDate = daysAgoIso(3);
     }
     const tasks = ts.purgeTasksBefore(beforeDate, ['done', 'closed'], false);
     return c.json({
@@ -290,9 +289,7 @@ function registerUtilityRoutes(app: Hono, ts: TaskService): void {
       }
       beforeDate = parsed.toISOString();
     } else {
-      const d = new Date();
-      d.setDate(d.getDate() - 3);
-      beforeDate = d.toISOString();
+      beforeDate = daysAgoIso(3);
     }
     const tasks = ts.archiveTasksBefore(beforeDate, ['done', 'closed'], false);
     return c.json({
