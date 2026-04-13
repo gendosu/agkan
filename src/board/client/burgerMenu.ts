@@ -95,11 +95,8 @@ function initArchiveModal(burgerDropdown: HTMLElement): void {
   });
 
   archiveConfirmBtn.addEventListener('click', async () => {
+    await executeArchive();
     safeArchiveModal.classList.remove('show');
-    const result = await executeArchive();
-    if (result !== null) {
-      safeArchiveResultEl.textContent = `Archived ${result.count} task(s).`;
-    }
   });
 }
 
