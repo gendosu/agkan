@@ -84,9 +84,9 @@ function registerTaskCrudRoutes(
   app.get('/api/tasks', (c) => {
     const includeAll = c.req.query('all') === 'true' || c.req.query('all') === '1';
     if (includeAll) {
-      return c.json({ tasks: ts.listTasks({}, 'id', 'asc') });
+      return c.json({ tasks: ts.listTasks({ includeArchived: true }, 'id', 'asc') });
     }
-    return c.json({ tasks: ts.listTasks({ status: NON_ARCHIVE_STATUSES }, 'id', 'asc') });
+    return c.json({ tasks: ts.listTasks({}, 'id', 'asc') });
   });
   app.post('/api/tasks', async (c) => {
     const body = await c.req.json<{
