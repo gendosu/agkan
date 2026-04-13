@@ -140,7 +140,8 @@ describe('TaskService.archiveTasksBefore', () => {
 
     expect(archived).toHaveLength(1);
     expect(archived[0].id).toBe(task.id);
-    expect(updated?.status).toBe('archive');
+    expect(updated?.is_archived).toBe(1);
+    expect(updated?.status).toBe('done');
   });
 
   it('should respect dryRun and keep original statuses', () => {
