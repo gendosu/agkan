@@ -803,12 +803,12 @@ function handleListView(
  */
 function filterTasks(
   tasks: TaskRecord[],
-  options: { status?: string; rootOnly?: boolean; all?: boolean }
+  options: { status?: string; rootOnly?: boolean; all?: boolean; archived?: boolean }
 ): TaskRecord[] {
   let displayTasks = tasks;
 
-  // Default: exclude icebox, done, closed, and archive unless --all or --status is explicitly specified
-  if (!options.status && !options.all) {
+  // Default: exclude icebox, done, closed, and archive unless --all, --archived, or --status is explicitly specified
+  if (!options.status && !options.all && !options.archived) {
     displayTasks = displayTasks.filter(
       (t) => t.status !== 'icebox' && t.status !== 'done' && t.status !== 'closed' && t.status !== 'archive'
     );
@@ -927,6 +927,7 @@ function queryAndFilterTasks(
       assignees: options.assignees as string | undefined,
       tagIds,
       priority: priorityFilter,
+      includeArchived: options.archived as boolean | undefined,
     },
     options.sort as SortField,
     options.order as SortOrder
@@ -990,6 +991,7 @@ export function setupTaskListCommand(program: Command): void {
       `Filter by priority (comma-separated, e.g., "high" or "critical,high"). Valid values: ${PRIORITIES.join(', ')}`
     )
     .option('--all', 'Include all statuses (including done, closed, and archive)')
+    .option('--archived', 'Include archived tasks (is_archived=1)')
     .option('--tree', 'Display tasks in tree structure')
     .option('--dep-tree', 'Display tasks in dependency (blocking) tree structure')
     .option('--root-only', 'Show only root tasks (tasks without parent)')

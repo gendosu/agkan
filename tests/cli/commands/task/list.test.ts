@@ -1325,4 +1325,64 @@ describe('setupTaskListCommand', () => {
     expect(parsed.filters.priority).toBe('critical');
     expect(parsed.tasks).toHaveLength(0);
   });
+
+  it('should have --archived option', () => {
+    const taskCommand = program.commands.find((cmd) => cmd.name() === 'task');
+    const listCommand = taskCommand?.commands.find((cmd) => cmd.name() === 'list');
+
+    const options = listCommand?.options || [];
+    const optionNames = options.map((opt) => opt.long);
+
+    expect(optionNames).toContain('--archived');
+  });
+
+  it('should not show archived tasks by default', async () => {
+    const taskService = new TaskService();
+    taskService.createTask({ title: 'Active Task', status: 'ready' });
+    const archivedTask = taskService.createTask({ title: 'Archived Task', status: 'done' });
+    taskService.archiveTasksBefore(new Date(Date.now() + 1000).toISOString(), ['done']);
+
+    const consoleLogs: string[] = [];
+    const originalLog = console.log;
+    console.log = (...args: unknown[]) => consoleLogs.push(args.join(' '));
+    const originalExit = process.exit;
+    process.exit = (() => {}) as never;
+
+    try {
+      await program.parseAsync(['node', 'test', 'task', 'list', '--all']);
+    } finally {
+      console.log = originalLog;
+      process.exit = originalExit;
+    }
+
+    const output = consoleLogs.join('\n');
+    expect(output).toContain('Active Task');
+    expect(output).not.toContain('Archived Task');
+    void archivedTask;
+  });
+
+  it('should show archived tasks with --archived flag', async () => {
+    const taskService = new TaskService();
+    taskService.createTask({ title: 'Active Task', status: 'ready' });
+    taskService.createTask({ title: 'Done Task For Archive', status: 'done' });
+    taskService.archiveTasksBefore(new Date(Date.now() + 1000).toISOString(), ['done']);
+
+    const consoleLogs: string[] = [];
+    const originalLog = console.log;
+    console.log = (...args: unknown[]) => consoleLogs.push(args.join(' '));
+    const originalExit = process.exit;
+    process.exit = (() => {}) as never;
+
+    try {
+      await program.parseAsync(['node', 'test', 'task', 'list', '--archived', '--json']);
+    } finally {
+      console.log = originalLog;
+      process.exit = originalExit;
+    }
+
+    const parsed = JSON.parse(consoleLogs[0]);
+    const titles = parsed.tasks.map((t: { title: string }) => t.title);
+    expect(titles).toContain('Active Task');
+    expect(titles).toContain('Done Task For Archive');
+  });
 });
