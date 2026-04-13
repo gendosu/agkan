@@ -157,4 +157,37 @@ describe('burger menu purge tasks', () => {
       expect(purgeResultEl.textContent).toBe('');
     });
   });
+
+  it('displays error message in purge-result when purge API returns non-ok response', async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: false,
+      json: vi.fn().mockResolvedValue({ error: 'Server error' }),
+    } as unknown as Response);
+
+    initBurgerMenu();
+
+    const purgeConfirmBtn = document.getElementById('purge-confirm-btn')!;
+    const purgeResultEl = document.getElementById('purge-result')!;
+    purgeConfirmBtn.click();
+
+    await vi.waitFor(() => {
+      expect(purgeResultEl.textContent).not.toBe('');
+    });
+    expect(purgeResultEl.style.color).toBe('rgb(220, 38, 38)');
+  });
+
+  it('displays error message in purge-result when fetch throws', async () => {
+    global.fetch = vi.fn().mockRejectedValue(new Error('Network error'));
+
+    initBurgerMenu();
+
+    const purgeConfirmBtn = document.getElementById('purge-confirm-btn')!;
+    const purgeResultEl = document.getElementById('purge-result')!;
+    purgeConfirmBtn.click();
+
+    await vi.waitFor(() => {
+      expect(purgeResultEl.textContent).not.toBe('');
+    });
+    expect(purgeResultEl.style.color).toBe('rgb(220, 38, 38)');
+  });
 });

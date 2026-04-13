@@ -16,7 +16,7 @@ function initBurgerToggle(burgerBtn: HTMLButtonElement, burgerDropdown: HTMLElem
   });
 }
 
-async function executePurge(): Promise<void> {
+async function executePurge(purgeResultEl: HTMLElement): Promise<void> {
   try {
     const res = await fetch('/api/tasks/purge', {
       method: 'POST',
@@ -25,13 +25,17 @@ async function executePurge(): Promise<void> {
     });
     if (res.ok) {
       await refreshBoardCards();
+    } else {
+      purgeResultEl.textContent = 'Failed to purge tasks. Please try again.';
+      purgeResultEl.style.color = '#dc2626';
     }
   } catch {
-    // Ignore errors during purge
+    purgeResultEl.textContent = 'Failed to purge tasks. Network error.';
+    purgeResultEl.style.color = '#dc2626';
   }
 }
 
-async function executeArchive(): Promise<{ count: number } | null> {
+async function executeArchive(archiveResultEl: HTMLElement): Promise<{ count: number } | null> {
   try {
     const res = await fetch('/api/tasks/archive', {
       method: 'POST',
@@ -42,9 +46,13 @@ async function executeArchive(): Promise<{ count: number } | null> {
       const data = (await res.json()) as { count: number };
       await refreshBoardCards();
       return data;
+    } else {
+      archiveResultEl.textContent = 'Failed to archive tasks. Please try again.';
+      archiveResultEl.style.color = '#dc2626';
     }
   } catch {
-    // Ignore errors during archive
+    archiveResultEl.textContent = 'Failed to archive tasks. Network error.';
+    archiveResultEl.style.color = '#dc2626';
   }
   return null;
 }
@@ -67,7 +75,7 @@ function initPurgeModal(burgerDropdown: HTMLElement): void {
 
   purgeConfirmBtn.addEventListener('click', () => {
     purgeModal.classList.remove('show');
-    void executePurge();
+    void executePurge(purgeResultEl);
   });
 }
 
@@ -95,8 +103,10 @@ function initArchiveModal(burgerDropdown: HTMLElement): void {
   });
 
   archiveConfirmBtn.addEventListener('click', async () => {
-    await executeArchive();
-    safeArchiveModal.classList.remove('show');
+    const result = await executeArchive(safeArchiveResultEl);
+    if (result !== null) {
+      safeArchiveModal.classList.remove('show');
+    }
   });
 }
 

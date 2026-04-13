@@ -111,4 +111,57 @@ describe('burger menu archive tasks', () => {
       expect(refreshBoardCards).toHaveBeenCalled();
     });
   });
+
+  it('displays error message in archive-result when archive API returns non-ok response', async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: false,
+      json: vi.fn().mockResolvedValue({ error: 'Server error' }),
+    } as unknown as Response);
+
+    initBurgerMenu();
+
+    const archiveConfirmBtn = document.getElementById('archive-confirm-btn')!;
+    const archiveResultEl = document.getElementById('archive-result')!;
+    archiveConfirmBtn.click();
+
+    await vi.waitFor(() => {
+      expect(archiveResultEl.textContent).not.toBe('');
+    });
+    expect(archiveResultEl.style.color).toBe('rgb(220, 38, 38)');
+  });
+
+  it('displays error message in archive-result when fetch throws', async () => {
+    global.fetch = vi.fn().mockRejectedValue(new Error('Network error'));
+
+    initBurgerMenu();
+
+    const archiveConfirmBtn = document.getElementById('archive-confirm-btn')!;
+    const archiveResultEl = document.getElementById('archive-result')!;
+    archiveConfirmBtn.click();
+
+    await vi.waitFor(() => {
+      expect(archiveResultEl.textContent).not.toBe('');
+    });
+    expect(archiveResultEl.style.color).toBe('rgb(220, 38, 38)');
+  });
+
+  it('does not close the archive modal when archive API fails', async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: false,
+      json: vi.fn().mockResolvedValue({ error: 'Server error' }),
+    } as unknown as Response);
+
+    initBurgerMenu();
+
+    const archiveModal = document.getElementById('archive-confirm-modal')!;
+    const archiveConfirmBtn = document.getElementById('archive-confirm-btn')!;
+
+    archiveModal.classList.add('show');
+    archiveConfirmBtn.click();
+
+    await vi.waitFor(() => {
+      expect(document.getElementById('archive-result')!.textContent).not.toBe('');
+    });
+    expect(archiveModal.classList.contains('show')).toBe(true);
+  });
 });
