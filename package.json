@@ -17,7 +17,7 @@
     "dev": "tsc --watch",
     "board": "pnpm run build && node dist/cli/index.js board",
     "start": "node dist/cli/index.js",
-    "test": "vitest",
+    "test": "vitest run",
     "test:all": "pnpm install && pnpm run build && pnpm run type-check && pnpm run lint && vitest run && pnpm run test:e2e",
     "test:errors": "vitest run --reporter=./tests/reporters/error-only.ts",
     "test:e2e": "./test-e2e.sh",
