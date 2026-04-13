@@ -300,6 +300,26 @@ function registerUtilityRoutes(app: Hono, ts: TaskService): void {
       tasks: tasks.map((t) => ({ id: t.id, title: t.title, status: t.status, updated_at: t.updated_at })),
     });
   });
+  app.post('/api/tasks/:id/unarchive', async (c) => {
+    const idStr = c.req.param('id');
+    const id = parseInt(idStr, 10);
+    if (isNaN(id)) {
+      return c.json({ error: 'Invalid task ID' }, 400);
+    }
+
+    const task = ts.unarchiveTask(id);
+    if (!task) {
+      return c.json({ error: 'Task not found' }, 404);
+    }
+
+    return c.json({
+      id: task.id,
+      title: task.title,
+      status: task.status,
+      is_archived: task.is_archived,
+      updated_at: task.updated_at,
+    });
+  });
   app.get('/api/version', (c) => {
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     const { version } = require('../../package.json') as { version: string };
