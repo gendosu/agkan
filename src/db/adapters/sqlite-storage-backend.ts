@@ -228,7 +228,9 @@ class SQLiteTaskRepository implements TaskRepository {
   archiveMany(ids: number[]): number {
     if (ids.length === 0) return 0;
     const placeholders = ids.map(() => '?').join(', ');
-    const result = this.db.prepare(`UPDATE tasks SET is_archived = 1 WHERE id IN (${placeholders})`).run(...ids);
+    const result = this.db
+      .prepare(`UPDATE tasks SET is_archived = 1, updated_at = datetime('now') WHERE id IN (${placeholders})`)
+      .run(...ids);
     return result.changes;
   }
 }

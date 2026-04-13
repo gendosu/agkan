@@ -4,7 +4,7 @@
 
 import { describe, it, expect, beforeEach } from 'vitest';
 import { TaskService } from '../../src/services';
-import { getDatabase } from '../../src/db/connection';
+import { getDatabase, getStorageBackend } from '../../src/db/connection';
 
 function resetDatabase() {
   const db = getDatabase();
@@ -153,5 +153,33 @@ describe('TaskService.archiveTasksBefore', () => {
     const ids = tasks.map((t) => t.id);
     expect(ids).toContain(visibleTask.id);
     expect(ids).not.toContain(archivedTask.id);
+  });
+});
+
+describe('getBoardUpdatedAtSignature changes after archiveTasksBefore', () => {
+  let taskService: TaskService;
+
+  beforeEach(() => {
+    const db = getDatabase();
+    db.exec('DELETE FROM task_tags');
+    db.exec('DELETE FROM task_blocks');
+    db.exec('DELETE FROM tasks');
+    db.exec("DELETE FROM sqlite_sequence WHERE name='tasks'");
+    taskService = new TaskService();
+  });
+
+  it('should change getBoardUpdatedAtSignature after archiving tasks', () => {
+    const task = taskService.createTask({ title: 'Old done task', status: 'done' });
+    const db = getDatabase();
+    db.prepare('UPDATE tasks SET updated_at = ? WHERE id = ?').run('2025-06-01T00:00:00.000Z', task.id);
+
+    const backend = getStorageBackend();
+    const signatureBefore = backend.getBoardUpdatedAtSignature();
+
+    taskService.archiveTasksBefore('2026-01-01T00:00:00.000Z');
+
+    const signatureAfter = backend.getBoardUpdatedAtSignature();
+
+    expect(signatureAfter).not.toBe(signatureBefore);
   });
 });
