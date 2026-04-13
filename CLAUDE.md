@@ -8,6 +8,8 @@
 - Use agkan for task management
 - Write commit messages in English
 - When receiving any request from the user for this project, register all work as agkan tasks first, then wait for the user's instruction before starting work
+- If a background task does not finish, wait at least 30 minutes before considering next actions
+  - Never retry just because it hasn't finished — duplicate processes are strictly prohibited
 
 ## Agkan Tag Guidelines
 

@@ -24,6 +24,7 @@ interface TaskOutputData {
   status: string;
   priority: string | null;
   parent_id: number | null;
+  is_archived: number;
   created_at: string;
   updated_at: string;
 }
@@ -53,6 +54,7 @@ function formatTaskOutput(task: Task): TaskOutputData {
     status: task.status,
     priority: task.priority,
     parent_id: task.parent_id,
+    is_archived: task.is_archived,
     created_at: task.created_at,
     updated_at: task.updated_at,
   };
@@ -176,6 +178,9 @@ function renderTaskHeader(task: Task): void {
   const statusColor = getStatusColor(task.status);
   console.log(chalk.bold(`\nTask #${task.id}`));
   console.log(chalk.bold('═'.repeat(80)));
+  if (task.is_archived) {
+    console.log(chalk.yellow.bold('[ARCHIVED]'));
+  }
   console.log(`${chalk.bold('Title:')} ${task.title}`);
   console.log(`${chalk.bold('Status:')} ${chalk[statusColor](task.status)}`);
   if (task.author) {

@@ -73,6 +73,24 @@ describe('GET /api/tasks', () => {
     const data = (await res.json()) as { tasks: Array<{ title: string }> };
     expect(data.tasks).toHaveLength(2);
   });
+
+  it('excludes archived tasks (is_archived=1) by default and includes them with all=true', async () => {
+    const services = buildServices();
+    services.ts.createTask({ title: 'Task A', status: 'backlog' });
+    const archivedTask = services.ts.createTask({ title: 'Task Archived', status: 'done' });
+    services.ts.archiveTasksBefore(new Date(Date.now() + 86400000).toISOString(), ['done']);
+    const app = buildApp(services);
+
+    const defaultRes = await app.fetch(new Request('http://localhost/api/tasks'));
+    const defaultData = (await defaultRes.json()) as { tasks: Array<{ title: string }> };
+    expect(defaultData.tasks).toHaveLength(1);
+    expect(defaultData.tasks[0].title).toBe('Task A');
+
+    const allRes = await app.fetch(new Request('http://localhost/api/tasks?all=true'));
+    const allData = (await allRes.json()) as { tasks: Array<{ title: string }> };
+    expect(allData.tasks).toHaveLength(2);
+    void archivedTask;
+  });
 });
 
 // ─────────────────────────────────────────────────────────────────────────────

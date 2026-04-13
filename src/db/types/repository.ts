@@ -38,6 +38,8 @@ export interface TaskFilter {
   tagIds?: number[];
   priority?: Priority | Priority[];
   search?: string;
+  /** If true, include archived tasks (is_archived=1). Default: false (exclude archived) */
+  includeArchived?: boolean;
 }
 
 /** Sort options for task listing */
@@ -68,6 +70,10 @@ export interface TaskRepository {
   findForPurge(beforeDate: string, statuses: TaskStatus[]): Task[];
   /** Delete multiple tasks by IDs */
   deleteMany(ids: number[]): number;
+  /** Set is_archived=1 on multiple tasks by IDs */
+  archiveMany(ids: number[]): number;
+  /** Set is_archived=0 on multiple tasks by IDs */
+  unarchiveMany(ids: number[]): number;
 }
 
 /**

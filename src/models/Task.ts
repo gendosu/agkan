@@ -25,6 +25,7 @@ export interface Task {
   created_at: string;
   updated_at: string;
   parent_id: number | null;
+  is_archived: 0 | 1;
 }
 
 /**

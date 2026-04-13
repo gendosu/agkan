@@ -327,5 +327,11 @@ describe('Input Validators', () => {
       ]);
       expect(errors).toEqual([]);
     });
+
+    it('should reject archive as an invalid status', () => {
+      const errors = validateMultipleStatuses(['archive']);
+      expect(errors).toHaveLength(1);
+      expect(errors[0].message).toContain('Invalid status: archive');
+    });
   });
 });

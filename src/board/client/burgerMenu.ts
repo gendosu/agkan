@@ -16,7 +16,7 @@ function initBurgerToggle(burgerBtn: HTMLButtonElement, burgerDropdown: HTMLElem
   });
 }
 
-async function executePurge(): Promise<void> {
+async function executePurge(purgeResultEl: HTMLElement): Promise<void> {
   try {
     const res = await fetch('/api/tasks/purge', {
       method: 'POST',
@@ -25,10 +25,36 @@ async function executePurge(): Promise<void> {
     });
     if (res.ok) {
       await refreshBoardCards();
+    } else {
+      purgeResultEl.textContent = 'Failed to purge tasks. Please try again.';
+      purgeResultEl.style.color = '#dc2626';
     }
   } catch {
-    // Ignore errors during purge
+    purgeResultEl.textContent = 'Failed to purge tasks. Network error.';
+    purgeResultEl.style.color = '#dc2626';
   }
+}
+
+async function executeArchive(archiveResultEl: HTMLElement): Promise<{ count: number } | null> {
+  try {
+    const res = await fetch('/api/tasks/archive', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({}),
+    });
+    if (res.ok) {
+      const data = (await res.json()) as { count: number };
+      await refreshBoardCards();
+      return data;
+    } else {
+      archiveResultEl.textContent = 'Failed to archive tasks. Please try again.';
+      archiveResultEl.style.color = '#dc2626';
+    }
+  } catch {
+    archiveResultEl.textContent = 'Failed to archive tasks. Network error.';
+    archiveResultEl.style.color = '#dc2626';
+  }
+  return null;
 }
 
 function initPurgeModal(burgerDropdown: HTMLElement): void {
@@ -49,7 +75,38 @@ function initPurgeModal(burgerDropdown: HTMLElement): void {
 
   purgeConfirmBtn.addEventListener('click', () => {
     purgeModal.classList.remove('show');
-    void executePurge();
+    void executePurge(purgeResultEl);
+  });
+}
+
+function initArchiveModal(burgerDropdown: HTMLElement): void {
+  const archiveModal = document.getElementById('archive-confirm-modal');
+  const archiveConfirmBtn = document.getElementById('archive-confirm-btn') as HTMLButtonElement | null;
+  const archiveCancelBtn = document.getElementById('archive-cancel-btn') as HTMLButtonElement | null;
+  const archiveResultEl = document.getElementById('archive-result');
+
+  if (!archiveModal || !archiveConfirmBtn || !archiveCancelBtn || !archiveResultEl) {
+    return;
+  }
+
+  const safeArchiveModal = archiveModal as HTMLElement;
+  const safeArchiveResultEl = archiveResultEl as HTMLElement;
+
+  document.getElementById('burger-archive-tasks')?.addEventListener('click', () => {
+    burgerDropdown.classList.remove('open');
+    safeArchiveResultEl.textContent = '';
+    safeArchiveModal.classList.add('show');
+  });
+
+  archiveCancelBtn.addEventListener('click', () => {
+    safeArchiveModal.classList.remove('show');
+  });
+
+  archiveConfirmBtn.addEventListener('click', async () => {
+    const result = await executeArchive(safeArchiveResultEl);
+    if (result !== null) {
+      safeArchiveModal.classList.remove('show');
+    }
   });
 }
 
@@ -190,6 +247,7 @@ export function initBurgerMenu(): void {
 
   initBurgerToggle(burgerBtn, burgerDropdown);
   initPurgeModal(burgerDropdown);
+  initArchiveModal(burgerDropdown);
   initExportModal(burgerDropdown);
   initImportModal(burgerDropdown);
   initVersionModal(burgerDropdown);

@@ -43,6 +43,9 @@ const PRIORITY_ORDER_EXPR = `CASE priority WHEN 'critical' THEN 4 WHEN 'high' TH
 class SQLiteTaskRepository implements TaskRepository {
   constructor(private db: Database.Database) {}
 
+  // NOTE: Returns archived tasks intentionally.
+  // Used by 'task get' to display archived task details.
+  // Callers setting parent relationships should validate is_archived if needed.
   findById(id: number): Task | null {
     const row = this.db.prepare('SELECT * FROM tasks WHERE id = ?').get(id) as Task | undefined;
     return row ?? null;
@@ -77,6 +80,9 @@ class SQLiteTaskRepository implements TaskRepository {
 
   private buildFilterClauses(filter: TaskFilter | undefined, tablePrefix: string, params: (string | number)[]): string {
     let clause = '';
+    if (!filter?.includeArchived) {
+      clause += ` AND ${tablePrefix}is_archived = 0`;
+    }
     if (filter?.status) {
       const statuses = Array.isArray(filter.status) ? filter.status : [filter.status];
       if (statuses.length > 0) {
@@ -179,12 +185,14 @@ class SQLiteTaskRepository implements TaskRepository {
 
   findChildren(parentId: number): Task[] {
     return this.db
-      .prepare('SELECT * FROM tasks WHERE parent_id = ? ORDER BY created_at ASC')
+      .prepare('SELECT * FROM tasks WHERE parent_id = ? AND is_archived = 0 ORDER BY created_at ASC')
       .all(parentId) as unknown as Task[];
   }
 
   countByStatus(): Record<TaskStatus, number> {
-    const results = this.db.prepare('SELECT status, COUNT(*) as count FROM tasks GROUP BY status').all() as Array<{
+    const results = this.db
+      .prepare('SELECT status, COUNT(*) as count FROM tasks WHERE is_archived = 0 GROUP BY status')
+      .all() as Array<{
       status: TaskStatus;
       count: number;
     }>;
@@ -209,7 +217,7 @@ class SQLiteTaskRepository implements TaskRepository {
   findForPurge(beforeDate: string, statuses: TaskStatus[]): Task[] {
     if (statuses.length === 0) return [];
     const placeholders = statuses.map(() => '?').join(', ');
-    const query = `SELECT * FROM tasks WHERE status IN (${placeholders}) AND updated_at < ? ORDER BY updated_at ASC`;
+    const query = `SELECT * FROM tasks WHERE status IN (${placeholders}) AND updated_at < ? AND is_archived = 0 ORDER BY updated_at ASC`;
     return this.db.prepare(query).all(...statuses, beforeDate) as unknown as Task[];
   }
 
@@ -217,6 +225,24 @@ class SQLiteTaskRepository implements TaskRepository {
     if (ids.length === 0) return 0;
     const placeholders = ids.map(() => '?').join(', ');
     const result = this.db.prepare(`DELETE FROM tasks WHERE id IN (${placeholders})`).run(...ids);
+    return result.changes;
+  }
+
+  archiveMany(ids: number[]): number {
+    if (ids.length === 0) return 0;
+    const placeholders = ids.map(() => '?').join(', ');
+    const result = this.db
+      .prepare(`UPDATE tasks SET is_archived = 1, updated_at = datetime('now') WHERE id IN (${placeholders})`)
+      .run(...ids);
+    return result.changes;
+  }
+
+  unarchiveMany(ids: number[]): number {
+    if (ids.length === 0) return 0;
+    const placeholders = ids.map(() => '?').join(', ');
+    const result = this.db
+      .prepare(`UPDATE tasks SET is_archived = 0, updated_at = datetime('now') WHERE id IN (${placeholders})`)
+      .run(...ids);
     return result.changes;
   }
 }

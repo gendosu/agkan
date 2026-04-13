@@ -9,6 +9,11 @@ import { getDatabase } from '../../../../src/db/connection';
 import { TaskService, TaskBlockService, TaskTagService, TagService } from '../../../../src/services';
 import { createProgram, runCommand } from '../../../helpers/command-test-utils';
 
+function archiveTask(id: number) {
+  const db = getDatabase();
+  db.prepare('UPDATE tasks SET is_archived = 1 WHERE id = ?').run(id);
+}
+
 function resetDatabase() {
   const db = getDatabase();
   db.exec('DELETE FROM task_tags');
@@ -345,5 +350,56 @@ describe('setupTaskGetCommand', () => {
     const output = logs.join('\n');
     expect(output).toContain('Assignees:');
     expect(output).toContain('alice,bob');
+  });
+
+  describe('archived task', () => {
+    it('should display [ARCHIVED] indicator in text output for archived task', async () => {
+      const taskService = new TaskService();
+      const task = taskService.createTask({ title: 'Archived Task', status: 'done' });
+      archiveTask(task.id);
+
+      const { exitCode, logs } = await runCommand(program, ['task', 'get', String(task.id)]);
+      expect(exitCode).toBeUndefined();
+
+      const output = logs.join('\n');
+      expect(output).toContain('[ARCHIVED]');
+      expect(output).toContain('Archived Task');
+    });
+
+    it('should not display [ARCHIVED] indicator for non-archived task', async () => {
+      const taskService = new TaskService();
+      const task = taskService.createTask({ title: 'Normal Task', status: 'ready' });
+
+      const { exitCode, logs } = await runCommand(program, ['task', 'get', String(task.id)]);
+      expect(exitCode).toBeUndefined();
+
+      const output = logs.join('\n');
+      expect(output).not.toContain('[ARCHIVED]');
+    });
+
+    it('should include is_archived in JSON output for archived task', async () => {
+      const taskService = new TaskService();
+      const task = taskService.createTask({ title: 'Archived JSON Task', status: 'done' });
+      archiveTask(task.id);
+
+      const { exitCode, logs } = await runCommand(program, ['task', 'get', String(task.id), '--json']);
+      expect(exitCode).toBeUndefined();
+
+      const parsed = JSON.parse(logs[0]);
+      expect(parsed.success).toBe(true);
+      expect(parsed.task.is_archived).toBe(1);
+    });
+
+    it('should include is_archived=0 in JSON output for non-archived task', async () => {
+      const taskService = new TaskService();
+      const task = taskService.createTask({ title: 'Non-archived JSON Task', status: 'ready' });
+
+      const { exitCode, logs } = await runCommand(program, ['task', 'get', String(task.id), '--json']);
+      expect(exitCode).toBeUndefined();
+
+      const parsed = JSON.parse(logs[0]);
+      expect(parsed.success).toBe(true);
+      expect(parsed.task.is_archived).toBe(0);
+    });
   });
 });

@@ -122,6 +122,7 @@ describe('setupTaskFindCommand', () => {
     const taskService = new TaskService();
     taskService.createTask({ title: 'Active task', status: 'ready' });
     taskService.createTask({ title: 'Done task', status: 'done' });
+    taskService.createTask({ title: 'Closed task', status: 'closed' });
 
     const consoleLogs: string[] = [];
     const originalLog = console.log;
@@ -140,6 +141,7 @@ describe('setupTaskFindCommand', () => {
     const output = consoleLogs.join('\n');
     expect(output).toContain('Active task');
     expect(output).toContain('Done task');
+    expect(output).toContain('Closed task');
   });
 
   it('should output JSON format with --json option', async () => {

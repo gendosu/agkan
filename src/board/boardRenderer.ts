@@ -6,9 +6,10 @@ import { StorageBackend } from '../db/types/repository';
 import { BOARD_STYLES } from './boardStyles';
 import { BOARD_FAVICON_BASE64 } from './boardFavicon';
 
-export const STATUSES: TaskStatus[] = ['icebox', 'backlog', 'ready', 'in_progress', 'review', 'done', 'closed'];
+type BoardStatus = TaskStatus;
+export const STATUSES: BoardStatus[] = ['icebox', 'backlog', 'ready', 'in_progress', 'review', 'done', 'closed'];
 
-export const STATUS_LABELS: Record<TaskStatus, string> = {
+export const STATUS_LABELS: Record<BoardStatus, string> = {
   icebox: 'Icebox',
   backlog: 'Backlog',
   ready: 'Ready',
@@ -18,7 +19,7 @@ export const STATUS_LABELS: Record<TaskStatus, string> = {
   closed: 'Closed',
 };
 
-export const STATUS_COLORS: Record<TaskStatus, string> = {
+export const STATUS_COLORS: Record<BoardStatus, string> = {
   icebox: '#6b7280',
   backlog: '#3b82f6',
   ready: '#8b5cf6',
@@ -66,7 +67,7 @@ export function renderCard(task: Task, tags: Tag[], blockedByIds: number[] = [],
 }
 
 export function renderColumn(
-  status: TaskStatus,
+  status: BoardStatus,
   tasks: Task[],
   tagMap: Map<number, Tag[]>,
   blockMap: Map<number, { blockedBy: number[]; blocking: number[] }> = new Map()
@@ -169,6 +170,17 @@ function getPurgeAndVersionModals(): string {
       </div>
     </div>
   </div>
+  <div class="modal-overlay" id="archive-confirm-modal">
+    <div class="modal">
+      <h2>Archive Tasks</h2>
+      <p style="font-size:13px;color:#64748b;margin-bottom:16px;">Archive all done/closed tasks older than 3 days. Archived tasks are hidden from the board but not deleted.</p>
+      <p id="archive-result" style="font-size:13px;color:#16a34a;min-height:18px;margin-bottom:8px;"></p>
+      <div class="modal-actions">
+        <button id="archive-cancel-btn">Cancel</button>
+        <button id="archive-confirm-btn" class="primary">Archive</button>
+      </div>
+    </div>
+  </div>
   <div class="modal-overlay" id="import-modal">
     <div class="modal" style="width:420px;">
       <h2>Import Tasks</h2>
@@ -251,7 +263,7 @@ export function renderBoard(
   </style>
 </head>
 <body>
-  <header><h1>agkan board<div id="header-running-indicator" style="display:none"></div></h1>${titleHtml}<div class="burger-menu-wrapper"><button class="burger-menu-btn" id="burger-menu-btn" title="Menu" aria-label="Menu"><span></span><span></span><span></span></button><div class="burger-menu-dropdown" id="burger-menu-dropdown"><div class="burger-menu-item danger" id="burger-purge-tasks">&#128465; Purge Tasks</div><div class="burger-menu-item" id="burger-export-tasks">&#8595; Export Tasks</div><div class="burger-menu-item" id="burger-import-tasks">&#8593; Import Tasks</div><div class="burger-menu-item" id="burger-version-info">&#8505; Version Info</div><div class="burger-menu-separator"></div><div class="burger-menu-item" id="burger-theme-dark">Dark Mode</div><div class="burger-menu-item" id="burger-theme-light">Light Mode</div><div class="burger-menu-item" id="burger-theme-system">System Setting</div></div></div></header>
+  <header><h1>agkan board<div id="header-running-indicator" style="display:none"></div></h1>${titleHtml}<div class="burger-menu-wrapper"><button class="burger-menu-btn" id="burger-menu-btn" title="Menu" aria-label="Menu"><span></span><span></span><span></span></button><div class="burger-menu-dropdown" id="burger-menu-dropdown"><div class="burger-menu-item danger" id="burger-purge-tasks">&#128465; Purge Tasks</div><div class="burger-menu-item" id="burger-archive-tasks">&#128230; Archive Tasks</div><div class="burger-menu-item" id="burger-export-tasks">&#8595; Export Tasks</div><div class="burger-menu-item" id="burger-import-tasks">&#8593; Import Tasks</div><div class="burger-menu-item" id="burger-version-info">&#8505; Version Info</div><div class="burger-menu-separator"></div><div class="burger-menu-item" id="burger-theme-dark">Dark Mode</div><div class="burger-menu-item" id="burger-theme-light">Light Mode</div><div class="burger-menu-item" id="burger-theme-system">System Setting</div></div></div></header>
   <div class="filter-bar" id="filter-bar">
     <div class="filter-group">
       <input type="search" id="filter-search" class="filter-search-input" placeholder="Search tasks...">
@@ -293,7 +305,7 @@ export function buildBoardCardsPayload(
   tasksByStatus: Map<TaskStatus, Task[]>,
   tagMap: Map<number, Tag[]>,
   blockMap: Map<number, { blockedBy: number[]; blocking: number[] }> = new Map()
-): { status: TaskStatus; html: string; count: number }[] {
+): { status: BoardStatus; html: string; count: number }[] {
   return STATUSES.map((status) => {
     const tasks = tasksByStatus.get(status) || [];
     const html = tasks

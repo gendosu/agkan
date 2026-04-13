@@ -83,7 +83,7 @@ export class TaskService {
 
   /**
    * Get task list
-   * @param filters - Filter criteria (status, author, tagIds)
+   * @param filters - Filter criteria (status, author, tagIds, includeArchived)
    * @param sort - Sort field (default: created_at)
    * @param order - Sort order (default: desc)
    * @returns Array of tasks
@@ -96,22 +96,25 @@ export class TaskService {
       tagIds?: number[];
       priority?: string | string[];
       search?: string;
+      includeArchived?: boolean;
     },
     sort?: SortField,
     order?: SortOrder
   ): Task[] {
-    const sortField = sort && ALLOWED_SORT_FIELDS.includes(sort) ? sort : 'created_at';
+    const sortField: SortField = sort && ALLOWED_SORT_FIELDS.includes(sort) ? sort : 'created_at';
     const sortOrder: SortOrder = order === 'asc' ? 'asc' : 'desc';
+    const { status, author, assignees, tagIds, priority, search, includeArchived } = filters ?? {};
 
     return this.backend.tasks.findAll(
       {
-        status: filters?.status,
-        author: filters?.author,
-        assignees: filters?.assignees,
-        tagIds: filters?.tagIds,
+        status,
+        author,
+        assignees,
+        tagIds,
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        priority: filters?.priority as any,
-        search: filters?.search,
+        priority: priority as any,
+        search,
+        includeArchived,
       },
       { field: sortField, order: sortOrder }
     );
@@ -191,6 +194,43 @@ export class TaskService {
     }
 
     return tasks;
+  }
+
+  /**
+   * Archive tasks that match given statuses and were last updated before the given date
+   * Sets is_archived=1 on matching tasks instead of deleting them.
+   * @param beforeDate - ISO date string; tasks updated before this date are eligible
+   * @param statuses - Array of statuses to target (default: ['done', 'closed'])
+   * @param dryRun - If true, return matching tasks without archiving them
+   * @returns Array of archived (or would-be-archived) tasks
+   */
+  archiveTasksBefore(beforeDate: string, statuses: TaskStatus[] = ['done', 'closed'], dryRun: boolean = false): Task[] {
+    if (statuses.length === 0) {
+      return [];
+    }
+
+    const tasks = this.backend.tasks.findForPurge(beforeDate, statuses);
+
+    if (!dryRun && tasks.length > 0) {
+      this.backend.tasks.archiveMany(tasks.map((t) => t.id));
+    }
+
+    return tasks;
+  }
+
+  /**
+   * Unarchive a single task by ID
+   * @param id - Task ID to unarchive
+   * @returns Unarchived task or null if not found
+   */
+  unarchiveTask(id: number): Task | null {
+    const task = this.backend.tasks.findById(id);
+    if (!task) {
+      return null;
+    }
+
+    this.backend.tasks.unarchiveMany([id]);
+    return this.backend.tasks.findById(id);
   }
 
   /**

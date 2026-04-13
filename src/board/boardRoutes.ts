@@ -12,6 +12,7 @@ import { TaskStatus, isPriority, Priority } from '../models';
 import { ConflictError } from '../errors';
 import { StorageBackend } from '../db/types/repository';
 import { readBoardConfig, writeBoardConfig, DETAIL_PANE_MAX_WIDTH, VALID_THEMES, ThemePreference } from './boardConfig';
+import { daysAgoIso } from '../utils/date';
 import {
   buildTasksByStatus,
   getBoardUpdatedAt,
@@ -37,11 +38,13 @@ export type BoardServices = {
 type TaskPatchBody = {
   title?: string;
   body?: string | null;
-  status?: TaskStatus;
+  status?: BoardTaskStatus;
   priority?: string | null;
 };
 
-type TaskUpdateInput = { title?: string; body?: string; status?: TaskStatus; priority?: Priority | null };
+type BoardTaskStatus = TaskStatus;
+type TaskUpdateInput = { title?: string; body?: string; status?: BoardTaskStatus; priority?: Priority | null };
+const NON_ARCHIVE_STATUSES: TaskStatus[] = ['icebox', 'backlog', 'ready', 'in_progress', 'review', 'done', 'closed'];
 
 function buildTaskUpdateInput(body: TaskPatchBody): { input: TaskUpdateInput; error?: string } {
   const input: TaskUpdateInput = {};
@@ -79,12 +82,18 @@ function registerTaskCrudRoutes(
   ms: MetadataService,
   tags: TagService
 ): void {
-  app.get('/api/tasks', (c) => c.json({ tasks: ts.listTasks({}, 'id', 'asc') }));
+  app.get('/api/tasks', (c) => {
+    const includeAll = c.req.query('all') === 'true' || c.req.query('all') === '1';
+    if (includeAll) {
+      return c.json({ tasks: ts.listTasks({ includeArchived: true }, 'id', 'asc') });
+    }
+    return c.json({ tasks: ts.listTasks({}, 'id', 'asc') });
+  });
   app.post('/api/tasks', async (c) => {
     const body = await c.req.json<{
       title: string;
       body?: string | null;
-      status?: TaskStatus;
+      status?: BoardTaskStatus;
       priority?: string | null;
       tags?: unknown;
       metadata?: unknown;
@@ -262,14 +271,50 @@ function registerUtilityRoutes(app: Hono, ts: TaskService): void {
       }
       beforeDate = parsed.toISOString();
     } else {
-      const d = new Date();
-      d.setDate(d.getDate() - 3);
-      beforeDate = d.toISOString();
+      beforeDate = daysAgoIso(3);
     }
     const tasks = ts.purgeTasksBefore(beforeDate, ['done', 'closed'], false);
     return c.json({
       count: tasks.length,
       tasks: tasks.map((t) => ({ id: t.id, title: t.title, status: t.status, updated_at: t.updated_at })),
+    });
+  });
+  app.post('/api/tasks/archive', async (c) => {
+    const body = (await c.req.json().catch(() => ({}))) as { beforeDate?: string };
+    let beforeDate: string;
+    if (body.beforeDate !== undefined) {
+      const parsed = new Date(body.beforeDate);
+      if (isNaN(parsed.getTime())) {
+        return c.json({ error: 'Invalid beforeDate. Use ISO 8601 format.' }, 400);
+      }
+      beforeDate = parsed.toISOString();
+    } else {
+      beforeDate = daysAgoIso(3);
+    }
+    const tasks = ts.archiveTasksBefore(beforeDate, ['done', 'closed'], false);
+    return c.json({
+      count: tasks.length,
+      tasks: tasks.map((t) => ({ id: t.id, title: t.title, status: t.status, updated_at: t.updated_at })),
+    });
+  });
+  app.post('/api/tasks/:id/unarchive', async (c) => {
+    const idStr = c.req.param('id');
+    const id = parseInt(idStr, 10);
+    if (isNaN(id)) {
+      return c.json({ error: 'Invalid task ID' }, 400);
+    }
+
+    const task = ts.unarchiveTask(id);
+    if (!task) {
+      return c.json({ error: 'Task not found' }, 404);
+    }
+
+    return c.json({
+      id: task.id,
+      title: task.title,
+      status: task.status,
+      is_archived: task.is_archived,
+      updated_at: task.updated_at,
     });
   });
   app.get('/api/version', (c) => {
@@ -352,7 +397,13 @@ export function registerConfigApiRoutes(app: Hono, configDir: string): void {
   });
 }
 
-type BoardCardFilters = { tagIds?: number[]; priority?: string[]; assignees?: string; search?: string };
+type BoardCardFilters = {
+  status?: TaskStatus[];
+  tagIds?: number[];
+  priority?: string[];
+  assignees?: string;
+  search?: string;
+};
 
 function parseBoardCardFilters(query: {
   tags?: string;
@@ -360,7 +411,7 @@ function parseBoardCardFilters(query: {
   assignee?: string;
   search?: string;
 }): BoardCardFilters {
-  const filters: BoardCardFilters = {};
+  const filters: BoardCardFilters = { status: NON_ARCHIVE_STATUSES };
   if (query.tags) {
     const tagIds = query.tags
       .split(',')
@@ -501,7 +552,7 @@ export function registerBoardRoutes(app: Hono, services: BoardServices): void {
   });
 
   app.get('/', (c) => {
-    const tasksByStatus = buildTasksByStatus(ts.listTasks({}, 'id', 'asc'));
+    const tasksByStatus = buildTasksByStatus(ts.listTasks({ status: NON_ARCHIVE_STATUSES }, 'id', 'asc'));
     const boardConfig = readBoardConfig(configDir);
     const blockMap = buildBlockMap(tbs.getAllBlocks());
     return c.html(renderBoard(tasksByStatus, tts.getAllTaskTags(), boardTitle, boardConfig.theme, blockMap));

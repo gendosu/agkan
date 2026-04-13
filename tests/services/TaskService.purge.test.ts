@@ -122,3 +122,36 @@ describe('TaskService.purgeTasksBefore', () => {
     expect(taskService.getTask(task3.id)).not.toBeNull();
   });
 });
+
+describe('TaskService.archiveTasksBefore', () => {
+  let taskService: TaskService;
+
+  beforeEach(() => {
+    resetDatabase();
+    taskService = new TaskService();
+  });
+
+  it('should archive done tasks updated before the given date', () => {
+    const task = taskService.createTask({ title: 'Old done task', status: 'done' });
+    setUpdatedAt(task.id, '2025-06-01T00:00:00.000Z');
+
+    const archived = taskService.archiveTasksBefore('2026-01-01T00:00:00.000Z');
+    const updated = taskService.getTask(task.id);
+
+    expect(archived).toHaveLength(1);
+    expect(archived[0].id).toBe(task.id);
+    expect(updated?.is_archived).toBe(1);
+    expect(updated?.status).toBe('done');
+  });
+
+  it('should respect dryRun and keep original statuses', () => {
+    const task = taskService.createTask({ title: 'Old done task', status: 'done' });
+    setUpdatedAt(task.id, '2025-06-01T00:00:00.000Z');
+
+    const archived = taskService.archiveTasksBefore('2026-01-01T00:00:00.000Z', ['done'], true);
+    const updated = taskService.getTask(task.id);
+
+    expect(archived).toHaveLength(1);
+    expect(updated?.status).toBe('done');
+  });
+});
