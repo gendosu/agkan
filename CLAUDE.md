@@ -1,4 +1,6 @@
 - Use comprehensive testing with tests/ and e2etest.sh
+- Tests take 15 minutes to run
+- git push has hooks configured that run tests
 - Follow key-guidelines strictly
 - When creating plans in plan mode, use checklist format
 - Tags should be applied to the main branch
