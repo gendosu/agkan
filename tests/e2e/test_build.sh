@@ -8,7 +8,7 @@ test_build() {
     print_section "Section 1: Build"
 
     print_test "Running build..."
-    if npm run build > /dev/null 2>&1; then
+    if pnpm run build > /dev/null 2>&1; then
         print_success "Build completed successfully"
         return 0
     else
