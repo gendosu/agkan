@@ -12,7 +12,7 @@
 #
 # Requirements:
 #   - Node.js and npm installed
-#   - Project built (npm run build)
+#   - Project built (pnpm run build)
 #   - Clean test database
 ################################################################################
 

@@ -14,7 +14,7 @@ while read local_ref local_sha remote_ref remote_sha; do
   fi
 
   if echo "$changed_files" | grep -qE "$NODE_PATTERN"; then
-    npm run build:client && npx vitest run
+    pnpm build && pnpm vitest run
     exit $?
   fi
 done
