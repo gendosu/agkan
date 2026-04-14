@@ -45,6 +45,7 @@ source "$E2E_DIR/test_board.sh"
 source "$E2E_DIR/test_board_daemon.sh"
 source "$E2E_DIR/test_task_comments.sh"
 source "$E2E_DIR/test_task_copy.sh"
+source "$E2E_DIR/test_task_archive.sh"
 
 ################################################################################
 # Main Test Execution
@@ -73,6 +74,7 @@ main() {
     test_board_daemon
     test_task_comments
     test_task_copy
+    test_task_archive
 
     # Cleanup
     cleanup_test_db
