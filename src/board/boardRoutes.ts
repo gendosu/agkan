@@ -1,3 +1,5 @@
+import * as fs from 'fs';
+import * as path from 'path';
 import { Hono } from 'hono';
 import { verboseLog } from '../utils/logger';
 import { TaskService } from '../services/TaskService';
@@ -549,6 +551,24 @@ export function registerBoardRoutes(app: Hono, services: BoardServices): void {
     verboseLog(`[boardRoutes] ${c.req.method} ${c.req.path}`);
     await next();
     verboseLog(`[boardRoutes] ${c.req.method} ${c.req.path} -> ${c.res.status}`);
+  });
+
+  app.get('/static/board.js', (c) => {
+    const candidates = [
+      path.join(__dirname, 'client', 'board.js'),
+      path.join(__dirname, '..', '..', 'dist', 'board', 'client', 'board.js'),
+    ];
+    for (const bundlePath of candidates) {
+      try {
+        const content = fs.readFileSync(bundlePath, 'utf8');
+        return new Response(content, {
+          headers: { 'Content-Type': 'application/javascript; charset=utf-8' },
+        });
+      } catch {
+        // Try next candidate
+      }
+    }
+    return c.notFound();
   });
 
   app.get('/', (c) => {
