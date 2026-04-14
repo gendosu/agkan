@@ -1,5 +1,14 @@
 // Shared types for client-side board code
 
+declare global {
+  interface Window {
+    statusColors: Record<string, string>;
+    allStatuses: string[];
+    statusLabels: Record<string, string>;
+    allPriorities: string[];
+  }
+}
+
 export interface Tag {
   id: number;
   name: string;

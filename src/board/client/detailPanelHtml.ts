@@ -3,9 +3,6 @@
 import type { TaskDetail } from './types';
 import { escapeHtmlClient, relativeTime } from './utils';
 
-// Type for accessing window globals set by the server-rendered page
-type WindowWithGlobals = Window & typeof globalThis & Record<string, unknown>;
-
 export function renderCommentItemHtml(
   comment: { id: number; content: string; author?: string | null; created_at?: string },
   taskId: number
@@ -162,10 +159,7 @@ export function renderDetailPanelHtml(data: TaskDetail): string {
   const blocking = data.blocking || [];
   const parent = data.parent || null;
 
-  const win = window as WindowWithGlobals;
-  const allStatuses: string[] = win.allStatuses as string[];
-  const statusLabels: Record<string, string> = win.statusLabels as Record<string, string>;
-  const allPriorities: string[] = win.allPriorities as string[];
+  const { allStatuses, statusLabels, allPriorities } = window;
 
   let html = '';
   html += renderStatusField(task.status, allStatuses, statusLabels);
