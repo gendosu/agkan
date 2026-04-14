@@ -7,6 +7,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.1.0] - 2026-04-14
+
+### Added
+- Add task archive feature with `is_archived` flag and hide archived by default
+- Add `task unarchive` CLI command and `POST /api/tasks/:id/unarchive` endpoint
+- Add `--archived` flag to `task list` command to include archived tasks
+- Add `[ARCHIVED]` indicator in `task get` output
+- Add archive and purge actions to board burger menu with error feedback
+- Serve board JS bundle as external static file at `/static/board.js`
+- Add archive feature E2E tests to `test-e2e.sh`
+- Add `Window` interface extension for type-safe global variables in board client
+
+### Changed
+- Remove `archive` from status column; archival is tracked via `is_archived` flag only
+- Narrow `is_archived` type from number to `0 | 1`
+- Update `updated_at` in `archiveMany` so board polling detects archive changes
+- Use `includeArchived` flag for `GET /api/tasks` archive filtering
+
+### Fixed
+- Close archive modal after API completes, not before
+- Include dependency attributes in incremental board card update check
+
+### Refactored
+- Extract shared `daysAgoIso` utility function and reuse across archive/purge defaults and CLI commands
+- Replace npm/npx with pnpm in pre-push hook, shell scripts, and versioning docs
+- Use `PRAGMA table_info` for idempotent migration checks
+
 ## [3.0.1] - 2026-04-09
 
 ### Fixed
