@@ -38,19 +38,19 @@ We follow semantic versioning (MAJOR.MINOR.PATCH) for all our releases:
 ### Before Release
 1. **Run Tests**: Ensure all tests pass
    ```bash
-   npm test
+   pnpm test
    ```
 
 2. **Build**: Create a production build
    ```bash
-   npm run build
+   pnpm run build
    ```
 
 3. **Update Version**: Update version in `package.json`
    - Manually edit `package.json`
    - Or use npm version command:
      ```bash
-     npm version patch|minor|major
+     pnpm version patch|minor|major
      ```
 
 4. **Update CHANGELOG**: Document changes in `CHANGELOG.md`
@@ -76,18 +76,18 @@ We follow semantic versioning (MAJOR.MINOR.PATCH) for all our releases:
 ### After Release
 1. **Build Package**: Create distributable package
    ```bash
-   npm pack
+   pnpm pack
    ```
 
 2. **Test Installation**: Test the package locally
    ```bash
-   npm install -g .
+   pnpm install -g .
    agkan --version
    ```
 
 3. **Publish** (if applicable): Publish to npm registry
    ```bash
-   npm publish
+   pnpm publish
    ```
 
 ## 3. CHANGELOG Management
@@ -169,7 +169,7 @@ git commit -m "feat: add new feature"
 # Edit CHANGELOG.md manually
 
 # 3. When ready to release
-npm version minor  # This updates package.json
+pnpm version minor  # This updates package.json
 
 # 4. Update CHANGELOG.md (move Unreleased to new version)
 # Edit CHANGELOG.md: change [Unreleased] to [1.2.0] - 2026-02-14
