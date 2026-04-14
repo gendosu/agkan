@@ -1,5 +1,3 @@
-import * as fs from 'fs';
-import * as path from 'path';
 import { Task, TaskStatus, PRIORITIES, PRIORITY_ORDER } from '../models';
 import { Tag } from '../models/Tag';
 import { StorageBackend } from '../db/types/repository';
@@ -208,34 +206,16 @@ function getPurgeAndVersionModals(): string {
   </div>`;
 }
 
-function loadClientBundle(): string {
-  // Try resolved path (works in compiled dist/ and in development)
-  const candidates = [
-    path.join(__dirname, 'client', 'board.js'),
-    path.join(__dirname, '..', '..', 'dist', 'board', 'client', 'board.js'),
-  ];
-  for (const bundlePath of candidates) {
-    try {
-      return fs.readFileSync(bundlePath, 'utf8');
-    } catch {
-      // Try next candidate
-    }
-  }
-  throw new Error(`Client bundle not found. Tried: ${candidates.join(', ')}. Run 'npm run build' to generate it.`);
-}
-
 function getBoardBodyStatic(): string {
-  const clientBundle = loadClientBundle();
-  const script = `
-    var statusColors = ${JSON.stringify(STATUS_COLORS)};
+  const configScript = `var statusColors = ${JSON.stringify(STATUS_COLORS)};
     var allStatuses = ${JSON.stringify(STATUSES)};
     var statusLabels = ${JSON.stringify(STATUS_LABELS)};
-    var allPriorities = ${JSON.stringify(PRIORITIES)};
-    ${clientBundle}`;
+    var allPriorities = ${JSON.stringify(PRIORITIES)};`;
 
   return `${getAddTaskModal()}${getContextMenuAndToast()}${getPurgeAndVersionModals()}${getClaudeStreamModal()}
-  <script>${script}
-  </script>`;
+  <script>${configScript}
+  </script>
+  <script src="/static/board.js"></script>`;
 }
 
 export function renderBoard(
