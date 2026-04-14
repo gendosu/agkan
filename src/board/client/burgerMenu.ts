@@ -1,7 +1,13 @@
-// Burger menu, purge tasks, version info, and dark mode functionality
+// Burger menu, purge tasks, version info, settings, and dark mode functionality
 
 import { initDarkMode } from './darkMode';
 import { refreshBoardCards } from './boardPolling';
+
+type LlmPreference = 'codex' | 'claude';
+
+function normalizeLlm(value: unknown): LlmPreference {
+  return value === 'codex' ? 'codex' : 'claude';
+}
 
 function initBurgerToggle(burgerBtn: HTMLButtonElement, burgerDropdown: HTMLElement): void {
   burgerBtn.addEventListener('click', (e: MouseEvent) => {
@@ -133,6 +139,72 @@ function initVersionModal(burgerDropdown: HTMLElement): void {
   });
 }
 
+function initSettingsModal(burgerDropdown: HTMLElement): void {
+  const settingsModal = document.getElementById('settings-modal') as HTMLElement | null;
+  const settingsSelect = document.getElementById('settings-llm-select') as HTMLSelectElement | null;
+  const settingsResultEl = document.getElementById('settings-result') as HTMLElement | null;
+  const settingsCancelBtn = document.getElementById('settings-cancel-btn') as HTMLButtonElement | null;
+  const settingsSaveBtn = document.getElementById('settings-save-btn') as HTMLButtonElement | null;
+
+  if (!settingsModal || !settingsSelect || !settingsResultEl || !settingsCancelBtn || !settingsSaveBtn) {
+    return;
+  }
+
+  document.getElementById('burger-settings')?.addEventListener('click', async () => {
+    burgerDropdown.classList.remove('open');
+    settingsResultEl.textContent = '';
+    settingsResultEl.style.color = '#64748b';
+    settingsSelect.value = 'claude';
+    settingsModal.classList.add('show');
+
+    try {
+      const res = await fetch('/api/config');
+      if (res.ok) {
+        const data = (await res.json()) as { board?: { llm?: unknown } };
+        settingsSelect.value = normalizeLlm(data?.board?.llm);
+      }
+    } catch {
+      // Ignore load errors and keep default
+    }
+  });
+
+  settingsCancelBtn.addEventListener('click', () => {
+    settingsModal.classList.remove('show');
+  });
+
+  settingsSaveBtn.addEventListener('click', async () => {
+    const selected = normalizeLlm(settingsSelect.value);
+    settingsSaveBtn.disabled = true;
+    settingsSaveBtn.textContent = 'Saving...';
+
+    try {
+      const res = await fetch('/api/config', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ board: { llm: selected } }),
+      });
+
+      if (res.ok) {
+        settingsResultEl.textContent = 'Saved.';
+        settingsResultEl.style.color = '#16a34a';
+        setTimeout(() => {
+          settingsModal.classList.remove('show');
+        }, 250);
+      } else {
+        const data = (await res.json().catch(() => ({}))) as { error?: string };
+        settingsResultEl.textContent = data.error || 'Failed to save settings.';
+        settingsResultEl.style.color = '#dc2626';
+      }
+    } catch {
+      settingsResultEl.textContent = 'Failed to save settings.';
+      settingsResultEl.style.color = '#dc2626';
+    } finally {
+      settingsSaveBtn.disabled = false;
+      settingsSaveBtn.textContent = 'Save';
+    }
+  });
+}
+
 function initExportModal(burgerDropdown: HTMLElement): void {
   document.getElementById('burger-export-tasks')?.addEventListener('click', () => {
     burgerDropdown.classList.remove('open');
@@ -250,6 +322,7 @@ export function initBurgerMenu(): void {
   initArchiveModal(burgerDropdown);
   initExportModal(burgerDropdown);
   initImportModal(burgerDropdown);
+  initSettingsModal(burgerDropdown);
   initVersionModal(burgerDropdown);
   initDarkMode();
 }

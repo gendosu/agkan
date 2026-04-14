@@ -9,11 +9,19 @@ import { MetadataService } from '../services/MetadataService';
 import { CommentService } from '../services/CommentService';
 import { TaskBlockService } from '../services/TaskBlockService';
 import { ExportImportService, ExportData } from '../services/ExportImportService';
-import { ClaudeProcessService } from '../services/ClaudeProcessService';
+import type { IProcessService } from '../services/IProcessService';
 import { TaskStatus, isPriority, Priority } from '../models';
 import { ConflictError } from '../errors';
 import { StorageBackend } from '../db/types/repository';
-import { readBoardConfig, writeBoardConfig, DETAIL_PANE_MAX_WIDTH, VALID_THEMES, ThemePreference } from './boardConfig';
+import {
+  readBoardConfig,
+  writeBoardConfig,
+  DETAIL_PANE_MAX_WIDTH,
+  VALID_THEMES,
+  ThemePreference,
+  VALID_LLMS,
+  LlmPreference,
+} from './boardConfig';
 import { daysAgoIso } from '../utils/date';
 import {
   buildTasksByStatus,
@@ -34,7 +42,7 @@ export type BoardServices = {
   database: StorageBackend;
   boardTitle?: string;
   configDir: string;
-  claudeProcessService?: ClaudeProcessService;
+  processService?: IProcessService;
 };
 
 type TaskPatchBody = {
@@ -373,7 +381,7 @@ export function registerConfigApiRoutes(app: Hono, configDir: string): void {
   });
 
   app.put('/api/config', async (c) => {
-    const body = await c.req.json<{ board?: { detailPaneWidth?: unknown; theme?: unknown } }>();
+    const body = await c.req.json<{ board?: { detailPaneWidth?: unknown; theme?: unknown; llm?: unknown } }>();
     const boardBody = body?.board ?? {};
 
     if (boardBody.detailPaneWidth !== undefined) {
@@ -393,6 +401,14 @@ export function registerConfigApiRoutes(app: Hono, configDir: string): void {
         return c.json({ error: `theme must be one of: ${VALID_THEMES.join(', ')}` }, 400);
       }
       writeBoardConfig(configDir, { theme: theme as ThemePreference });
+    }
+
+    if (boardBody.llm !== undefined) {
+      const llm = boardBody.llm;
+      if (typeof llm !== 'string' || !(VALID_LLMS as string[]).includes(llm)) {
+        return c.json({ error: 'llm must be one of: ' + VALID_LLMS.join(', ') }, 400);
+      }
+      writeBoardConfig(configDir, { llm: llm as LlmPreference });
     }
 
     return c.json({ success: true });
@@ -437,7 +453,7 @@ function parseBoardCardFilters(query: {
   return filters;
 }
 
-function registerClaudeRoutes(app: Hono, claudeProcess: ClaudeProcessService, ts: TaskService): void {
+function registerProcessRoutes(app: Hono, processService: IProcessService, ts: TaskService): void {
   app.post('/api/claude/tasks/:taskId/run', async (c) => {
     const taskId = Number(c.req.param('taskId'));
     if (isNaN(taskId)) return c.json({ error: 'Invalid taskId' }, 400);
@@ -453,11 +469,11 @@ function registerClaudeRoutes(app: Hono, claudeProcess: ClaudeProcessService, ts
           : `Task ID: ${taskId}\n/agkan-subtask-direct`;
 
     try {
-      claudeProcess.startProcess(taskId, prompt, command);
+      processService.startProcess(taskId, prompt, command);
     } catch (e) {
       if (e instanceof ConflictError) {
         console.error(
-          `[boardRoutes] 409 already running taskId=${taskId} command=${command} running=${JSON.stringify(claudeProcess.listRunningTasks())}`
+          `[boardRoutes] 409 already running taskId=${taskId} command=${command} running=${JSON.stringify(processService.listRunningTasks())}`
         );
         return c.json({ error: e.message }, 409);
       }
@@ -466,7 +482,7 @@ function registerClaudeRoutes(app: Hono, claudeProcess: ClaudeProcessService, ts
 
     if (command === 'pr' || command === 'run') {
       const targetStatus = command === 'pr' ? 'review' : 'done';
-      const unsubscribe = claudeProcess.subscribeOutput(taskId, (evt) => {
+      const unsubscribe = processService.subscribeOutput(taskId, (evt) => {
         if (evt.kind === 'done' && evt.exitCode === 0) {
           ts.updateTask(taskId, { status: targetStatus });
         }
@@ -482,7 +498,7 @@ function registerClaudeRoutes(app: Hono, claudeProcess: ClaudeProcessService, ts
   app.delete('/api/claude/tasks/:taskId/run', (c) => {
     const taskId = Number(c.req.param('taskId'));
     if (isNaN(taskId)) return c.json({ error: 'Invalid taskId' }, 400);
-    const stopped = claudeProcess.stopProcess(taskId);
+    const stopped = processService.stopProcess(taskId);
     if (!stopped) return c.json({ error: 'No running process for this taskId' }, 404);
     return c.json({ success: true });
   });
@@ -500,7 +516,7 @@ function registerClaudeRoutes(app: Hono, claudeProcess: ClaudeProcessService, ts
           return new TextEncoder().encode(payload);
         };
 
-        const stop = claudeProcess.subscribeOutput(taskId, (evt) => {
+        const stop = processService.subscribeOutput(taskId, (evt) => {
           if (evt.kind === 'text') {
             controller.enqueue(encode('text', { text: evt.text }));
           } else if (evt.kind === 'tool_use') {
@@ -531,7 +547,7 @@ function registerClaudeRoutes(app: Hono, claudeProcess: ClaudeProcessService, ts
   });
 
   app.get('/api/running-tasks', (c) => {
-    const tasks = claudeProcess.listRunningTasks();
+    const tasks = processService.listRunningTasks();
     return c.json({ tasks });
   });
 
@@ -539,7 +555,7 @@ function registerClaudeRoutes(app: Hono, claudeProcess: ClaudeProcessService, ts
     const taskId = Number(c.req.param('taskId'));
     if (isNaN(taskId)) return c.json({ error: 'Invalid taskId' }, 400);
     if (!ts.getTask(taskId)) return c.json({ error: 'Task not found' }, 404);
-    const logs = claudeProcess.getRunLogs(taskId);
+    const logs = processService.getRunLogs(taskId);
     return c.json({ logs });
   });
 }
@@ -592,7 +608,7 @@ export function registerBoardRoutes(app: Hono, services: BoardServices): void {
   });
   registerTaskApiRoutes(app, services);
   registerConfigApiRoutes(app, configDir);
-  if (services.claudeProcessService) {
-    registerClaudeRoutes(app, services.claudeProcessService, ts);
+  if (services.processService) {
+    registerProcessRoutes(app, services.processService, ts);
   }
 }

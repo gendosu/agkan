@@ -7,11 +7,13 @@ import { TagService } from '../services/TagService';
 import { MetadataService } from '../services/MetadataService';
 import { CommentService } from '../services/CommentService';
 import { TaskBlockService } from '../services/TaskBlockService';
-import { ClaudeProcessService } from '../services/ClaudeProcessService';
+import { ProcessServiceFactory } from '../services/ProcessServiceFactory';
+import type { IProcessService } from '../services/IProcessService';
 import { getStorageBackend } from '../db/connection';
 import { StorageBackend } from '../db/types/repository';
 import { getDefaultDirName } from '../db/config';
 import { registerBoardRoutes, BoardServices } from './boardRoutes';
+import { readBoardConfig } from './boardConfig';
 
 export function createBoardApp(
   taskService?: TaskService,
@@ -23,7 +25,7 @@ export function createBoardApp(
   configDir?: string,
   commentService?: CommentService,
   taskBlockService?: TaskBlockService,
-  claudeProcessService?: ClaudeProcessService
+  processService?: IProcessService
 ): Hono {
   const app = new Hono();
   const resolvedConfigDir = configDir ?? path.join(process.cwd(), getDefaultDirName());
@@ -38,24 +40,29 @@ export function createBoardApp(
     database: resolvedDb,
     boardTitle,
     configDir: resolvedConfigDir,
-    claudeProcessService,
+    processService,
   };
   registerBoardRoutes(app, services);
   return app;
 }
 
 export function startBoardServer(port: number, boardTitle?: string): void {
+  const configDir = path.join(process.cwd(), getDefaultDirName());
+  const config = readBoardConfig(configDir);
+  const db = getStorageBackend();
+  const processService = ProcessServiceFactory.create(config.llm, db);
+
   const app = createBoardApp(
     undefined,
     undefined,
     undefined,
-    undefined,
+    db,
     boardTitle,
     undefined,
+    configDir,
     undefined,
     undefined,
-    undefined,
-    new ClaudeProcessService(getStorageBackend())
+    processService
   );
   serve(
     {

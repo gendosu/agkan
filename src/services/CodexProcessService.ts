@@ -1,58 +1,25 @@
-import { spawn, ChildProcess, execSync } from 'child_process';
+import { spawn, ChildProcess } from 'child_process';
 import type { StorageBackend } from '../db/types/repository';
 import type { RunLogRow } from '../db/types/repository';
 import { verboseLog } from '../utils/logger';
 import { ConflictError } from '../errors';
-import type { IProcessService, SubscribeCallback as IProcessServiceSubscribeCallback } from './IProcessService';
+import type { IProcessService } from './IProcessService';
+import type { OutputEvent, RunLog, SubscribeCallback } from './ClaudeProcessService';
 
-function resolveClaudePath(): string {
-  try {
-    const path = execSync('which claude', { env: process.env }).toString().trim();
-    if (path) return path;
-  } catch {
-    // which failed, fall through
-  }
-  return 'claude';
-}
-
-const CLAUDE_BIN = resolveClaudePath();
-
-// ---- Type definitions ----
-
-export type ClaudeStreamEvent =
-  | { type: 'system'; subtype: string; session_id?: string; [key: string]: unknown }
+// Codex output event types from JSONL
+type CodexStreamEvent =
+  | { type: 'thread.started'; thread_id: string; [key: string]: unknown }
   | {
-      type: 'assistant';
-      message: {
-        content: Array<
-          | { type: 'text'; text: string }
-          | { type: 'tool_use'; id: string; name: string; input: Record<string, unknown> }
-        >;
+      type: 'item.completed';
+      item: {
+        type: string;
+        content?: string;
         [key: string]: unknown;
       };
       [key: string]: unknown;
     }
-  | { type: 'result'; subtype: string; result?: string; duration_ms?: number; [key: string]: unknown }
+  | { type: 'turn.completed'; [key: string]: unknown }
   | { type: string; [key: string]: unknown };
-
-export type OutputEvent =
-  | { kind: 'text'; text: string }
-  | { kind: 'tool_use'; name: string; input: Record<string, unknown> }
-  | { kind: 'done'; exitCode: number }
-  | { kind: 'error'; message: string };
-
-// Re-export for backward compatibility
-export type SubscribeCallback = IProcessServiceSubscribeCallback;
-
-export interface RunLog {
-  id: number;
-  task_id: number;
-  started_at: string;
-  finished_at: string | null;
-  exit_code: number | null;
-  session_id: string | null;
-  events: OutputEvent[];
-}
 
 interface ProcessInfo {
   taskId: number;
@@ -60,22 +27,20 @@ interface ProcessInfo {
   process: ChildProcess;
   startedAt: Date;
   status: 'running' | 'stopped';
-  outputBuffer: ClaudeStreamEvent[];
+  outputBuffer: CodexStreamEvent[];
   processedEvents: OutputEvent[];
   subscribers: Set<SubscribeCallback>;
   runLogId: number | null;
   sessionId: string | null;
 }
 
-// ---- ClaudeProcessService ----
-
 /**
- * ClaudeProcessService
- * Manages claude CLI processes running in stream-json mode.
- * Keyed by taskId, supports start/stop/subscribe/list operations.
+ * CodexProcessService
+ * Manages codex CLI processes running in JSON mode.
+ * Parses JSONL output from codex and converts to OutputEvent format.
  * Implements IProcessService for use with ProcessServiceFactory.
  */
-export class ClaudeProcessService implements IProcessService {
+export class CodexProcessService implements IProcessService {
   private processes: Map<number, ProcessInfo> = new Map();
   private db: StorageBackend | null;
 
@@ -84,7 +49,7 @@ export class ClaudeProcessService implements IProcessService {
   }
 
   /**
-   * Start a claude process for the given taskId and prompt.
+   * Start a codex process for the given taskId and prompt.
    * Prevents duplicate processes for the same taskId.
    */
   startProcess(taskId: number, prompt: string, command: string = 'run'): void {
@@ -96,22 +61,18 @@ export class ClaudeProcessService implements IProcessService {
       const signalCode = existing.process.signalCode;
       const aliveMs = Date.now() - existing.startedAt.getTime();
       verboseLog(
-        `[ClaudeProcessService] startProcess DUPLICATE taskId=${taskId} existing pid=${pid} killed=${killed} exitCode=${exitCode} signalCode=${signalCode} aliveMs=${aliveMs} command=${existing.command}`
+        `[CodexProcessService] startProcess DUPLICATE taskId=${taskId} existing pid=${pid} killed=${killed} exitCode=${exitCode} signalCode=${signalCode} aliveMs=${aliveMs} command=${existing.command}`
       );
       throw new ConflictError(`Process for taskId ${taskId} is already running`);
     }
 
-    verboseLog(`[ClaudeProcessService] startProcess taskId=${taskId} command=${command}`);
+    verboseLog(`[CodexProcessService] startProcess taskId=${taskId} command=${command}`);
 
-    const child = spawn(
-      CLAUDE_BIN,
-      ['--output-format', 'stream-json', '--verbose', '--dangerously-skip-permissions', '-p', prompt],
-      {
-        cwd: process.cwd(),
-        env: process.env,
-        stdio: ['ignore', 'pipe', 'pipe'],
-      }
-    );
+    const child = spawn('codex', ['exec', '--json', '--dangerously-bypass-approvals-and-sandbox', prompt], {
+      cwd: process.cwd(),
+      env: process.env,
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
 
     const info: ProcessInfo = {
       taskId,
@@ -127,11 +88,11 @@ export class ClaudeProcessService implements IProcessService {
     };
 
     this.processes.set(taskId, info);
-    verboseLog(`[ClaudeProcessService] process added to map taskId=${taskId} total=${this.processes.size}`);
+    verboseLog(`[CodexProcessService] process added to map taskId=${taskId} total=${this.processes.size}`);
 
     if (this.db) {
       info.runLogId = this.db.runLogs.create(info.taskId, info.startedAt.toISOString());
-      verboseLog(`[ClaudeProcessService] run log created id=${info.runLogId} taskId=${taskId}`);
+      verboseLog(`[CodexProcessService] run log created id=${info.runLogId} taskId=${taskId}`);
     }
 
     let lineBuffer = '';
@@ -139,8 +100,8 @@ export class ClaudeProcessService implements IProcessService {
 
     child.on('error', (err: NodeJS.ErrnoException) => {
       spawnError = true;
-      const message = err.code === 'ENOENT' ? 'claude CLI not found in PATH' : err.message;
-      console.error(`[ClaudeProcessService] spawn error for taskId=${taskId}: ${message}`, err);
+      const message = err.code === 'ENOENT' ? 'codex CLI not found in PATH' : err.message;
+      console.error(`[CodexProcessService] spawn error for taskId=${taskId}: ${message}`, err);
       const errorEvent: OutputEvent = { kind: 'error', message };
       info.processedEvents.push(errorEvent);
       info.subscribers.forEach((cb) => cb(errorEvent));
@@ -151,16 +112,16 @@ export class ClaudeProcessService implements IProcessService {
       if (this.db && info.runLogId) {
         const finishedAt = new Date().toISOString();
         this.db.runLogs.updateFinished(info.runLogId, finishedAt, 1, JSON.stringify(info.processedEvents));
-        verboseLog(`[ClaudeProcessService] run log updated (error) id=${info.runLogId} taskId=${taskId}`);
+        verboseLog(`[CodexProcessService] run log updated (error) id=${info.runLogId} taskId=${taskId}`);
       }
 
       if (this.processes.get(taskId) === info) {
         this.processes.delete(taskId);
         verboseLog(
-          `[ClaudeProcessService] process removed from map (error) taskId=${taskId} total=${this.processes.size}`
+          `[CodexProcessService] process removed from map (error) taskId=${taskId} total=${this.processes.size}`
         );
       } else {
-        verboseLog(`[ClaudeProcessService] process error skipped map delete (stale entry) taskId=${taskId}`);
+        verboseLog(`[CodexProcessService] process error skipped map delete (stale entry) taskId=${taskId}`);
       }
     });
 
@@ -174,9 +135,9 @@ export class ClaudeProcessService implements IProcessService {
         const trimmed = line.trim();
         if (!trimmed) continue;
 
-        let parsed: ClaudeStreamEvent;
+        let parsed: CodexStreamEvent;
         try {
-          parsed = JSON.parse(trimmed) as ClaudeStreamEvent;
+          parsed = JSON.parse(trimmed) as CodexStreamEvent;
         } catch {
           // Skip non-JSON lines
           continue;
@@ -198,7 +159,7 @@ export class ClaudeProcessService implements IProcessService {
       const remaining = lineBuffer.trim();
       if (remaining) {
         try {
-          const parsed = JSON.parse(remaining) as ClaudeStreamEvent;
+          const parsed = JSON.parse(remaining) as CodexStreamEvent;
           info.outputBuffer.push(parsed);
           this._notifySubscribers(info, parsed);
         } catch {
@@ -207,16 +168,16 @@ export class ClaudeProcessService implements IProcessService {
       }
 
       if (stderrBuffer) {
-        console.error(`[ClaudeProcessService] stderr for taskId=${taskId}:\n${stderrBuffer}`);
+        console.error(`[CodexProcessService] stderr for taskId=${taskId}:\n${stderrBuffer}`);
         const errorEvent: OutputEvent = { kind: 'error', message: stderrBuffer };
         info.processedEvents.push(errorEvent);
         info.subscribers.forEach((cb) => cb(errorEvent));
       }
 
       const exitCode = code ?? 0;
-      verboseLog(`[ClaudeProcessService] process close taskId=${taskId} exitCode=${exitCode}`);
+      verboseLog(`[CodexProcessService] process close taskId=${taskId} exitCode=${exitCode}`);
       if (exitCode !== 0) {
-        console.error(`[ClaudeProcessService] process exited with code ${exitCode} for taskId=${taskId}`);
+        console.error(`[CodexProcessService] process exited with code ${exitCode} for taskId=${taskId}`);
       }
       const doneEvent: OutputEvent = { kind: 'done', exitCode };
       info.subscribers.forEach((cb) => cb(doneEvent));
@@ -225,25 +186,23 @@ export class ClaudeProcessService implements IProcessService {
       if (this.db && info.runLogId) {
         const finishedAt = new Date().toISOString();
         this.db.runLogs.updateFinished(info.runLogId, finishedAt, exitCode, JSON.stringify(info.processedEvents));
-        verboseLog(
-          `[ClaudeProcessService] run log finalized id=${info.runLogId} taskId=${taskId} exitCode=${exitCode}`
-        );
+        verboseLog(`[CodexProcessService] run log finalized id=${info.runLogId} taskId=${taskId} exitCode=${exitCode}`);
         // Rotate: keep only latest 5 per task
         const ids = this.db.runLogs.findIdsByTaskId(info.taskId);
         if (ids.length > 5) {
           const toDelete = ids.slice(5);
           this.db.runLogs.deleteMany(toDelete);
-          verboseLog(`[ClaudeProcessService] rotated run logs taskId=${taskId} deleted=${toDelete.length}`);
+          verboseLog(`[CodexProcessService] rotated run logs taskId=${taskId} deleted=${toDelete.length}`);
         }
       }
 
       if (this.processes.get(taskId) === info) {
         this.processes.delete(taskId);
         verboseLog(
-          `[ClaudeProcessService] process removed from map (close) taskId=${taskId} total=${this.processes.size}`
+          `[CodexProcessService] process removed from map (close) taskId=${taskId} total=${this.processes.size}`
         );
       } else {
-        verboseLog(`[ClaudeProcessService] process close skipped map delete (stale entry) taskId=${taskId}`);
+        verboseLog(`[CodexProcessService] process close skipped map delete (stale entry) taskId=${taskId}`);
       }
     });
   }
@@ -255,13 +214,13 @@ export class ClaudeProcessService implements IProcessService {
   stopProcess(taskId: number): boolean {
     const info = this.processes.get(taskId);
     if (!info) {
-      verboseLog(`[ClaudeProcessService] stopProcess taskId=${taskId} not found`);
+      verboseLog(`[CodexProcessService] stopProcess taskId=${taskId} not found`);
       return false;
     }
-    verboseLog(`[ClaudeProcessService] stopProcess taskId=${taskId} sending SIGTERM`);
+    verboseLog(`[CodexProcessService] stopProcess taskId=${taskId} sending SIGTERM`);
     info.process.kill('SIGTERM');
     this.processes.delete(taskId);
-    verboseLog(`[ClaudeProcessService] process removed from map (stop) taskId=${taskId} total=${this.processes.size}`);
+    verboseLog(`[CodexProcessService] process removed from map (stop) taskId=${taskId} total=${this.processes.size}`);
     return true;
   }
 
@@ -307,14 +266,6 @@ export class ClaudeProcessService implements IProcessService {
   }
 
   /**
-   * Get the buffered output events for a taskId.
-   * Useful for late subscribers who missed earlier events.
-   */
-  getOutputBuffer(taskId: number): ClaudeStreamEvent[] {
-    return this.processes.get(taskId)?.outputBuffer ?? [];
-  }
-
-  /**
    * Get saved run logs for a task from DB (most recent first, up to 5).
    */
   getRunLogs(taskId: number): RunLog[] {
@@ -333,35 +284,35 @@ export class ClaudeProcessService implements IProcessService {
 
   // ---- Private helpers ----
 
-  private _notifySubscribers(info: ProcessInfo, event: ClaudeStreamEvent): void {
-    if (event.type === 'system' && event.session_id && !info.sessionId) {
-      info.sessionId = event.session_id as string;
-      if (this.db && info.runLogId) {
-        this.db.runLogs.updateSessionId(info.runLogId, info.sessionId);
+  private _notifySubscribers(info: ProcessInfo, event: CodexStreamEvent): void {
+    // Map Codex events to OutputEvent format
+    if (event.type === 'thread.started') {
+      // Extract thread_id as session_id
+      const threadId = (event as Extract<CodexStreamEvent, { type: 'thread.started' }>).thread_id;
+      if (threadId && !info.sessionId) {
+        info.sessionId = threadId;
+        if (this.db && info.runLogId) {
+          this.db.runLogs.updateSessionId(info.runLogId, info.sessionId);
+        }
       }
     }
 
-    if (event.type === 'assistant') {
-      const assistantEvent = event as Extract<ClaudeStreamEvent, { type: 'assistant' }>;
-      let added = false;
-      for (const content of assistantEvent.message.content) {
-        if (content.type === 'text') {
-          const outputEvent: OutputEvent = { kind: 'text', text: content.text };
-          info.processedEvents.push(outputEvent);
-          info.subscribers.forEach((cb) => cb(outputEvent));
-          added = true;
-        } else if (content.type === 'tool_use') {
-          const outputEvent: OutputEvent = { kind: 'tool_use', name: content.name, input: content.input };
-          info.processedEvents.push(outputEvent);
-          info.subscribers.forEach((cb) => cb(outputEvent));
-          added = true;
+    if (event.type === 'item.completed') {
+      const itemEvent = event as Extract<CodexStreamEvent, { type: 'item.completed' }>;
+      const item = itemEvent.item;
+
+      // Treat agent_message items as text output
+      if (item.type === 'agent_message' && item.content) {
+        const outputEvent: OutputEvent = { kind: 'text', text: String(item.content) };
+        info.processedEvents.push(outputEvent);
+        info.subscribers.forEach((cb) => cb(outputEvent));
+
+        if (this.db && info.runLogId) {
+          this.db.runLogs.updateEvents(info.runLogId, JSON.stringify(info.processedEvents));
         }
       }
-      if (added && this.db && info.runLogId) {
-        this.db.runLogs.updateEvents(info.runLogId, JSON.stringify(info.processedEvents));
-      }
     }
-    // 'result' and 'system' events are buffered but not forwarded as OutputEvents
+    // 'turn.completed' events are buffered but not forwarded as OutputEvents
     // (done/error are sent on process close)
   }
 }

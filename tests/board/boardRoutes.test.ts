@@ -807,7 +807,7 @@ describe('GET /api/config', () => {
     const res = await app.fetch(new Request('http://localhost/api/config'));
     expect(res.status).toBe(200);
     const data = (await res.json()) as { board: Record<string, unknown> };
-    expect(data.board).toEqual({});
+    expect(data.board).toEqual({ llm: 'claude' });
   });
 });
 
@@ -927,6 +927,58 @@ describe('PUT /api/config', () => {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ board: { theme: 123 } }),
+      })
+    );
+    expect(res.status).toBe(400);
+  });
+
+  it('returns success when updating llm to codex', async () => {
+    const app = buildApp(buildServices());
+    const res = await app.fetch(
+      new Request('http://localhost/api/config', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ board: { llm: 'codex' } }),
+      })
+    );
+    expect(res.status).toBe(200);
+    const data = (await res.json()) as { success: boolean };
+    expect(data.success).toBe(true);
+  });
+
+  it('returns success when updating llm to claude', async () => {
+    const app = buildApp(buildServices());
+    const res = await app.fetch(
+      new Request('http://localhost/api/config', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ board: { llm: 'claude' } }),
+      })
+    );
+    expect(res.status).toBe(200);
+    const data = (await res.json()) as { success: boolean };
+    expect(data.success).toBe(true);
+  });
+
+  it('returns 400 when llm is invalid', async () => {
+    const app = buildApp(buildServices());
+    const res = await app.fetch(
+      new Request('http://localhost/api/config', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ board: { llm: 'invalid' } }),
+      })
+    );
+    expect(res.status).toBe(400);
+  });
+
+  it('returns 400 when llm is not a string', async () => {
+    const app = buildApp(buildServices());
+    const res = await app.fetch(
+      new Request('http://localhost/api/config', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ board: { llm: 123 } }),
       })
     );
     expect(res.status).toBe(400);
