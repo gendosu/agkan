@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import fs from 'fs';
+import os from 'os';
 import path from 'path';
 import yaml from 'js-yaml';
 
@@ -26,32 +27,26 @@ describe('Database Path Resolution', () => {
   const testConfigFileTest = '.agkan-test.yml';
   const legacyConfigFile = '.akan.yml';
   const legacyConfigFileTest = '.akan-test.yml';
+  let tmpCwd: string;
 
   beforeEach(() => {
     // Reset environment variables
     process.env = { ...originalEnv };
     delete process.env.AGENT_KANBAN_DB_PATH;
 
-    // Clean up test files
-    [testConfigFile, testConfigFileTest, legacyConfigFile, legacyConfigFileTest].forEach((file) => {
-      const filePath = path.join(process.cwd(), file);
-      if (fs.existsSync(filePath)) {
-        fs.unlinkSync(filePath);
-      }
-    });
+    // Use an isolated temp directory as cwd so parallel workers do not collide
+    // on config files such as .agkan.yml / .agkan-test.yml.
+    tmpCwd = fs.mkdtempSync(path.join(os.tmpdir(), 'agkan-config-test-'));
+    vi.spyOn(process, 'cwd').mockReturnValue(tmpCwd);
   });
 
   afterEach(() => {
-    // Restore environment variables
+    // Restore environment variables and mocks
     process.env = originalEnv;
+    vi.restoreAllMocks();
 
-    // Clean up test files
-    [testConfigFile, testConfigFileTest, legacyConfigFile, legacyConfigFileTest].forEach((file) => {
-      const filePath = path.join(process.cwd(), file);
-      if (fs.existsSync(filePath)) {
-        fs.unlinkSync(filePath);
-      }
-    });
+    // Remove temp cwd
+    fs.rmSync(tmpCwd, { recursive: true, force: true });
   });
 
   describe('Normal Mode (NODE_ENV != "test")', () => {
@@ -252,7 +247,7 @@ describe('Database Path Resolution', () => {
       it('should use default test path .agkan-test/data.db when no config exists', () => {
         const result = resolveDatabasePath();
 
-        expect(result).toBe(path.join(process.cwd(), '.agkan-test', 'data.db'));
+        expect(result).toBe(path.join(process.cwd(), getDefaultDirName(), 'data.db'));
       });
 
       it('should use .agkan-test directory (not .agkan) in test mode', () => {
@@ -293,7 +288,7 @@ describe('Database Path Resolution', () => {
       const result = resolveDatabasePath();
 
       // Should fallback to default path
-      expect(result).toBe(path.join(process.cwd(), '.agkan-test', 'data.db'));
+      expect(result).toBe(path.join(process.cwd(), getDefaultDirName(), 'data.db'));
     });
   });
 
@@ -449,7 +444,7 @@ describe('Database Path Resolution', () => {
 
     it('getDefaultDirName should return correct directory based on mode', () => {
       process.env.NODE_ENV = 'test';
-      expect(getDefaultDirName()).toBe('.agkan-test');
+      expect(getDefaultDirName()).toMatch(/^\.agkan-test(-worker-\d+)?$/);
 
       process.env.NODE_ENV = 'production';
       expect(getDefaultDirName()).toBe('.agkan');

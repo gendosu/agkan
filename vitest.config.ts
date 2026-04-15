@@ -5,8 +5,6 @@ export default defineConfig({
     globals: true,
     environment: 'node',
     pool: 'forks',
-    fileParallelism: false,
-    maxConcurrency: 1,
     testTimeout: 30000,
     hookTimeout: 30000,
     env: { NODE_ENV: 'test' },

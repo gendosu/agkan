@@ -4,26 +4,24 @@
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import fs from 'fs';
+import os from 'os';
 import path from 'path';
 import yaml from 'js-yaml';
 import { readBoardConfig, writeBoardConfig, DETAIL_PANE_MAX_WIDTH, VALID_THEMES } from '../../src/board/boardConfig';
 
 describe('boardConfig', () => {
-  const testConfigDir = path.join(process.cwd(), '.agkan-test');
-  const testConfigFile = path.join(testConfigDir, 'config.yml');
-
-  function cleanupConfigFile() {
-    if (fs.existsSync(testConfigFile)) {
-      fs.unlinkSync(testConfigFile);
-    }
-  }
+  let testConfigDir: string;
+  let testConfigFile: string;
 
   beforeEach(() => {
-    cleanupConfigFile();
+    testConfigDir = fs.mkdtempSync(path.join(os.tmpdir(), 'agkan-boardconfig-test-'));
+    testConfigFile = path.join(testConfigDir, 'config.yml');
   });
 
   afterEach(() => {
-    cleanupConfigFile();
+    if (fs.existsSync(testConfigDir)) {
+      fs.rmSync(testConfigDir, { recursive: true, force: true });
+    }
   });
 
   describe('readBoardConfig', () => {
@@ -123,7 +121,7 @@ describe('boardConfig', () => {
 
   describe('writeBoardConfig', () => {
     it('should create the config directory if it does not exist', () => {
-      const newDir = path.join(process.cwd(), '.agkan-test-new-' + Date.now());
+      const newDir = path.join(testConfigDir, 'newdir-' + Date.now());
       try {
         writeBoardConfig(newDir, { detailPaneWidth: 400 });
         expect(fs.existsSync(newDir)).toBe(true);
