@@ -1,10 +1,10 @@
-import fs from 'fs';
-import { resolveDatabasePath, isTestMode } from './config';
+import { isTestMode } from './config';
 import { DatabaseConnection } from './connection';
 
 /**
- * Reset the database (delete and recreate)
- * Ensures a clean state by calling before test execution
+ * Reset the database by deleting all rows in every data table.
+ * Reuses the existing connection to avoid file I/O overhead.
+ * Ensures a clean state by calling before test execution.
  *
  * @throws Error if called outside of test mode (NODE_ENV=test)
  */
@@ -17,22 +17,24 @@ export function resetDatabase(): void {
     );
   }
 
-  // Close existing connection
-  DatabaseConnection.close();
+  // Get or lazily initialize the database connection.
+  // Avoids closing/reopening the connection and eliminates file I/O.
+  const db = DatabaseConnection.getRawDatabase();
 
-  // Database file path
-  const dbPath = resolveDatabasePath();
-
-  // Delete database file and auxiliary SQLite files (journal, WAL, SHM).
-  // Orphaned auxiliary files from a previous interrupted write can cause
-  // SQLite to attempt journal recovery on the newly-created file, leading
-  // to "attempt to write a readonly database" or "disk I/O error".
-  for (const path of [dbPath, `${dbPath}-journal`, `${dbPath}-wal`, `${dbPath}-shm`]) {
-    if (fs.existsSync(path)) {
-      fs.unlinkSync(path);
-    }
-  }
-
-  // Initialize new database connection (schema is automatically created)
-  DatabaseConnection.getInstance();
+  // Clear all data tables without file I/O.
+  // Disabling foreign keys allows deleting in any order without constraint
+  // violations. Clearing sqlite_sequence resets AUTOINCREMENT counters so
+  // that IDs start from 1, consistent with a freshly created database.
+  db.exec(`
+    PRAGMA foreign_keys = OFF;
+    DELETE FROM task_run_logs;
+    DELETE FROM task_comments;
+    DELETE FROM task_metadata;
+    DELETE FROM task_tags;
+    DELETE FROM task_blocks;
+    DELETE FROM tasks;
+    DELETE FROM tags;
+    DELETE FROM sqlite_sequence;
+    PRAGMA foreign_keys = ON;
+  `);
 }
