@@ -1,5 +1,6 @@
 import fs from 'fs';
 import path from 'path';
+import { getWorkerSuffix } from '../db/config';
 import { isPathSafe } from '../utils/security';
 
 /**
@@ -24,7 +25,8 @@ export class FileService {
     const fileName = path.basename(sourceFile);
 
     // Create destination directory (attachments/<task_id>/)
-    const attachmentDir = path.join(process.cwd(), 'attachments', taskId.toString());
+    const attachmentsRoot = `attachments${getWorkerSuffix()}`;
+    const attachmentDir = path.join(process.cwd(), attachmentsRoot, taskId.toString());
     fs.mkdirSync(attachmentDir, { recursive: true });
 
     // Generate filename with timestamp

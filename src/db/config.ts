@@ -48,10 +48,20 @@ export function getConfigFileName(): string {
 }
 
 /**
+ * Worker-specific suffix used only when Vitest runs tests in parallel.
+ * Returns empty string in production, development, and CLI execution.
+ */
+export function getWorkerSuffix(): string {
+  if (!isTestMode()) return '';
+  const workerId = process.env.VITEST_WORKER_ID;
+  return workerId ? `-worker-${workerId}` : '';
+}
+
+/**
  * Get default directory name based on current mode
  */
 export function getDefaultDirName(): string {
-  return isTestMode() ? '.agkan-test' : '.agkan';
+  return isTestMode() ? `.agkan-test${getWorkerSuffix()}` : '.agkan';
 }
 
 /**

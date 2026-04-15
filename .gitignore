@@ -3,9 +3,11 @@ node_modules
 dist
 data/
 attachments/
+attachments-worker-*/
 .agkan
 .agkan.yml
 .agkan-test/
+.agkan-test-worker-*/
 .agkan-test.yml
 .akan/
 .akan.yml

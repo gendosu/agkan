@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
+import { getWorkerSuffix } from '../../src/db/config';
 import { FileService } from '../../src/services/FileService';
 
 describe('FileService', () => {
@@ -59,7 +60,7 @@ describe('FileService', () => {
       try {
         const result = fileService.saveFile(sourceFile, 42);
 
-        const attachmentDir = path.join(tmpDir, 'attachments', '42');
+        const attachmentDir = path.join(tmpDir, `attachments${getWorkerSuffix()}`, '42');
         expect(fs.existsSync(attachmentDir)).toBe(true);
         expect(fs.existsSync(result.file_path)).toBe(true);
       } finally {
