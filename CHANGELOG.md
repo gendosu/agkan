@@ -7,8 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.2.0] - 2026-04-17
+
+### Added
+- Add GitHub Pages official site with Jekyll and Minimal Mistakes theme
+- Add copy button to install command section on GitHub Pages site
+
 ### Changed
+- Rename `docs/` to `documentation/` and `pages/` to `docs/` for GitHub Pages compatibility
+- Update homepage URL to GitHub Pages site
 - Enable parallel Vitest execution by isolating test database and attachments per worker (`.agkan-test-worker-<id>/`, `attachments-worker-<id>/`)
+- Replace file-deletion DB reset with in-place DELETE for faster tests
+
+### Fixed
+- Prevent `ERR_INVALID_STATE` when SSE stream closes concurrently with abort
+- Remove `/agkan/` prefix from site navigation URLs
 
 ## [3.1.0] - 2026-04-14
 
