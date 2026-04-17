@@ -1,0 +1,19 @@
+main:
+  - title: "Home"
+    url: /agkan/
+  - title: "Reference"
+    url: /agkan/reference/commands/
+  - title: "日本語"
+    url: /agkan/ja/
+
+reference:
+  - title: "Command Reference"
+    children:
+      - title: "Commands Overview"
+        url: /agkan/reference/commands/
+
+reference_ja:
+  - title: "コマンドリファレンス"
+    children:
+      - title: "コマンド一覧"
+        url: /agkan/ja/reference/commands/

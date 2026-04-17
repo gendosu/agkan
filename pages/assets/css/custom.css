@@ -1,0 +1,163 @@
+/* Language Toggle */
+.lang-toggle {
+  position: fixed;
+  top: 16px;
+  right: 20px;
+  z-index: 9999;
+  background: rgba(255, 255, 255, 0.95);
+  border: 1px solid #ddd;
+  border-radius: 20px;
+  padding: 4px 12px;
+  font-size: 0.85em;
+  font-weight: 600;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.lang-toggle .lang-active {
+  color: #333;
+  font-weight: 700;
+}
+
+.lang-toggle .lang-link {
+  color: #888;
+  text-decoration: none;
+}
+
+.lang-toggle .lang-link:hover {
+  color: #0066cc;
+}
+
+.lang-toggle::before {
+  content: "🌐";
+  font-size: 0.9em;
+}
+
+/* Hero Section */
+.hero-section {
+  text-align: center;
+  padding: 3rem 1rem 2rem;
+  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+  color: white;
+  border-radius: 8px;
+  margin-bottom: 2rem;
+}
+
+.hero-section h1 {
+  font-size: 3rem;
+  font-weight: 800;
+  margin-bottom: 0.5rem;
+  color: white;
+  border-bottom: none;
+}
+
+.hero-section .tagline {
+  font-size: 1.3rem;
+  color: #a0b4c8;
+  margin-bottom: 1.5rem;
+}
+
+.hero-section .badges {
+  margin-bottom: 1.5rem;
+}
+
+/* Install Box */
+.install-box {
+  background: #0d1117;
+  border: 1px solid #30363d;
+  border-radius: 8px;
+  padding: 1rem 1.5rem;
+  margin: 1rem auto;
+  max-width: 480px;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.install-box code {
+  color: #58d68d;
+  font-size: 1.05rem;
+  font-family: 'SFMono-Regular', Consolas, monospace;
+  background: transparent;
+  border: none;
+  padding: 0;
+}
+
+.install-box .copy-hint {
+  color: #8b949e;
+  font-size: 0.8rem;
+  white-space: nowrap;
+}
+
+/* Features Grid */
+.features-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 1.5rem;
+  margin: 2rem 0;
+}
+
+.feature-card {
+  background: #f8f9fa;
+  border: 1px solid #e9ecef;
+  border-radius: 8px;
+  padding: 1.5rem;
+}
+
+.feature-card h3 {
+  margin-top: 0;
+  font-size: 1.1rem;
+  color: #333;
+}
+
+.feature-card p {
+  color: #666;
+  font-size: 0.95rem;
+  margin-bottom: 0;
+}
+
+/* Warning Box */
+.warning-box {
+  background: #fff8e1;
+  border-left: 4px solid #ffc107;
+  border-radius: 4px;
+  padding: 1rem 1.5rem;
+  margin: 1.5rem 0;
+}
+
+.warning-box strong {
+  color: #856404;
+}
+
+/* Section Headers */
+.section-header {
+  text-align: center;
+  margin: 2.5rem 0 1.5rem;
+}
+
+.section-header h2 {
+  font-size: 2rem;
+  color: #1a1a2e;
+}
+
+/* Demo section */
+.demo-section {
+  background: #f8f9fa;
+  border-radius: 8px;
+  padding: 2rem;
+  margin: 2rem 0;
+  text-align: center;
+}
+
+.demo-section .demo-placeholder {
+  background: #0d1117;
+  color: #58d68d;
+  border-radius: 6px;
+  padding: 2rem;
+  font-family: 'SFMono-Regular', Consolas, monospace;
+  font-size: 0.85rem;
+  text-align: left;
+  overflow-x: auto;
+}
