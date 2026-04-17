@@ -978,7 +978,7 @@ Task attachment management is currently under development. This feature will all
 - `agkan task attach list <task-id>` - List all attachments for a task
 - `agkan task attach delete <attachment-id>` - Remove an attachment from a task
 
-For detailed information about planned features, see [docs/planned-features.md](docs/planned-features.md).
+For detailed information about planned features, see [documentation/planned-features.md](documentation/planned-features.md).
 
 ## Technology Stack
 
@@ -991,15 +991,15 @@ For detailed information about planned features, see [docs/planned-features.md](
 
 ## Project Structure
 
-See [docs/project-structure.md](docs/project-structure.md) for the full directory layout.
+See [documentation/project-structure.md](documentation/project-structure.md) for the full directory layout.
 
 ## Database Schema
 
-See [docs/database-schema.md](docs/database-schema.md) for the full schema reference.
+See [documentation/database-schema.md](documentation/database-schema.md) for the full schema reference.
 
 ## Development
 
-See [docs/development.md](docs/development.md) for setup instructions, testing, and build information.
+See [documentation/development.md](documentation/development.md) for setup instructions, testing, and build information.
 
 ## License
 

@@ -964,7 +964,7 @@ board:
 - `agkan task attach list <task-id>` - タスクのすべての添付ファイルを一覧表示
 - `agkan task attach delete <attachment-id>` - タスクから添付ファイルを削除
 
-実装予定機能の詳細については、[docs/planned-features.md](docs/planned-features.md)を参照してください。
+実装予定機能の詳細については、[documentation/planned-features.md](documentation/planned-features.md)を参照してください。
 
 ## 技術スタック
 
@@ -976,15 +976,15 @@ board:
 
 ## プロジェクト構成
 
-詳細なディレクトリ構成は [docs/project-structure.ja.md](docs/project-structure.ja.md) を参照してください。
+詳細なディレクトリ構成は [documentation/project-structure.ja.md](documentation/project-structure.ja.md) を参照してください。
 
 ## データベーススキーマ
 
-詳細なスキーマ情報は [docs/database-schema.ja.md](docs/database-schema.ja.md) を参照してください。
+詳細なスキーマ情報は [documentation/database-schema.ja.md](documentation/database-schema.ja.md) を参照してください。
 
 ## 開発
 
-セットアップ手順、テスト、ビルド情報については [docs/development.ja.md](docs/development.ja.md) を参照してください。
+セットアップ手順、テスト、ビルド情報については [documentation/development.ja.md](documentation/development.ja.md) を参照してください。
 
 ## ライセンス
 

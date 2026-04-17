@@ -139,7 +139,7 @@ pnpm test -- --coverage
   - 行カバレッジ: 80%以上
   - ブランチカバレッジ: 80%以上
 
-詳細は [TESTING.md](./docs/TESTING.md) を参照してください。
+詳細は [TESTING.md](./documentation/TESTING.md) を参照してください。
 
 ## CI/CDパイプライン
 
@@ -209,7 +209,7 @@ git push --no-verify
 
 - `README.md`: ユーザー向けの使い方
 - `CHANGELOG.md`: 変更履歴
-- `docs/TESTING.md`: テストの実行方法
+- `documentation/TESTING.md`: テストの実行方法
 - コード内のJSDoc: API仕様
 
 ## 質問・相談
