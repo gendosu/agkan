@@ -23,9 +23,9 @@ tmp
 .vscode/settings.json
 
 # Jekyll (GitHub Pages)
-pages/_site/
-pages/.jekyll-cache/
-pages/.bundle/
+docs/_site/
+docs/.jekyll-cache/
+docs/.bundle/
 
 # Playwright MCP
 .playwright-mcp/
