@@ -1,0 +1,19 @@
+main:
+  - title: "Home"
+    url: /
+  - title: "Reference"
+    url: /reference/commands/
+  - title: "日本語"
+    url: /ja/
+
+reference:
+  - title: "Command Reference"
+    children:
+      - title: "Commands Overview"
+        url: /reference/commands/
+
+reference_ja:
+  - title: "コマンドリファレンス"
+    children:
+      - title: "コマンド一覧"
+        url: /ja/reference/commands/

@@ -1,0 +1,76 @@
+title: "agkan"
+description: "A lightweight CLI task management tool for AI-assisted development"
+baseurl: "/agkan"
+url: "https://gendosu.github.io"
+
+remote_theme: mmistakes/minimal-mistakes
+minimal_mistakes_skin: "default"
+
+# Build settings
+markdown: kramdown
+highlighter: rouge
+
+# Plugins
+plugins:
+  - jekyll-remote-theme
+  - jekyll-include-cache
+  - jekyll-paginate
+  - jekyll-sitemap
+  - jekyll-feed
+
+# Author info
+author:
+  name: "gendosu"
+  url: "https://github.com/gendosu"
+
+# Navigation
+navigation:
+  main:
+    - title: "Home"
+      url: /
+    - title: "Reference"
+      url: /reference/commands/
+    - title: "日本語"
+      url: /ja/
+
+# Default front matter
+defaults:
+  - scope:
+      path: ""
+    values:
+      layout: "single"
+      author_profile: false
+  - scope:
+      path: "reference"
+    values:
+      layout: "single"
+      sidebar:
+        nav: "reference"
+  - scope:
+      path: "ja/reference"
+    values:
+      layout: "single"
+      sidebar:
+        nav: "reference_ja"
+
+# Sidebar navigation for reference pages
+sidebar_nav:
+  reference:
+    - title: "Command Reference (EN)"
+      children:
+        - title: "Commands Overview"
+          url: /reference/commands/
+  reference_ja:
+    - title: "コマンドリファレンス (JA)"
+      children:
+        - title: "コマンド一覧"
+          url: /ja/reference/commands/
+
+# Social links
+github_username: gendosu
+
+# Exclude from processing
+exclude:
+  - Gemfile
+  - Gemfile.lock
+  - vendor/

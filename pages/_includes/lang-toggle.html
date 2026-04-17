@@ -1,0 +1,11 @@
+{% if page.lang == "ja" %}
+<div class="lang-toggle">
+  <a href="{{ site.baseurl }}/" class="lang-link">EN</a>
+  <span class="lang-active">JA</span>
+</div>
+{% else %}
+<div class="lang-toggle">
+  <span class="lang-active">EN</span>
+  <a href="{{ site.baseurl }}/ja/" class="lang-link">JA</a>
+</div>
+{% endif %}

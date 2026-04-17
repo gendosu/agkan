@@ -495,28 +495,37 @@ function registerClaudeRoutes(app: Hono, claudeProcess: ClaudeProcessService, ts
 
     const stream = new ReadableStream({
       start(controller) {
+        let finalized = false;
+
         const encode = (event: string, data: unknown): Uint8Array => {
           const payload = `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
           return new TextEncoder().encode(payload);
         };
 
+        const safeClose = () => {
+          if (finalized) return;
+          finalized = true;
+          stop();
+          controller.close();
+        };
+
         const stop = claudeProcess.subscribeOutput(taskId, (evt) => {
+          if (finalized) return;
           if (evt.kind === 'text') {
             controller.enqueue(encode('text', { text: evt.text }));
           } else if (evt.kind === 'tool_use') {
             controller.enqueue(encode('tool_use', { name: evt.name, input: evt.input }));
           } else if (evt.kind === 'done') {
             controller.enqueue(encode('end', { exitCode: evt.exitCode }));
-            controller.close();
+            safeClose();
           } else if (evt.kind === 'error') {
             controller.enqueue(encode('error', { message: evt.message }));
-            controller.close();
+            safeClose();
           }
         });
 
         c.req.raw.signal?.addEventListener('abort', () => {
-          stop();
-          controller.close();
+          safeClose();
         });
       },
     });

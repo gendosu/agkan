@@ -469,6 +469,101 @@ describe('GET /api/claude/tasks/:taskId/stream', () => {
     }
   });
 
+  it('does not throw when done event fires then client disconnects (abort)', async () => {
+    let capturedCallback: SubscribeCallback | null = null;
+    const stopFn = vi.fn();
+    const mock = buildMockClaudeProcessService();
+    (mock.subscribeOutput as ReturnType<typeof vi.fn>).mockImplementation((_taskId: number, cb: SubscribeCallback) => {
+      capturedCallback = cb;
+      return stopFn;
+    });
+
+    const controller = new AbortController();
+    const app = buildApp(buildServices(mock));
+    const res = await app.fetch(
+      new Request('http://localhost/api/claude/tasks/1/stream', { signal: controller.signal })
+    );
+
+    expect(res.status).toBe(200);
+
+    const cb = capturedCallback as SubscribeCallback | null;
+    if (cb && res.body) {
+      const reader = res.body.getReader();
+
+      // done event closes the stream
+      cb({ kind: 'done', exitCode: 0 });
+
+      // Read until done to drain the stream
+      await reader.read(); // end event
+      await reader.read(); // stream closed
+
+      // abort after stream already closed must not throw
+      expect(() => controller.abort()).not.toThrow();
+      expect(stopFn).toHaveBeenCalledTimes(1);
+    }
+  });
+
+  it('does not throw when error event fires then client disconnects (abort)', async () => {
+    let capturedCallback: SubscribeCallback | null = null;
+    const stopFn = vi.fn();
+    const mock = buildMockClaudeProcessService();
+    (mock.subscribeOutput as ReturnType<typeof vi.fn>).mockImplementation((_taskId: number, cb: SubscribeCallback) => {
+      capturedCallback = cb;
+      return stopFn;
+    });
+
+    const controller = new AbortController();
+    const app = buildApp(buildServices(mock));
+    const res = await app.fetch(
+      new Request('http://localhost/api/claude/tasks/1/stream', { signal: controller.signal })
+    );
+
+    expect(res.status).toBe(200);
+
+    const cb = capturedCallback as SubscribeCallback | null;
+    if (cb && res.body) {
+      const reader = res.body.getReader();
+
+      // error event closes the stream
+      cb({ kind: 'error', message: 'process failed' });
+
+      // Read until done
+      await reader.read(); // error event
+      await reader.read(); // stream closed
+
+      // abort after stream already closed must not throw
+      expect(() => controller.abort()).not.toThrow();
+      expect(stopFn).toHaveBeenCalledTimes(1);
+    }
+  });
+
+  it('calls stop() when abort fires and does not close stream twice', async () => {
+    let capturedCallback: SubscribeCallback | null = null;
+    const stopFn = vi.fn();
+    const mock = buildMockClaudeProcessService();
+    (mock.subscribeOutput as ReturnType<typeof vi.fn>).mockImplementation((_taskId: number, cb: SubscribeCallback) => {
+      capturedCallback = cb;
+      return stopFn;
+    });
+
+    const controller = new AbortController();
+    const app = buildApp(buildServices(mock));
+    const res = await app.fetch(
+      new Request('http://localhost/api/claude/tasks/1/stream', { signal: controller.signal })
+    );
+
+    expect(res.status).toBe(200);
+
+    if (capturedCallback && res.body) {
+      // Abort before any events
+      controller.abort();
+
+      // Attempting to emit after abort must not throw
+      expect(() => capturedCallback!({ kind: 'text', text: 'late' })).not.toThrow();
+      expect(stopFn).toHaveBeenCalledTimes(1);
+    }
+  });
+
   it('returns 404 when claudeProcessService is not configured', async () => {
     const app = buildApp(buildServices(undefined));
 
