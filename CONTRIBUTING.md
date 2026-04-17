@@ -139,7 +139,7 @@ pnpm test -- --coverage
   - Line coverage: 80% or higher
   - Branch coverage: 80% or higher
 
-For details, refer to [TESTING.md](./docs/TESTING.md).
+For details, refer to [TESTING.md](./documentation/TESTING.md).
 
 ## CI/CD Pipeline
 
@@ -209,7 +209,7 @@ When making code changes, update the following documentation as needed:
 
 - `README.md`: User-facing usage instructions
 - `CHANGELOG.md`: Change history
-- `docs/TESTING.md`: How to run tests
+- `documentation/TESTING.md`: How to run tests
 - JSDoc in code: API specifications
 
 ## Questions and Discussions
