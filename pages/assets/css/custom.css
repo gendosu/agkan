@@ -35,6 +35,12 @@
   font-size: 0.9em;
 }
 
+/* Page header overlay title */
+.page__hero--overlay .page__title {
+  text-align: center;
+  width: 100%;
+}
+
 /* Hero Section */
 .hero-section {
   text-align: center;
@@ -85,10 +91,36 @@
   padding: 0;
 }
 
-.install-box .copy-hint {
+.copy-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: #21262d;
+  border: 1px solid #30363d;
+  border-radius: 6px;
   color: #8b949e;
+  cursor: pointer;
   font-size: 0.8rem;
+  padding: 6px 10px;
   white-space: nowrap;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+  margin-left: auto;
+}
+
+.copy-btn:hover {
+  background: #30363d;
+  border-color: #8b949e;
+  color: #e6edf3;
+}
+
+.copy-btn.copied {
+  background: #1a4731;
+  border-color: #2ea043;
+  color: #3fb950;
+}
+
+.copy-btn svg {
+  flex-shrink: 0;
 }
 
 /* Features Grid */
