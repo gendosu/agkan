@@ -21,3 +21,11 @@ tmp
 .worktree
 .eslintcache
 .vscode/settings.json
+
+# Jekyll (GitHub Pages)
+pages/_site/
+pages/.jekyll-cache/
+pages/.bundle/
+
+# Playwright MCP
+.playwright-mcp/
