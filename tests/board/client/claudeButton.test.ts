@@ -309,13 +309,18 @@ describe('attachClaudeButtonListeners', () => {
 });
 
 describe('initClaudeButton', () => {
-  it('starts polling without throwing', () => {
-    vi.useFakeTimers();
-    global.fetch = vi.fn().mockResolvedValue({
-      ok: true,
-      json: vi.fn().mockResolvedValue({ taskIds: [] }),
-    });
+  it('connects via EventSource without throwing', () => {
+    let capturedUrl = '';
+    class MockEventSource {
+      constructor(url: string) {
+        capturedUrl = url;
+      }
+      addEventListener = vi.fn();
+      close = vi.fn();
+      readyState = 0;
+    }
+    (global as unknown as Record<string, unknown>)['EventSource'] = MockEventSource;
     expect(() => initClaudeButton()).not.toThrow();
-    vi.useRealTimers();
+    expect(capturedUrl).toBe('/api/running-tasks/stream');
   });
 });

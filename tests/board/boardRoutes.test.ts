@@ -15,6 +15,7 @@ import { CommentService } from '../../src/services/CommentService';
 import { TaskBlockService } from '../../src/services/TaskBlockService';
 import { getStorageBackend } from '../../src/db/connection';
 import { registerBoardRoutes, BoardServices } from '../../src/board/boardRoutes';
+import { ClaudeProcessService } from '../../src/services/ClaudeProcessService';
 import { DETAIL_PANE_MAX_WIDTH } from '../../src/board/boardConfig';
 
 const TEST_CONFIG_DIR = path.join(process.cwd(), '.agkan-test-routes-' + process.pid);
@@ -958,6 +959,39 @@ describe('GET /api/board/stream', () => {
     const text = new TextDecoder().decode(value);
     expect(text).toContain('event: update');
     expect(text).toContain('updatedAt');
+    controller.abort();
+    reader.cancel();
+  });
+});
+
+describe('GET /api/running-tasks/stream', () => {
+  function buildServicesWithClaude(): BoardServices {
+    return { ...buildServices(), claudeProcessService: new ClaudeProcessService() };
+  }
+
+  it('returns SSE response with correct headers', async () => {
+    const app = buildApp(buildServicesWithClaude());
+    const controller = new AbortController();
+    const res = await app.fetch(
+      new Request('http://localhost/api/running-tasks/stream', { signal: controller.signal })
+    );
+    expect(res.status).toBe(200);
+    expect(res.headers.get('Content-Type')).toBe('text/event-stream');
+    expect(res.headers.get('Cache-Control')).toBe('no-cache');
+    controller.abort();
+  });
+
+  it('sends initial update event with current running tasks', async () => {
+    const app = buildApp(buildServicesWithClaude());
+    const controller = new AbortController();
+    const res = await app.fetch(
+      new Request('http://localhost/api/running-tasks/stream', { signal: controller.signal })
+    );
+    const reader = res.body!.getReader();
+    const { value } = await reader.read();
+    const text = new TextDecoder().decode(value);
+    expect(text).toContain('event: update');
+    expect(text).toContain('tasks');
     controller.abort();
     reader.cancel();
   });

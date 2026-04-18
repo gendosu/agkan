@@ -1,4 +1,4 @@
-// Client-side Claude button management: polling /api/claude/running-tasks
+// Client-side Claude button management: SSE /api/running-tasks/stream
 // and updating button states on task cards.
 
 let _claudeModalCallback: ((taskId: number) => void) | null = null;
@@ -225,17 +225,10 @@ async function triggerRunTask(taskId: number, btn: HTMLButtonElement, body: Reco
   }
 }
 
-async function pollRunningTasks(): Promise<void> {
-  try {
-    const res = await fetch('/api/running-tasks');
-    if (!res.ok) return;
-    const data = (await res.json()) as { tasks: { taskId: number; command: string }[] };
-    const allIds = new Set(data.tasks.map((t) => t.taskId));
-    const planningIds = new Set(data.tasks.filter((t) => t.command === 'planning').map((t) => t.taskId));
-    updateButtonStates(allIds, planningIds);
-  } catch {
-    // Ignore network errors during polling
-  }
+function handleRunningTasksUpdate(tasks: { taskId: number; command: string }[]): void {
+  const allIds = new Set(tasks.map((t) => t.taskId));
+  const planningIds = new Set(tasks.filter((t) => t.command === 'planning').map((t) => t.taskId));
+  updateButtonStates(allIds, planningIds);
 }
 
 export function updateCardButton(card: HTMLElement, newStatus: string): void {
@@ -301,7 +294,9 @@ export function initClaudeButton(): void {
     });
   });
 
-  // Start polling for running tasks
-  setInterval(pollRunningTasks, 2500);
-  pollRunningTasks();
+  const es = new EventSource('/api/running-tasks/stream');
+  es.addEventListener('update', (event: MessageEvent) => {
+    const data = JSON.parse(event.data) as { tasks: { taskId: number; command: string }[] };
+    handleRunningTasksUpdate(data.tasks);
+  });
 }
