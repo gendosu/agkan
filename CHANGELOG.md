@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.3.0] - 2026-04-18
+
+### Added
+- Migrate board polling to SSE via `/api/board/stream`
+- Migrate running-tasks polling to SSE via `/api/running-tasks/stream`
+- Reflect tag changes on board cards via SSE incremental update
+- Add SSE connection and disconnection tests for `initBoardPolling`
+
+### Fixed
+- Prevent duplicate card click listeners during board refresh
+- Prevent duplicate click listeners from `initDetailPanel`
+- Use single `.agkan-test` dir with per-worker DB files instead of per-worker dirs
+
+### Changed
+- Add `.claude/scheduled_tasks.lock` to `.gitignore`
+
 ## [3.2.0] - 2026-04-17
 
 ### Added
