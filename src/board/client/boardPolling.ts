@@ -96,18 +96,21 @@ export function applyIncrementalCardUpdate(body: HTMLElement, newHtml: string): 
   newCards.forEach((newCard, index) => {
     const id = newCard.dataset.id;
     const newUpdatedAt = newCard.dataset.updatedAt;
+    const newTagIds = newCard.dataset.tagIds ?? '';
     const newBlockedBy = newCard.dataset.blockedBy ?? '';
     const newBlocking = newCard.dataset.blocking ?? '';
     const existing = id ? existingCards.get(id) : undefined;
 
     if (existing) {
-      // Update if content changed: compare updated-at and dependency attributes
+      // Update if content changed: compare updated-at, tag, and dependency attributes
       const existingUpdatedAt = existing.dataset.updatedAt;
+      const existingTagIds = existing.dataset.tagIds ?? '';
       const existingBlockedBy = existing.dataset.blockedBy ?? '';
       const existingBlocking = existing.dataset.blocking ?? '';
+      const tagsChanged = newTagIds !== existingTagIds;
       const depsChanged = newBlockedBy !== existingBlockedBy || newBlocking !== existingBlocking;
       let activeCard: HTMLElement;
-      if (newUpdatedAt !== existingUpdatedAt || depsChanged) {
+      if (newUpdatedAt !== existingUpdatedAt || tagsChanged || depsChanged) {
         existing.replaceWith(newCard);
         activeCard = newCard;
       } else {
