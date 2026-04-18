@@ -403,6 +403,51 @@ describe('applyIncrementalCardUpdate', () => {
     const afterCard = body.querySelector('[data-id="1"]') as HTMLElement;
     expect(afterCard).toBe(originalCard);
   });
+
+  function makeCardHtmlWithTags(
+    id: string,
+    title: string,
+    updatedAt = '2026-01-01T00:00:00.000Z',
+    tagIds: number[] = []
+  ): string {
+    const dataTagIds = tagIds.length > 0 ? ` data-tag-ids="${tagIds.join(',')}"` : '';
+    return `<div class="card" data-id="${id}" data-status="backlog" data-updated-at="${updatedAt}"${dataTagIds}><div class="card-title">${title}</div></div>`;
+  }
+
+  it('replaces card when tag is added (updated-at unchanged)', () => {
+    const body = makeBody();
+    applyIncrementalCardUpdate(body, makeCardHtmlWithTags('1', 'Task One', '2026-01-01T00:00:00.000Z'));
+    const originalCard = body.querySelector('[data-id="1"]') as HTMLElement;
+    expect(originalCard.dataset.tagIds).toBeUndefined();
+
+    applyIncrementalCardUpdate(body, makeCardHtmlWithTags('1', 'Task One', '2026-01-01T00:00:00.000Z', [5]));
+    const afterCard = body.querySelector('[data-id="1"]') as HTMLElement;
+    expect(afterCard).not.toBe(originalCard);
+    expect(afterCard.dataset.tagIds).toBe('5');
+  });
+
+  it('replaces card when tag is removed (updated-at unchanged)', () => {
+    const body = makeBody();
+    applyIncrementalCardUpdate(body, makeCardHtmlWithTags('1', 'Task One', '2026-01-01T00:00:00.000Z', [5]));
+    const originalCard = body.querySelector('[data-id="1"]') as HTMLElement;
+    expect(originalCard.dataset.tagIds).toBe('5');
+
+    applyIncrementalCardUpdate(body, makeCardHtmlWithTags('1', 'Task One', '2026-01-01T00:00:00.000Z'));
+    const afterCard = body.querySelector('[data-id="1"]') as HTMLElement;
+    expect(afterCard).not.toBe(originalCard);
+    expect(afterCard.dataset.tagIds).toBeUndefined();
+  });
+
+  it('does not replace card when tags are unchanged (no flicker)', () => {
+    const body = makeBody();
+    const html = makeCardHtmlWithTags('1', 'Task One', '2026-01-01T00:00:00.000Z', [3, 7]);
+    applyIncrementalCardUpdate(body, html);
+    const originalCard = body.querySelector('[data-id="1"]') as HTMLElement;
+
+    applyIncrementalCardUpdate(body, html);
+    const afterCard = body.querySelector('[data-id="1"]') as HTMLElement;
+    expect(afterCard).toBe(originalCard);
+  });
 });
 
 describe('initBoardPolling (SSE connection)', () => {

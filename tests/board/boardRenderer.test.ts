@@ -106,6 +106,19 @@ describe('renderCard', () => {
     expect(html).toContain('class="card-tags"');
   });
 
+  it('renders data-tag-ids attribute with tag ids when tags are present', () => {
+    const task = makeTask();
+    const tags = [makeTag({ id: 3, name: 'frontend' }), makeTag({ id: 7, name: 'bug' })];
+    const html = renderCard(task, tags);
+    expect(html).toContain('data-tag-ids="3,7"');
+  });
+
+  it('does not render data-tag-ids attribute when no tags', () => {
+    const task = makeTask();
+    const html = renderCard(task, []);
+    expect(html).not.toContain('data-tag-ids');
+  });
+
   it('does not render card-tags div when no tags', () => {
     const task = makeTask();
     const html = renderCard(task, []);

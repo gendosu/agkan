@@ -42,6 +42,7 @@ export function renderCard(task: Task, tags: Tag[], blockedByIds: number[] = [],
     ? `<span class="priority priority-${escapeHtml(priority)}">${escapeHtml(priority)}</span>`
     : '';
   const tagBadges = tags.map((t) => `<span class="tag">${escapeHtml(t.name)}</span>`).join('');
+  const dataTagIds = tags.length > 0 ? ` data-tag-ids="${tags.map((t) => t.id).join(',')}"` : '';
   const dataBlockedBy = blockedByIds.length > 0 ? ` data-blocked-by="${blockedByIds.join(',')}"` : '';
   const dataBlocking = blockingIds.length > 0 ? ` data-blocking="${blockingIds.join(',')}"` : '';
 
@@ -53,7 +54,7 @@ export function renderCard(task: Task, tags: Tag[], blockedByIds: number[] = [],
   }
 
   return `
-    <div class="card" draggable="true" data-id="${task.id}" data-status="${task.status}" data-updated-at="${escapeHtml(task.updated_at)}"${dataBlockedBy}${dataBlocking}>
+    <div class="card" draggable="true" data-id="${task.id}" data-status="${task.status}" data-updated-at="${escapeHtml(task.updated_at)}"${dataTagIds}${dataBlockedBy}${dataBlocking}>
       <div class="card-header">
         <span class="card-id">#${task.id}</span>
         ${priorityBadge}
