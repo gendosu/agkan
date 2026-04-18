@@ -106,6 +106,47 @@ button { font-family: inherit; cursor: pointer; }
 }
 .nav-cta.ghost { background: transparent; color: var(--fg); border: 1px solid var(--border-2); }
 
+/* ----- Nav burger (mobile) ----- */
+.nav-burger {
+  display: none;
+  flex-direction: column; justify-content: center; align-items: center;
+  gap: 5px;
+  width: 36px; height: 36px;
+  background: transparent; border: 1px solid var(--border); border-radius: 6px;
+  padding: 0; cursor: pointer;
+}
+.nav-burger-bar {
+  display: block; width: 16px; height: 2px;
+  background: var(--fg-2); border-radius: 2px;
+  transition: transform 0.2s ease, opacity 0.2s ease;
+}
+.nav-burger-bar--open:nth-child(1) { transform: translateY(7px) rotate(45deg); }
+.nav-burger-bar--open:nth-child(2) { opacity: 0; }
+.nav-burger-bar--open:nth-child(3) { transform: translateY(-7px) rotate(-45deg); }
+
+@media (max-width: 640px) {
+  .nav-burger { display: flex; }
+  .nav-links {
+    display: none !important;
+    position: absolute; top: 100%; left: 0; right: 0;
+    background: color-mix(in srgb, var(--bg) 97%, transparent);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    border-bottom: 1px solid var(--border);
+    flex-direction: column; gap: 0;
+    padding: 8px 0; z-index: 49;
+  }
+  .nav-links--open { display: flex !important; }
+  .nav-links a {
+    display: block; padding: 12px 24px;
+    font-size: 14px; color: var(--fg-2);
+    border-bottom: 1px solid var(--border);
+  }
+  .nav-links a:last-child { border-bottom: 0; }
+  .nav-links a:hover { background: var(--bg-3); color: var(--fg); }
+  .nav-cta { display: none; }
+}
+
 /* ----- Hero ----- */
 .hero { padding: 72px 0 48px; position: relative; }
 .hero-top {
