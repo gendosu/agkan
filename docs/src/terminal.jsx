@@ -199,7 +199,7 @@ function BigTerminal({ t }) {
             >
               <Icon name="replay" size={11} /> {t.termReplay}
             </button>
-            <span style={{ marginLeft: "auto" }}>session · agkan v0.12.1 · node 20.11</span>
+            <span style={{ marginLeft: "auto" }}>session · agkan v3.3.0 · node 20.11</span>
           </div>
         </div>
       </div>

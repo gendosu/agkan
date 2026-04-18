@@ -2,7 +2,7 @@
 const I18N = {
   en: {
     nav: { features: "Features", demo: "Demo", board: "Board", workflow: "Workflow", install: "Install", docs: "Docs" },
-    heroTag: "v0.12",
+    heroTag: "v3.3.0",
     heroPill: "AI-native CLI · built for Claude Code",
     heroTitle1: "Task management",
     heroTitle2: "at the speed",
@@ -351,7 +351,7 @@ const I18N = {
 
   ja: {
     nav: { features: "特徴", demo: "デモ", board: "ボード", workflow: "ワークフロー", install: "導入", docs: "ドキュメント" },
-    heroTag: "v0.12",
+    heroTag: "v3.3.0",
     heroPill: "AIネイティブCLI · Claude Code連携",
     heroTitle1: "タスク管理を、",
     heroTitle2: "エージェントの",
