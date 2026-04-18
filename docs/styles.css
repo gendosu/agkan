@@ -126,6 +126,9 @@ button { font-family: inherit; cursor: pointer; }
 
 @media (max-width: 640px) {
   .nav-burger { display: flex; }
+  .nav-inner { gap: 8px; }
+  .nav-toggle { padding: 5px 7px; font-size: 11px; }
+  .nav-toggle span { padding: 1px 4px; }
   .nav-links {
     display: none !important;
     position: absolute; top: 100%; left: 0; right: 0;
@@ -378,7 +381,11 @@ button { font-family: inherit; cursor: pointer; }
 }
 .board-body { padding: 22px; display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
 @media (max-width: 900px) { .board-body { grid-template-columns: repeat(2, 1fr); } }
-@media (max-width: 480px) { .board-body { grid-template-columns: 1fr; padding: 12px; } }
+@media (max-width: 480px) {
+  .board-body { grid-template-columns: 1fr; padding: 12px; }
+  .board-topbar .crumb { display: none; }
+  .board-url { max-width: none; }
+}
 .board-col {
   background: var(--bg-3);
   border: 1px solid var(--border);
@@ -472,6 +479,7 @@ button { font-family: inherit; cursor: pointer; }
 @media (max-width: 900px) {
   .flow { grid-template-columns: 1fr; }
   .flow-arrow { transform: rotate(90deg); padding: 12px 0; }
+  .flow-arrow-label { display: none; }
 }
 .flow-node {
   background: var(--bg-3);
