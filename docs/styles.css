@@ -280,6 +280,7 @@ button { font-family: inherit; cursor: pointer; }
   white-space: pre;
   overflow: auto;
 }
+@media (max-width: 480px) { .term-body { white-space: pre-wrap; padding: 14px 14px 18px; font-size: 12px; min-height: 260px; } }
 .term-line { display: block; }
 .term-prompt { color: var(--accent); }
 .term-prompt .at { color: #6ea8fe; }
