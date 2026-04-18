@@ -4,24 +4,64 @@
  * Tests for board client boardPolling module
  */
 
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import {
   activeFilters,
   buildFilterParams,
   registerDetailPanelCallbacks,
   refreshBoardCards,
   applyIncrementalCardUpdate,
+  initBoardPolling,
 } from '../../../src/board/client/boardPolling';
 import { updateButtonStates } from '../../../src/board/client/claudeButton';
 
+// --- MockEventSource for SSE tests ---
+
+class MockEventSource {
+  url: string;
+  readyState = 1;
+  private _handlers: Map<string, EventListener[]> = new Map();
+  static _instances: MockEventSource[] = [];
+
+  constructor(url: string) {
+    this.url = url;
+    MockEventSource._instances.push(this);
+  }
+
+  addEventListener(type: string, handler: EventListener): void {
+    if (!this._handlers.has(type)) this._handlers.set(type, []);
+    this._handlers.get(type)!.push(handler);
+  }
+
+  dispatchEvent(type: string, data?: unknown): void {
+    const event = new MessageEvent(type, { data: JSON.stringify(data ?? {}) });
+    (this._handlers.get(type) ?? []).forEach((h) => h(event));
+  }
+
+  simulateError(): void {
+    this.readyState = 2;
+    (this._handlers.get('error') ?? []).forEach((h) => h(new Event('error')));
+  }
+
+  static reset(): void {
+    MockEventSource._instances = [];
+  }
+}
+
 beforeEach(() => {
   vi.restoreAllMocks();
+  MockEventSource.reset();
+  (global as unknown as Record<string, unknown>)['EventSource'] = MockEventSource;
   // Reset activeFilters state
   activeFilters.tagIds = [];
   activeFilters.priorities = [];
   activeFilters.assignee = '';
   // Reset DOM
   document.body.innerHTML = '';
+});
+
+afterEach(() => {
+  vi.restoreAllMocks();
 });
 
 describe('buildFilterParams', () => {
@@ -362,5 +402,48 @@ describe('applyIncrementalCardUpdate', () => {
     applyIncrementalCardUpdate(body, html);
     const afterCard = body.querySelector('[data-id="1"]') as HTMLElement;
     expect(afterCard).toBe(originalCard);
+  });
+});
+
+describe('initBoardPolling (SSE connection)', () => {
+  function mockFetchCards(): ReturnType<typeof vi.fn> {
+    return vi.fn().mockResolvedValue({
+      ok: true,
+      json: vi.fn().mockResolvedValue({ columns: [] }),
+    });
+  }
+
+  it('connects to /api/board/stream via EventSource', () => {
+    initBoardPolling();
+    expect(MockEventSource._instances).toHaveLength(1);
+    expect(MockEventSource._instances[0].url).toBe('/api/board/stream');
+  });
+
+  it('calls refreshBoardCards when update event fires', async () => {
+    global.fetch = mockFetchCards();
+    initBoardPolling();
+    const es = MockEventSource._instances[0];
+
+    es.dispatchEvent('update', { updatedAt: '2026-01-01T00:00:00.000Z' });
+    await vi.waitFor(() => expect(global.fetch).toHaveBeenCalledWith('/api/board/cards'));
+  });
+
+  it('does not accumulate requests during disconnection — only one fetch per reconnect', async () => {
+    global.fetch = mockFetchCards();
+    initBoardPolling();
+    const es = MockEventSource._instances[0];
+
+    // Simulate server disconnect (no events fired during offline period)
+    es.simulateError();
+
+    // Browser auto-reconnects EventSource; simulate by creating a new instance
+    initBoardPolling();
+    const es2 = MockEventSource._instances[1];
+
+    // Server sends exactly ONE initial update event on reconnect
+    es2.dispatchEvent('update', { updatedAt: '2026-01-01T00:00:01.000Z' });
+
+    await vi.waitFor(() => expect(global.fetch).toHaveBeenCalledTimes(1));
+    expect(global.fetch).toHaveBeenCalledWith('/api/board/cards');
   });
 });
