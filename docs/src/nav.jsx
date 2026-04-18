@@ -14,6 +14,7 @@ function Nav({ lang, setLang, theme, setTheme, t }) {
           <a href="#board">{t.nav.board}</a>
           <a href="#workflow">{t.nav.workflow}</a>
           <a href="#install">{t.nav.install}</a>
+          <a href="#reference">{t.nav.docs}</a>
         </div>
         <div className="nav-right">
           <button className="nav-toggle" onClick={() => setTheme(theme === "dark" ? "light" : "dark")} title="Toggle theme">
