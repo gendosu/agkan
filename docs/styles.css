@@ -529,6 +529,7 @@ button { font-family: inherit; cursor: pointer; }
   position: relative;
   overflow: hidden;
 }
+@media (max-width: 480px) { .finalcta { padding: 40px 20px; border-radius: 14px; } }
 .finalcta h2 {
   font-size: clamp(36px, 5vw, 64px);
   letter-spacing: -0.03em; line-height: 1.02; margin: 0 0 20px;
