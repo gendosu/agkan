@@ -61,7 +61,7 @@ export function getWorkerSuffix(): string {
  * Get default directory name based on current mode
  */
 export function getDefaultDirName(): string {
-  return isTestMode() ? `.agkan-test${getWorkerSuffix()}` : '.agkan';
+  return isTestMode() ? '.agkan-test' : '.agkan';
 }
 
 /**
@@ -167,5 +167,7 @@ export function resolveDatabasePath(): string {
 
   // Priority 3: Default path
   const defaultDir = getDefaultDirName();
-  return path.join(process.cwd(), defaultDir, 'data.db');
+  const workerId = process.env.VITEST_WORKER_ID;
+  const dbFileName = isTestMode() && workerId ? `data-${workerId}.db` : 'data.db';
+  return path.join(process.cwd(), defaultDir, dbFileName);
 }

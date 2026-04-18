@@ -244,10 +244,12 @@ describe('Database Path Resolution', () => {
     });
 
     describe('Default Path Fallback', () => {
-      it('should use default test path .agkan-test/data.db when no config exists', () => {
+      it('should use default test path in .agkan-test directory when no config exists', () => {
         const result = resolveDatabasePath();
 
-        expect(result).toBe(path.join(process.cwd(), getDefaultDirName(), 'data.db'));
+        const workerId = process.env.VITEST_WORKER_ID;
+        const expectedFile = workerId ? `data-${workerId}.db` : 'data.db';
+        expect(result).toBe(path.join(process.cwd(), getDefaultDirName(), expectedFile));
       });
 
       it('should use .agkan-test directory (not .agkan) in test mode', () => {
@@ -288,7 +290,9 @@ describe('Database Path Resolution', () => {
       const result = resolveDatabasePath();
 
       // Should fallback to default path
-      expect(result).toBe(path.join(process.cwd(), getDefaultDirName(), 'data.db'));
+      const workerId = process.env.VITEST_WORKER_ID;
+      const expectedFile = workerId ? `data-${workerId}.db` : 'data.db';
+      expect(result).toBe(path.join(process.cwd(), getDefaultDirName(), expectedFile));
     });
   });
 
@@ -444,7 +448,7 @@ describe('Database Path Resolution', () => {
 
     it('getDefaultDirName should return correct directory based on mode', () => {
       process.env.NODE_ENV = 'test';
-      expect(getDefaultDirName()).toMatch(/^\.agkan-test(-worker-\d+)?$/);
+      expect(getDefaultDirName()).toBe('.agkan-test');
 
       process.env.NODE_ENV = 'production';
       expect(getDefaultDirName()).toBe('.agkan');
