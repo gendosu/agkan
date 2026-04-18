@@ -1,19 +1,9 @@
-// Board polling: update data in background when updated_at changes
+// Board streaming: receive board updates via SSE
 
 import { draggedCard, isPendingStatusUpdate, attachDragListeners } from './dragDrop';
 import { attachAutoScrollToBody } from './autoScroll';
 import { attachClaudeButtonListeners, getRunningTaskIds, updateButtonStates } from './claudeButton';
 import type { ActiveFilters, TaskDetail } from './types';
-
-let lastUpdatedAt: string | null = null;
-
-export function getLastUpdatedAt(): string | null {
-  return lastUpdatedAt;
-}
-
-export function setLastUpdatedAt(val: string | null): void {
-  lastUpdatedAt = val;
-}
 
 export const activeFilters: ActiveFilters = { tagIds: [], priorities: [], assignee: '', searchText: '' };
 
@@ -202,25 +192,11 @@ export async function refreshBoardCards(): Promise<void> {
   }
 }
 
-export async function pollBoardUpdates(): Promise<void> {
-  if (draggedCard !== null || isPendingStatusUpdate) return;
-  try {
-    const res = await fetch('/api/board/updated-at');
-    if (!res.ok) return;
-    const data = (await res.json()) as { updatedAt: string };
-    const ts: string = data.updatedAt;
-    if (lastUpdatedAt === null) {
-      lastUpdatedAt = ts;
-    } else if (ts !== lastUpdatedAt) {
-      lastUpdatedAt = ts;
-      await refreshBoardCards();
-    }
-  } catch {
-    // Ignore network errors during polling
-  }
-}
-
 export function initBoardPolling(): void {
-  setInterval(pollBoardUpdates, 5000);
-  pollBoardUpdates();
+  const es = new EventSource('/api/board/stream');
+
+  es.addEventListener('update', () => {
+    if (draggedCard !== null || isPendingStatusUpdate) return;
+    refreshBoardCards();
+  });
 }

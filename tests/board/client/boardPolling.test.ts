@@ -6,17 +6,13 @@
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import {
-  getLastUpdatedAt,
-  setLastUpdatedAt,
   activeFilters,
   buildFilterParams,
   registerDetailPanelCallbacks,
   refreshBoardCards,
-  pollBoardUpdates,
   applyIncrementalCardUpdate,
 } from '../../../src/board/client/boardPolling';
 import { updateButtonStates } from '../../../src/board/client/claudeButton';
-import * as dragDropModule from '../../../src/board/client/dragDrop';
 
 beforeEach(() => {
   vi.restoreAllMocks();
@@ -24,27 +20,8 @@ beforeEach(() => {
   activeFilters.tagIds = [];
   activeFilters.priorities = [];
   activeFilters.assignee = '';
-  // Reset lastUpdatedAt
-  setLastUpdatedAt(null);
   // Reset DOM
   document.body.innerHTML = '';
-});
-
-describe('getLastUpdatedAt / setLastUpdatedAt', () => {
-  it('returns null by default', () => {
-    expect(getLastUpdatedAt()).toBeNull();
-  });
-
-  it('returns the value set by setLastUpdatedAt', () => {
-    setLastUpdatedAt('2026-01-01T00:00:00.000Z');
-    expect(getLastUpdatedAt()).toBe('2026-01-01T00:00:00.000Z');
-  });
-
-  it('can be reset to null', () => {
-    setLastUpdatedAt('something');
-    setLastUpdatedAt(null);
-    expect(getLastUpdatedAt()).toBeNull();
-  });
 });
 
 describe('buildFilterParams', () => {
@@ -187,103 +164,6 @@ describe('refreshBoardCards', () => {
 
     expect(renderDetailPanel).not.toHaveBeenCalled();
     expect(fetchCalls.some((u) => u.includes('/api/tasks/1'))).toBe(false);
-  });
-});
-
-describe('pollBoardUpdates', () => {
-  beforeEach(() => {
-    document.body.innerHTML = `
-      <div class="column" data-status="backlog">
-        <span class="column-count">0</span>
-        <div class="column-body" id="col-backlog"></div>
-      </div>
-      <div id="detail-panel"></div>
-    `;
-  });
-
-  it('does not call location.reload() when an update is detected', async () => {
-    const reloadMock = vi.fn();
-    Object.defineProperty(window, 'location', {
-      value: { reload: reloadMock },
-      writable: true,
-    });
-
-    setLastUpdatedAt('2026-01-01T00:00:00.000Z');
-
-    global.fetch = vi.fn().mockImplementation((url: string) => {
-      if (String(url).includes('updated-at')) {
-        return Promise.resolve({
-          ok: true,
-          json: vi.fn().mockResolvedValue({ updatedAt: '2026-01-02T00:00:00.000Z' }),
-        });
-      }
-      return Promise.resolve({
-        ok: true,
-        json: vi.fn().mockResolvedValue({ columns: [] }),
-      });
-    });
-
-    await pollBoardUpdates();
-
-    expect(reloadMock).not.toHaveBeenCalled();
-  });
-
-  it('calls refreshBoardCards (not reload) when an update is detected with detail panel closed', async () => {
-    setLastUpdatedAt('2026-01-01T00:00:00.000Z');
-
-    const fetchCalls: string[] = [];
-    global.fetch = vi.fn().mockImplementation((url: string) => {
-      fetchCalls.push(String(url));
-      if (String(url).includes('updated-at')) {
-        return Promise.resolve({
-          ok: true,
-          json: vi.fn().mockResolvedValue({ updatedAt: '2026-01-02T00:00:00.000Z' }),
-        });
-      }
-      return Promise.resolve({
-        ok: true,
-        json: vi.fn().mockResolvedValue({ columns: [] }),
-      });
-    });
-
-    await pollBoardUpdates();
-
-    expect(fetchCalls.some((u) => u.includes('board/cards'))).toBe(true);
-  });
-
-  it('skips polling when isPendingStatusUpdate is true', async () => {
-    setLastUpdatedAt('2026-01-01T00:00:00.000Z');
-    vi.spyOn(dragDropModule, 'isPendingStatusUpdate', 'get').mockReturnValue(true);
-
-    global.fetch = vi.fn();
-
-    await pollBoardUpdates();
-
-    expect(global.fetch).not.toHaveBeenCalled();
-  });
-
-  it('resumes polling after isPendingStatusUpdate clears to false', async () => {
-    setLastUpdatedAt('2026-01-01T00:00:00.000Z');
-    vi.spyOn(dragDropModule, 'isPendingStatusUpdate', 'get').mockReturnValue(false);
-
-    const fetchCalls: string[] = [];
-    global.fetch = vi.fn().mockImplementation((url: string) => {
-      fetchCalls.push(String(url));
-      if (String(url).includes('updated-at')) {
-        return Promise.resolve({
-          ok: true,
-          json: vi.fn().mockResolvedValue({ updatedAt: '2026-01-02T00:00:00.000Z' }),
-        });
-      }
-      return Promise.resolve({
-        ok: true,
-        json: vi.fn().mockResolvedValue({ columns: [] }),
-      });
-    });
-
-    await pollBoardUpdates();
-
-    expect(fetchCalls.some((u) => u.includes('updated-at'))).toBe(true);
   });
 });
 

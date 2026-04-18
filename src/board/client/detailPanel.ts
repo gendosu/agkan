@@ -11,7 +11,6 @@ import {
   postComment,
   fetchTaskDetail,
   patchTask,
-  syncTimestampAfterSave,
   fetchPanelWidthFromConfig,
   savePanelWidthToConfig,
   fetchRunLogs,
@@ -573,7 +572,6 @@ async function saveDetailTask(): Promise<void> {
     const data = await patchTask(detailTaskId, fields);
     renderDetailPanel(data);
     showToast('Task saved successfully');
-    await syncTimestampAfterSave();
     refreshBoardCards();
   } catch {
     showToast('Failed to update task');

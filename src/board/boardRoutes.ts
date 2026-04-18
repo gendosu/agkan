@@ -586,7 +586,55 @@ export function registerBoardRoutes(app: Hono, services: BoardServices): void {
     const blockMap = buildBlockMap(tbs.getAllBlocks());
     return c.html(renderBoard(tasksByStatus, tts.getAllTaskTags(), boardTitle, boardConfig.theme, blockMap));
   });
-  app.get('/api/board/updated-at', (c) => c.json({ updatedAt: getBoardUpdatedAt(database) }));
+  app.get('/api/board/stream', (c) => {
+    const stream = new ReadableStream({
+      start(controller) {
+        let finalized = false;
+        let lastKnownTs: string | null | undefined = undefined;
+        let intervalId: ReturnType<typeof setInterval>;
+
+        const encode = (event: string, data: unknown): Uint8Array => {
+          const payload = `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
+          return new TextEncoder().encode(payload);
+        };
+
+        const safeClose = () => {
+          if (finalized) return;
+          finalized = true;
+          clearInterval(intervalId);
+          controller.close();
+        };
+
+        const sendUpdate = () => {
+          if (finalized) return;
+          const ts = getBoardUpdatedAt(database);
+          if (ts !== lastKnownTs) {
+            lastKnownTs = ts;
+            try {
+              controller.enqueue(encode('update', { updatedAt: ts }));
+            } catch {
+              safeClose();
+            }
+          }
+        };
+
+        sendUpdate();
+        intervalId = setInterval(sendUpdate, 2000);
+
+        c.req.raw.signal?.addEventListener('abort', () => {
+          safeClose();
+        });
+      },
+    });
+
+    return new Response(stream, {
+      headers: {
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache',
+        Connection: 'keep-alive',
+      },
+    });
+  });
   app.get('/api/board/cards', (c) => {
     const filters = parseBoardCardFilters({
       tags: c.req.query('tags'),

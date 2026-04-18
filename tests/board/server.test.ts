@@ -879,29 +879,16 @@ describe('createBoardApp', () => {
       expect(html).toContain('detail-save-btn');
       expect(html).toContain('detailTaskId');
     });
-
-    it('should sync lastUpdatedAt after save to prevent false conflict warning from polling', async () => {
-      const app = createBoardApp(taskService, taskTagService, metadataService);
-      const res = await app.fetch(new Request('http://localhost/static/board.js'));
-      const html = await res.text();
-
-      // After saving, the script should fetch the latest board timestamp and update lastUpdatedAt
-      // so that polling does not treat the user's own save as an external update
-      expect(html).toContain('setLastUpdatedAt(tsData.updatedAt)');
-    });
   });
 
-  describe('GET /static/board.js (board polling script)', () => {
-    it('should include polling script for board updates', async () => {
+  describe('GET /static/board.js (board SSE script)', () => {
+    it('should use EventSource to connect to /api/board/stream', async () => {
       const app = createBoardApp(taskService, taskTagService, metadataService);
       const res = await app.fetch(new Request('http://localhost/static/board.js'));
       const html = await res.text();
 
-      expect(html).toContain('pollBoardUpdates');
-      expect(html).toContain('/api/board/updated-at');
-      expect(html).toContain('setInterval');
-      // esbuild converts 5000 to 5e3
-      expect(html).toMatch(/5000|5e3/);
+      expect(html).toContain('EventSource');
+      expect(html).toContain('/api/board/stream');
     });
 
     it('should skip reload when draggedCard is not null', async () => {
@@ -968,89 +955,48 @@ describe('createBoardApp', () => {
     });
   });
 
-  describe('GET /api/board/updated-at', () => {
-    it('should return 200 with an updatedAt timestamp when no tasks exist', async () => {
+  describe('GET /api/board/stream', () => {
+    it('should return 200 with SSE headers', async () => {
       const app = createBoardApp(taskService, taskTagService, metadataService);
-      const res = await app.fetch(new Request('http://localhost/api/board/updated-at'));
+      const controller = new AbortController();
+      const res = await app.fetch(new Request('http://localhost/api/board/stream', { signal: controller.signal }));
 
       expect(res.status).toBe(200);
-      const data = (await res.json()) as { updatedAt: string | null };
-      expect(Object.keys(data)).toContain('updatedAt');
+      expect(res.headers.get('Content-Type')).toBe('text/event-stream');
+      expect(res.headers.get('Cache-Control')).toBe('no-cache');
+      controller.abort();
     });
 
-    it('should return the max updated_at from tasks', async () => {
+    it('should send initial update event on connect with null updatedAt when no tasks exist', async () => {
+      const app = createBoardApp(taskService, taskTagService, metadataService);
+      const controller = new AbortController();
+      const res = await app.fetch(new Request('http://localhost/api/board/stream', { signal: controller.signal }));
+
+      const reader = res.body!.getReader();
+      const { value } = await reader.read();
+      const text = new TextDecoder().decode(value);
+
+      expect(text).toContain('event: update');
+      expect(text).toContain('"updatedAt":null');
+      controller.abort();
+      reader.cancel();
+    });
+
+    it('should send initial update event with updatedAt when tasks exist', async () => {
       taskService.createTask({ title: 'Task A', status: 'backlog' });
-      taskService.createTask({ title: 'Task B', status: 'ready' });
 
       const app = createBoardApp(taskService, taskTagService, metadataService);
-      const res = await app.fetch(new Request('http://localhost/api/board/updated-at'));
+      const controller = new AbortController();
+      const res = await app.fetch(new Request('http://localhost/api/board/stream', { signal: controller.signal }));
 
-      expect(res.status).toBe(200);
-      const data = (await res.json()) as { updatedAt: string };
-      expect(data.updatedAt).toBeTruthy();
-    });
+      const reader = res.body!.getReader();
+      const { value } = await reader.read();
+      const text = new TextDecoder().decode(value);
 
-    it('should reflect updated_at from task_metadata when metadata is newer', async () => {
-      const task = taskService.createTask({ title: 'Meta task', status: 'backlog' });
-
-      const app = createBoardApp(taskService, taskTagService, metadataService);
-      const res1 = await app.fetch(new Request('http://localhost/api/board/updated-at'));
-      const data1 = (await res1.json()) as { updatedAt: string };
-
-      // Set metadata after task creation
-      metadataService.setMetadata({ task_id: task.id, key: 'sprint', value: '3' });
-
-      const res2 = await app.fetch(new Request('http://localhost/api/board/updated-at'));
-      const data2 = (await res2.json()) as { updatedAt: string };
-
-      // The fingerprint should change when metadata is added
-      expect(data2.updatedAt).not.toBe(data1.updatedAt);
-    });
-
-    it('should change fingerprint when a tag is attached to a task', async () => {
-      const task = taskService.createTask({ title: 'Tag attach task', status: 'backlog' });
-      const tag = tagService.createTag({ name: 'test-tag' });
-
-      const app = createBoardApp(taskService, taskTagService, metadataService);
-      const res1 = await app.fetch(new Request('http://localhost/api/board/updated-at'));
-      const data1 = (await res1.json()) as { updatedAt: string };
-
-      // Attach a tag
-      taskTagService.addTagToTask({ task_id: task.id, tag_id: tag.id });
-
-      const res2 = await app.fetch(new Request('http://localhost/api/board/updated-at'));
-      const data2 = (await res2.json()) as { updatedAt: string };
-
-      // The fingerprint should change when a tag is attached
-      expect(data2.updatedAt).not.toBe(data1.updatedAt);
-    });
-
-    it('should change fingerprint when a tag is detached from a task', async () => {
-      const task = taskService.createTask({ title: 'Tag detach task', status: 'backlog' });
-      const tag = tagService.createTag({ name: 'detach-tag' });
-      taskTagService.addTagToTask({ task_id: task.id, tag_id: tag.id });
-
-      const app = createBoardApp(taskService, taskTagService, metadataService);
-      const res1 = await app.fetch(new Request('http://localhost/api/board/updated-at'));
-      const data1 = (await res1.json()) as { updatedAt: string };
-
-      // Detach the tag
-      taskTagService.removeTagFromTask(task.id, tag.id);
-
-      const res2 = await app.fetch(new Request('http://localhost/api/board/updated-at'));
-      const data2 = (await res2.json()) as { updatedAt: string };
-
-      // The fingerprint should change when a tag is detached (COUNT changes)
-      expect(data2.updatedAt).not.toBe(data1.updatedAt);
-    });
-
-    it('should return null updatedAt when no tasks or metadata exist', async () => {
-      const app = createBoardApp(taskService, taskTagService, metadataService);
-      const res = await app.fetch(new Request('http://localhost/api/board/updated-at'));
-
-      expect(res.status).toBe(200);
-      const data = (await res.json()) as { updatedAt: string | null };
-      expect(data.updatedAt).toBeNull();
+      expect(text).toContain('event: update');
+      expect(text).not.toContain('"updatedAt":null');
+      controller.abort();
+      reader.cancel();
     });
   });
 
