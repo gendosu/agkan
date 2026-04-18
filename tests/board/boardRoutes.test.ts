@@ -15,6 +15,7 @@ import { CommentService } from '../../src/services/CommentService';
 import { TaskBlockService } from '../../src/services/TaskBlockService';
 import { getStorageBackend } from '../../src/db/connection';
 import { registerBoardRoutes, BoardServices } from '../../src/board/boardRoutes';
+import { ClaudeProcessService } from '../../src/services/ClaudeProcessService';
 import { DETAIL_PANE_MAX_WIDTH } from '../../src/board/boardConfig';
 
 const TEST_CONFIG_DIR = path.join(process.cwd(), '.agkan-test-routes-' + process.pid);
@@ -936,31 +937,63 @@ describe('PUT /api/config', () => {
 // ─────────────────────────────────────────────────────────────────────────────
 // Board-specific routes
 // ─────────────────────────────────────────────────────────────────────────────
-describe('GET /api/board/updated-at', () => {
-  it('returns updatedAt field', async () => {
-    const app = buildApp(buildServices());
-    const res = await app.fetch(new Request('http://localhost/api/board/updated-at'));
-    expect(res.status).toBe(200);
-    const data = (await res.json()) as { updatedAt: string | null };
-    expect(data).toHaveProperty('updatedAt');
-  });
-
-  it('changes signature when task_blocks are added', async () => {
+describe('GET /api/board/stream', () => {
+  it('returns SSE response with correct headers', async () => {
     const services = buildServices();
     const app = buildApp(services);
+    const controller = new AbortController();
+    const res = await app.fetch(new Request('http://localhost/api/board/stream', { signal: controller.signal }));
+    expect(res.status).toBe(200);
+    expect(res.headers.get('Content-Type')).toBe('text/event-stream');
+    expect(res.headers.get('Cache-Control')).toBe('no-cache');
+    controller.abort();
+  });
 
-    const task1 = services.ts.createTask({ title: 'Task 1', status: 'backlog' });
-    const task2 = services.ts.createTask({ title: 'Task 2', status: 'backlog' });
+  it('sends initial update event on connect', async () => {
+    const services = buildServices();
+    const app = buildApp(services);
+    const controller = new AbortController();
+    const res = await app.fetch(new Request('http://localhost/api/board/stream', { signal: controller.signal }));
+    const reader = res.body!.getReader();
+    const { value } = await reader.read();
+    const text = new TextDecoder().decode(value);
+    expect(text).toContain('event: update');
+    expect(text).toContain('updatedAt');
+    controller.abort();
+    reader.cancel();
+  });
+});
 
-    const res1 = await app.fetch(new Request('http://localhost/api/board/updated-at'));
-    const data1 = (await res1.json()) as { updatedAt: string | null };
+describe('GET /api/running-tasks/stream', () => {
+  function buildServicesWithClaude(): BoardServices {
+    return { ...buildServices(), claudeProcessService: new ClaudeProcessService() };
+  }
 
-    services.tbs.addBlock({ blocker_task_id: task1.id, blocked_task_id: task2.id });
+  it('returns SSE response with correct headers', async () => {
+    const app = buildApp(buildServicesWithClaude());
+    const controller = new AbortController();
+    const res = await app.fetch(
+      new Request('http://localhost/api/running-tasks/stream', { signal: controller.signal })
+    );
+    expect(res.status).toBe(200);
+    expect(res.headers.get('Content-Type')).toBe('text/event-stream');
+    expect(res.headers.get('Cache-Control')).toBe('no-cache');
+    controller.abort();
+  });
 
-    const res2 = await app.fetch(new Request('http://localhost/api/board/updated-at'));
-    const data2 = (await res2.json()) as { updatedAt: string | null };
-
-    expect(data2.updatedAt).not.toBe(data1.updatedAt);
+  it('sends initial update event with current running tasks', async () => {
+    const app = buildApp(buildServicesWithClaude());
+    const controller = new AbortController();
+    const res = await app.fetch(
+      new Request('http://localhost/api/running-tasks/stream', { signal: controller.signal })
+    );
+    const reader = res.body!.getReader();
+    const { value } = await reader.read();
+    const text = new TextDecoder().decode(value);
+    expect(text).toContain('event: update');
+    expect(text).toContain('tasks');
+    controller.abort();
+    reader.cancel();
   });
 });
 

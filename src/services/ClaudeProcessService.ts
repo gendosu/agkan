@@ -75,9 +75,21 @@ interface ProcessInfo {
 export class ClaudeProcessService {
   private processes: Map<number, ProcessInfo> = new Map();
   private db: StorageBackend | null;
+  private runningTasksChangeSubscribers: Set<() => void> = new Set();
 
   constructor(db?: StorageBackend | null) {
     this.db = db ?? null;
+  }
+
+  subscribeRunningTasksChange(callback: () => void): () => void {
+    this.runningTasksChangeSubscribers.add(callback);
+    return () => {
+      this.runningTasksChangeSubscribers.delete(callback);
+    };
+  }
+
+  private notifyRunningTasksChange(): void {
+    this.runningTasksChangeSubscribers.forEach((cb) => cb());
   }
 
   /**
@@ -125,6 +137,7 @@ export class ClaudeProcessService {
 
     this.processes.set(taskId, info);
     verboseLog(`[ClaudeProcessService] process added to map taskId=${taskId} total=${this.processes.size}`);
+    this.notifyRunningTasksChange();
 
     if (this.db) {
       info.runLogId = this.db.runLogs.create(info.taskId, info.startedAt.toISOString());
@@ -156,6 +169,7 @@ export class ClaudeProcessService {
         verboseLog(
           `[ClaudeProcessService] process removed from map (error) taskId=${taskId} total=${this.processes.size}`
         );
+        this.notifyRunningTasksChange();
       } else {
         verboseLog(`[ClaudeProcessService] process error skipped map delete (stale entry) taskId=${taskId}`);
       }
@@ -239,6 +253,7 @@ export class ClaudeProcessService {
         verboseLog(
           `[ClaudeProcessService] process removed from map (close) taskId=${taskId} total=${this.processes.size}`
         );
+        this.notifyRunningTasksChange();
       } else {
         verboseLog(`[ClaudeProcessService] process close skipped map delete (stale entry) taskId=${taskId}`);
       }
@@ -259,6 +274,7 @@ export class ClaudeProcessService {
     info.process.kill('SIGTERM');
     this.processes.delete(taskId);
     verboseLog(`[ClaudeProcessService] process removed from map (stop) taskId=${taskId} total=${this.processes.size}`);
+    this.notifyRunningTasksChange();
     return true;
   }
 

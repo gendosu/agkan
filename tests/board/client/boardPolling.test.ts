@@ -4,47 +4,64 @@
  * Tests for board client boardPolling module
  */
 
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import {
-  getLastUpdatedAt,
-  setLastUpdatedAt,
   activeFilters,
   buildFilterParams,
   registerDetailPanelCallbacks,
   refreshBoardCards,
-  pollBoardUpdates,
   applyIncrementalCardUpdate,
+  initBoardPolling,
 } from '../../../src/board/client/boardPolling';
 import { updateButtonStates } from '../../../src/board/client/claudeButton';
-import * as dragDropModule from '../../../src/board/client/dragDrop';
+
+// --- MockEventSource for SSE tests ---
+
+class MockEventSource {
+  url: string;
+  readyState = 1;
+  private _handlers: Map<string, EventListener[]> = new Map();
+  static _instances: MockEventSource[] = [];
+
+  constructor(url: string) {
+    this.url = url;
+    MockEventSource._instances.push(this);
+  }
+
+  addEventListener(type: string, handler: EventListener): void {
+    if (!this._handlers.has(type)) this._handlers.set(type, []);
+    this._handlers.get(type)!.push(handler);
+  }
+
+  dispatchEvent(type: string, data?: unknown): void {
+    const event = new MessageEvent(type, { data: JSON.stringify(data ?? {}) });
+    (this._handlers.get(type) ?? []).forEach((h) => h(event));
+  }
+
+  simulateError(): void {
+    this.readyState = 2;
+    (this._handlers.get('error') ?? []).forEach((h) => h(new Event('error')));
+  }
+
+  static reset(): void {
+    MockEventSource._instances = [];
+  }
+}
 
 beforeEach(() => {
   vi.restoreAllMocks();
+  MockEventSource.reset();
+  (global as unknown as Record<string, unknown>)['EventSource'] = MockEventSource;
   // Reset activeFilters state
   activeFilters.tagIds = [];
   activeFilters.priorities = [];
   activeFilters.assignee = '';
-  // Reset lastUpdatedAt
-  setLastUpdatedAt(null);
   // Reset DOM
   document.body.innerHTML = '';
 });
 
-describe('getLastUpdatedAt / setLastUpdatedAt', () => {
-  it('returns null by default', () => {
-    expect(getLastUpdatedAt()).toBeNull();
-  });
-
-  it('returns the value set by setLastUpdatedAt', () => {
-    setLastUpdatedAt('2026-01-01T00:00:00.000Z');
-    expect(getLastUpdatedAt()).toBe('2026-01-01T00:00:00.000Z');
-  });
-
-  it('can be reset to null', () => {
-    setLastUpdatedAt('something');
-    setLastUpdatedAt(null);
-    expect(getLastUpdatedAt()).toBeNull();
-  });
+afterEach(() => {
+  vi.restoreAllMocks();
 });
 
 describe('buildFilterParams', () => {
@@ -187,103 +204,6 @@ describe('refreshBoardCards', () => {
 
     expect(renderDetailPanel).not.toHaveBeenCalled();
     expect(fetchCalls.some((u) => u.includes('/api/tasks/1'))).toBe(false);
-  });
-});
-
-describe('pollBoardUpdates', () => {
-  beforeEach(() => {
-    document.body.innerHTML = `
-      <div class="column" data-status="backlog">
-        <span class="column-count">0</span>
-        <div class="column-body" id="col-backlog"></div>
-      </div>
-      <div id="detail-panel"></div>
-    `;
-  });
-
-  it('does not call location.reload() when an update is detected', async () => {
-    const reloadMock = vi.fn();
-    Object.defineProperty(window, 'location', {
-      value: { reload: reloadMock },
-      writable: true,
-    });
-
-    setLastUpdatedAt('2026-01-01T00:00:00.000Z');
-
-    global.fetch = vi.fn().mockImplementation((url: string) => {
-      if (String(url).includes('updated-at')) {
-        return Promise.resolve({
-          ok: true,
-          json: vi.fn().mockResolvedValue({ updatedAt: '2026-01-02T00:00:00.000Z' }),
-        });
-      }
-      return Promise.resolve({
-        ok: true,
-        json: vi.fn().mockResolvedValue({ columns: [] }),
-      });
-    });
-
-    await pollBoardUpdates();
-
-    expect(reloadMock).not.toHaveBeenCalled();
-  });
-
-  it('calls refreshBoardCards (not reload) when an update is detected with detail panel closed', async () => {
-    setLastUpdatedAt('2026-01-01T00:00:00.000Z');
-
-    const fetchCalls: string[] = [];
-    global.fetch = vi.fn().mockImplementation((url: string) => {
-      fetchCalls.push(String(url));
-      if (String(url).includes('updated-at')) {
-        return Promise.resolve({
-          ok: true,
-          json: vi.fn().mockResolvedValue({ updatedAt: '2026-01-02T00:00:00.000Z' }),
-        });
-      }
-      return Promise.resolve({
-        ok: true,
-        json: vi.fn().mockResolvedValue({ columns: [] }),
-      });
-    });
-
-    await pollBoardUpdates();
-
-    expect(fetchCalls.some((u) => u.includes('board/cards'))).toBe(true);
-  });
-
-  it('skips polling when isPendingStatusUpdate is true', async () => {
-    setLastUpdatedAt('2026-01-01T00:00:00.000Z');
-    vi.spyOn(dragDropModule, 'isPendingStatusUpdate', 'get').mockReturnValue(true);
-
-    global.fetch = vi.fn();
-
-    await pollBoardUpdates();
-
-    expect(global.fetch).not.toHaveBeenCalled();
-  });
-
-  it('resumes polling after isPendingStatusUpdate clears to false', async () => {
-    setLastUpdatedAt('2026-01-01T00:00:00.000Z');
-    vi.spyOn(dragDropModule, 'isPendingStatusUpdate', 'get').mockReturnValue(false);
-
-    const fetchCalls: string[] = [];
-    global.fetch = vi.fn().mockImplementation((url: string) => {
-      fetchCalls.push(String(url));
-      if (String(url).includes('updated-at')) {
-        return Promise.resolve({
-          ok: true,
-          json: vi.fn().mockResolvedValue({ updatedAt: '2026-01-02T00:00:00.000Z' }),
-        });
-      }
-      return Promise.resolve({
-        ok: true,
-        json: vi.fn().mockResolvedValue({ columns: [] }),
-      });
-    });
-
-    await pollBoardUpdates();
-
-    expect(fetchCalls.some((u) => u.includes('updated-at'))).toBe(true);
   });
 });
 
@@ -482,5 +402,48 @@ describe('applyIncrementalCardUpdate', () => {
     applyIncrementalCardUpdate(body, html);
     const afterCard = body.querySelector('[data-id="1"]') as HTMLElement;
     expect(afterCard).toBe(originalCard);
+  });
+});
+
+describe('initBoardPolling (SSE connection)', () => {
+  function mockFetchCards(): ReturnType<typeof vi.fn> {
+    return vi.fn().mockResolvedValue({
+      ok: true,
+      json: vi.fn().mockResolvedValue({ columns: [] }),
+    });
+  }
+
+  it('connects to /api/board/stream via EventSource', () => {
+    initBoardPolling();
+    expect(MockEventSource._instances).toHaveLength(1);
+    expect(MockEventSource._instances[0].url).toBe('/api/board/stream');
+  });
+
+  it('calls refreshBoardCards when update event fires', async () => {
+    global.fetch = mockFetchCards();
+    initBoardPolling();
+    const es = MockEventSource._instances[0];
+
+    es.dispatchEvent('update', { updatedAt: '2026-01-01T00:00:00.000Z' });
+    await vi.waitFor(() => expect(global.fetch).toHaveBeenCalledWith('/api/board/cards'));
+  });
+
+  it('does not accumulate requests during disconnection — only one fetch per reconnect', async () => {
+    global.fetch = mockFetchCards();
+    initBoardPolling();
+    const es = MockEventSource._instances[0];
+
+    // Simulate server disconnect (no events fired during offline period)
+    es.simulateError();
+
+    // Browser auto-reconnects EventSource; simulate by creating a new instance
+    initBoardPolling();
+    const es2 = MockEventSource._instances[1];
+
+    // Server sends exactly ONE initial update event on reconnect
+    es2.dispatchEvent('update', { updatedAt: '2026-01-01T00:00:01.000Z' });
+
+    await vi.waitFor(() => expect(global.fetch).toHaveBeenCalledTimes(1));
+    expect(global.fetch).toHaveBeenCalledWith('/api/board/cards');
   });
 });

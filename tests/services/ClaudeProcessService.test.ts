@@ -152,6 +152,55 @@ describe('ClaudeProcessService', () => {
     });
   });
 
+  // --- subscribeRunningTasksChange ---
+
+  describe('subscribeRunningTasksChange', () => {
+    it('calls callback when a task starts', () => {
+      const cb = vi.fn();
+      service.subscribeRunningTasksChange(cb);
+      const { proc } = makeFakeProcess();
+      spawnMock.mockReturnValue(proc);
+
+      service.startProcess(1, 'prompt');
+      expect(cb).toHaveBeenCalledTimes(1);
+    });
+
+    it('calls callback when a task process closes', () => {
+      const cb = vi.fn();
+      service.subscribeRunningTasksChange(cb);
+      const { proc } = makeFakeProcess();
+      spawnMock.mockReturnValue(proc);
+
+      service.startProcess(1, 'prompt');
+      cb.mockClear();
+      proc.emit('close', 0);
+      expect(cb).toHaveBeenCalledTimes(1);
+    });
+
+    it('calls callback when a task is stopped', () => {
+      const cb = vi.fn();
+      service.subscribeRunningTasksChange(cb);
+      const { proc } = makeFakeProcess();
+      spawnMock.mockReturnValue(proc);
+
+      service.startProcess(1, 'prompt');
+      cb.mockClear();
+      service.stopProcess(1);
+      expect(cb).toHaveBeenCalledTimes(1);
+    });
+
+    it('unsubscribe prevents further callbacks', () => {
+      const cb = vi.fn();
+      const unsubscribe = service.subscribeRunningTasksChange(cb);
+      unsubscribe();
+
+      const { proc } = makeFakeProcess();
+      spawnMock.mockReturnValue(proc);
+      service.startProcess(1, 'prompt');
+      expect(cb).not.toHaveBeenCalled();
+    });
+  });
+
   // --- subscribeOutput ---
 
   describe('subscribeOutput', () => {

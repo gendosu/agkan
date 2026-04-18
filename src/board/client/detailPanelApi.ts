@@ -2,7 +2,6 @@
 
 import type { TaskDetail } from './types';
 import { showToast } from './utils';
-import { setLastUpdatedAt } from './boardPolling';
 import { refreshBoardCards } from './boardPolling';
 
 const PANEL_MIN_WIDTH = 280;
@@ -60,18 +59,6 @@ export async function patchTask(
   });
   if (!res.ok) throw new Error('Server error');
   return fetchTaskDetail(taskId);
-}
-
-export async function syncTimestampAfterSave(): Promise<void> {
-  try {
-    const tsRes = await fetch('/api/board/updated-at');
-    if (tsRes.ok) {
-      const tsData = await tsRes.json();
-      setLastUpdatedAt(tsData.updatedAt);
-    }
-  } catch {
-    // Ignore errors when syncing timestamp
-  }
 }
 
 export async function fetchPanelWidthFromConfig(): Promise<number> {

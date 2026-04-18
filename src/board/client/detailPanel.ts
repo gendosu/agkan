@@ -11,7 +11,6 @@ import {
   postComment,
   fetchTaskDetail,
   patchTask,
-  syncTimestampAfterSave,
   fetchPanelWidthFromConfig,
   savePanelWidthToConfig,
   fetchRunLogs,
@@ -573,7 +572,6 @@ async function saveDetailTask(): Promise<void> {
     const data = await patchTask(detailTaskId, fields);
     renderDetailPanel(data);
     showToast('Task saved successfully');
-    await syncTimestampAfterSave();
     refreshBoardCards();
   } catch {
     showToast('Failed to update task');
@@ -655,6 +653,8 @@ export function initDetailPanel(): void {
   initPanelResize(detailPanel);
 
   document.querySelectorAll<HTMLElement>('.card').forEach((card) => {
+    if (card.dataset.listenersAttached) return;
+    card.dataset.listenersAttached = '1';
     card.addEventListener('click', async (e: MouseEvent) => {
       if (e.defaultPrevented) return;
       await openTaskDetail(card.dataset.id!);
