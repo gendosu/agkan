@@ -251,8 +251,10 @@ export class TaskService {
       statusFilter = allStatuses;
     }
 
+    const searchId = /^\d+$/.test(keyword) ? parseInt(keyword, 10) : undefined;
+
     return this.backend.tasks.findAll(
-      { search: keyword, status: statusFilter },
+      { search: keyword, status: statusFilter, searchId },
       { field: 'created_at', order: 'desc' }
     );
   }

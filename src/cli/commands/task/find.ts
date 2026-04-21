@@ -35,6 +35,9 @@ export function setupTaskFindCommand(program: Command): void {
           process.exit(1);
         }
 
+        // Normalize #123 format to numeric string for ID search
+        const normalizedKeyword = /^#\d+$/.test(keyword) ? keyword.slice(1) : keyword;
+
         // Parse status filter from comma-separated string
         let statusFilter: TaskStatus[] | undefined;
         if (options.status) {
@@ -42,7 +45,7 @@ export function setupTaskFindCommand(program: Command): void {
           statusFilter = statuses as TaskStatus[];
         }
 
-        const tasks = taskService.searchTasks(keyword, options.all || false, statusFilter);
+        const tasks = taskService.searchTasks(normalizedKeyword, options.all || false, statusFilter);
 
         formatter.output(
           () => {

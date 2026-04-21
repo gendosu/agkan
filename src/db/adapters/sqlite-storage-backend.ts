@@ -106,9 +106,14 @@ class SQLiteTaskRepository implements TaskRepository {
       }
     }
     if (filter?.search) {
-      clause += ` AND (${tablePrefix}title LIKE ? OR ${tablePrefix}body LIKE ?)`;
       const pattern = `%${filter.search}%`;
-      params.push(pattern, pattern);
+      if (filter.searchId !== undefined) {
+        clause += ` AND (${tablePrefix}title LIKE ? OR ${tablePrefix}body LIKE ? OR ${tablePrefix}id = ?)`;
+        params.push(pattern, pattern, filter.searchId);
+      } else {
+        clause += ` AND (${tablePrefix}title LIKE ? OR ${tablePrefix}body LIKE ?)`;
+        params.push(pattern, pattern);
+      }
     }
     return clause;
   }

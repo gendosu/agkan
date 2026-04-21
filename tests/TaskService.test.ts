@@ -1563,6 +1563,34 @@ describe('TaskService', () => {
       // 空配列が返ることを検証
       expect(results).toHaveLength(0);
     });
+
+    it('数値キーワード - IDで完全一致検索できる', () => {
+      const task1 = taskService.createTask({ title: 'ユニークなタスク', status: 'backlog' });
+      taskService.createTask({ title: '別のタスク', status: 'backlog' });
+
+      const results = taskService.searchTasks(String(task1.id), true);
+
+      expect(results.some((t) => t.id === task1.id)).toBe(true);
+    });
+
+    it('数値キーワード - IDに一致するタスクがステータスフィルタ対象外でもヒットする', () => {
+      const task = taskService.createTask({ title: '完了済みタスク', status: 'done' });
+
+      // includeAll=trueでID検索
+      const results = taskService.searchTasks(String(task.id), true);
+
+      expect(results.some((t) => t.id === task.id)).toBe(true);
+    });
+
+    it('数値キーワード - タイトル/ボディのLIKE検索も同時に機能する', () => {
+      taskService.createTask({ title: '重要なタスク42', status: 'backlog' });
+      const taskById = taskService.createTask({ title: 'IDで検索されるタスク', status: 'backlog' });
+
+      // taskByIdのIDが数値キーワードにマッチする場合
+      const results = taskService.searchTasks(String(taskById.id), true);
+
+      expect(results.some((t) => t.id === taskById.id)).toBe(true);
+    });
   });
 
   describe('Parent-Child Relationships', () => {
