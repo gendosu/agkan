@@ -1,0 +1,92 @@
+[
+  {
+    "name": "install_agkan",
+    "cmd": "npm i -g agkan",
+    "waitMs": 30000,
+    "screenshot": false
+  },
+  {
+    "name": "init_agkan",
+    "cmd": "agkan init",
+    "waitMs": 3000,
+    "screenshot": false
+  },
+  {
+    "name": "add_dep_base",
+    "cmd": "agkan task add '環境セットアップ完了' 'サーバーの初期設定と開発環境の構築が完了した' --status ready",
+    "waitMs": 2000,
+    "screenshot": false
+  },
+  {
+    "name": "add_dep_target",
+    "cmd": "agkan task add 'APIエンドポイント設計' 'REST APIの設計・スキーマ定義・ドキュメント作成' --status backlog --blocked-by 1",
+    "waitMs": 2000,
+    "screenshot": false
+  },
+  {
+    "name": "add_backlog_1",
+    "cmd": "agkan task add 'APIエンドポイントの設計' 'REST APIのエンドポイント設計とドキュメント作成' --status backlog",
+    "waitMs": 2000,
+    "screenshot": false
+  },
+  {
+    "name": "add_backlog_2",
+    "cmd": "agkan task add 'ユニットテストの追加' 'コアモジュールのユニットテストカバレッジを80%以上にする' --status backlog",
+    "waitMs": 2000,
+    "screenshot": false
+  },
+  {
+    "name": "add_ready_1",
+    "cmd": "agkan task add 'ログイン画面のUI実装' 'デザインカンプに基づいてログイン画面を実装する' --status ready",
+    "waitMs": 2000,
+    "screenshot": false
+  },
+  {
+    "name": "add_ready_2",
+    "cmd": "agkan task add 'データベースのマイグレーション' '既存テーブルに新しいカラムを追加するマイグレーションを作成' --status ready",
+    "waitMs": 2000,
+    "screenshot": false
+  },
+  {
+    "name": "add_ready_3",
+    "cmd": "agkan task add 'パフォーマンス改善' 'クエリの最適化とN+1問題の解消' --status ready",
+    "waitMs": 2000,
+    "screenshot": false
+  },
+  {
+    "name": "add_in_progress_1",
+    "cmd": "agkan task add 'ユーザー認証機能の実装' 'JWTを使ったユーザー認証機能を実装する' --status in_progress",
+    "waitMs": 2000,
+    "screenshot": false
+  },
+  {
+    "name": "add_in_progress_2",
+    "cmd": "agkan task add 'ダッシュボードコンポーネントの作成' 'タスク一覧とステータス集計を表示するダッシュボードを作成' --status in_progress",
+    "waitMs": 2000,
+    "screenshot": false
+  },
+  {
+    "name": "add_review_1",
+    "cmd": "agkan task add 'CIパイプラインの設定' 'GitHub ActionsでCI/CDパイプラインを構築する' --status review",
+    "waitMs": 2000,
+    "screenshot": false
+  },
+  {
+    "name": "add_done_1",
+    "cmd": "agkan task add 'プロジェクト初期設定' 'リポジトリの作成と開発環境のセットアップ' --status done",
+    "waitMs": 2000,
+    "screenshot": false
+  },
+  {
+    "name": "add_done_2",
+    "cmd": "agkan task add '要件定義書の作成' 'ステークホルダーとのミーティングを経て要件定義書を完成させた' --status done",
+    "waitMs": 2000,
+    "screenshot": false
+  },
+  {
+    "name": "start_board",
+    "cmd": "agkan board start --port 8080",
+    "waitMs": 5000,
+    "screenshot": false
+  }
+]
