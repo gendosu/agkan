@@ -128,6 +128,8 @@ export const BOARD_STYLES = `
     .detail-meta-table td { padding: 4px 0; font-size: 12px; }
     .detail-meta-table td:first-child { color: var(--text-secondary); width: 100px; }
     .detail-meta-table td:last-child { color: var(--text-primary); }
+    .detail-meta-table a { color: #2563eb; text-decoration: underline; }
+    [data-theme="dark"] .detail-meta-table a { color: #60a5fa; }
     .detail-panel-footer { padding: 12px 20px; border-top: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center; flex-shrink: 0; }
     .detail-panel-footer button { padding: 7px 18px; border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer; border: 1px solid #3b82f6; background: #3b82f6; color: white; }
     .detail-panel-footer button:hover { background: #2563eb; border-color: #2563eb; }
