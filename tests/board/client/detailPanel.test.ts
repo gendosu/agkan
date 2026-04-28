@@ -611,6 +611,96 @@ describe('renderDetailPanel - metadata table', () => {
     const detailsPane = document.getElementById('detail-tab-content-details');
     expect(detailsPane?.innerHTML).toContain('Metadata');
   });
+
+  it('renders pr metadata value as a clickable anchor when value is a URL', async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ comments: [] }),
+    });
+
+    const { renderDetailPanel } = await import('../../../src/board/client/detailPanel');
+    const prUrl = 'https://github.com/org/repo/pull/42';
+    const data = makeTaskDetail({
+      metadata: [{ key: 'pr', value: prUrl }],
+    });
+    renderDetailPanel(data);
+
+    await new Promise((resolve) => setTimeout(resolve, 50));
+
+    const table = document.querySelector('.detail-meta-table');
+    expect(table).not.toBeNull();
+    const anchor = table?.querySelector('a');
+    expect(anchor).not.toBeNull();
+    expect(anchor?.getAttribute('href')).toBe(prUrl);
+    expect(anchor?.getAttribute('target')).toBe('_blank');
+    expect(anchor?.getAttribute('rel')).toBe('noopener noreferrer');
+    expect(anchor?.textContent).toBe(prUrl);
+  });
+
+  it('renders URL value as a clickable anchor for non-pr metadata keys', async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ comments: [] }),
+    });
+
+    const { renderDetailPanel } = await import('../../../src/board/client/detailPanel');
+    const url = 'https://example.com/some/path';
+    const data = makeTaskDetail({
+      metadata: [{ key: 'reference', value: url }],
+    });
+    renderDetailPanel(data);
+
+    await new Promise((resolve) => setTimeout(resolve, 50));
+
+    const table = document.querySelector('.detail-meta-table');
+    expect(table).not.toBeNull();
+    const anchor = table?.querySelector('a');
+    expect(anchor).not.toBeNull();
+    expect(anchor?.getAttribute('href')).toBe(url);
+    expect(anchor?.textContent).toBe(url);
+  });
+
+  it('renders non-URL metadata value as plain escaped text', async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ comments: [] }),
+    });
+
+    const { renderDetailPanel } = await import('../../../src/board/client/detailPanel');
+    const data = makeTaskDetail({
+      metadata: [{ key: 'sprint', value: '3' }],
+    });
+    renderDetailPanel(data);
+
+    await new Promise((resolve) => setTimeout(resolve, 50));
+
+    const table = document.querySelector('.detail-meta-table');
+    expect(table).not.toBeNull();
+    const anchor = table?.querySelector('a');
+    expect(anchor).toBeNull();
+    expect(table?.textContent).toContain('3');
+  });
+
+  it('does not render unsafe protocol values as links', async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ comments: [] }),
+    });
+
+    const { renderDetailPanel } = await import('../../../src/board/client/detailPanel');
+    const data = makeTaskDetail({
+      metadata: [{ key: 'link', value: 'javascript:alert(1)' }],
+    });
+    renderDetailPanel(data);
+
+    await new Promise((resolve) => setTimeout(resolve, 50));
+
+    const table = document.querySelector('.detail-meta-table');
+    expect(table).not.toBeNull();
+    const anchor = table?.querySelector('a');
+    expect(anchor).toBeNull();
+    expect(table?.textContent).toContain('javascript:alert(1)');
+  });
 });
 
 describe('renderDetailPanel - metadata and relations', () => {
