@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.4.0] - 2026-04-28
+
+### Added
+- Render metadata URL values as clickable anchor links in board detail panel
+- Enable `task find` to search by task ID
+- Replace Jekyll site with React-based design for GitHub Pages
+- Add hamburger menu and mobile-responsive layout for documentation site
+- Add command reference accordion view to documentation
+
+### Fixed
+- Let ID match bypass status filter in `task find`
+- Improve link visibility in dark mode metadata section
+
 ## [3.3.0] - 2026-04-18
 
 ### Added
