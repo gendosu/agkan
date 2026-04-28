@@ -129,12 +129,24 @@ export function renderRelationsHtml(
   return html;
 }
 
+function isHttpUrl(value: string): boolean {
+  return value.startsWith('https://') || value.startsWith('http://');
+}
+
+function renderMetadataValue(value: string): string {
+  if (!isHttpUrl(value)) {
+    return escapeHtmlClient(value);
+  }
+  const escaped = escapeHtmlClient(value);
+  return '<a href="' + escaped + '" target="_blank" rel="noopener noreferrer">' + escaped + '</a>';
+}
+
 export function renderMetadataTable(metadata: Array<{ key: string; value: string }>): string {
   if (metadata.length === 0) return '';
   let html = '<div class="detail-field"><div class="detail-field-label">Metadata</div>';
   html += '<table class="detail-meta-table">';
   metadata.forEach((m) => {
-    html += '<tr><td>' + escapeHtmlClient(m.key) + '</td><td>' + escapeHtmlClient(m.value) + '</td></tr>';
+    html += '<tr><td>' + escapeHtmlClient(m.key) + '</td><td>' + renderMetadataValue(m.value) + '</td></tr>';
   });
   html += '</table></div>';
   return html;
