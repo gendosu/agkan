@@ -1468,6 +1468,25 @@ describe('copy task ID button', () => {
   });
 });
 
+describe('metadata URL link styles - dark mode visibility', () => {
+  it('BOARD_STYLES contains light mode link color for .detail-meta-table a', async () => {
+    const { BOARD_STYLES } = await import('../../../src/board/boardStyles');
+    expect(BOARD_STYLES).toContain('.detail-meta-table a');
+  });
+
+  it('BOARD_STYLES contains dark mode link color for [data-theme="dark"] .detail-meta-table a', async () => {
+    const { BOARD_STYLES } = await import('../../../src/board/boardStyles');
+    expect(BOARD_STYLES).toContain('[data-theme="dark"] .detail-meta-table a');
+  });
+
+  it('BOARD_STYLES dark mode link uses light blue color #60a5fa', async () => {
+    const { BOARD_STYLES } = await import('../../../src/board/boardStyles');
+    const darkLinkMatch = BOARD_STYLES.match(/\[data-theme="dark"\] \.detail-meta-table a\s*\{[^}]*\}/);
+    expect(darkLinkMatch).not.toBeNull();
+    expect(darkLinkMatch?.[0]).toContain('#60a5fa');
+  });
+});
+
 describe('loadComments race condition - stale task ignored', () => {
   beforeEach(() => {
     vi.resetModules();
