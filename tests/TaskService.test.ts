@@ -1563,6 +1563,36 @@ describe('TaskService', () => {
       // 空配列が返ることを検証
       expect(results).toHaveLength(0);
     });
+
+    it('数値キーワード - IDで完全一致検索できる', () => {
+      const task1 = taskService.createTask({ title: 'ユニークなタスク', status: 'backlog' });
+      taskService.createTask({ title: '別のタスク', status: 'backlog' });
+
+      const results = taskService.searchTasks(String(task1.id));
+
+      expect(results.some((t) => t.id === task1.id)).toBe(true);
+    });
+
+    it('数値キーワード - doneステータスのタスクでもIDで検索できる（--allなし）', () => {
+      const task = taskService.createTask({ title: '完了済みタスク', status: 'done' });
+
+      // includeAll=false（デフォルト）のままID検索 → ステータスフィルタを突破できる
+      const results = taskService.searchTasks(String(task.id));
+
+      expect(results.some((t) => t.id === task.id)).toBe(true);
+    });
+
+    it('数値キーワード - タイトル/ボディのLIKE検索も同時に機能する', () => {
+      const task1 = taskService.createTask({ title: 'ユニークタイトル999', status: 'backlog' });
+      const task2 = taskService.createTask({ title: 'IDで検索されるタスク', status: 'backlog' });
+
+      // task2のIDで検索するとtask2がヒット、task1はLIKEでタイトルにIDが含まれないのでヒットしない
+      const results = taskService.searchTasks(String(task2.id));
+
+      expect(results.some((t) => t.id === task2.id)).toBe(true);
+      // task1はIDも一致せず、タイトル/ボディにtask2.idのテキストが含まれない（通常は）
+      expect(results.every((t) => t.id !== task1.id || String(task1.title).includes(String(task2.id)))).toBe(true);
+    });
   });
 
   describe('Parent-Child Relationships', () => {

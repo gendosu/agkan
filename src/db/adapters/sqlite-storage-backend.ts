@@ -83,7 +83,12 @@ class SQLiteTaskRepository implements TaskRepository {
     if (!filter?.includeArchived) {
       clause += ` AND ${tablePrefix}is_archived = 0`;
     }
-    if (filter?.status) {
+
+    // When searchId is set, the status filter is embedded inside the compound search condition
+    // so that an exact ID match bypasses the status filter.
+    const hasIdSearch = !!(filter?.search && filter.searchId !== undefined);
+
+    if (filter?.status && !hasIdSearch) {
       const statuses = Array.isArray(filter.status) ? filter.status : [filter.status];
       if (statuses.length > 0) {
         clause += ` AND ${tablePrefix}status IN (${statuses.map(() => '?').join(', ')})`;
@@ -106,9 +111,23 @@ class SQLiteTaskRepository implements TaskRepository {
       }
     }
     if (filter?.search) {
-      clause += ` AND (${tablePrefix}title LIKE ? OR ${tablePrefix}body LIKE ?)`;
       const pattern = `%${filter.search}%`;
-      params.push(pattern, pattern);
+      if (hasIdSearch) {
+        const searchId = filter.searchId as number;
+        const statuses = filter.status ? (Array.isArray(filter.status) ? filter.status : [filter.status]) : [];
+        if (statuses.length > 0) {
+          // ID exact match bypasses status filter; LIKE match is constrained by status
+          const statusPlaceholders = statuses.map(() => '?').join(', ');
+          clause += ` AND (${tablePrefix}id = ? OR (${tablePrefix}status IN (${statusPlaceholders}) AND (${tablePrefix}title LIKE ? OR ${tablePrefix}body LIKE ?)))`;
+          params.push(searchId, ...statuses, pattern, pattern);
+        } else {
+          clause += ` AND (${tablePrefix}title LIKE ? OR ${tablePrefix}body LIKE ? OR ${tablePrefix}id = ?)`;
+          params.push(pattern, pattern, searchId);
+        }
+      } else {
+        clause += ` AND (${tablePrefix}title LIKE ? OR ${tablePrefix}body LIKE ?)`;
+        params.push(pattern, pattern);
+      }
     }
     return clause;
   }

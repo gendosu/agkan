@@ -321,6 +321,74 @@ describe('setupTaskFindCommand', () => {
     expect(parsed.statusFilter).toBe('in_progress');
   });
 
+  it('should find task by numeric ID keyword', async () => {
+    const taskService = new TaskService();
+    const task = taskService.createTask({ title: 'Find by ID task', status: 'ready' });
+    taskService.createTask({ title: 'Another task', status: 'ready' });
+
+    const consoleLogs: string[] = [];
+    const originalLog = console.log;
+    console.log = (...args: unknown[]) => consoleLogs.push(args.join(' '));
+
+    const originalExit = process.exit;
+    process.exit = (() => {}) as never;
+
+    try {
+      await program.parseAsync(['node', 'test', 'task', 'find', String(task.id), '--all']);
+    } finally {
+      console.log = originalLog;
+      process.exit = originalExit;
+    }
+
+    const output = consoleLogs.join('\n');
+    expect(output).toContain('Find by ID task');
+  });
+
+  it('should find task by #ID format', async () => {
+    const taskService = new TaskService();
+    const task = taskService.createTask({ title: 'Hash ID search task', status: 'ready' });
+    taskService.createTask({ title: 'Other task', status: 'ready' });
+
+    const consoleLogs: string[] = [];
+    const originalLog = console.log;
+    console.log = (...args: unknown[]) => consoleLogs.push(args.join(' '));
+
+    const originalExit = process.exit;
+    process.exit = (() => {}) as never;
+
+    try {
+      await program.parseAsync(['node', 'test', 'task', 'find', `#${task.id}`, '--all']);
+    } finally {
+      console.log = originalLog;
+      process.exit = originalExit;
+    }
+
+    const output = consoleLogs.join('\n');
+    expect(output).toContain('Hash ID search task');
+  });
+
+  it('should return correct JSON when searching by #ID format', async () => {
+    const taskService = new TaskService();
+    const task = taskService.createTask({ title: 'JSON ID search task', status: 'ready' });
+
+    const consoleLogs: string[] = [];
+    const originalLog = console.log;
+    console.log = (...args: unknown[]) => consoleLogs.push(args.join(' '));
+
+    const originalExit = process.exit;
+    process.exit = (() => {}) as never;
+
+    try {
+      await program.parseAsync(['node', 'test', 'task', 'find', `#${task.id}`, '--all', '--json']);
+    } finally {
+      console.log = originalLog;
+      process.exit = originalExit;
+    }
+
+    const parsed = JSON.parse(consoleLogs[0]);
+    expect(parsed.tasks.some((t: { id: number }) => t.id === task.id)).toBe(true);
+  });
+
   it('should prefer --status over --all when both are provided', async () => {
     const taskService = new TaskService();
     taskService.createTask({ title: 'Ready task', status: 'ready' });

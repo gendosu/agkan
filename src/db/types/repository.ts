@@ -38,6 +38,8 @@ export interface TaskFilter {
   tagIds?: number[];
   priority?: Priority | Priority[];
   search?: string;
+  /** If set, also match tasks where id equals this value (exact match, used for numeric keyword search) */
+  searchId?: number;
   /** If true, include archived tasks (is_archived=1). Default: false (exclude archived) */
   includeArchived?: boolean;
 }
