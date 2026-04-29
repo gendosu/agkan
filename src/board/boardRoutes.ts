@@ -14,6 +14,7 @@ import { TaskStatus, isPriority, Priority } from '../models';
 import { ConflictError } from '../errors';
 import { StorageBackend } from '../db/types/repository';
 import { readBoardConfig, writeBoardConfig, DETAIL_PANE_MAX_WIDTH, VALID_THEMES, ThemePreference } from './boardConfig';
+import { loadConfig } from '../db/config';
 import { daysAgoIso } from '../utils/date';
 import {
   buildTasksByStatus,
@@ -452,8 +453,11 @@ function registerClaudeRoutes(app: Hono, claudeProcess: ClaudeProcessService, ts
           ? `Task ID: ${taskId}\n/agkan-subtask`
           : `Task ID: ${taskId}\n/agkan-subtask-direct`;
 
+    const config = loadConfig();
+    const model = command === 'planning' ? config.models?.planning : config.models?.run;
+
     try {
-      claudeProcess.startProcess(taskId, prompt, command);
+      claudeProcess.startProcess(taskId, prompt, command, model);
     } catch (e) {
       if (e instanceof ConflictError) {
         console.error(

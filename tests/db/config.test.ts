@@ -419,6 +419,31 @@ describe('Database Path Resolution', () => {
       const config = loadConfig();
       expect(config.board?.port).toBe(2222);
     });
+
+    it('should return parsed config with models.planning field', () => {
+      const configPath = path.join(process.cwd(), testConfigFileTest);
+      fs.writeFileSync(configPath, yaml.dump({ models: { planning: 'claude-opus-4-7' } }));
+
+      const config = loadConfig();
+      expect(config.models?.planning).toBe('claude-opus-4-7');
+    });
+
+    it('should return parsed config with models.run field', () => {
+      const configPath = path.join(process.cwd(), testConfigFileTest);
+      fs.writeFileSync(configPath, yaml.dump({ models: { run: 'claude-sonnet-4-6' } }));
+
+      const config = loadConfig();
+      expect(config.models?.run).toBe('claude-sonnet-4-6');
+    });
+
+    it('should return parsed config with both models.planning and models.run', () => {
+      const configPath = path.join(process.cwd(), testConfigFileTest);
+      fs.writeFileSync(configPath, yaml.dump({ models: { planning: 'claude-opus-4-7', run: 'claude-sonnet-4-6' } }));
+
+      const config = loadConfig();
+      expect(config.models?.planning).toBe('claude-opus-4-7');
+      expect(config.models?.run).toBe('claude-sonnet-4-6');
+    });
   });
 
   describe('Helper Functions', () => {
