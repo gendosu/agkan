@@ -597,6 +597,7 @@ function registerClaudeRoutes(app: Hono, claudeProcess: ClaudeProcessService, ts
     const stream = new ReadableStream({
       start(controller) {
         let finalized = false;
+        let stop: (() => void) | undefined;
 
         const encode = (event: string, data: unknown): Uint8Array => {
           const payload = `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
@@ -606,7 +607,7 @@ function registerClaudeRoutes(app: Hono, claudeProcess: ClaudeProcessService, ts
         const safeClose = () => {
           if (finalized) return;
           finalized = true;
-          stop();
+          stop?.();
           controller.close();
         };
 
@@ -617,7 +618,7 @@ function registerClaudeRoutes(app: Hono, claudeProcess: ClaudeProcessService, ts
           return;
         }
 
-        const stop = claudeProcess.subscribeOutput(taskId, () => {
+        stop = claudeProcess.subscribeOutput(taskId, () => {
           if (finalized) return;
           queueMicrotask(() => {
             if (finalized) return;

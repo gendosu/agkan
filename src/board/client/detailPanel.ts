@@ -348,8 +348,8 @@ function loadRunLogs(taskId: number): void {
       if (p) renderRunLogsInPane(p, logs);
     },
     () => {
-      // onerror: close to prevent repeated reconnection when tab is still open
       if (seq !== runLogLoadSeq) return;
+      closeRunLogStream();
     }
   );
 }
