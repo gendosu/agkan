@@ -454,7 +454,9 @@ function registerClaudeRoutes(app: Hono, claudeProcess: ClaudeProcessService, ts
           : `Task ID: ${taskId}\n/agkan-subtask-direct`;
 
     const config = loadConfig();
-    const model = command === 'planning' ? config.models?.planning : config.models?.run;
+    // 'pr' and 'run' commands both use the run model configuration
+    const rawModel = command === 'planning' ? config.models?.planning : config.models?.run;
+    const model = typeof rawModel === 'string' && rawModel.trim() ? rawModel.trim() : undefined;
 
     try {
       claudeProcess.startProcess(taskId, prompt, command, model);
