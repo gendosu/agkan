@@ -646,3 +646,155 @@ describe('GET /api/claude/tasks/:taskId/run-logs', () => {
     expect(res.status).toBe(404);
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// GET /api/claude/tasks/:taskId/run-logs/stream (SSE)
+// ─────────────────────────────────────────────────────────────────────────────
+describe('GET /api/claude/tasks/:taskId/run-logs/stream', () => {
+  it('returns SSE response with correct headers', async () => {
+    const mock = buildMockClaudeProcessService();
+    const services = buildServices(mock);
+    const task = services.ts.createTask({ title: 'Test Task', status: 'done' });
+    const app = buildApp(services);
+
+    const res = await app.fetch(new Request(`http://localhost/api/claude/tasks/${task.id}/run-logs/stream`));
+
+    expect(res.status).toBe(200);
+    expect(res.headers.get('Content-Type')).toBe('text/event-stream');
+    expect(res.headers.get('Cache-Control')).toBe('no-cache');
+    expect(res.headers.get('Connection')).toBe('keep-alive');
+  });
+
+  it('returns 400 for invalid taskId', async () => {
+    const mock = buildMockClaudeProcessService();
+    const app = buildApp(buildServices(mock));
+
+    const res = await app.fetch(new Request('http://localhost/api/claude/tasks/abc/run-logs/stream'));
+
+    expect(res.status).toBe(400);
+  });
+
+  it('returns 404 when task does not exist', async () => {
+    const mock = buildMockClaudeProcessService();
+    const app = buildApp(buildServices(mock));
+
+    const res = await app.fetch(new Request('http://localhost/api/claude/tasks/9999/run-logs/stream'));
+
+    expect(res.status).toBe(404);
+  });
+
+  it('returns 404 when claudeProcessService is not configured', async () => {
+    const services = buildServices(undefined);
+    const task = services.ts.createTask({ title: 'Task', status: 'done' });
+    const app = buildApp(services);
+
+    const res = await app.fetch(new Request(`http://localhost/api/claude/tasks/${task.id}/run-logs/stream`));
+
+    expect(res.status).toBe(404);
+  });
+
+  it('sends initial logs as update event on connect', async () => {
+    const mock = buildMockClaudeProcessService();
+    const fakeLogs = [
+      {
+        id: 1,
+        task_id: 1,
+        started_at: '2026-03-27T10:00:00.000Z',
+        finished_at: '2026-03-27T10:01:00.000Z',
+        exit_code: 0,
+        events: [{ kind: 'text', text: 'hello' }],
+      },
+    ];
+    (mock.getRunLogs as ReturnType<typeof vi.fn>).mockReturnValue(fakeLogs);
+
+    const services = buildServices(mock);
+    const task = services.ts.createTask({ title: 'Logged Task', status: 'done' });
+    const app = buildApp(services);
+
+    const res = await app.fetch(new Request(`http://localhost/api/claude/tasks/${task.id}/run-logs/stream`));
+
+    expect(res.status).toBe(200);
+    expect(mock.getRunLogs).toHaveBeenCalledWith(task.id);
+
+    if (res.body) {
+      const reader = res.body.getReader();
+      const { value } = await reader.read();
+      const text = new TextDecoder().decode(value);
+      expect(text).toContain('event: update');
+      expect(text).toContain('"hello"');
+    }
+  });
+
+  it('sends updated logs when subscribeOutput fires', async () => {
+    let capturedCallback: SubscribeCallback | null = null;
+    const mock = buildMockClaudeProcessService();
+    (mock.subscribeOutput as ReturnType<typeof vi.fn>).mockImplementation((_taskId: number, cb: SubscribeCallback) => {
+      capturedCallback = cb;
+      return () => {};
+    });
+
+    const services = buildServices(mock);
+    const task = services.ts.createTask({ title: 'Task', status: 'in_progress' });
+    const app = buildApp(services);
+
+    const res = await app.fetch(new Request(`http://localhost/api/claude/tasks/${task.id}/run-logs/stream`));
+
+    expect(res.status).toBe(200);
+    expect(mock.subscribeOutput).toHaveBeenCalledWith(task.id, expect.any(Function));
+
+    const cb = capturedCallback as SubscribeCallback | null;
+    if (cb && res.body) {
+      const reader = res.body.getReader();
+      await reader.read(); // initial update event
+
+      (mock.getRunLogs as ReturnType<typeof vi.fn>).mockReturnValue([
+        {
+          id: 2,
+          task_id: task.id,
+          started_at: '2026-04-01T00:00:00.000Z',
+          finished_at: null,
+          exit_code: null,
+          events: [{ kind: 'text', text: 'new output' }],
+        },
+      ]);
+      cb({ kind: 'text', text: 'new output' });
+
+      // queueMicrotask fires after synchronous code in the same tick
+      await Promise.resolve();
+
+      const { value } = await reader.read();
+      const text = new TextDecoder().decode(value);
+      expect(text).toContain('event: update');
+      expect(text).toContain('new output');
+    }
+  });
+
+  it('calls stop() when abort fires', async () => {
+    const stopFn = vi.fn();
+    const mock = buildMockClaudeProcessService();
+    (mock.subscribeOutput as ReturnType<typeof vi.fn>).mockReturnValue(stopFn);
+
+    const services = buildServices(mock);
+    const task = services.ts.createTask({ title: 'Task', status: 'done' });
+    const controller = new AbortController();
+    const app = buildApp(services);
+
+    const res = await app.fetch(
+      new Request(`http://localhost/api/claude/tasks/${task.id}/run-logs/stream`, {
+        signal: controller.signal,
+      })
+    );
+
+    expect(res.status).toBe(200);
+
+    controller.abort();
+
+    if (res.body) {
+      const reader = res.body.getReader();
+      await reader.read(); // initial update
+      await reader.read(); // stream closed after abort
+    }
+
+    expect(stopFn).toHaveBeenCalled();
+  });
+});

@@ -101,4 +101,23 @@ export async function fetchRunLogs(taskId: number): Promise<
   return data.logs || [];
 }
 
+export function subscribeRunLogs(
+  taskId: number,
+  onUpdate: (logs: Awaited<ReturnType<typeof fetchRunLogs>>) => void,
+  onError: () => void
+): EventSource {
+  const es = new EventSource('/api/claude/tasks/' + taskId + '/run-logs/stream');
+  es.addEventListener('update', (event: Event) => {
+    const msgEvent = event as MessageEvent;
+    try {
+      const data = JSON.parse(msgEvent.data) as { logs: Awaited<ReturnType<typeof fetchRunLogs>> };
+      onUpdate(data.logs || []);
+    } catch {
+      // ignore parse errors
+    }
+  });
+  es.onerror = () => onError();
+  return es;
+}
+
 export { showToast, refreshBoardCards };

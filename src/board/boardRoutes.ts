@@ -589,6 +589,61 @@ function registerClaudeRoutes(app: Hono, claudeProcess: ClaudeProcessService, ts
     });
   });
 
+  app.get('/api/claude/tasks/:taskId/run-logs/stream', (c) => {
+    const taskId = Number(c.req.param('taskId'));
+    if (isNaN(taskId)) return c.json({ error: 'Invalid taskId' }, 400);
+    if (!ts.getTask(taskId)) return c.json({ error: 'Task not found' }, 404);
+
+    const stream = new ReadableStream({
+      start(controller) {
+        let finalized = false;
+
+        const encode = (event: string, data: unknown): Uint8Array => {
+          const payload = `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
+          return new TextEncoder().encode(payload);
+        };
+
+        const safeClose = () => {
+          if (finalized) return;
+          finalized = true;
+          stop();
+          controller.close();
+        };
+
+        try {
+          controller.enqueue(encode('update', { logs: claudeProcess.getRunLogs(taskId) }));
+        } catch {
+          safeClose();
+          return;
+        }
+
+        const stop = claudeProcess.subscribeOutput(taskId, () => {
+          if (finalized) return;
+          queueMicrotask(() => {
+            if (finalized) return;
+            try {
+              controller.enqueue(encode('update', { logs: claudeProcess.getRunLogs(taskId) }));
+            } catch {
+              safeClose();
+            }
+          });
+        });
+
+        c.req.raw.signal?.addEventListener('abort', () => {
+          safeClose();
+        });
+      },
+    });
+
+    return new Response(stream, {
+      headers: {
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache',
+        Connection: 'keep-alive',
+      },
+    });
+  });
+
   app.get('/api/claude/tasks/:taskId/run-logs', (c) => {
     const taskId = Number(c.req.param('taskId'));
     if (isNaN(taskId)) return c.json({ error: 'Invalid taskId' }, 400);

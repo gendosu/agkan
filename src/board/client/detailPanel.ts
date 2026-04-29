@@ -14,6 +14,7 @@ import {
   fetchPanelWidthFromConfig,
   savePanelWidthToConfig,
   fetchRunLogs,
+  subscribeRunLogs,
   PANEL_MIN_WIDTH,
   PANEL_MAX_WIDTH,
 } from './detailPanelApi';
@@ -29,15 +30,15 @@ import {
 // State
 let detailTaskId: number | null = null;
 let lastTab = 'details';
-let runLogPollingInterval: ReturnType<typeof setInterval> | null = null;
+let runLogEventSource: EventSource | null = null;
 let currentFetchController: AbortController | null = null;
 let runLogLoadSeq = 0;
 let runLogsLoadedTaskId: number | null = null;
 
-function stopRunLogPolling(): void {
-  if (runLogPollingInterval !== null) {
-    clearInterval(runLogPollingInterval);
-    runLogPollingInterval = null;
+function closeRunLogStream(): void {
+  if (runLogEventSource !== null) {
+    runLogEventSource.close();
+    runLogEventSource = null;
   }
 }
 
@@ -61,7 +62,7 @@ export function setActiveCard(taskId: number | null): void {
 }
 
 export function closeDetailPanel(): void {
-  stopRunLogPolling();
+  closeRunLogStream();
   runLogsLoadedTaskId = null;
   const runLogsPane = document.getElementById('detail-tab-content-run-logs');
   if (runLogsPane) {
@@ -81,7 +82,7 @@ function switchTab(tabName: string): void {
   const isSameTab = currentTab === tabName;
 
   if (tabName !== 'run-logs') {
-    stopRunLogPolling();
+    closeRunLogStream();
   }
   lastTab = tabName;
   if (!isSameTab) {
@@ -95,9 +96,7 @@ function switchTab(tabName: string): void {
   const footer = document.getElementById('detail-panel-footer');
   if (footer) footer.style.display = tabName === 'details' ? '' : 'none';
   if (tabName === 'run-logs' && detailTaskId !== null && (!isSameTab || runLogsLoadedTaskId !== detailTaskId)) {
-    loadRunLogs(detailTaskId).catch((err) => {
-      console.error('[agkan] switchTab loadRunLogs failed', err);
-    });
+    loadRunLogs(detailTaskId);
   }
 }
 
@@ -325,8 +324,8 @@ function renderRunLogsInPane(pane: HTMLElement, logs: Awaited<ReturnType<typeof 
   });
 }
 
-async function loadRunLogs(taskId: number): Promise<void> {
-  stopRunLogPolling();
+function loadRunLogs(taskId: number): void {
+  closeRunLogStream();
   const seq = ++runLogLoadSeq;
   const pane = document.getElementById('detail-tab-content-run-logs');
   if (!pane) return;
@@ -337,30 +336,22 @@ async function loadRunLogs(taskId: number): Promise<void> {
   }
   pane.removeEventListener('click', handleRunLogToggle);
   pane.addEventListener('click', handleRunLogToggle);
-  try {
-    const logs = await fetchRunLogs(taskId);
-    if (seq !== runLogLoadSeq) return; // stale — a newer load has been requested
-    renderRunLogsInPane(pane, logs);
-    runLogPollingInterval = setInterval(() => {
+  runLogEventSource = subscribeRunLogs(
+    taskId,
+    (logs) => {
+      if (seq !== runLogLoadSeq) return;
       if (detailTaskId !== taskId) {
-        stopRunLogPolling();
+        closeRunLogStream();
         return;
       }
-      fetchRunLogs(taskId)
-        .then((updated) => {
-          if (seq !== runLogLoadSeq) return;
-          const p = document.getElementById('detail-tab-content-run-logs');
-          if (p) renderRunLogsInPane(p, updated);
-        })
-        .catch(() => stopRunLogPolling());
-    }, 2000);
-  } catch (err) {
-    console.error('[agkan] loadRunLogs failed for task', taskId, err);
-    if (seq !== runLogLoadSeq) return;
-    runLogsLoadedTaskId = null;
-    delete pane.dataset.runLogsSignature;
-    pane.innerHTML = '<div style="padding:20px;font-size:12px;color:#94a3b8;">Failed to load run logs</div>';
-  }
+      const p = document.getElementById('detail-tab-content-run-logs');
+      if (p) renderRunLogsInPane(p, logs);
+    },
+    () => {
+      // onerror: close to prevent repeated reconnection when tab is still open
+      if (seq !== runLogLoadSeq) return;
+    }
+  );
 }
 
 function handleRunLogToggle(e: MouseEvent): void {
