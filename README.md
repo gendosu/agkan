@@ -967,6 +967,57 @@ board:
     title: "My Project Board"
   ```
 
+### Models Settings
+
+The `models` section in `.agkan.yml` allows you to specify the Claude model used when executing planning and run commands via the board.
+
+#### Available Fields
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `models.planning` | string | (Claude CLI default) | Model used for planning command execution |
+| `models.run` | string | (Claude CLI default) | Model used for run/pr command execution |
+
+Both full model names and Claude CLI aliases are supported.
+
+#### Configuration Example
+
+```yaml
+# Database path
+path: ./.agkan/data.db
+
+# Model settings
+models:
+  planning: claude-opus-4-7
+  run: claude-sonnet-4-6
+```
+
+#### Using Aliases
+
+You can use short aliases instead of full model names:
+
+```yaml
+models:
+  planning: opus
+  run: sonnet
+```
+
+Supported aliases: `opus`, `sonnet`, `haiku` (resolved by the Claude CLI)
+
+#### Field Details
+
+- **`models.planning`**: Specifies the Claude model used when the board executes planning tasks. Recommended to use a high-capability model such as `opus` or `claude-opus-4-7`.
+  ```yaml
+  models:
+    planning: opus
+  ```
+
+- **`models.run`**: Specifies the Claude model used when the board executes run or pr commands. The `pr` command also uses this value.
+  ```yaml
+  models:
+    run: sonnet
+  ```
+
 ## Planned Features
 
 ### Task Attachments
