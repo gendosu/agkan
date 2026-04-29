@@ -1,0 +1,56 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="800" viewBox="0 0 1280 800">
+  <rect width="1280" height="800" fill="#0f1114"/>
+  <!-- topbar -->
+  <rect width="1280" height="48" fill="#15181d"/>
+  <circle cx="24" cy="24" r="6" fill="#3a3d45"/>
+  <circle cx="42" cy="24" r="6" fill="#3a3d45"/>
+  <circle cx="60" cy="24" r="6" fill="#3a3d45"/>
+  <rect x="120" y="12" width="320" height="24" rx="6" fill="#0f1114" stroke="#23262d" stroke-width="1"/>
+  <text x="140" y="28" font-family="monospace" font-size="11" fill="#7c8291">http://localhost:8080 — agkan board</text>
+  <text x="1100" y="28" font-family="monospace" font-size="11" fill="#7c8291">~/my-saas · </text>
+  <text x="1180" y="28" font-family="monospace" font-size="11" fill="#00ff88">●</text>
+  <text x="1192" y="28" font-family="monospace" font-size="11" fill="#7c8291"> connected</text>
+  <!-- board columns -->
+  <!-- BACKLOG col -->
+  <rect x="20" y="68" width="295" height="712" rx="10" fill="#15181d" stroke="#23262d" stroke-width="1"/>
+  <text x="36" y="95" font-family="monospace" font-size="11" font-weight="600" fill="#b3b8c2">● BACKLOG</text>
+  <text x="280" y="95" font-family="monospace" font-size="11" fill="#7c8291">3</text>
+  <!-- card -->
+  <rect x="32" y="108" width="271" height="88" rx="8" fill="#0f1114" stroke="#23262d" stroke-width="1"/>
+  <text x="44" y="124" font-family="monospace" font-size="10" fill="#4b5160">#23</text>
+  <text x="44" y="142" font-family="monospace" font-size="13" font-weight="600" fill="#e8eaee">Dark mode toggle</text>
+  <text x="44" y="158" font-family="monospace" font-size="13" font-weight="600" fill="#e8eaee">in settings menu</text>
+  <rect x="44" y="170" width="30" height="16" rx="3" fill="#15181d" stroke="#23262d" stroke-width="1"/>
+  <text x="49" y="181" font-family="monospace" font-size="10" fill="#7c8291">low</text>
+  <rect x="80" y="170" width="58" height="16" rx="3" fill="#15181d" stroke="#23262d" stroke-width="1"/>
+  <text x="85" y="181" font-family="monospace" font-size="10" fill="#7c8291">frontend</text>
+  <!-- READY col -->
+  <rect x="330" y="68" width="295" height="712" rx="10" fill="#15181d" stroke="#23262d" stroke-width="1"/>
+  <text x="346" y="95" font-family="monospace" font-size="11" font-weight="600" fill="#b3b8c2">● READY</text>
+  <text x="590" y="95" font-family="monospace" font-size="11" fill="#7c8291">2</text>
+  <!-- IN PROGRESS col -->
+  <rect x="640" y="68" width="295" height="712" rx="10" fill="#15181d" stroke="#23262d" stroke-width="1"/>
+  <text x="656" y="95" font-family="monospace" font-size="11" font-weight="600" fill="#b3b8c2">● IN PROGRESS</text>
+  <text x="900" y="95" font-family="monospace" font-size="11" fill="#7c8291">2</text>
+  <!-- card with claude running -->
+  <rect x="652" y="108" width="271" height="100" rx="8" fill="#0f1114" stroke="#23262d" stroke-width="1"/>
+  <text x="664" y="124" font-family="monospace" font-size="10" fill="#4b5160">#14</text>
+  <text x="664" y="142" font-family="monospace" font-size="13" font-weight="600" fill="#e8eaee">Implement passkey</text>
+  <text x="664" y="158" font-family="monospace" font-size="13" font-weight="600" fill="#e8eaee">login flow</text>
+  <rect x="664" y="170" width="32" height="16" rx="3" fill="#15181d" stroke="#ff5c5c" stroke-width="1"/>
+  <text x="669" y="181" font-family="monospace" font-size="10" fill="#ff5c5c">high</text>
+  <rect x="704" y="170" width="30" height="16" rx="3" fill="#15181d" stroke="#23262d" stroke-width="1"/>
+  <text x="709" y="181" font-family="monospace" font-size="10" fill="#7c8291">auth</text>
+  <line x1="664" y1="196" x2="907" y2="196" stroke="#23262d" stroke-width="1" stroke-dasharray="4,4"/>
+  <text x="664" y="210" font-family="monospace" font-size="10" fill="#7c8291">claude-code</text>
+  <rect x="820" y="200" width="80" height="16" rx="4" fill="rgba(0,255,136,0.1)" stroke="#00ff88" stroke-width="1"/>
+  <text x="829" y="211" font-family="monospace" font-size="10" fill="#00ff88">● RUNNING</text>
+  <!-- REVIEW col -->
+  <rect x="950" y="68" width="310" height="712" rx="10" fill="#15181d" stroke="#23262d" stroke-width="1"/>
+  <text x="966" y="95" font-family="monospace" font-size="11" font-weight="600" fill="#b3b8c2">● REVIEW</text>
+  <text x="1224" y="95" font-family="monospace" font-size="11" fill="#7c8291">1</text>
+  <!-- placeholder notice -->
+  <rect x="390" y="360" width="500" height="80" rx="8" fill="#15181d" stroke="#23262d" stroke-width="1" stroke-dasharray="6,4"/>
+  <text x="640" y="393" font-family="monospace" font-size="13" fill="#4b5160" text-anchor="middle">Screenshot placeholder</text>
+  <text x="640" y="415" font-family="monospace" font-size="11" fill="#4b5160" text-anchor="middle">Run pipeline/board-screenshots/capture-board.js to generate board-full.png</text>
+</svg>

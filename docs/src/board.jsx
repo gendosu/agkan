@@ -44,6 +44,36 @@ function Board({ t }) {
           <p className="section-sub">{t.boardSub}</p>
         </div>
 
+        <div className="board-screenshot-wrap">
+          <div className="board-screenshot-label">{t.boardScreenshotLabel}</div>
+          <div className="board-screenshot-frame">
+            <img
+              src="assets/board-full.png"
+              alt={t.boardScreenshotAlt}
+              className="board-screenshot-img"
+              onError={e => {
+                e.currentTarget.src = "assets/board-full-placeholder.svg";
+              }}
+            />
+          </div>
+          <div className="board-screenshot-note">{t.boardScreenshotNote}</div>
+        </div>
+
+        <div className="board-screenshot-wrap">
+          <div className="board-screenshot-label">{t.boardDepsScreenshotLabel}</div>
+          <div className="board-screenshot-frame">
+            <img
+              src="assets/board-deps.png"
+              alt={t.boardDepsScreenshotAlt}
+              className="board-screenshot-img"
+              onError={e => {
+                e.currentTarget.src = "assets/board-full-placeholder.svg";
+              }}
+            />
+          </div>
+          <div className="board-screenshot-note">{t.boardDepsScreenshotNote}</div>
+        </div>
+
         <div className="board-frame">
           <div className="board-topbar">
             <div className="dots"><span/><span/><span/></div>

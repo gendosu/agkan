@@ -42,6 +42,12 @@ const I18N = {
     boardTitle: "Or drag the card, if you'd rather.",
     boardSub: "A zero-config web UI wraps the same SQLite store. Drop a card into in_progress and click Run — Claude Code picks it up and starts working.",
     boardHint: "Try it — drag a card between columns",
+    boardScreenshotLabel: "Actual board screenshot",
+    boardScreenshotAlt: "agkan board — full view screenshot",
+    boardScreenshotNote: "The real agkan board running locally at http://localhost:8080",
+    boardDepsScreenshotLabel: "Dependency view",
+    boardDepsScreenshotAlt: "agkan board — dependency arrows between tasks",
+    boardDepsScreenshotNote: "Show dependencies mode — arrows connect blocking tasks across columns",
 
     boardCols: {
       backlog: "BACKLOG",
@@ -391,6 +397,12 @@ const I18N = {
     boardTitle: "マウス派なら、ドラッグでどうぞ。",
     boardSub: "設定不要のWeb UIが同じSQLiteストアをラップ。カードをin_progressに落として「実行」を押せば、Claude Codeが仕事を始める。",
     boardHint: "試してみて — カードを列間でドラッグ",
+    boardScreenshotLabel: "実際のボード画面",
+    boardScreenshotAlt: "agkan board — 全体スクリーンショット",
+    boardScreenshotNote: "ローカルで http://localhost:8080 として動作する実際のagkanボード",
+    boardDepsScreenshotLabel: "依存関係表示",
+    boardDepsScreenshotAlt: "agkan board — タスク間の依存関係矢印",
+    boardDepsScreenshotNote: "依存関係表示モード — ブロッキングタスク間に矢印が表示される",
     boardCols: {
       backlog: "BACKLOG",
       ready: "READY",
