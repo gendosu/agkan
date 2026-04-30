@@ -955,16 +955,18 @@ board:
 
 ### モデル設定
 
-`.agkan.yml` の `models` セクションでは、ボード経由でplanningおよびrunコマンドを実行する際に使用するClaudeモデルを指定できます。
+`.agkan.yml` の `models` セクションでは、ボード経由でplanningおよびrunコマンドを実行する際に使用するClaudeモデルとeffortレベルを指定できます。
 
 #### 利用可能なフィールド
 
 | フィールド | 型 | デフォルト値 | 説明 |
 |----------|-----|------------|------|
-| `models.planning` | string | (Claude CLIのデフォルト) | planningコマンド実行時に使用するモデル |
-| `models.run` | string | (Claude CLIのデフォルト) | run/prコマンド実行時に使用するモデル |
+| `models.planning.model` | string | (Claude CLIのデフォルト) | planningコマンド実行時に使用するモデル |
+| `models.planning.effort` | string | (Claude CLIのデフォルト) | planningコマンドのeffortレベル（`low`, `medium`, `high`, `xhigh`, `max`） |
+| `models.run.model` | string | (Claude CLIのデフォルト) | run/prコマンド実行時に使用するモデル |
+| `models.run.effort` | string | (Claude CLIのデフォルト) | run/prコマンドのeffortレベル（`low`, `medium`, `high`, `xhigh`, `max`） |
 
-フルモデル名とClaude CLIのエイリアスの両方が使用できます。
+フルモデル名とClaude CLIのエイリアスの両方が使用できます。`model` と `effort` はいずれも省略可能です。
 
 #### 設定例
 
@@ -974,8 +976,12 @@ path: ./.agkan/data.db
 
 # モデル設定
 models:
-  planning: claude-opus-4-7
-  run: claude-sonnet-4-6
+  planning:
+    model: claude-opus-4-7
+    effort: high
+  run:
+    model: claude-sonnet-4-6
+    effort: low
 ```
 
 #### エイリアスの使用
@@ -984,24 +990,31 @@ models:
 
 ```yaml
 models:
-  planning: opus
-  run: sonnet
+  planning:
+    model: opus
+    effort: high
+  run:
+    model: sonnet
 ```
 
 使用可能なエイリアス: `opus`、`sonnet`、`haiku`（Claude CLIが解決します）
 
 #### フィールドの詳細
 
-- **`models.planning`**: ボードがplanningタスクを実行する際に使用するClaudeモデルを指定します。`opus` や `claude-opus-4-7` など高性能なモデルの使用を推奨します。
+- **`models.planning`**: ボードがplanningタスクを実行する際に使用するClaudeモデルとeffortレベルを指定します。`opus` や `claude-opus-4-7` など高性能なモデルと高いeffortレベルの使用を推奨します。
   ```yaml
   models:
-    planning: opus
+    planning:
+      model: opus
+      effort: high
   ```
 
-- **`models.run`**: ボードがrunまたはprコマンドを実行する際に使用するClaudeモデルを指定します。`pr` コマンドもこの値を使用します。
+- **`models.run`**: ボードがrunまたはprコマンドを実行する際に使用するClaudeモデルとeffortレベルを指定します。`pr` コマンドもこの値を使用します。
   ```yaml
   models:
-    run: sonnet
+    run:
+      model: sonnet
+      effort: low
   ```
 
 ## 実装予定機能

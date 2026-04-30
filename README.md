@@ -969,16 +969,18 @@ board:
 
 ### Models Settings
 
-The `models` section in `.agkan.yml` allows you to specify the Claude model used when executing planning and run commands via the board.
+The `models` section in `.agkan.yml` allows you to specify the Claude model and effort level used when executing planning and run commands via the board.
 
 #### Available Fields
 
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
-| `models.planning` | string | (Claude CLI default) | Model used for planning command execution |
-| `models.run` | string | (Claude CLI default) | Model used for run/pr command execution |
+| `models.planning.model` | string | (Claude CLI default) | Model used for planning command execution |
+| `models.planning.effort` | string | (Claude CLI default) | Effort level for planning command (`low`, `medium`, `high`, `xhigh`, `max`) |
+| `models.run.model` | string | (Claude CLI default) | Model used for run/pr command execution |
+| `models.run.effort` | string | (Claude CLI default) | Effort level for run/pr command (`low`, `medium`, `high`, `xhigh`, `max`) |
 
-Both full model names and Claude CLI aliases are supported.
+Both full model names and Claude CLI aliases are supported. Both `model` and `effort` are optional within each entry.
 
 #### Configuration Example
 
@@ -988,8 +990,12 @@ path: ./.agkan/data.db
 
 # Model settings
 models:
-  planning: claude-opus-4-7
-  run: claude-sonnet-4-6
+  planning:
+    model: claude-opus-4-7
+    effort: high
+  run:
+    model: claude-sonnet-4-6
+    effort: low
 ```
 
 #### Using Aliases
@@ -998,24 +1004,31 @@ You can use short aliases instead of full model names:
 
 ```yaml
 models:
-  planning: opus
-  run: sonnet
+  planning:
+    model: opus
+    effort: high
+  run:
+    model: sonnet
 ```
 
 Supported aliases: `opus`, `sonnet`, `haiku` (resolved by the Claude CLI)
 
 #### Field Details
 
-- **`models.planning`**: Specifies the Claude model used when the board executes planning tasks. Recommended to use a high-capability model such as `opus` or `claude-opus-4-7`.
+- **`models.planning`**: Specifies the Claude model and effort level used when the board executes planning tasks. Recommended to use a high-capability model and effort level such as `opus` with `high`.
   ```yaml
   models:
-    planning: opus
+    planning:
+      model: opus
+      effort: high
   ```
 
-- **`models.run`**: Specifies the Claude model used when the board executes run or pr commands. The `pr` command also uses this value.
+- **`models.run`**: Specifies the Claude model and effort level used when the board executes run or pr commands. The `pr` command also uses this value.
   ```yaml
   models:
-    run: sonnet
+    run:
+      model: sonnet
+      effort: low
   ```
 
 ## Planned Features

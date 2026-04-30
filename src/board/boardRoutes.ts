@@ -459,6 +459,14 @@ function registerClaudeRoutes(app: Hono, claudeProcess: ClaudeProcessService, ts
     const model = rawConfig?.model?.trim() || undefined;
     const effort = rawConfig?.effort?.trim() || undefined;
 
+    const validEffortLevels = ['low', 'medium', 'high', 'xhigh', 'max'];
+    if (effort && !validEffortLevels.includes(effort)) {
+      return c.json(
+        { error: `Invalid effort level "${effort}". Must be one of: ${validEffortLevels.join(', ')}` },
+        400
+      );
+    }
+
     try {
       claudeProcess.startProcess(taskId, prompt, command, model, effort);
     } catch (e) {
