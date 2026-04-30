@@ -183,13 +183,39 @@ describe('renderDetailPanel - tag loading failure', () => {
   });
 });
 
+class MockEventSource {
+  static lastInstance: MockEventSource | null = null;
+  private updateCallbacks: ((e: MessageEvent) => void)[] = [];
+  onerror: (() => void) | null = null;
+
+  constructor(public url: string) {
+    MockEventSource.lastInstance = this;
+  }
+
+  addEventListener(type: string, cb: (e: Event) => void): void {
+    if (type === 'update') this.updateCallbacks.push(cb as (e: MessageEvent) => void);
+  }
+
+  removeEventListener(): void {}
+
+  close(): void {
+    if (MockEventSource.lastInstance === this) MockEventSource.lastInstance = null;
+  }
+
+  dispatchUpdate(logs: unknown[]): void {
+    const event = new MessageEvent('update', { data: JSON.stringify({ logs }) });
+    this.updateCallbacks.forEach((cb) => cb(event));
+  }
+}
+
 describe('renderDetailPanel - run logs scroll restoration', () => {
   let originalRequestAnimationFrame: typeof window.requestAnimationFrame;
 
   beforeEach(() => {
     originalRequestAnimationFrame = window.requestAnimationFrame;
     vi.resetModules();
-    vi.useFakeTimers();
+    MockEventSource.lastInstance = null;
+    (globalThis as unknown as Record<string, unknown>).EventSource = MockEventSource;
     const stubbedRequestAnimationFrame = ((cb: FrameRequestCallback) => {
       cb(0);
       return 0;
@@ -202,7 +228,6 @@ describe('renderDetailPanel - run logs scroll restoration', () => {
   });
 
   afterEach(() => {
-    vi.useRealTimers();
     window.requestAnimationFrame = originalRequestAnimationFrame;
     (
       globalThis as typeof globalThis & { requestAnimationFrame: typeof window.requestAnimationFrame }
@@ -210,8 +235,7 @@ describe('renderDetailPanel - run logs scroll restoration', () => {
     vi.restoreAllMocks();
   });
 
-  it('preserves the run logs pane scroll position across polling rerenders', async () => {
-    let runLogsFetchCount = 0;
+  it('preserves the run logs pane scroll position across SSE updates', async () => {
     const initialLogs = [
       {
         id: 1,
@@ -228,7 +252,7 @@ describe('renderDetailPanel - run logs scroll restoration', () => {
         started_at: '2026-01-01T00:05:00.000Z',
         finished_at: null,
         exit_code: null,
-        events: [{ kind: 'text', text: 'poll update' }],
+        events: [{ kind: 'text', text: 'sse update' }],
       },
     ];
 
@@ -251,13 +275,6 @@ describe('renderDetailPanel - run logs scroll restoration', () => {
           json: () => Promise.resolve({ comments: [] }),
         });
       }
-      if (String(url).includes('/api/claude/tasks/1/run-logs')) {
-        const logs = runLogsFetchCount++ === 0 ? initialLogs : updatedLogs;
-        return Promise.resolve({
-          ok: true,
-          json: () => Promise.resolve({ logs }),
-        });
-      }
       return Promise.reject(new Error('Unexpected fetch: ' + String(url)));
     });
 
@@ -271,6 +288,9 @@ describe('renderDetailPanel - run logs scroll restoration', () => {
 
     document.getElementById('detail-tab-run-logs')?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
 
+    // Dispatch initial logs via SSE
+    MockEventSource.lastInstance?.dispatchUpdate(initialLogs);
+
     const pane = document.getElementById('detail-tab-content-run-logs') as HTMLElement;
     let firstBody = pane.querySelector<HTMLElement>('.run-log-body');
     for (let i = 0; i < 10 && !firstBody; i += 1) {
@@ -278,7 +298,6 @@ describe('renderDetailPanel - run logs scroll restoration', () => {
       firstBody = pane.querySelector<HTMLElement>('.run-log-body');
     }
     expect(firstBody).not.toBeNull();
-    expect(runLogsFetchCount).toBeGreaterThan(0);
 
     Object.defineProperty(pane, 'scrollHeight', { configurable: true, value: 1000 });
     Object.defineProperty(pane, 'clientHeight', { configurable: true, value: 400 });
@@ -303,14 +322,14 @@ describe('renderDetailPanel - run logs scroll restoration', () => {
       firstBody.scrollTop = 77;
     }
 
-    await vi.advanceTimersByTimeAsync(2000);
+    // Dispatch updated logs via SSE (simulates server pushing new data)
+    MockEventSource.lastInstance?.dispatchUpdate(updatedLogs);
 
     expect(pane.scrollTop).toBe(120);
     expect(pane.querySelector<HTMLElement>('.run-log-body')?.scrollTop).toBe(77);
   });
 
-  it('does not rewrite run logs HTML when polled logs are unchanged', async () => {
-    let runLogsFetchCount = 0;
+  it('does not rewrite run logs HTML when SSE updates have identical logs', async () => {
     const sameLogs = [
       {
         id: 1,
@@ -340,13 +359,6 @@ describe('renderDetailPanel - run logs scroll restoration', () => {
           json: () => Promise.resolve({ comments: [] }),
         });
       }
-      if (String(url).includes('/api/claude/tasks/1/run-logs')) {
-        runLogsFetchCount += 1;
-        return Promise.resolve({
-          ok: true,
-          json: () => Promise.resolve({ logs: sameLogs }),
-        });
-      }
       return Promise.reject(new Error('Unexpected fetch: ' + String(url)));
     });
 
@@ -359,6 +371,9 @@ describe('renderDetailPanel - run logs scroll restoration', () => {
     renderDetailPanel(makeTaskDetail());
 
     document.getElementById('detail-tab-run-logs')?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+
+    // Dispatch initial SSE update to render logs
+    MockEventSource.lastInstance?.dispatchUpdate(sameLogs);
 
     const pane = document.getElementById('detail-tab-content-run-logs') as HTMLElement;
     let firstBody = pane.querySelector<HTMLElement>('.run-log-body');
@@ -383,9 +398,10 @@ describe('renderDetailPanel - run logs scroll restoration', () => {
     pane.scrollTop = 140;
     if (firstBody) firstBody.scrollTop = 55;
 
-    await vi.advanceTimersByTimeAsync(4000);
+    // Dispatch same logs again multiple times — signature dedup should skip HTML rewrite
+    MockEventSource.lastInstance?.dispatchUpdate(sameLogs);
+    MockEventSource.lastInstance?.dispatchUpdate(sameLogs);
 
-    expect(runLogsFetchCount).toBeGreaterThan(1);
     expect(rewriteCount).toBe(0);
     expect(pane.scrollTop).toBe(140);
     expect(pane.querySelector<HTMLElement>('.run-log-body')?.scrollTop).toBe(55);
