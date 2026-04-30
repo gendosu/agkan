@@ -96,7 +96,7 @@ export class ClaudeProcessService {
    * Start a claude process for the given taskId and prompt.
    * Prevents duplicate processes for the same taskId.
    */
-  startProcess(taskId: number, prompt: string, command: string = 'run'): void {
+  startProcess(taskId: number, prompt: string, command: string = 'run', model?: string): void {
     if (this.processes.has(taskId)) {
       const existing = this.processes.get(taskId)!;
       const pid = existing.process.pid;
@@ -112,15 +112,14 @@ export class ClaudeProcessService {
 
     verboseLog(`[ClaudeProcessService] startProcess taskId=${taskId} command=${command}`);
 
-    const child = spawn(
-      CLAUDE_BIN,
-      ['--output-format', 'stream-json', '--verbose', '--dangerously-skip-permissions', '-p', prompt],
-      {
-        cwd: process.cwd(),
-        env: process.env,
-        stdio: ['ignore', 'pipe', 'pipe'],
-      }
-    );
+    const baseArgs = ['--output-format', 'stream-json', '--verbose', '--dangerously-skip-permissions', '-p', prompt];
+    const args = model ? ['--model', model, ...baseArgs] : baseArgs;
+
+    const child = spawn(CLAUDE_BIN, args, {
+      cwd: process.cwd(),
+      env: process.env,
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
 
     const info: ProcessInfo = {
       taskId,

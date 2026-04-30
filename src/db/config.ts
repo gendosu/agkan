@@ -11,6 +11,10 @@ export interface Config {
     port?: number;
     title?: string;
   };
+  models?: {
+    planning?: string;
+    run?: string;
+  };
 }
 
 /**

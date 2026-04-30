@@ -953,6 +953,57 @@ board:
     title: "マイプロジェクトボード"
   ```
 
+### モデル設定
+
+`.agkan.yml` の `models` セクションでは、ボード経由でplanningおよびrunコマンドを実行する際に使用するClaudeモデルを指定できます。
+
+#### 利用可能なフィールド
+
+| フィールド | 型 | デフォルト値 | 説明 |
+|----------|-----|------------|------|
+| `models.planning` | string | (Claude CLIのデフォルト) | planningコマンド実行時に使用するモデル |
+| `models.run` | string | (Claude CLIのデフォルト) | run/prコマンド実行時に使用するモデル |
+
+フルモデル名とClaude CLIのエイリアスの両方が使用できます。
+
+#### 設定例
+
+```yaml
+# データベースファイルのパス
+path: ./.agkan/data.db
+
+# モデル設定
+models:
+  planning: claude-opus-4-7
+  run: claude-sonnet-4-6
+```
+
+#### エイリアスの使用
+
+フルモデル名の代わりに短いエイリアスを使用できます：
+
+```yaml
+models:
+  planning: opus
+  run: sonnet
+```
+
+使用可能なエイリアス: `opus`、`sonnet`、`haiku`（Claude CLIが解決します）
+
+#### フィールドの詳細
+
+- **`models.planning`**: ボードがplanningタスクを実行する際に使用するClaudeモデルを指定します。`opus` や `claude-opus-4-7` など高性能なモデルの使用を推奨します。
+  ```yaml
+  models:
+    planning: opus
+  ```
+
+- **`models.run`**: ボードがrunまたはprコマンドを実行する際に使用するClaudeモデルを指定します。`pr` コマンドもこの値を使用します。
+  ```yaml
+  models:
+    run: sonnet
+  ```
+
 ## 実装予定機能
 
 ### タスクの添付ファイル

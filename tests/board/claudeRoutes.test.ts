@@ -88,7 +88,12 @@ describe('POST /api/claude/tasks/:taskId/run', () => {
     const data = (await res.json()) as { taskId: number; started: boolean };
     expect(data.taskId).toBe(task.id);
     expect(data.started).toBe(true);
-    expect(mock.startProcess).toHaveBeenCalledWith(task.id, `Task ID: ${task.id}\n/agkan-subtask-direct`, 'run');
+    expect(mock.startProcess).toHaveBeenCalledWith(
+      task.id,
+      `Task ID: ${task.id}\n/agkan-subtask-direct`,
+      'run',
+      undefined
+    );
   });
 
   it('uses planning prompt when command is planning', async () => {
@@ -106,7 +111,12 @@ describe('POST /api/claude/tasks/:taskId/run', () => {
     );
 
     expect(res.status).toBe(201);
-    expect(mock.startProcess).toHaveBeenCalledWith(task.id, `Task ID: ${task.id}\n/agkan-planning-subtask`, 'planning');
+    expect(mock.startProcess).toHaveBeenCalledWith(
+      task.id,
+      `Task ID: ${task.id}\n/agkan-planning-subtask`,
+      'planning',
+      undefined
+    );
   });
 
   it('defaults to run command when no command specified', async () => {
@@ -124,7 +134,12 @@ describe('POST /api/claude/tasks/:taskId/run', () => {
     );
 
     expect(res.status).toBe(201);
-    expect(mock.startProcess).toHaveBeenCalledWith(task.id, `Task ID: ${task.id}\n/agkan-subtask-direct`, 'run');
+    expect(mock.startProcess).toHaveBeenCalledWith(
+      task.id,
+      `Task ID: ${task.id}\n/agkan-subtask-direct`,
+      'run',
+      undefined
+    );
   });
 
   it('returns 400 for invalid taskId', async () => {

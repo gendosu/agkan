@@ -87,6 +87,38 @@ describe('ClaudeProcessService', () => {
       const callArgs = spawnMock.mock.calls[0];
       expect(callArgs[2]).toMatchObject({ env: process.env });
     });
+
+    it('should prepend --model flag when model is specified', () => {
+      const { proc } = makeFakeProcess();
+      spawnMock.mockReturnValue(proc);
+
+      service.startProcess(1, 'Hello world', 'run', 'claude-opus-4-7');
+
+      expect(spawnMock).toHaveBeenCalledWith(
+        'claude',
+        [
+          '--model',
+          'claude-opus-4-7',
+          '--output-format',
+          'stream-json',
+          '--verbose',
+          '--dangerously-skip-permissions',
+          '-p',
+          'Hello world',
+        ],
+        expect.objectContaining({ cwd: process.cwd() })
+      );
+    });
+
+    it('should not include --model flag when model is not specified', () => {
+      const { proc } = makeFakeProcess();
+      spawnMock.mockReturnValue(proc);
+
+      service.startProcess(1, 'Hello world');
+
+      const callArgs = spawnMock.mock.calls[0];
+      expect(callArgs[1]).not.toContain('--model');
+    });
   });
 
   // --- stopProcess ---
