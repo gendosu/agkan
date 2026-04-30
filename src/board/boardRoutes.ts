@@ -455,11 +455,12 @@ function registerClaudeRoutes(app: Hono, claudeProcess: ClaudeProcessService, ts
 
     const config = loadConfig();
     // 'pr' and 'run' commands both use the run model configuration
-    const rawModel = command === 'planning' ? config.models?.planning : config.models?.run;
-    const model = typeof rawModel === 'string' && rawModel.trim() ? rawModel.trim() : undefined;
+    const rawConfig = command === 'planning' ? config.models?.planning : config.models?.run;
+    const model = rawConfig?.model?.trim() || undefined;
+    const effort = rawConfig?.effort?.trim() || undefined;
 
     try {
-      claudeProcess.startProcess(taskId, prompt, command, model);
+      claudeProcess.startProcess(taskId, prompt, command, model, effort);
     } catch (e) {
       if (e instanceof ConflictError) {
         console.error(

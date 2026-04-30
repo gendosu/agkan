@@ -422,27 +422,57 @@ describe('Database Path Resolution', () => {
 
     it('should return parsed config with models.planning field', () => {
       const configPath = path.join(process.cwd(), testConfigFileTest);
-      fs.writeFileSync(configPath, yaml.dump({ models: { planning: 'claude-opus-4-7' } }));
+      fs.writeFileSync(configPath, yaml.dump({ models: { planning: { model: 'claude-opus-4-7' } } }));
 
       const config = loadConfig();
-      expect(config.models?.planning).toBe('claude-opus-4-7');
+      expect(config.models?.planning?.model).toBe('claude-opus-4-7');
     });
 
     it('should return parsed config with models.run field', () => {
       const configPath = path.join(process.cwd(), testConfigFileTest);
-      fs.writeFileSync(configPath, yaml.dump({ models: { run: 'claude-sonnet-4-6' } }));
+      fs.writeFileSync(configPath, yaml.dump({ models: { run: { model: 'claude-sonnet-4-6' } } }));
 
       const config = loadConfig();
-      expect(config.models?.run).toBe('claude-sonnet-4-6');
+      expect(config.models?.run?.model).toBe('claude-sonnet-4-6');
     });
 
     it('should return parsed config with both models.planning and models.run', () => {
       const configPath = path.join(process.cwd(), testConfigFileTest);
-      fs.writeFileSync(configPath, yaml.dump({ models: { planning: 'claude-opus-4-7', run: 'claude-sonnet-4-6' } }));
+      fs.writeFileSync(
+        configPath,
+        yaml.dump({ models: { planning: { model: 'claude-opus-4-7' }, run: { model: 'claude-sonnet-4-6' } } })
+      );
 
       const config = loadConfig();
-      expect(config.models?.planning).toBe('claude-opus-4-7');
-      expect(config.models?.run).toBe('claude-sonnet-4-6');
+      expect(config.models?.planning?.model).toBe('claude-opus-4-7');
+      expect(config.models?.run?.model).toBe('claude-sonnet-4-6');
+    });
+
+    it('should return parsed config with models.planning including effort', () => {
+      const configPath = path.join(process.cwd(), testConfigFileTest);
+      fs.writeFileSync(configPath, yaml.dump({ models: { planning: { model: 'claude-opus-4-7', effort: 'high' } } }));
+
+      const config = loadConfig();
+      expect(config.models?.planning?.model).toBe('claude-opus-4-7');
+      expect(config.models?.planning?.effort).toBe('high');
+    });
+
+    it('should return parsed config with models.run including effort', () => {
+      const configPath = path.join(process.cwd(), testConfigFileTest);
+      fs.writeFileSync(configPath, yaml.dump({ models: { run: { model: 'claude-sonnet-4-6', effort: 'low' } } }));
+
+      const config = loadConfig();
+      expect(config.models?.run?.model).toBe('claude-sonnet-4-6');
+      expect(config.models?.run?.effort).toBe('low');
+    });
+
+    it('should return parsed config with effort only (no model)', () => {
+      const configPath = path.join(process.cwd(), testConfigFileTest);
+      fs.writeFileSync(configPath, yaml.dump({ models: { run: { effort: 'max' } } }));
+
+      const config = loadConfig();
+      expect(config.models?.run?.model).toBeUndefined();
+      expect(config.models?.run?.effort).toBe('max');
     });
   });
 

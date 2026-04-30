@@ -12,8 +12,8 @@ export interface Config {
     title?: string;
   };
   models?: {
-    planning?: string;
-    run?: string;
+    planning?: { model?: string; effort?: string };
+    run?: { model?: string; effort?: string };
   };
 }
 

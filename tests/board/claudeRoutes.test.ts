@@ -92,6 +92,7 @@ describe('POST /api/claude/tasks/:taskId/run', () => {
       task.id,
       `Task ID: ${task.id}\n/agkan-subtask-direct`,
       'run',
+      undefined,
       undefined
     );
   });
@@ -115,6 +116,7 @@ describe('POST /api/claude/tasks/:taskId/run', () => {
       task.id,
       `Task ID: ${task.id}\n/agkan-planning-subtask`,
       'planning',
+      undefined,
       undefined
     );
   });
@@ -138,6 +140,7 @@ describe('POST /api/claude/tasks/:taskId/run', () => {
       task.id,
       `Task ID: ${task.id}\n/agkan-subtask-direct`,
       'run',
+      undefined,
       undefined
     );
   });
