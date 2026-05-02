@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.5.0] - 2026-05-02
+
+### Added
+- Add `--effort` flag to `agkan run` and `agkan plan` commands for configuring Claude effort level
+- Replace run-logs polling with SSE in board detail panel
+- Add model configuration for planning and run commands via agkan config
+- Add board screenshot capture scripts and documentation
+
+### Fixed
+- Add effort validation and update README for new config format
+- Fix TDZ bug and onerror reconnection in run-logs SSE
+
 ## [3.4.0] - 2026-04-28
 
 ### Added
