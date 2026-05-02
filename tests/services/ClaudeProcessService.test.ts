@@ -119,6 +119,62 @@ describe('ClaudeProcessService', () => {
       const callArgs = spawnMock.mock.calls[0];
       expect(callArgs[1]).not.toContain('--model');
     });
+
+    it('should include --effort flag when effort is specified', () => {
+      const { proc } = makeFakeProcess();
+      spawnMock.mockReturnValue(proc);
+
+      service.startProcess(1, 'Hello world', 'run', undefined, 'high');
+
+      expect(spawnMock).toHaveBeenCalledWith(
+        'claude',
+        [
+          '--effort',
+          'high',
+          '--output-format',
+          'stream-json',
+          '--verbose',
+          '--dangerously-skip-permissions',
+          '-p',
+          'Hello world',
+        ],
+        expect.objectContaining({ cwd: process.cwd() })
+      );
+    });
+
+    it('should include both --model and --effort flags when both are specified', () => {
+      const { proc } = makeFakeProcess();
+      spawnMock.mockReturnValue(proc);
+
+      service.startProcess(1, 'Hello world', 'run', 'claude-opus-4-7', 'max');
+
+      expect(spawnMock).toHaveBeenCalledWith(
+        'claude',
+        [
+          '--model',
+          'claude-opus-4-7',
+          '--effort',
+          'max',
+          '--output-format',
+          'stream-json',
+          '--verbose',
+          '--dangerously-skip-permissions',
+          '-p',
+          'Hello world',
+        ],
+        expect.objectContaining({ cwd: process.cwd() })
+      );
+    });
+
+    it('should not include --effort flag when effort is not specified', () => {
+      const { proc } = makeFakeProcess();
+      spawnMock.mockReturnValue(proc);
+
+      service.startProcess(1, 'Hello world');
+
+      const callArgs = spawnMock.mock.calls[0];
+      expect(callArgs[1]).not.toContain('--effort');
+    });
   });
 
   // --- stopProcess ---

@@ -6,6 +6,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { Hono } from 'hono';
 import fs from 'fs';
 import path from 'path';
+import yaml from 'js-yaml';
 import { resetDatabase } from '../../src/db/reset';
 import { TaskService } from '../../src/services/TaskService';
 import { TaskTagService } from '../../src/services/TaskTagService';
@@ -19,6 +20,7 @@ import { getStorageBackend } from '../../src/db/connection';
 import { registerBoardRoutes, BoardServices } from '../../src/board/boardRoutes';
 
 const TEST_CONFIG_DIR = path.join(process.cwd(), '.agkan-test-claude-routes-' + process.pid);
+const TEST_AGKAN_CONFIG = path.join(process.cwd(), '.agkan-test.yml');
 
 function buildMockClaudeProcessService(): ClaudeProcessService {
   const mock = {
@@ -64,6 +66,9 @@ afterEach(() => {
   if (fs.existsSync(TEST_CONFIG_DIR)) {
     fs.rmSync(TEST_CONFIG_DIR, { recursive: true });
   }
+  if (fs.existsSync(TEST_AGKAN_CONFIG)) {
+    fs.unlinkSync(TEST_AGKAN_CONFIG);
+  }
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -92,6 +97,7 @@ describe('POST /api/claude/tasks/:taskId/run', () => {
       task.id,
       `Task ID: ${task.id}\n/agkan-subtask-direct`,
       'run',
+      undefined,
       undefined
     );
   });
@@ -115,6 +121,7 @@ describe('POST /api/claude/tasks/:taskId/run', () => {
       task.id,
       `Task ID: ${task.id}\n/agkan-planning-subtask`,
       'planning',
+      undefined,
       undefined
     );
   });
@@ -138,6 +145,7 @@ describe('POST /api/claude/tasks/:taskId/run', () => {
       task.id,
       `Task ID: ${task.id}\n/agkan-subtask-direct`,
       'run',
+      undefined,
       undefined
     );
   });
@@ -196,6 +204,76 @@ describe('POST /api/claude/tasks/:taskId/run', () => {
     expect(res.status).toBe(409);
     const data = (await res.json()) as { error: string };
     expect(data.error).toBeTruthy();
+  });
+
+  it('passes model and effort from config to startProcess', async () => {
+    fs.writeFileSync(TEST_AGKAN_CONFIG, yaml.dump({ models: { run: { model: 'claude-sonnet-4-6', effort: 'high' } } }));
+    const mock = buildMockClaudeProcessService();
+    const services = buildServices(mock);
+    const task = services.ts.createTask({ title: 'Config Task', status: 'backlog' });
+    const app = buildApp(services);
+
+    const res = await app.fetch(
+      new Request(`http://localhost/api/claude/tasks/${task.id}/run`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ command: 'run' }),
+      })
+    );
+
+    expect(res.status).toBe(201);
+    expect(mock.startProcess).toHaveBeenCalledWith(
+      task.id,
+      `Task ID: ${task.id}\n/agkan-subtask-direct`,
+      'run',
+      'claude-sonnet-4-6',
+      'high'
+    );
+  });
+
+  it('passes effort only (no model) from config to startProcess', async () => {
+    fs.writeFileSync(TEST_AGKAN_CONFIG, yaml.dump({ models: { run: { effort: 'max' } } }));
+    const mock = buildMockClaudeProcessService();
+    const services = buildServices(mock);
+    const task = services.ts.createTask({ title: 'Effort Only Task', status: 'backlog' });
+    const app = buildApp(services);
+
+    const res = await app.fetch(
+      new Request(`http://localhost/api/claude/tasks/${task.id}/run`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ command: 'run' }),
+      })
+    );
+
+    expect(res.status).toBe(201);
+    expect(mock.startProcess).toHaveBeenCalledWith(
+      task.id,
+      `Task ID: ${task.id}\n/agkan-subtask-direct`,
+      'run',
+      undefined,
+      'max'
+    );
+  });
+
+  it('returns 400 when effort is an invalid value', async () => {
+    fs.writeFileSync(TEST_AGKAN_CONFIG, yaml.dump({ models: { run: { effort: 'ultra' } } }));
+    const mock = buildMockClaudeProcessService();
+    const services = buildServices(mock);
+    const task = services.ts.createTask({ title: 'Invalid Effort Task', status: 'backlog' });
+    const app = buildApp(services);
+
+    const res = await app.fetch(
+      new Request(`http://localhost/api/claude/tasks/${task.id}/run`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ command: 'run' }),
+      })
+    );
+
+    expect(res.status).toBe(400);
+    const data = (await res.json()) as { error: string };
+    expect(data.error).toMatch(/Invalid effort level/);
   });
 
   it('returns 404 when claudeProcessService is not configured', async () => {
