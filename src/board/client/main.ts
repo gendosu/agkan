@@ -10,7 +10,11 @@ import { initFilters } from './filters';
 import { initBurgerMenu } from './burgerMenu';
 import { initDependencyVisualization } from './dependencyVisualization';
 import { initClaudeButton, registerClaudeModalCallback } from './claudeButton';
-import { initClaudeStreamModal, openClaudeStreamModal, registerClaudeButtonUpdateCallback } from './claudeStreamModal';
+import {
+  initClaudeTerminalModal,
+  openClaudeTerminalModal,
+  registerClaudeButtonUpdateCallback,
+} from './claudeTerminalModal';
 import { updateButtonStates } from './claudeButton';
 
 initDragDrop();
@@ -23,8 +27,8 @@ initFilters();
 initBurgerMenu();
 initDependencyVisualization();
 initClaudeButton();
-initClaudeStreamModal();
-registerClaudeModalCallback(openClaudeStreamModal);
+initClaudeTerminalModal();
+registerClaudeModalCallback(openClaudeTerminalModal);
 registerClaudeButtonUpdateCallback(() => {
   updateButtonStates(new Set());
 });
