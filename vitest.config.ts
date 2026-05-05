@@ -8,7 +8,7 @@ export default defineConfig({
     testTimeout: 30000,
     hookTimeout: 30000,
     env: { NODE_ENV: 'test' },
-    exclude: ['node_modules/**', '.claude/worktrees/**'],
+    exclude: ['node_modules/**', '.claude/worktrees/**', 'tmp/**'],
     coverage: {
       provider: 'v8',
       reporter: ['text', 'json', 'html'],
