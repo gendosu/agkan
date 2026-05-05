@@ -141,19 +141,18 @@ function getContextMenuAndToast(): string {
   <div class="toast" id="toast">Failed to update task</div>`;
 }
 
-function getClaudeStreamModal(): string {
+function getClaudeTerminalModal(): string {
   return `
-  <div class="modal-overlay" id="claude-stream-modal">
-    <div class="modal" style="width:680px;">
+  <div class="modal-overlay" id="claude-terminal-modal">
+    <div class="modal claude-terminal-modal-inner">
       <div class="claude-stream-modal-header">
-        <h2 id="claude-stream-modal-title">Claude Output</h2>
-        <button id="claude-stream-modal-close">&#x2715;</button>
+        <h2 id="claude-terminal-title">Claude Terminal</h2>
+        <button id="claude-terminal-modal-close">&#x2715;</button>
       </div>
-      <div id="claude-stream-log" class="claude-stream-log"></div>
+      <div id="claude-terminal-container"></div>
       <div class="claude-stream-modal-footer">
-        <span id="claude-stream-status" class="claude-stream-status">Connecting...</span>
-        <button id="claude-stream-stop-btn" class="claude-stream-stop-btn">Stop</button>
-        <button id="claude-stream-close-btn">Close</button>
+        <button id="claude-terminal-stop-btn" class="claude-stream-stop-btn">Stop</button>
+        <button id="claude-terminal-close-btn">Close</button>
       </div>
     </div>
   </div>`;
@@ -216,7 +215,7 @@ function getBoardBodyStatic(): string {
     var statusLabels = ${JSON.stringify(STATUS_LABELS)};
     var allPriorities = ${JSON.stringify(PRIORITIES)};`;
 
-  return `${getAddTaskModal()}${getContextMenuAndToast()}${getPurgeAndVersionModals()}${getClaudeStreamModal()}
+  return `${getAddTaskModal()}${getContextMenuAndToast()}${getPurgeAndVersionModals()}${getClaudeTerminalModal()}
   <script>${configScript}
   </script>
   <link rel="stylesheet" href="/static/main.css">
