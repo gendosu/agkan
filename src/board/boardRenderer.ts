@@ -103,11 +103,14 @@ function getAddTaskModal(): string {
   return `
   <div class="modal-overlay" id="add-modal">
     <div class="modal">
-      <h2>Add Task</h2>
+      <h2 class="modal-title-with-icon">
+        <svg class="modal-title-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+        Add Task
+      </h2>
       <label for="add-title">Title</label>
       <input type="text" id="add-title" placeholder="Task title">
       <label for="add-body">Description</label>
-      <textarea id="add-body" placeholder="Optional"></textarea>
+      <textarea id="add-body" placeholder="Describe the task..."></textarea>
       <label for="add-priority">Priority</label>
       <select id="add-priority">
         <option value="">None</option>

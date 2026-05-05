@@ -95,6 +95,8 @@ export const BOARD_STYLES = `
     .modal-overlay.show { display: flex; }
     .modal { background: var(--bg-surface); border-radius: 8px; padding: 24px; width: 520px; box-shadow: 0 8px 24px rgba(0,0,0,0.2); color: var(--text-primary); }
     .modal h2 { font-size: 16px; margin-bottom: 14px; }
+    .modal-title-with-icon { display: flex; align-items: center; gap: 6px; }
+    .modal-title-icon { flex-shrink: 0; color: var(--text-secondary); }
     .modal label { display: block; font-size: 12px; font-weight: 600; color: var(--text-secondary); margin-bottom: 4px; }
     .modal input, .modal textarea, .modal select { width: 100%; border: 1px solid var(--border-color); border-radius: 6px; padding: 8px 10px; font-size: 13px; font-family: inherit; margin-bottom: 12px; background: var(--input-bg); color: var(--text-primary); }
     .modal textarea { resize: vertical; min-height: 60px; }
