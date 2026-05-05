@@ -219,7 +219,8 @@ function getBoardBodyStatic(): string {
   return `${getAddTaskModal()}${getContextMenuAndToast()}${getPurgeAndVersionModals()}${getClaudeStreamModal()}
   <script>${configScript}
   </script>
-  <script src="/static/board.js"></script>`;
+  <link rel="stylesheet" href="/static/main.css">
+  <script src="/static/main.js"></script>`;
 }
 
 export function renderBoard(
