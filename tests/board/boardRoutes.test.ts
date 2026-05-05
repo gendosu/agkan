@@ -15,7 +15,7 @@ import { CommentService } from '../../src/services/CommentService';
 import { TaskBlockService } from '../../src/services/TaskBlockService';
 import { getStorageBackend } from '../../src/db/connection';
 import { registerBoardRoutes, BoardServices } from '../../src/board/boardRoutes';
-import { ClaudeProcessService } from '../../src/services/ClaudeProcessService';
+import { PtySessionService } from '../../src/terminal/PtySessionService';
 import { DETAIL_PANE_MAX_WIDTH } from '../../src/board/boardConfig';
 
 const TEST_CONFIG_DIR = path.join(process.cwd(), '.agkan-test-routes-' + process.pid);
@@ -966,7 +966,7 @@ describe('GET /api/board/stream', () => {
 
 describe('GET /api/running-tasks/stream', () => {
   function buildServicesWithClaude(): BoardServices {
-    return { ...buildServices(), claudeProcessService: new ClaudeProcessService() };
+    return { ...buildServices(), ptySessionService: new PtySessionService() };
   }
 
   it('returns SSE response with correct headers', async () => {

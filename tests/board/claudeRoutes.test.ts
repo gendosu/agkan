@@ -15,26 +15,28 @@ import { MetadataService } from '../../src/services/MetadataService';
 import { CommentService } from '../../src/services/CommentService';
 import { TaskBlockService } from '../../src/services/TaskBlockService';
 import { ConflictError } from '../../src/errors';
-import { ClaudeProcessService, SubscribeCallback } from '../../src/services/ClaudeProcessService';
+import { PtySessionService } from '../../src/terminal/PtySessionService';
 import { getStorageBackend } from '../../src/db/connection';
 import { registerBoardRoutes, BoardServices } from '../../src/board/boardRoutes';
+
+type SubscribeCallback = (event: { kind: 'done'; exitCode: number } | { kind: 'error'; message: string }) => void;
 
 const TEST_CONFIG_DIR = path.join(process.cwd(), '.agkan-test-claude-routes-' + process.pid);
 const TEST_AGKAN_CONFIG = path.join(process.cwd(), '.agkan-test.yml');
 
-function buildMockClaudeProcessService(): ClaudeProcessService {
+function buildMockClaudeProcessService(): PtySessionService {
   const mock = {
     startProcess: vi.fn(),
     stopProcess: vi.fn().mockReturnValue(true),
     listRunningTasks: vi.fn().mockReturnValue([]),
     subscribeOutput: vi.fn().mockReturnValue(() => {}),
-    getOutputBuffer: vi.fn().mockReturnValue([]),
+    subscribeRunningTasksChange: vi.fn().mockReturnValue(() => {}),
     getRunLogs: vi.fn().mockReturnValue([]),
-  } as unknown as ClaudeProcessService;
+  } as unknown as PtySessionService;
   return mock;
 }
 
-function buildServices(claudeProcessService?: ClaudeProcessService): BoardServices {
+function buildServices(ptySessionService?: PtySessionService): BoardServices {
   const database = getStorageBackend();
   return {
     ts: new TaskService(database),
@@ -45,7 +47,7 @@ function buildServices(claudeProcessService?: ClaudeProcessService): BoardServic
     tbs: new TaskBlockService(database),
     database,
     configDir: TEST_CONFIG_DIR,
-    claudeProcessService,
+    ptySessionService,
   };
 }
 
@@ -276,7 +278,7 @@ describe('POST /api/claude/tasks/:taskId/run', () => {
     expect(data.error).toMatch(/Invalid effort level/);
   });
 
-  it('returns 404 when claudeProcessService is not configured', async () => {
+  it('returns 404 when ptySessionService is not configured', async () => {
     const services = buildServices(undefined);
     const task = services.ts.createTask({ title: 'Task', status: 'backlog' });
     const app = buildApp(services);
@@ -452,7 +454,7 @@ describe('DELETE /api/claude/tasks/:taskId/run', () => {
     expect(data.error).toBeTruthy();
   });
 
-  it('returns 404 when claudeProcessService is not configured', async () => {
+  it('returns 404 when ptySessionService is not configured', async () => {
     const app = buildApp(buildServices(undefined));
 
     const res = await app.fetch(
@@ -501,166 +503,10 @@ describe('GET /api/running-tasks', () => {
     ]);
   });
 
-  it('returns 404 when claudeProcessService is not configured', async () => {
+  it('returns 404 when ptySessionService is not configured', async () => {
     const app = buildApp(buildServices(undefined));
 
     const res = await app.fetch(new Request('http://localhost/api/running-tasks'));
-
-    expect(res.status).toBe(404);
-  });
-});
-
-// ─────────────────────────────────────────────────────────────────────────────
-// GET /api/claude/tasks/:taskId/stream (SSE)
-// ─────────────────────────────────────────────────────────────────────────────
-describe('GET /api/claude/tasks/:taskId/stream', () => {
-  it('returns SSE response with correct headers', async () => {
-    const mock = buildMockClaudeProcessService();
-    const app = buildApp(buildServices(mock));
-
-    const res = await app.fetch(new Request('http://localhost/api/claude/tasks/1/stream'));
-
-    expect(res.status).toBe(200);
-    expect(res.headers.get('Content-Type')).toBe('text/event-stream');
-    expect(res.headers.get('Cache-Control')).toBe('no-cache');
-    expect(res.headers.get('Connection')).toBe('keep-alive');
-  });
-
-  it('returns 400 for invalid taskId', async () => {
-    const mock = buildMockClaudeProcessService();
-    const app = buildApp(buildServices(mock));
-
-    const res = await app.fetch(new Request('http://localhost/api/claude/tasks/abc/stream'));
-
-    expect(res.status).toBe(400);
-  });
-
-  it('sends SSE events from subscribeOutput callback', async () => {
-    let capturedCallback: SubscribeCallback | null = null;
-    const mock = buildMockClaudeProcessService();
-    (mock.subscribeOutput as ReturnType<typeof vi.fn>).mockImplementation((_taskId: number, cb: SubscribeCallback) => {
-      capturedCallback = cb;
-      return () => {};
-    });
-
-    const app = buildApp(buildServices(mock));
-    const res = await app.fetch(new Request('http://localhost/api/claude/tasks/1/stream'));
-
-    expect(res.status).toBe(200);
-    expect(mock.subscribeOutput).toHaveBeenCalledWith(1, expect.any(Function));
-
-    // Emit a text event and read it
-    const cb = capturedCallback as SubscribeCallback | null;
-    if (cb && res.body) {
-      cb({ kind: 'text', text: 'hello' });
-
-      const reader = res.body.getReader();
-      const { value } = await reader.read();
-      const text = new TextDecoder().decode(value);
-      expect(text).toContain('event: text');
-      expect(text).toContain('"hello"');
-    }
-  });
-
-  it('does not throw when done event fires then client disconnects (abort)', async () => {
-    let capturedCallback: SubscribeCallback | null = null;
-    const stopFn = vi.fn();
-    const mock = buildMockClaudeProcessService();
-    (mock.subscribeOutput as ReturnType<typeof vi.fn>).mockImplementation((_taskId: number, cb: SubscribeCallback) => {
-      capturedCallback = cb;
-      return stopFn;
-    });
-
-    const controller = new AbortController();
-    const app = buildApp(buildServices(mock));
-    const res = await app.fetch(
-      new Request('http://localhost/api/claude/tasks/1/stream', { signal: controller.signal })
-    );
-
-    expect(res.status).toBe(200);
-
-    const cb = capturedCallback as SubscribeCallback | null;
-    if (cb && res.body) {
-      const reader = res.body.getReader();
-
-      // done event closes the stream
-      cb({ kind: 'done', exitCode: 0 });
-
-      // Read until done to drain the stream
-      await reader.read(); // end event
-      await reader.read(); // stream closed
-
-      // abort after stream already closed must not throw
-      expect(() => controller.abort()).not.toThrow();
-      expect(stopFn).toHaveBeenCalledTimes(1);
-    }
-  });
-
-  it('does not throw when error event fires then client disconnects (abort)', async () => {
-    let capturedCallback: SubscribeCallback | null = null;
-    const stopFn = vi.fn();
-    const mock = buildMockClaudeProcessService();
-    (mock.subscribeOutput as ReturnType<typeof vi.fn>).mockImplementation((_taskId: number, cb: SubscribeCallback) => {
-      capturedCallback = cb;
-      return stopFn;
-    });
-
-    const controller = new AbortController();
-    const app = buildApp(buildServices(mock));
-    const res = await app.fetch(
-      new Request('http://localhost/api/claude/tasks/1/stream', { signal: controller.signal })
-    );
-
-    expect(res.status).toBe(200);
-
-    const cb = capturedCallback as SubscribeCallback | null;
-    if (cb && res.body) {
-      const reader = res.body.getReader();
-
-      // error event closes the stream
-      cb({ kind: 'error', message: 'process failed' });
-
-      // Read until done
-      await reader.read(); // error event
-      await reader.read(); // stream closed
-
-      // abort after stream already closed must not throw
-      expect(() => controller.abort()).not.toThrow();
-      expect(stopFn).toHaveBeenCalledTimes(1);
-    }
-  });
-
-  it('calls stop() when abort fires and does not close stream twice', async () => {
-    let capturedCallback: SubscribeCallback | null = null;
-    const stopFn = vi.fn();
-    const mock = buildMockClaudeProcessService();
-    (mock.subscribeOutput as ReturnType<typeof vi.fn>).mockImplementation((_taskId: number, cb: SubscribeCallback) => {
-      capturedCallback = cb;
-      return stopFn;
-    });
-
-    const controller = new AbortController();
-    const app = buildApp(buildServices(mock));
-    const res = await app.fetch(
-      new Request('http://localhost/api/claude/tasks/1/stream', { signal: controller.signal })
-    );
-
-    expect(res.status).toBe(200);
-
-    if (capturedCallback && res.body) {
-      // Abort before any events
-      controller.abort();
-
-      // Attempting to emit after abort must not throw
-      expect(() => capturedCallback!({ kind: 'text', text: 'late' })).not.toThrow();
-      expect(stopFn).toHaveBeenCalledTimes(1);
-    }
-  });
-
-  it('returns 404 when claudeProcessService is not configured', async () => {
-    const app = buildApp(buildServices(undefined));
-
-    const res = await app.fetch(new Request('http://localhost/api/claude/tasks/1/stream'));
 
     expect(res.status).toBe(404);
   });
@@ -729,7 +575,7 @@ describe('GET /api/claude/tasks/:taskId/run-logs', () => {
     expect(res.status).toBe(404);
   });
 
-  it('returns 404 when claudeProcessService is not configured', async () => {
+  it('returns 404 when ptySessionService is not configured', async () => {
     const services = buildServices(undefined);
     const task = services.ts.createTask({ title: 'Task', status: 'done' });
     const app = buildApp(services);
@@ -776,7 +622,7 @@ describe('GET /api/claude/tasks/:taskId/run-logs/stream', () => {
     expect(res.status).toBe(404);
   });
 
-  it('returns 404 when claudeProcessService is not configured', async () => {
+  it('returns 404 when ptySessionService is not configured', async () => {
     const services = buildServices(undefined);
     const task = services.ts.createTask({ title: 'Task', status: 'done' });
     const app = buildApp(services);
@@ -850,7 +696,7 @@ describe('GET /api/claude/tasks/:taskId/run-logs/stream', () => {
           events: [{ kind: 'text', text: 'new output' }],
         },
       ]);
-      cb({ kind: 'text', text: 'new output' });
+      cb({ kind: 'done', exitCode: 0 });
 
       // queueMicrotask fires after synchronous code in the same tick
       await Promise.resolve();

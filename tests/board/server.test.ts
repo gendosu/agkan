@@ -509,7 +509,7 @@ describe('createBoardApp', () => {
   describe('GET / (detail panel)', () => {
     it('should include detail panel HTML in the board page', async () => {
       const app = createBoardApp(taskService, taskTagService, metadataService);
-      const res = await app.fetch(new Request('http://localhost/static/board.js'));
+      const res = await app.fetch(new Request('http://localhost/static/main.js'));
       const html = await res.text();
 
       expect(html).toContain('id="detail-panel"');
@@ -520,7 +520,7 @@ describe('createBoardApp', () => {
 
     it('should create detail panel dynamically inside board-container via JavaScript', async () => {
       const app = createBoardApp(taskService, taskTagService, metadataService);
-      const res = await app.fetch(new Request('http://localhost/static/board.js'));
+      const res = await app.fetch(new Request('http://localhost/static/main.js'));
       const html = await res.text();
 
       // Verify the JavaScript creates the detail panel dynamically
@@ -543,7 +543,7 @@ describe('createBoardApp', () => {
       taskService.createTask({ title: 'Clickable task', status: 'backlog' });
 
       const app = createBoardApp(taskService, taskTagService, metadataService);
-      const res = await app.fetch(new Request('http://localhost/static/board.js'));
+      const res = await app.fetch(new Request('http://localhost/static/main.js'));
       const html = await res.text();
 
       expect(html).toContain('renderDetailPanel');
@@ -553,7 +553,7 @@ describe('createBoardApp', () => {
 
     it('should include resize handle element in detail panel', async () => {
       const app = createBoardApp(taskService, taskTagService, metadataService);
-      const res = await app.fetch(new Request('http://localhost/static/board.js'));
+      const res = await app.fetch(new Request('http://localhost/static/main.js'));
       const html = await res.text();
 
       expect(html).toContain('id="detail-panel-resize-handle"');
@@ -573,7 +573,7 @@ describe('createBoardApp', () => {
 
     it('should include resize JavaScript with API-based persistence', async () => {
       const app = createBoardApp(taskService, taskTagService, metadataService);
-      const res = await app.fetch(new Request('http://localhost/static/board.js'));
+      const res = await app.fetch(new Request('http://localhost/static/main.js'));
       const html = await res.text();
 
       expect(html).toContain('PANEL_MIN_WIDTH');
@@ -853,7 +853,7 @@ describe('createBoardApp', () => {
 
     it('should include detail panel save button', async () => {
       const app = createBoardApp(taskService, taskTagService, metadataService);
-      const res = await app.fetch(new Request('http://localhost/static/board.js'));
+      const res = await app.fetch(new Request('http://localhost/static/main.js'));
       const html = await res.text();
 
       expect(html).toContain('id="detail-save-btn"');
@@ -862,7 +862,7 @@ describe('createBoardApp', () => {
 
     it('should include editable field rendering in detail panel script', async () => {
       const app = createBoardApp(taskService, taskTagService, metadataService);
-      const res = await app.fetch(new Request('http://localhost/static/board.js'));
+      const res = await app.fetch(new Request('http://localhost/static/main.js'));
       const html = await res.text();
 
       expect(html).toContain('detail-edit-title');
@@ -873,7 +873,7 @@ describe('createBoardApp', () => {
 
     it('should include save handler script', async () => {
       const app = createBoardApp(taskService, taskTagService, metadataService);
-      const res = await app.fetch(new Request('http://localhost/static/board.js'));
+      const res = await app.fetch(new Request('http://localhost/static/main.js'));
       const html = await res.text();
 
       expect(html).toContain('detail-save-btn');
@@ -881,10 +881,10 @@ describe('createBoardApp', () => {
     });
   });
 
-  describe('GET /static/board.js (board SSE script)', () => {
+  describe('GET /static/main.js (board SSE script)', () => {
     it('should use EventSource to connect to /api/board/stream', async () => {
       const app = createBoardApp(taskService, taskTagService, metadataService);
-      const res = await app.fetch(new Request('http://localhost/static/board.js'));
+      const res = await app.fetch(new Request('http://localhost/static/main.js'));
       const html = await res.text();
 
       expect(html).toContain('EventSource');
@@ -893,7 +893,7 @@ describe('createBoardApp', () => {
 
     it('should skip reload when draggedCard is not null', async () => {
       const app = createBoardApp(taskService, taskTagService, metadataService);
-      const res = await app.fetch(new Request('http://localhost/static/board.js'));
+      const res = await app.fetch(new Request('http://localhost/static/main.js'));
       const html = await res.text();
 
       expect(html).toContain('draggedCard !== null');
@@ -901,7 +901,7 @@ describe('createBoardApp', () => {
 
     it('should refresh cards in-place when detail panel is open on update', async () => {
       const app = createBoardApp(taskService, taskTagService, metadataService);
-      const res = await app.fetch(new Request('http://localhost/static/board.js'));
+      const res = await app.fetch(new Request('http://localhost/static/main.js'));
       const html = await res.text();
 
       expect(html).toMatch(/detailPanel\.classList\.contains\(["']open["']\)/);
@@ -910,10 +910,10 @@ describe('createBoardApp', () => {
     });
   });
 
-  describe('GET /static/board.js (detail panel polling refresh)', () => {
+  describe('GET /static/main.js (detail panel polling refresh)', () => {
     it('should refresh detail panel after refreshBoardCards when detailTaskId is set', async () => {
       const app = createBoardApp(taskService, taskTagService, metadataService);
-      const res = await app.fetch(new Request('http://localhost/static/board.js'));
+      const res = await app.fetch(new Request('http://localhost/static/main.js'));
       const html = await res.text();
 
       // detailTaskId may be renamed by bundler; check for null check pattern
@@ -924,7 +924,7 @@ describe('createBoardApp', () => {
 
     it('should show warning when user is editing during polling update', async () => {
       const app = createBoardApp(taskService, taskTagService, metadataService);
-      const res = await app.fetch(new Request('http://localhost/static/board.js'));
+      const res = await app.fetch(new Request('http://localhost/static/main.js'));
       const html = await res.text();
 
       expect(html).toContain('detail-panel-update-warning');
@@ -934,7 +934,7 @@ describe('createBoardApp', () => {
 
     it('should include reload button in DB update warning', async () => {
       const app = createBoardApp(taskService, taskTagService, metadataService);
-      const res = await app.fetch(new Request('http://localhost/static/board.js'));
+      const res = await app.fetch(new Request('http://localhost/static/main.js'));
       const html = await res.text();
 
       expect(html).toContain('detail-panel-update-warning');
@@ -945,7 +945,7 @@ describe('createBoardApp', () => {
 
     it('should skip detail panel refresh when user is editing', async () => {
       const app = createBoardApp(taskService, taskTagService, metadataService);
-      const res = await app.fetch(new Request('http://localhost/static/board.js'));
+      const res = await app.fetch(new Request('http://localhost/static/main.js'));
       const html = await res.text();
 
       expect(html).toContain('detail-edit-title');
@@ -2319,7 +2319,7 @@ describe('createBoardApp', () => {
   describe('GET / (tab UI)', () => {
     it('should include tab navigation in the detail panel HTML', async () => {
       const app = createBoardApp(taskService, taskTagService, metadataService);
-      const res = await app.fetch(new Request('http://localhost/static/board.js'));
+      const res = await app.fetch(new Request('http://localhost/static/main.js'));
       const html = await res.text();
 
       expect(html).toContain('detail-tabs');
@@ -2347,7 +2347,7 @@ describe('createBoardApp', () => {
 
     it('should include loadComments and renderComments functions in script', async () => {
       const app = createBoardApp(taskService, taskTagService, metadataService);
-      const res = await app.fetch(new Request('http://localhost/static/board.js'));
+      const res = await app.fetch(new Request('http://localhost/static/main.js'));
       const html = await res.text();
 
       expect(html).toContain('loadComments');
@@ -2356,7 +2356,7 @@ describe('createBoardApp', () => {
 
     it('should include switchTab function in script', async () => {
       const app = createBoardApp(taskService, taskTagService, metadataService);
-      const res = await app.fetch(new Request('http://localhost/static/board.js'));
+      const res = await app.fetch(new Request('http://localhost/static/main.js'));
       const html = await res.text();
 
       expect(html).toContain('switchTab');
@@ -2365,7 +2365,7 @@ describe('createBoardApp', () => {
 
     it('should include relativeTime function in script', async () => {
       const app = createBoardApp(taskService, taskTagService, metadataService);
-      const res = await app.fetch(new Request('http://localhost/static/board.js'));
+      const res = await app.fetch(new Request('http://localhost/static/main.js'));
       const html = await res.text();
 
       expect(html).toContain('relativeTime');

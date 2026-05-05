@@ -9,7 +9,7 @@ import { MetadataService } from '../services/MetadataService';
 import { CommentService } from '../services/CommentService';
 import { TaskBlockService } from '../services/TaskBlockService';
 import { ExportImportService, ExportData } from '../services/ExportImportService';
-import { ClaudeProcessService } from '../services/ClaudeProcessService';
+import { PtySessionService } from '../terminal/PtySessionService';
 import { TaskStatus, isPriority, Priority } from '../models';
 import { ConflictError } from '../errors';
 import { StorageBackend } from '../db/types/repository';
@@ -35,7 +35,7 @@ export type BoardServices = {
   database: StorageBackend;
   boardTitle?: string;
   configDir: string;
-  claudeProcessService?: ClaudeProcessService;
+  ptySessionService?: PtySessionService;
 };
 
 type TaskPatchBody = {
@@ -438,7 +438,7 @@ function parseBoardCardFilters(query: {
   return filters;
 }
 
-function registerClaudeRoutes(app: Hono, claudeProcess: ClaudeProcessService, ts: TaskService): void {
+function registerClaudeRoutes(app: Hono, claudeProcess: PtySessionService, ts: TaskService): void {
   app.post('/api/claude/tasks/:taskId/run', async (c) => {
     const taskId = Number(c.req.param('taskId'));
     if (isNaN(taskId)) return c.json({ error: 'Invalid taskId' }, 400);
@@ -500,58 +500,6 @@ function registerClaudeRoutes(app: Hono, claudeProcess: ClaudeProcessService, ts
     const stopped = claudeProcess.stopProcess(taskId);
     if (!stopped) return c.json({ error: 'No running process for this taskId' }, 404);
     return c.json({ success: true });
-  });
-
-  app.get('/api/claude/tasks/:taskId/stream', (c) => {
-    const taskId = Number(c.req.param('taskId'));
-    if (isNaN(taskId)) {
-      return c.json({ error: 'Invalid taskId' }, 400);
-    }
-
-    const stream = new ReadableStream({
-      start(controller) {
-        let finalized = false;
-
-        const encode = (event: string, data: unknown): Uint8Array => {
-          const payload = `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
-          return new TextEncoder().encode(payload);
-        };
-
-        const safeClose = () => {
-          if (finalized) return;
-          finalized = true;
-          stop();
-          controller.close();
-        };
-
-        const stop = claudeProcess.subscribeOutput(taskId, (evt) => {
-          if (finalized) return;
-          if (evt.kind === 'text') {
-            controller.enqueue(encode('text', { text: evt.text }));
-          } else if (evt.kind === 'tool_use') {
-            controller.enqueue(encode('tool_use', { name: evt.name, input: evt.input }));
-          } else if (evt.kind === 'done') {
-            controller.enqueue(encode('end', { exitCode: evt.exitCode }));
-            safeClose();
-          } else if (evt.kind === 'error') {
-            controller.enqueue(encode('error', { message: evt.message }));
-            safeClose();
-          }
-        });
-
-        c.req.raw.signal?.addEventListener('abort', () => {
-          safeClose();
-        });
-      },
-    });
-
-    return new Response(stream, {
-      headers: {
-        'Content-Type': 'text/event-stream',
-        'Cache-Control': 'no-cache',
-        Connection: 'keep-alive',
-      },
-    });
   });
 
   app.get('/api/running-tasks', (c) => {
@@ -781,7 +729,7 @@ export function registerBoardRoutes(app: Hono, services: BoardServices): void {
   });
   registerTaskApiRoutes(app, services);
   registerConfigApiRoutes(app, configDir);
-  if (services.claudeProcessService) {
-    registerClaudeRoutes(app, services.claudeProcessService, ts);
+  if (services.ptySessionService) {
+    registerClaudeRoutes(app, services.ptySessionService, ts);
   }
 }
