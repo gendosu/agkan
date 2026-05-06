@@ -26,7 +26,7 @@ import {
   buildDetailPanelHtml,
   autoResizeTextarea,
 } from './detailPanelHtml';
-import { fitTerminal, stopTerminal, getCurrentTerminalTaskId } from './claudeTerminalModal';
+import { fitTerminal, stopTerminal, getCurrentTerminalTaskId, attachTerminalToTab } from './claudeTerminalModal';
 import { getRunningTaskIds } from './claudeButton';
 
 // State
@@ -125,8 +125,17 @@ export function updateTerminalTabUi(): void {
   const isRunning = taskId !== null && getRunningTaskIds().has(taskId);
   const hasTerminalForThisTask = taskId !== null && getCurrentTerminalTaskId() === taskId;
 
+  // Auto-reconnect after browser reload: if the terminal tab is visible,
+  // the task is running, and no terminal is attached yet, connect automatically.
+  if (isRunning && !hasTerminalForThisTask && taskId !== null && lastTab === 'terminal') {
+    const host = document.getElementById('detail-terminal-host');
+    if (host) {
+      attachTerminalToTab(taskId, host);
+    }
+  }
+
   // Placeholder visible only when there is no xterm.js attached for this task.
-  placeholder.style.display = hasTerminalForThisTask ? 'none' : '';
+  placeholder.style.display = taskId !== null && getCurrentTerminalTaskId() === taskId ? 'none' : '';
 
   if (isRunning) {
     stopBtn.style.display = '';
