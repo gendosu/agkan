@@ -2,6 +2,8 @@ import { Hono } from 'hono';
 import { serve } from '@hono/node-server';
 import type { Server } from 'http';
 import path from 'path';
+import { homedir } from 'os';
+import { join } from 'path';
 import { TaskService } from '../services/TaskService';
 import { TaskTagService } from '../services/TaskTagService';
 import { TagService } from '../services/TagService';
@@ -9,11 +11,12 @@ import { MetadataService } from '../services/MetadataService';
 import { CommentService } from '../services/CommentService';
 import { TaskBlockService } from '../services/TaskBlockService';
 import { PtySessionService } from '../terminal/PtySessionService';
+import { AttentionStateService } from '../services/AttentionStateService';
 import { createTerminalWsServer } from '../terminal/wsTerminalServer';
 import { getStorageBackend } from '../db/connection';
 import { StorageBackend } from '../db/types/repository';
 import { getDefaultDirName } from '../db/config';
-import { registerBoardRoutes, BoardServices } from './boardRoutes';
+import { registerBoardRoutes, registerHookRoutes, registerAttentionStreamRoute, BoardServices } from './boardRoutes';
 
 export function createBoardApp(
   taskService?: TaskService,
@@ -48,28 +51,47 @@ export function createBoardApp(
 
 export function startBoardServer(port: number, boardTitle?: string): void {
   const resolvedDb = getStorageBackend();
-  const ptyService = new PtySessionService(resolvedDb);
-  const app = createBoardApp(
-    undefined,
-    undefined,
-    undefined,
-    resolvedDb,
+
+  const attentionStateService = new AttentionStateService();
+  const hookSettingsDataDir = process.env.AGKAN_DATA_DIR
+    ? join(process.env.AGKAN_DATA_DIR, 'board-hooks')
+    : join(homedir(), '.agkan', 'board-hooks');
+
+  const app = new Hono();
+  const resolvedConfigDir = path.join(process.cwd(), getDefaultDirName());
+  const services: BoardServices = {
+    ts: new TaskService(resolvedDb),
+    tts: new TaskTagService(resolvedDb),
+    tags: new TagService(resolvedDb),
+    ms: new MetadataService(resolvedDb),
+    cs: new CommentService(resolvedDb),
+    tbs: new TaskBlockService(resolvedDb),
+    database: resolvedDb,
     boardTitle,
-    undefined,
-    undefined,
-    undefined,
-    undefined,
-    ptyService
-  );
+    configDir: resolvedConfigDir,
+  };
+
+  registerBoardRoutes(app, services);
+  registerAttentionStreamRoute(app, { attentionStateService });
 
   const server = serve({ fetch: app.fetch, port }, (info) => {
+    const boardApiUrl = `http://127.0.0.1:${info.port}`;
     console.log(`Server is running on http://localhost:${info.port}`);
-  }) as Server;
 
-  const { handleUpgrade } = createTerminalWsServer(ptyService);
-  server.on('upgrade', (req, socket, head) => {
-    if (req.url?.startsWith('/api/terminal/')) {
-      handleUpgrade(req, socket, head);
-    }
-  });
+    const ptyService = new PtySessionService(resolvedDb, {
+      boardApiUrl,
+      attentionStateService,
+      hookSettingsDataDir,
+    });
+
+    services.ptySessionService = ptyService;
+    registerHookRoutes(app, { attentionStateService, ptySessionService: ptyService });
+
+    const { handleUpgrade } = createTerminalWsServer(ptyService);
+    server.on('upgrade', (req, socket, head) => {
+      if (req.url?.startsWith('/api/terminal/')) {
+        handleUpgrade(req, socket, head);
+      }
+    });
+  }) as Server;
 }
