@@ -1,7 +1,7 @@
 // Client-side Claude button management: SSE /api/running-tasks/stream
 // and updating button states on task cards.
 
-import { attachTerminalToTab, detachTerminal } from './claudeTerminalModal';
+import { attachTerminalToTab, detachTerminal, getCurrentTerminalTaskId } from './claudeTerminalModal';
 
 let _runningTaskIds: Set<number> = new Set();
 let _planningTaskIds: Set<number> = new Set();
@@ -9,18 +9,15 @@ const _inFlightTaskIds: Set<number> = new Set();
 let _openTaskDetail: ((taskId: string) => Promise<void>) | null = null;
 let _switchTab: ((tabName: string) => void) | null = null;
 let _updateTerminalTabUi: (() => void) | null = null;
-let _getDetailTaskId: (() => number | null) | null = null;
 
 export function registerClaudeButtonDetailHooks(hooks: {
   openTaskDetail: (taskId: string) => Promise<void>;
   switchTab: (tabName: string) => void;
   updateTerminalTabUi: () => void;
-  getDetailTaskId: () => number | null;
 }): void {
   _openTaskDetail = hooks.openTaskDetail;
   _switchTab = hooks.switchTab;
   _updateTerminalTabUi = hooks.updateTerminalTabUi;
-  _getDetailTaskId = hooks.getDetailTaskId;
 }
 
 export function getRunningTaskIds(): Set<number> {
@@ -38,13 +35,11 @@ export function updateButtonStates(runningTaskIds: Set<number>, planningTaskIds:
     indicator.style.display = runningTaskIds.size > 0 ? '' : 'none';
   }
 
-  // Detect tasks that just stopped running, so we can detach the terminal
-  // WebSocket while preserving the xterm.js display.
-  const detailTaskId = _getDetailTaskId ? _getDetailTaskId() : null;
-  for (const prevId of previousRunning) {
-    if (!runningTaskIds.has(prevId) && prevId === detailTaskId) {
-      detachTerminal();
-    }
+  // If the task currently attached to the xterm.js terminal just stopped
+  // running, disconnect its WebSocket while preserving the displayed output.
+  const terminalTaskId = getCurrentTerminalTaskId();
+  if (terminalTaskId !== null && previousRunning.has(terminalTaskId) && !runningTaskIds.has(terminalTaskId)) {
+    detachTerminal();
   }
 
   // Update all run split containers

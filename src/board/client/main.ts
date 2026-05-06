@@ -4,7 +4,7 @@ import { initDragDrop } from './dragDrop';
 import { initAutoScroll } from './autoScroll';
 import { initAddTaskModal } from './addTaskModal';
 import { initContextMenu } from './contextMenu';
-import { initDetailPanel, openTaskDetail, switchTab, updateTerminalTabUi, getDetailTaskId } from './detailPanel';
+import { initDetailPanel, openTaskDetail, switchTab, updateTerminalTabUi } from './detailPanel';
 import { initBoardPolling } from './boardPolling';
 import { initFilters } from './filters';
 import { initBurgerMenu } from './burgerMenu';
@@ -25,7 +25,6 @@ registerClaudeButtonDetailHooks({
   openTaskDetail,
   switchTab,
   updateTerminalTabUi,
-  getDetailTaskId,
 });
 initClaudeButton();
 registerClaudeButtonUpdateCallback(() => {
