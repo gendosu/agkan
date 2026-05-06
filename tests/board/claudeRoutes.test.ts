@@ -381,7 +381,13 @@ describe('POST /api/claude/tasks/:taskId/run - status auto-update', () => {
   });
 
   it('does not update status for planning command', async () => {
+    let capturedCallback: SubscribeCallback | null = null;
     const mock = buildMockClaudeProcessService();
+    (mock.subscribeOutput as ReturnType<typeof vi.fn>).mockImplementation((_taskId: number, cb: SubscribeCallback) => {
+      capturedCallback = cb;
+      return () => {};
+    });
+
     const services = buildServices(mock);
     const task = services.ts.createTask({ title: 'Planning Task', status: 'ready' });
     const app = buildApp(services);
@@ -394,8 +400,8 @@ describe('POST /api/claude/tasks/:taskId/run - status auto-update', () => {
       })
     );
 
-    // subscribeOutput should not be called for planning
-    expect(mock.subscribeOutput).not.toHaveBeenCalled();
+    expect(capturedCallback).not.toBeNull();
+    capturedCallback!({ kind: 'done', exitCode: 0 });
 
     const updated = services.ts.getTask(task.id);
     expect(updated?.status).toBe('ready');
