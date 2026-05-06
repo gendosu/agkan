@@ -16,7 +16,13 @@ import { createTerminalWsServer } from '../terminal/wsTerminalServer';
 import { getStorageBackend } from '../db/connection';
 import { StorageBackend } from '../db/types/repository';
 import { getDefaultDirName } from '../db/config';
-import { registerBoardRoutes, registerHookRoutes, registerAttentionStreamRoute, BoardServices } from './boardRoutes';
+import {
+  registerBoardRoutes,
+  registerHookRoutes,
+  registerAttentionStreamRoute,
+  registerTestHookTokenRoute,
+  BoardServices,
+} from './boardRoutes';
 
 export function createBoardApp(
   taskService?: TaskService,
@@ -73,6 +79,7 @@ export function startBoardServer(port: number, boardTitle?: string): void {
 
   registerBoardRoutes(app, services);
   registerAttentionStreamRoute(app, { attentionStateService });
+  registerTestHookTokenRoute(app);
 
   const server = serve({ fetch: app.fetch, port }, (info) => {
     const boardApiUrl = `http://127.0.0.1:${info.port}`;

@@ -24,8 +24,9 @@ import {
   renderBoard,
   buildBlockMap,
 } from './boardRenderer';
-import { verifyHookToken } from '../utils/hookToken';
+import { verifyHookToken, getHookToken } from '../utils/hookToken';
 import { AttentionStateService } from '../services/AttentionStateService';
+import { isTestMode } from '../db/config';
 
 export type BoardServices = {
   ts: TaskService;
@@ -663,6 +664,13 @@ export function registerHookRoutes(app: Hono, deps: HookRouteDeps): void {
       deps.ptySessionService.stopProcess(id);
     }
     return c.json({ ok: true });
+  });
+}
+
+export function registerTestHookTokenRoute(app: Hono): void {
+  if (!isTestMode()) return;
+  app.get('/api/internal/test/hook-token', (c) => {
+    return c.json({ token: getHookToken() });
   });
 }
 
