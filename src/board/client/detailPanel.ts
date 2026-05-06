@@ -130,7 +130,6 @@ export function updateTerminalTabUi(): void {
   if (isRunning && !hasTerminalForThisTask && taskId !== null && lastTab === 'terminal') {
     const host = document.getElementById('detail-terminal-host');
     if (host) {
-      placeholder.style.display = 'none';
       attachTerminalToTab(taskId, host);
     }
   }
