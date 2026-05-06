@@ -489,6 +489,12 @@ function registerClaudeRoutes(app: Hono, claudeProcess: PtySessionService, ts: T
           unsubscribe();
         }
       });
+    } else if (command === 'planning') {
+      const unsubscribe = claudeProcess.subscribeOutput(taskId, (evt) => {
+        if (evt.kind === 'done' || evt.kind === 'error') {
+          unsubscribe();
+        }
+      });
     }
 
     return c.json({ taskId, started: true }, 201);
