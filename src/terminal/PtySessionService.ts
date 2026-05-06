@@ -13,7 +13,7 @@ function resolveClaudePath(): string {
 }
 
 const CLAUDE_BIN = resolveClaudePath();
-const INITIAL_PROMPT_DELAY_MS = 1500;
+const PROMPT_FALLBACK_DELAY_MS = 10000;
 const MAX_SNAPSHOT_BYTES = 500_000;
 const MAX_COMPLETED_SNAPSHOTS = 10;
 
@@ -29,12 +29,17 @@ interface SessionInfo {
   exitSubscribers: Set<SubscribeCallback>;
   rawOutputSubscribers: Set<(data: string) => void>;
   runLogId: number | null;
-  initialPromptTimer: ReturnType<typeof setTimeout> | null;
+  pendingPrompt: string | null;
+  promptTimer: ReturnType<typeof setTimeout> | null;
   workspaceTrustHandled: boolean;
 }
 
 function hasWorkspaceTrustPrompt(text: string): boolean {
   return /trust.*folder|Do you trust/i.test(text) && /y\/n|yes.*trust/i.test(text);
+}
+
+function hasClaudeReadySignal(text: string): boolean {
+  return text.includes('bypass permissions');
 }
 
 export class PtySessionService {
@@ -88,7 +93,8 @@ export class PtySessionService {
       exitSubscribers: new Set(),
       rawOutputSubscribers: new Set(),
       runLogId: null,
-      initialPromptTimer: null,
+      pendingPrompt: prompt,
+      promptTimer: null,
       workspaceTrustHandled: false,
     };
 
@@ -99,13 +105,14 @@ export class PtySessionService {
       info.runLogId = this.db.runLogs.create(taskId, info.startedAt.toISOString());
     }
 
-    // Auto-send initial prompt after Claude starts up
-    info.initialPromptTimer = setTimeout(() => {
-      info.initialPromptTimer = null;
-      if (this.sessions.has(taskId)) {
-        ptyProcess.write(prompt + '\r');
+    // Fallback: send prompt if ready signal never detected within timeout
+    info.promptTimer = setTimeout(() => {
+      info.promptTimer = null;
+      if (info.pendingPrompt !== null && this.sessions.has(taskId)) {
+        ptyProcess.write(info.pendingPrompt + '\r');
+        info.pendingPrompt = null;
       }
-    }, INITIAL_PROMPT_DELAY_MS);
+    }, PROMPT_FALLBACK_DELAY_MS);
 
     ptyProcess.onData((data: string) => {
       info.outputBuffer += data;
@@ -119,16 +126,27 @@ export class PtySessionService {
         ptyProcess.write('y\r');
       }
 
+      // Send pending prompt as soon as Claude's input prompt is ready
+      if (info.pendingPrompt !== null && hasClaudeReadySignal(info.outputBuffer)) {
+        if (info.promptTimer !== null) {
+          clearTimeout(info.promptTimer);
+          info.promptTimer = null;
+        }
+        ptyProcess.write(info.pendingPrompt + '\r');
+        info.pendingPrompt = null;
+      }
+
       info.rawOutputSubscribers.forEach((cb) => cb(data));
     });
 
     ptyProcess.onExit(({ exitCode }) => {
       const code = exitCode ?? 0;
 
-      if (info.initialPromptTimer !== null) {
-        clearTimeout(info.initialPromptTimer);
-        info.initialPromptTimer = null;
+      if (info.promptTimer !== null) {
+        clearTimeout(info.promptTimer);
+        info.promptTimer = null;
       }
+      info.pendingPrompt = null;
 
       if (this.db && info.runLogId) {
         const finishedAt = new Date().toISOString();
@@ -160,10 +178,12 @@ export class PtySessionService {
   stopProcess(taskId: number): boolean {
     const info = this.sessions.get(taskId);
     if (!info) return false;
-    if (info.initialPromptTimer !== null) {
-      clearTimeout(info.initialPromptTimer);
-      info.initialPromptTimer = null;
+    if (info.promptTimer !== null) {
+      clearTimeout(info.promptTimer);
+      info.promptTimer = null;
     }
+    info.pendingPrompt = null;
+    info.exitSubscribers.clear();
     info.ptyProcess.kill();
     this.sessions.delete(taskId);
     this.notifyRunningTasksChange();

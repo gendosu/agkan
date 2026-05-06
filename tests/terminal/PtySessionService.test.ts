@@ -55,10 +55,10 @@ describe('PtySessionService', () => {
     expect(() => service.startProcess(1, 'prompt2', 'run')).toThrow(ConflictError);
   });
 
-  it('auto-sends prompt after 1500ms delay', () => {
+  it('auto-sends prompt after fallback delay', () => {
     service.startProcess(1, 'Task ID: 1\n/agkan-planning-subtask', 'planning');
     expect(mockWrite).not.toHaveBeenCalled();
-    vi.advanceTimersByTime(1500);
+    vi.advanceTimersByTime(10000);
     expect(mockWrite).toHaveBeenCalledWith('Task ID: 1\n/agkan-planning-subtask\r');
   });
 
@@ -126,7 +126,7 @@ describe('PtySessionService', () => {
 
   it('auto-confirms workspace trust prompt', () => {
     service.startProcess(1, 'prompt', 'run');
-    vi.advanceTimersByTime(1500); // let initial prompt send
+    vi.advanceTimersByTime(10000); // let initial prompt send
     mockWrite.mockClear();
     mockOnDataHandler?.('Do you trust the files in this folder?\n> Yes, I trust (y/n): ');
     expect(mockWrite).toHaveBeenCalledWith('y\r');
@@ -136,5 +136,20 @@ describe('PtySessionService', () => {
     service.startProcess(1, 'prompt', 'run');
     service.resize(1, 100, 30);
     expect(mockResize).toHaveBeenCalledWith(100, 30);
+  });
+
+  it('does not notify exitSubscribers when process is stopped by user', () => {
+    service.startProcess(1, 'prompt', 'run');
+    const exitCallback = vi.fn();
+    service.subscribeOutput(1, exitCallback);
+
+    // User stops the process manually
+    service.stopProcess(1);
+
+    // Simulate PTY onExit firing after kill (exitCode is null for killed processes)
+    mockOnExitHandler?.({ exitCode: null as unknown as number });
+
+    // exitSubscribers should NOT have been called because stopProcess cleared them
+    expect(exitCallback).not.toHaveBeenCalled();
   });
 });
