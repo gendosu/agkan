@@ -8,6 +8,7 @@ services:
       - /workspace/node_modules
       - node-home:/home/node
       - ~/.ssh:/home/node/.ssh:ro
+    init: true
     entrypoint: /workspace/.devcontainer/setup.sh
     command: sleep infinity
     network_mode: host
