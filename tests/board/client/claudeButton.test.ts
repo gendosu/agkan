@@ -8,7 +8,6 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import {
   updateButtonStates,
   getRunningTaskIds,
-  registerClaudeModalCallback,
   attachClaudeButtonListeners,
   initClaudeButton,
 } from '../../../src/board/client/claudeButton';
@@ -24,7 +23,7 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-function makeCardWithDetailBtn(taskId: number, status: string): HTMLElement {
+function makeCardWithRunningBtn(taskId: number, status: string): HTMLElement {
   const card = document.createElement('div');
   card.className = 'card';
   card.dataset.id = String(taskId);
@@ -34,9 +33,9 @@ function makeCardWithDetailBtn(taskId: number, status: string): HTMLElement {
   const actions = document.createElement('div');
   actions.className = 'card-actions';
   const btn = document.createElement('button');
-  btn.className = 'claude-detail-btn';
+  btn.className = 'claude-running-btn';
   btn.dataset.taskId = String(taskId);
-  btn.textContent = '📋 Detail';
+  btn.textContent = '● Running';
   actions.appendChild(btn);
   header.appendChild(actions);
   card.appendChild(header);
@@ -99,19 +98,19 @@ function makeCard(taskId: number, status = 'backlog'): HTMLElement {
 }
 
 describe('updateButtonStates', () => {
-  it('converts run button to detail button when task is running', () => {
+  it('converts run button to running button when task is running', () => {
     makeCard(1, 'ready');
     updateButtonStates(new Set([1]));
-    const detailBtn = document.querySelector('.claude-detail-btn');
-    expect(detailBtn).not.toBeNull();
+    const runningBtn = document.querySelector('.claude-running-btn');
+    expect(runningBtn).not.toBeNull();
     expect(document.querySelector('.claude-run-btn')).toBeNull();
   });
 
-  it('converts plan button to detail button when task is running', () => {
+  it('converts plan button to running button when task is running', () => {
     makeCard(2, 'backlog');
     updateButtonStates(new Set([2]));
-    const detailBtn = document.querySelector('.claude-detail-btn');
-    expect(detailBtn).not.toBeNull();
+    const runningBtn = document.querySelector('.claude-running-btn');
+    expect(runningBtn).not.toBeNull();
     expect(document.querySelector('.claude-plan-btn')).toBeNull();
   });
 
@@ -122,34 +121,34 @@ describe('updateButtonStates', () => {
     expect(document.querySelector('.claude-detail-btn')).toBeNull();
   });
 
-  it('converts detail button back to plan button when task stops running (non-ready status)', () => {
+  it('converts running button back to plan button when task stops running (non-ready status)', () => {
     makeCard(3, 'backlog');
     updateButtonStates(new Set([3]));
-    expect(document.querySelector('.claude-detail-btn')).not.toBeNull();
+    expect(document.querySelector('.claude-running-btn')).not.toBeNull();
 
     // Now stop running
     updateButtonStates(new Set());
-    expect(document.querySelector('.claude-detail-btn')).toBeNull();
+    expect(document.querySelector('.claude-running-btn')).toBeNull();
     expect(document.querySelector('.claude-plan-btn')).not.toBeNull();
   });
 
-  it('converts detail button back to run button when task stops running (ready status)', () => {
+  it('converts running button back to run button when task stops running (ready status)', () => {
     makeCard(4, 'ready');
     updateButtonStates(new Set([4]));
-    expect(document.querySelector('.claude-detail-btn')).not.toBeNull();
+    expect(document.querySelector('.claude-running-btn')).not.toBeNull();
 
     updateButtonStates(new Set());
-    expect(document.querySelector('.claude-detail-btn')).toBeNull();
+    expect(document.querySelector('.claude-running-btn')).toBeNull();
     expect(document.querySelector('.claude-run-btn')).not.toBeNull();
   });
 
-  it('converts detail button back to run button when task stops running (in_progress status)', () => {
+  it('converts running button back to run button when task stops running (in_progress status)', () => {
     makeCard(6, 'in_progress');
     updateButtonStates(new Set([6]));
-    expect(document.querySelector('.claude-detail-btn')).not.toBeNull();
+    expect(document.querySelector('.claude-running-btn')).not.toBeNull();
 
     updateButtonStates(new Set());
-    expect(document.querySelector('.claude-detail-btn')).toBeNull();
+    expect(document.querySelector('.claude-running-btn')).toBeNull();
     expect(document.querySelector('.claude-run-btn')).not.toBeNull();
     expect(document.querySelector('.claude-plan-btn')).toBeNull();
   });
@@ -168,8 +167,8 @@ describe('updateButtonStates', () => {
     makeCard(2, 'backlog');
     makeCard(3, 'ready');
     updateButtonStates(new Set([1, 2]));
-    const detailBtns = document.querySelectorAll('.claude-detail-btn');
-    expect(detailBtns).toHaveLength(2);
+    const runningBtns = document.querySelectorAll('.claude-running-btn');
+    expect(runningBtns).toHaveLength(2);
     // Card 3 should still be a run button
     const runBtns = document.querySelectorAll('.claude-run-btn');
     expect(runBtns).toHaveLength(1);
@@ -177,13 +176,13 @@ describe('updateButtonStates', () => {
   });
 
   it.each(['review', 'done', 'closed'])(
-    'removes detail button (no replacement) when task stops running with %s status',
+    'removes running button (no replacement) when task stops running with %s status',
     (status) => {
-      const card = makeCardWithDetailBtn(6, status);
-      expect(card.querySelector('.claude-detail-btn')).not.toBeNull();
+      const card = makeCardWithRunningBtn(6, status);
+      expect(card.querySelector('.claude-running-btn')).not.toBeNull();
 
       updateButtonStates(new Set());
-      expect(card.querySelector('.claude-detail-btn')).toBeNull();
+      expect(card.querySelector('.claude-running-btn')).toBeNull();
       expect(card.querySelector('.claude-plan-btn')).toBeNull();
       expect(card.querySelector('.claude-run-btn')).toBeNull();
     }
@@ -193,8 +192,8 @@ describe('updateButtonStates', () => {
     makeCard(1, 'ready'); // planning running
     makeCard(2, 'ready'); // not running
     updateButtonStates(new Set([1]), new Set([1]));
-    // Card 1 is running (planning) — replaced with detail btn
-    expect(document.querySelector('.claude-detail-btn')).not.toBeNull();
+    // Card 1 is running (planning) — replaced with running btn
+    expect(document.querySelector('.claude-running-btn')).not.toBeNull();
     // Card 2 run button should NOT be disabled
     const runBtn = document.querySelector<HTMLButtonElement>('[data-task-id="2"].claude-run-btn');
     expect(runBtn?.disabled).toBe(false);
@@ -210,17 +209,23 @@ describe('updateButtonStates', () => {
   });
 });
 
-describe('registerClaudeModalCallback', () => {
-  it('registers a callback that is invoked when detail button is clicked', () => {
-    const callback = vi.fn();
-    registerClaudeModalCallback(callback);
+describe('running button click', () => {
+  it('clicking running button triggers openTerminalTab via registerClaudeButtonDetailHooks', async () => {
+    const { registerClaudeButtonDetailHooks } = await import('../../../src/board/client/claudeButton');
+    const openTaskDetail = vi.fn().mockResolvedValue(undefined);
+    const switchTab = vi.fn();
+    const updateTerminalTabUi = vi.fn();
+    registerClaudeButtonDetailHooks({ openTaskDetail, switchTab, updateTerminalTabUi });
 
     makeCard(10, 'ready');
     updateButtonStates(new Set([10]));
 
-    const detailBtn = document.querySelector<HTMLButtonElement>('.claude-detail-btn')!;
-    detailBtn.click();
-    expect(callback).toHaveBeenCalledWith(10);
+    const runningBtn = document.querySelector<HTMLButtonElement>('.claude-running-btn')!;
+    expect(runningBtn).not.toBeNull();
+    runningBtn.click();
+    await new Promise((r) => setTimeout(r, 0));
+    expect(openTaskDetail).toHaveBeenCalledWith('10');
+    expect(switchTab).toHaveBeenCalledWith('terminal');
   });
 });
 
