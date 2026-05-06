@@ -9,12 +9,6 @@ let _controlWs: WebSocket | null = null;
 let _currentTaskId: number | null = null;
 let _resizeObserver: ResizeObserver | null = null;
 let _inputDisposable: { dispose(): void } | null = null;
-let _claudeButtonUpdateCallback: (() => void) | null = null;
-
-export function registerClaudeButtonUpdateCallback(cb: () => void): void {
-  _claudeButtonUpdateCallback = cb;
-}
-
 export function getCurrentTerminalTaskId(): number | null {
   return _currentTaskId;
 }
@@ -132,10 +126,8 @@ export function fitTerminal(): void {
 export async function stopTerminal(taskId: number): Promise<boolean> {
   try {
     const res = await fetch(`/api/claude/tasks/${taskId}/run`, { method: 'DELETE' });
-    if (_claudeButtonUpdateCallback) _claudeButtonUpdateCallback();
     return res.ok;
   } catch {
-    if (_claudeButtonUpdateCallback) _claudeButtonUpdateCallback();
     return false;
   }
 }

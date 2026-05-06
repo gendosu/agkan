@@ -9,8 +9,7 @@ import { initBoardPolling } from './boardPolling';
 import { initFilters } from './filters';
 import { initBurgerMenu } from './burgerMenu';
 import { initDependencyVisualization } from './dependencyVisualization';
-import { initClaudeButton, registerClaudeButtonDetailHooks, updateButtonStates } from './claudeButton';
-import { registerClaudeButtonUpdateCallback } from './claudeTerminalModal';
+import { initClaudeButton, registerClaudeButtonDetailHooks } from './claudeButton';
 
 initDragDrop();
 initAutoScroll();
@@ -27,6 +26,3 @@ registerClaudeButtonDetailHooks({
   updateTerminalTabUi,
 });
 initClaudeButton();
-registerClaudeButtonUpdateCallback(() => {
-  updateButtonStates(new Set());
-});
