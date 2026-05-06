@@ -1256,6 +1256,37 @@ describe('hook receiver routes', () => {
     expect(ptyStop).not.toHaveBeenCalled();
   });
 
+  it('hook stop route is accessible after board routes compile the Hono router on first request', async () => {
+    // This test verifies that registerHookRoutes must be called BEFORE the first
+    // HTTP request so the routes are included when Hono compiles its router.
+    // Hono's SmartRouter compiles and locks all routes on the first match() call.
+    // Any routes added after that compilation will silently fail.
+    const ptyStop = vi.fn().mockReturnValue(true);
+    const app = new Hono();
+    const services = buildServices();
+    const attention = new AttentionStateService();
+    const ptySessionService = { stopProcess: ptyStop };
+
+    // Register routes in the same order as startBoardServer: board, then hooks
+    registerBoardRoutes(app, { ...services, ptySessionService: undefined });
+    registerHookRoutes(app, { attentionStateService: attention, ptySessionService });
+
+    // Trigger Hono route compilation by making a board request first (simulates browser loading the board)
+    const boardRes = await app.fetch(new Request('http://localhost/'));
+    expect(boardRes.status).toBe(200);
+
+    // Hook stop route must still be accessible after route compilation
+    const hookRes = await app.fetch(
+      new Request('http://localhost/api/internal/hooks/stop', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-hook-token': getHookToken() },
+        body: JSON.stringify({ taskId: 55, reason: 'complete' }),
+      })
+    );
+    expect(hookRes.status).toBe(200);
+    expect(ptyStop).toHaveBeenCalledWith(55);
+  });
+
   it('GET /api/attention/stream sends snapshot then updates via SSE', async () => {
     const attention = new AttentionStateService();
     attention.setAttention(1, true);

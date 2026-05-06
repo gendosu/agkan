@@ -85,6 +85,7 @@ export function startBoardServer(port: number, boardTitle?: string): void {
 
   registerBoardRoutes(app, services);
   registerAttentionStreamRoute(app, { attentionStateService });
+  registerHookRoutes(app, { attentionStateService, ptySessionService: ptyService });
   registerTestHookTokenRoute(app);
 
   const server = serve({ fetch: app.fetch, port }, (info) => {
@@ -92,7 +93,6 @@ export function startBoardServer(port: number, boardTitle?: string): void {
     console.log(`Server is running on http://localhost:${info.port}`);
 
     ptyService.setBoardApiUrl(boardApiUrl);
-    registerHookRoutes(app, { attentionStateService, ptySessionService: ptyService });
 
     const { handleUpgrade } = createTerminalWsServer(ptyService);
     server.on('upgrade', (req, socket, head) => {
