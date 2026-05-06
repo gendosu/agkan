@@ -4,14 +4,12 @@ import { initDragDrop } from './dragDrop';
 import { initAutoScroll } from './autoScroll';
 import { initAddTaskModal } from './addTaskModal';
 import { initContextMenu } from './contextMenu';
-import { initDetailPanel } from './detailPanel';
+import { initDetailPanel, openTaskDetail, switchTab, updateTerminalTabUi } from './detailPanel';
 import { initBoardPolling } from './boardPolling';
 import { initFilters } from './filters';
 import { initBurgerMenu } from './burgerMenu';
 import { initDependencyVisualization } from './dependencyVisualization';
-import { initClaudeButton, registerClaudeModalCallback } from './claudeButton';
-import { initClaudeStreamModal, openClaudeStreamModal, registerClaudeButtonUpdateCallback } from './claudeStreamModal';
-import { updateButtonStates } from './claudeButton';
+import { initClaudeButton, registerClaudeButtonDetailHooks } from './claudeButton';
 
 initDragDrop();
 initAutoScroll();
@@ -22,9 +20,9 @@ initBoardPolling();
 initFilters();
 initBurgerMenu();
 initDependencyVisualization();
-initClaudeButton();
-initClaudeStreamModal();
-registerClaudeModalCallback(openClaudeStreamModal);
-registerClaudeButtonUpdateCallback(() => {
-  updateButtonStates(new Set());
+registerClaudeButtonDetailHooks({
+  openTaskDetail,
+  switchTab,
+  updateTerminalTabUi,
 });
+initClaudeButton();

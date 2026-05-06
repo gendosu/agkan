@@ -1,13 +1,23 @@
 // Client-side Claude button management: SSE /api/running-tasks/stream
 // and updating button states on task cards.
 
-let _claudeModalCallback: ((taskId: number) => void) | null = null;
+import { attachTerminalToTab, detachTerminal, getCurrentTerminalTaskId } from './claudeTerminalModal';
+
 let _runningTaskIds: Set<number> = new Set();
 let _planningTaskIds: Set<number> = new Set();
 const _inFlightTaskIds: Set<number> = new Set();
+let _openTaskDetail: ((taskId: string) => Promise<void>) | null = null;
+let _switchTab: ((tabName: string) => void) | null = null;
+let _updateTerminalTabUi: (() => void) | null = null;
 
-export function registerClaudeModalCallback(callback: (taskId: number) => void): void {
-  _claudeModalCallback = callback;
+export function registerClaudeButtonDetailHooks(hooks: {
+  openTaskDetail: (taskId: string) => Promise<void>;
+  switchTab: (tabName: string) => void;
+  updateTerminalTabUi: () => void;
+}): void {
+  _openTaskDetail = hooks.openTaskDetail;
+  _switchTab = hooks.switchTab;
+  _updateTerminalTabUi = hooks.updateTerminalTabUi;
 }
 
 export function getRunningTaskIds(): Set<number> {
@@ -15,6 +25,7 @@ export function getRunningTaskIds(): Set<number> {
 }
 
 export function updateButtonStates(runningTaskIds: Set<number>, planningTaskIds: Set<number> = new Set()): void {
+  const previousRunning = _runningTaskIds;
   _runningTaskIds = runningTaskIds;
   const onlyPlanningRunning = runningTaskIds.size > 0 && [...runningTaskIds].every((id) => planningTaskIds.has(id));
   const anyRunning = runningTaskIds.size > 0 && !onlyPlanningRunning;
@@ -24,11 +35,18 @@ export function updateButtonStates(runningTaskIds: Set<number>, planningTaskIds:
     indicator.style.display = runningTaskIds.size > 0 ? '' : 'none';
   }
 
+  // If the task currently attached to the xterm.js terminal just stopped
+  // running, disconnect its WebSocket while preserving the displayed output.
+  const terminalTaskId = getCurrentTerminalTaskId();
+  if (terminalTaskId !== null && previousRunning.has(terminalTaskId) && !runningTaskIds.has(terminalTaskId)) {
+    detachTerminal();
+  }
+
   // Update all run split containers
   document.querySelectorAll<HTMLElement>('.claude-run-split').forEach((split) => {
     const taskId = Number(split.dataset.taskId);
     if (runningTaskIds.has(taskId)) {
-      replaceWithDetailBtn(split as unknown as HTMLButtonElement, taskId);
+      replaceWithRunningBtn(split as unknown as HTMLButtonElement, taskId);
     } else {
       split
         .querySelectorAll<HTMLButtonElement>('.claude-run-btn, .claude-run-toggle, .claude-run-menu-item')
@@ -42,12 +60,12 @@ export function updateButtonStates(runningTaskIds: Set<number>, planningTaskIds:
   document.querySelectorAll<HTMLButtonElement>('.claude-plan-btn').forEach((btn) => {
     const taskId = Number(btn.dataset.taskId);
     if (runningTaskIds.has(taskId)) {
-      replaceWithDetailBtn(btn, taskId);
+      replaceWithRunningBtn(btn, taskId);
     }
   });
 
-  // Update detail buttons back to run/plan if no longer running
-  document.querySelectorAll<HTMLButtonElement>('.claude-detail-btn').forEach((btn) => {
+  // Update running buttons back to run/plan if no longer running
+  document.querySelectorAll<HTMLButtonElement>('.claude-running-btn').forEach((btn) => {
     const taskId = Number(btn.dataset.taskId);
     if (!runningTaskIds.has(taskId)) {
       // Find the card to determine status
@@ -56,15 +74,18 @@ export function updateButtonStates(runningTaskIds: Set<number>, planningTaskIds:
       replaceWithRunOrPlanBtn(btn, taskId, status);
     }
   });
+
+  // Refresh terminal tab UI in case the running set for the displayed task changed
+  if (_updateTerminalTabUi) _updateTerminalTabUi();
 }
 
-function replaceWithDetailBtn(btn: HTMLButtonElement, taskId: number): void {
-  const detailBtn = document.createElement('button');
-  detailBtn.className = 'claude-detail-btn';
-  detailBtn.dataset.taskId = String(taskId);
-  detailBtn.textContent = '● Details';
-  attachDetailBtnListener(detailBtn);
-  btn.replaceWith(detailBtn);
+function replaceWithRunningBtn(btn: HTMLButtonElement, taskId: number): void {
+  const runningBtn = document.createElement('button');
+  runningBtn.className = 'claude-running-btn';
+  runningBtn.dataset.taskId = String(taskId);
+  runningBtn.textContent = '● Running';
+  attachRunningBtnListener(runningBtn);
+  btn.replaceWith(runningBtn);
 }
 
 function replaceWithRunOrPlanBtn(btn: HTMLButtonElement, taskId: number, status: string | undefined): void {
@@ -168,15 +189,26 @@ function attachPlanBtnListener(btn: HTMLButtonElement): void {
   });
 }
 
-function attachDetailBtnListener(btn: HTMLButtonElement): void {
+function attachRunningBtnListener(btn: HTMLButtonElement): void {
   btn.dataset.listenersAttached = 'true';
-  btn.addEventListener('click', (e: MouseEvent) => {
+  btn.addEventListener('click', async (e: MouseEvent) => {
     e.stopPropagation();
     const taskId = Number(btn.dataset.taskId);
-    if (_claudeModalCallback) {
-      _claudeModalCallback(taskId);
-    }
+    await openTerminalTab(taskId);
   });
+}
+
+async function openTerminalTab(taskId: number): Promise<void> {
+  if (!_openTaskDetail || !_switchTab) return;
+  await _openTaskDetail(String(taskId));
+  _switchTab('terminal');
+  const host = document.getElementById('detail-terminal-host');
+  if (host) {
+    const placeholder = document.getElementById('detail-terminal-placeholder');
+    if (placeholder) placeholder.style.display = 'none';
+    attachTerminalToTab(taskId, host);
+  }
+  if (_updateTerminalTabUi) _updateTerminalTabUi();
 }
 
 async function triggerRunTask(taskId: number, btn: HTMLButtonElement, body: Record<string, unknown>): Promise<void> {
@@ -198,7 +230,8 @@ async function triggerRunTask(taskId: number, btn: HTMLButtonElement, body: Reco
       if (body.command === 'planning') {
         _planningTaskIds = new Set(_planningTaskIds).add(taskId);
       }
-      replaceWithDetailBtn(btn, taskId);
+      replaceWithRunningBtn(btn, taskId);
+      await openTerminalTab(taskId);
     } else {
       btn.disabled = false;
       btn.querySelectorAll<HTMLButtonElement>('button').forEach((b) => (b.disabled = false));
@@ -235,7 +268,7 @@ export function updateCardButton(card: HTMLElement, newStatus: string): void {
   const taskId = Number(card.dataset.id);
   if (_runningTaskIds.has(taskId)) return;
 
-  const existingEl = card.querySelector<HTMLElement>('.claude-run-split, .claude-plan-btn, .claude-detail-btn');
+  const existingEl = card.querySelector<HTMLElement>('.claude-run-split, .claude-plan-btn, .claude-running-btn');
   if (!existingEl) return;
 
   if (['review', 'done', 'closed'].includes(newStatus)) {
@@ -273,9 +306,9 @@ export function attachClaudeButtonListeners(body: HTMLElement): void {
     if (btn.dataset.listenersAttached) return;
     attachPlanBtnListener(btn);
   });
-  body.querySelectorAll<HTMLButtonElement>('.claude-detail-btn').forEach((btn) => {
+  body.querySelectorAll<HTMLButtonElement>('.claude-running-btn').forEach((btn) => {
     if (btn.dataset.listenersAttached) return;
-    attachDetailBtnListener(btn);
+    attachRunningBtnListener(btn);
   });
   // Apply current running state to newly rendered buttons
   updateButtonStates(_runningTaskIds, _planningTaskIds);

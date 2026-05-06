@@ -26,6 +26,8 @@ import {
   buildDetailPanelHtml,
   autoResizeTextarea,
 } from './detailPanelHtml';
+import { fitTerminal, stopTerminal, getCurrentTerminalTaskId } from './claudeTerminalModal';
+import { getRunningTaskIds } from './claudeButton';
 
 // State
 let detailTaskId: number | null = null;
@@ -76,7 +78,7 @@ export function closeDetailPanel(): void {
   detailTaskId = null;
 }
 
-function switchTab(tabName: string): void {
+export function switchTab(tabName: string): void {
   const activeTabBtn = document.querySelector<HTMLElement>('.detail-tab.active');
   const currentTab = activeTabBtn?.dataset.tab ?? null;
   const isSameTab = currentTab === tabName;
@@ -97,6 +99,41 @@ function switchTab(tabName: string): void {
   if (footer) footer.style.display = tabName === 'details' ? '' : 'none';
   if (tabName === 'run-logs' && detailTaskId !== null && (!isSameTab || runLogsLoadedTaskId !== detailTaskId)) {
     loadRunLogs(detailTaskId);
+  }
+  if (tabName === 'terminal') {
+    updateTerminalTabUi();
+    // Refit only when the terminal pane currently hosts the active xterm.js
+    // instance for this task — otherwise the placeholder is showing.
+    if (detailTaskId !== null && getCurrentTerminalTaskId() === detailTaskId) {
+      requestAnimationFrame(() => {
+        fitTerminal();
+      });
+    }
+  }
+}
+
+/**
+ * Refresh the Terminal tab UI to reflect whether the current detail task is
+ * actively running. Shows/hides the Stop button and placeholder text.
+ */
+export function updateTerminalTabUi(): void {
+  const placeholder = document.getElementById('detail-terminal-placeholder');
+  const stopBtn = document.getElementById('detail-terminal-stop-btn') as HTMLButtonElement | null;
+  if (!placeholder || !stopBtn) return;
+
+  const taskId = detailTaskId;
+  const isRunning = taskId !== null && getRunningTaskIds().has(taskId);
+  const hasTerminalForThisTask = taskId !== null && getCurrentTerminalTaskId() === taskId;
+
+  // Placeholder visible only when there is no xterm.js attached for this task.
+  placeholder.style.display = hasTerminalForThisTask ? 'none' : '';
+
+  if (isRunning) {
+    stopBtn.style.display = '';
+    stopBtn.disabled = false;
+    stopBtn.textContent = 'Stop';
+  } else {
+    stopBtn.style.display = 'none';
   }
 }
 
@@ -459,6 +496,9 @@ export function renderDetailPanel(data: TaskDetail): void {
   // Load comments into the comments tab
   loadComments(task.id);
 
+  // Update Terminal tab UI based on this task's running state
+  updateTerminalTabUi();
+
   // Restore last tab (switchTab handles loadRunLogs when run-logs tab is active)
   switchTab(lastTab);
 }
@@ -639,6 +679,21 @@ export function initDetailPanel(): void {
     const btn = (e.target as HTMLElement).closest<HTMLElement>('.detail-tab');
     if (!btn) return;
     switchTab(btn.dataset.tab!);
+  });
+
+  document.getElementById('detail-terminal-stop-btn')?.addEventListener('click', () => {
+    if (detailTaskId === null) return;
+    const stopBtn = document.getElementById('detail-terminal-stop-btn') as HTMLButtonElement | null;
+    if (stopBtn) {
+      stopBtn.disabled = true;
+      stopBtn.textContent = 'Stopping...';
+    }
+    void stopTerminal(detailTaskId).then((ok) => {
+      if (!ok && stopBtn) {
+        stopBtn.disabled = false;
+        stopBtn.textContent = 'Stop';
+      }
+    });
   });
 
   initPanelResize(detailPanel);

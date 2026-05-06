@@ -141,24 +141,6 @@ function getContextMenuAndToast(): string {
   <div class="toast" id="toast">Failed to update task</div>`;
 }
 
-function getClaudeStreamModal(): string {
-  return `
-  <div class="modal-overlay" id="claude-stream-modal">
-    <div class="modal" style="width:680px;">
-      <div class="claude-stream-modal-header">
-        <h2 id="claude-stream-modal-title">Claude Output</h2>
-        <button id="claude-stream-modal-close">&#x2715;</button>
-      </div>
-      <div id="claude-stream-log" class="claude-stream-log"></div>
-      <div class="claude-stream-modal-footer">
-        <span id="claude-stream-status" class="claude-stream-status">Connecting...</span>
-        <button id="claude-stream-stop-btn" class="claude-stream-stop-btn">Stop</button>
-        <button id="claude-stream-close-btn">Close</button>
-      </div>
-    </div>
-  </div>`;
-}
-
 function getPurgeAndVersionModals(): string {
   return `
   <div class="modal-overlay" id="purge-confirm-modal">
@@ -216,10 +198,11 @@ function getBoardBodyStatic(): string {
     var statusLabels = ${JSON.stringify(STATUS_LABELS)};
     var allPriorities = ${JSON.stringify(PRIORITIES)};`;
 
-  return `${getAddTaskModal()}${getContextMenuAndToast()}${getPurgeAndVersionModals()}${getClaudeStreamModal()}
+  return `${getAddTaskModal()}${getContextMenuAndToast()}${getPurgeAndVersionModals()}
   <script>${configScript}
   </script>
-  <script src="/static/board.js"></script>`;
+  <link rel="stylesheet" href="/static/main.css">
+  <script src="/static/main.js"></script>`;
 }
 
 export function renderBoard(

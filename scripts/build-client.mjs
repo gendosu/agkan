@@ -1,6 +1,4 @@
 #!/usr/bin/env node
-// Build script for client-side board TypeScript code
-
 import * as esbuild from 'esbuild';
 import { mkdir } from 'fs/promises';
 import { join, dirname } from 'path';
@@ -16,7 +14,7 @@ await esbuild.build({
   bundle: true,
   minify: false,
   format: 'iife',
-  outfile: join(rootDir, 'dist', 'board', 'client', 'board.js'),
+  outdir: join(rootDir, 'dist', 'board', 'client'),
   target: ['es2020'],
   logLevel: 'info',
 });

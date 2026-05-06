@@ -261,6 +261,12 @@ export const BOARD_STYLES = `
     .claude-stream-stop-btn:disabled { opacity: 0.5; cursor: not-allowed; }
     #claude-stream-close-btn { padding: 6px 14px; border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer; border: 1px solid var(--border-color); background: var(--bg-surface); color: var(--text-secondary); }
     #claude-stream-close-btn:hover { background: var(--bg-surface-hover); color: var(--text-primary); }
+    .detail-tab-content.detail-terminal-pane { padding: 0; flex-direction: column; }
+    .detail-tab-content.detail-terminal-pane.active { display: flex; overflow: hidden; }
+    .detail-terminal-toolbar { display: flex; justify-content: flex-end; gap: 8px; padding: 8px 12px; border-bottom: 1px solid var(--border-color); background: var(--bg-surface-subtle, #f8fafc); flex-shrink: 0; }
+    .detail-terminal-host { flex: 1; min-height: 0; position: relative; background: #0d1117; }
+    .detail-terminal-host .xterm { height: 100%; }
+    .detail-terminal-placeholder { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: #94a3b8; font-size: 12px; background: #0d1117; z-index: 1; }
     .run-log-list { padding: 12px 16px; }
     .run-log-item { border: 1px solid var(--border-color); border-radius: 6px; margin-bottom: 8px; overflow: hidden; }
     .run-log-header { display: flex; align-items: center; gap: 8px; padding: 8px 12px; cursor: pointer; background: var(--bg-surface-subtle, #f8fafc); user-select: none; }
