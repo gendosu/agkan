@@ -157,6 +157,67 @@ describe('hook-stop.mjs', () => {
     expect(last?.body).toEqual({ taskId: 7, reason: 'complete' });
   });
 
+  it('does NOT post when last tool_use is Bash with run_in_background: true', async () => {
+    const before = svr.captured.length;
+    const transcript = join(tmp, 't.jsonl');
+    writeFileSync(
+      transcript,
+      JSON.stringify({
+        type: 'assistant',
+        message: {
+          content: [
+            {
+              type: 'tool_use',
+              name: 'Bash',
+              input: { command: 'npm test', run_in_background: true },
+            },
+          ],
+        },
+      }) + '\n'
+    );
+    const code = await runHook(
+      { transcript_path: transcript, hook_event_name: 'Stop', stop_hook_active: false },
+      {
+        BOARD_TASK_ID: '5',
+        BOARD_API_URL: `http://127.0.0.1:${svr.port}`,
+        BOARD_HOOK_TOKEN: 'tk',
+      }
+    );
+    expect(code).toBe(0);
+    expect(svr.captured.length).toBe(before);
+  });
+
+  it('posts complete when last tool_use is Bash without run_in_background', async () => {
+    const transcript = join(tmp, 't.jsonl');
+    writeFileSync(
+      transcript,
+      JSON.stringify({
+        type: 'assistant',
+        message: {
+          content: [
+            {
+              type: 'tool_use',
+              name: 'Bash',
+              input: { command: 'ls', run_in_background: false },
+            },
+          ],
+        },
+      }) + '\n'
+    );
+    const code = await runHook(
+      { transcript_path: transcript, hook_event_name: 'Stop', stop_hook_active: false },
+      {
+        BOARD_TASK_ID: '9',
+        BOARD_API_URL: `http://127.0.0.1:${svr.port}`,
+        BOARD_HOOK_TOKEN: 'tk',
+      }
+    );
+    expect(code).toBe(0);
+    const last = svr.captured.at(-1);
+    expect(last?.url).toBe('/api/internal/hooks/stop');
+    expect(last?.body).toEqual({ taskId: 9, reason: 'complete' });
+  });
+
   it('exits 0 silently when transcript_path cannot be read', async () => {
     const code = await runHook(
       { transcript_path: '/nonexistent/path.jsonl', hook_event_name: 'Stop', stop_hook_active: false },

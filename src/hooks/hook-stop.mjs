@@ -7,7 +7,7 @@ async function readStdin() {
   return Buffer.concat(chunks).toString('utf-8');
 }
 
-function findLastToolUseName(jsonl) {
+function findLastToolUse(jsonl) {
   const lines = jsonl.split('\n').filter((l) => l.trim().length > 0);
   for (let i = lines.length - 1; i >= 0; i--) {
     let entry;
@@ -21,7 +21,7 @@ function findLastToolUseName(jsonl) {
     for (let j = content.length - 1; j >= 0; j--) {
       const item = content[j];
       if (item && item.type === 'tool_use' && typeof item.name === 'string') {
-        return item.name;
+        return { name: item.name, input: item.input ?? {} };
       }
     }
   }
@@ -57,8 +57,19 @@ async function main() {
     return;
   }
 
-  const lastTool = findLastToolUseName(jsonl);
-  if (lastTool === 'AskUserQuestion') return;
+  const lastTool = findLastToolUse(jsonl);
+  if (lastTool?.name === 'AskUserQuestion') return;
+  // When Claude ends a turn with a backgrounded Bash still running,
+  // do not signal "complete" to the server: that would kill the PTY
+  // session and abort the still-running background job.
+  if (
+    lastTool?.name === 'Bash' &&
+    lastTool.input &&
+    typeof lastTool.input === 'object' &&
+    lastTool.input.run_in_background === true
+  ) {
+    return;
+  }
 
   const taskId = Number(taskIdRaw);
   if (!Number.isFinite(taskId)) return;
