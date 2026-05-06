@@ -2,7 +2,7 @@
  * Tests for boardRoutes module
  */
 
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { Hono } from 'hono';
 import fs from 'fs';
 import path from 'path';
@@ -14,8 +14,15 @@ import { MetadataService } from '../../src/services/MetadataService';
 import { CommentService } from '../../src/services/CommentService';
 import { TaskBlockService } from '../../src/services/TaskBlockService';
 import { getStorageBackend } from '../../src/db/connection';
-import { registerBoardRoutes, BoardServices } from '../../src/board/boardRoutes';
+import {
+  registerBoardRoutes,
+  registerHookRoutes,
+  registerAttentionStreamRoute,
+  BoardServices,
+} from '../../src/board/boardRoutes';
 import { PtySessionService } from '../../src/terminal/PtySessionService';
+import { AttentionStateService } from '../../src/services/AttentionStateService';
+import { getHookToken } from '../../src/utils/hookToken';
 import { DETAIL_PANE_MAX_WIDTH } from '../../src/board/boardConfig';
 
 const TEST_CONFIG_DIR = path.join(process.cwd(), '.agkan-test-routes-' + process.pid);
@@ -1149,5 +1156,157 @@ describe('GET /', () => {
     const html = await res.text();
     expect(html).not.toContain('agkan-theme');
     expect(html).not.toContain('localStorage');
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Hook receiver routes
+// ─────────────────────────────────────────────────────────────────────────────
+describe('hook receiver routes', () => {
+  function buildHookApp(opts?: {
+    attentionStateService?: AttentionStateService;
+    ptyStopProcess?: (taskId: number) => boolean;
+  }): Hono {
+    const app = new Hono();
+    const attention = opts?.attentionStateService ?? new AttentionStateService();
+    const ptySessionService = { stopProcess: opts?.ptyStopProcess ?? vi.fn().mockReturnValue(true) };
+    registerHookRoutes(app, { attentionStateService: attention, ptySessionService });
+    registerAttentionStreamRoute(app, { attentionStateService: attention });
+    return app;
+  }
+
+  it('POST /api/internal/hooks/attention returns 401 without token', async () => {
+    const app = buildHookApp();
+    const res = await app.fetch(
+      new Request('http://localhost/api/internal/hooks/attention', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ taskId: 1, state: 'needs' }),
+      })
+    );
+    expect(res.status).toBe(401);
+  });
+
+  it('POST /api/internal/hooks/attention returns 401 with wrong token', async () => {
+    const app = buildHookApp();
+    const res = await app.fetch(
+      new Request('http://localhost/api/internal/hooks/attention', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-hook-token': 'wrong-token' },
+        body: JSON.stringify({ taskId: 1, state: 'needs' }),
+      })
+    );
+    expect(res.status).toBe(401);
+  });
+
+  it('POST /api/internal/hooks/attention updates state to needs with valid token', async () => {
+    const attention = new AttentionStateService();
+    const app = buildHookApp({ attentionStateService: attention });
+    const res = await app.fetch(
+      new Request('http://localhost/api/internal/hooks/attention', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-hook-token': getHookToken() },
+        body: JSON.stringify({ taskId: 1, state: 'needs' }),
+      })
+    );
+    expect(res.status).toBe(200);
+    expect(attention.getAttention(1)).toBe(true);
+  });
+
+  it('POST /api/internal/hooks/attention updates state to answered with valid token', async () => {
+    const attention = new AttentionStateService();
+    attention.setAttention(1, true);
+    const app = buildHookApp({ attentionStateService: attention });
+    const res = await app.fetch(
+      new Request('http://localhost/api/internal/hooks/attention', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-hook-token': getHookToken() },
+        body: JSON.stringify({ taskId: 1, state: 'answered' }),
+      })
+    );
+    expect(res.status).toBe(200);
+    expect(attention.getAttention(1)).toBe(false);
+  });
+
+  it('POST /api/internal/hooks/stop calls ptySessionService.stopProcess with valid token', async () => {
+    const ptyStop = vi.fn().mockReturnValue(true);
+    const app = buildHookApp({ ptyStopProcess: ptyStop });
+    const res = await app.fetch(
+      new Request('http://localhost/api/internal/hooks/stop', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-hook-token': getHookToken() },
+        body: JSON.stringify({ taskId: 42, reason: 'complete' }),
+      })
+    );
+    expect(res.status).toBe(200);
+    expect(ptyStop).toHaveBeenCalledWith(42);
+  });
+
+  it('POST /api/internal/hooks/stop returns 401 without token', async () => {
+    const ptyStop = vi.fn().mockReturnValue(true);
+    const app = buildHookApp({ ptyStopProcess: ptyStop });
+    const res = await app.fetch(
+      new Request('http://localhost/api/internal/hooks/stop', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ taskId: 42, reason: 'complete' }),
+      })
+    );
+    expect(res.status).toBe(401);
+    expect(ptyStop).not.toHaveBeenCalled();
+  });
+
+  it('hook stop route is accessible after board routes compile the Hono router on first request', async () => {
+    // This test verifies that registerHookRoutes must be called BEFORE the first
+    // HTTP request so the routes are included when Hono compiles its router.
+    // Hono's SmartRouter compiles and locks all routes on the first match() call.
+    // Any routes added after that compilation will silently fail.
+    const ptyStop = vi.fn().mockReturnValue(true);
+    const app = new Hono();
+    const services = buildServices();
+    const attention = new AttentionStateService();
+    const ptySessionService = { stopProcess: ptyStop };
+
+    // Register routes in the same order as startBoardServer: board, then hooks
+    registerBoardRoutes(app, { ...services, ptySessionService: undefined });
+    registerHookRoutes(app, { attentionStateService: attention, ptySessionService });
+
+    // Trigger Hono route compilation by making a board request first (simulates browser loading the board)
+    const boardRes = await app.fetch(new Request('http://localhost/'));
+    expect(boardRes.status).toBe(200);
+
+    // Hook stop route must still be accessible after route compilation
+    const hookRes = await app.fetch(
+      new Request('http://localhost/api/internal/hooks/stop', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-hook-token': getHookToken() },
+        body: JSON.stringify({ taskId: 55, reason: 'complete' }),
+      })
+    );
+    expect(hookRes.status).toBe(200);
+    expect(ptyStop).toHaveBeenCalledWith(55);
+  });
+
+  it('GET /api/attention/stream sends snapshot then updates via SSE', async () => {
+    const attention = new AttentionStateService();
+    attention.setAttention(1, true);
+    attention.setAttention(3, true);
+    const app = buildHookApp({ attentionStateService: attention });
+    const controller = new AbortController();
+    const res = await app.fetch(new Request('http://localhost/api/attention/stream', { signal: controller.signal }));
+    expect(res.status).toBe(200);
+    expect(res.headers.get('Content-Type')).toContain('text/event-stream');
+    expect(res.headers.get('Cache-Control')).toBe('no-cache');
+
+    const reader = res.body!.getReader();
+    const { value } = await reader.read();
+    const text = new TextDecoder().decode(value);
+    const jsonLine = text.replace(/^data: /, '').trim();
+    const parsed = JSON.parse(jsonLine) as { type: string; taskIds: number[] };
+    expect(parsed.type).toBe('snapshot');
+    expect(parsed.taskIds.sort()).toEqual([1, 3]);
+
+    controller.abort();
+    reader.cancel();
   });
 });

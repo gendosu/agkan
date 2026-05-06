@@ -24,6 +24,9 @@ import {
   renderBoard,
   buildBlockMap,
 } from './boardRenderer';
+import { verifyHookToken, getHookToken } from '../utils/hookToken';
+import { AttentionStateService } from '../services/AttentionStateService';
+import { isTestMode } from '../db/config';
 
 export type BoardServices = {
   ts: TaskService;
@@ -468,7 +471,7 @@ function registerClaudeRoutes(app: Hono, claudeProcess: PtySessionService, ts: T
     }
 
     try {
-      claudeProcess.startProcess(taskId, prompt, command, model, effort);
+      await claudeProcess.startProcess(taskId, prompt, command, model, effort);
     } catch (e) {
       if (e instanceof ConflictError) {
         console.error(
@@ -620,6 +623,105 @@ function registerClaudeRoutes(app: Hono, claudeProcess: PtySessionService, ts: T
     if (!ts.getTask(taskId)) return c.json({ error: 'Task not found' }, 404);
     const logs = claudeProcess.getRunLogs(taskId);
     return c.json({ logs });
+  });
+}
+
+export interface HookRouteDeps {
+  attentionStateService: AttentionStateService;
+  ptySessionService: { stopProcess: (taskId: number) => boolean };
+}
+
+export interface AttentionStreamDeps {
+  attentionStateService: AttentionStateService;
+}
+
+export function registerHookRoutes(app: Hono, deps: HookRouteDeps): void {
+  app.post('/api/internal/hooks/attention', async (c) => {
+    const token = c.req.header('x-hook-token');
+    if (!verifyHookToken(token)) {
+      return c.body('', 401);
+    }
+    const body = (await c.req.json().catch(() => ({}))) as { taskId?: unknown; state?: unknown };
+    const id = Number(body.taskId);
+    if (!Number.isFinite(id)) {
+      return c.json({ error: 'invalid taskId' }, 400);
+    }
+    deps.attentionStateService.setAttention(id, body.state === 'needs');
+    return c.json({ ok: true });
+  });
+
+  app.post('/api/internal/hooks/stop', async (c) => {
+    const token = c.req.header('x-hook-token');
+    if (!verifyHookToken(token)) {
+      return c.body('', 401);
+    }
+    const body = (await c.req.json().catch(() => ({}))) as { taskId?: unknown; reason?: unknown };
+    const id = Number(body.taskId);
+    if (!Number.isFinite(id)) {
+      return c.json({ error: 'invalid taskId' }, 400);
+    }
+    if (body.reason === 'complete') {
+      deps.ptySessionService.stopProcess(id);
+    }
+    return c.json({ ok: true });
+  });
+}
+
+export function registerTestHookTokenRoute(app: Hono): void {
+  if (!isTestMode()) return;
+  app.get('/api/internal/test/hook-token', (c) => {
+    return c.json({ token: getHookToken() });
+  });
+}
+
+export function registerAttentionStreamRoute(app: Hono, deps: AttentionStreamDeps): void {
+  app.get('/api/attention/stream', (c) => {
+    const stream = new ReadableStream({
+      start(controller) {
+        let finalized = false;
+
+        const encode = (data: unknown): Uint8Array => {
+          const payload = `data: ${JSON.stringify(data)}\n\n`;
+          return new TextEncoder().encode(payload);
+        };
+
+        const safeClose = () => {
+          if (finalized) return;
+          finalized = true;
+          unsub();
+          controller.close();
+        };
+
+        const initial = deps.attentionStateService.listAttentionTasks();
+        try {
+          controller.enqueue(encode({ type: 'snapshot', taskIds: initial }));
+        } catch {
+          safeClose();
+          return;
+        }
+
+        const unsub = deps.attentionStateService.subscribe((update) => {
+          if (finalized) return;
+          try {
+            controller.enqueue(encode({ type: 'update', ...update }));
+          } catch {
+            safeClose();
+          }
+        });
+
+        c.req.raw.signal?.addEventListener('abort', () => {
+          safeClose();
+        });
+      },
+    });
+
+    return new Response(stream, {
+      headers: {
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache',
+        Connection: 'keep-alive',
+      },
+    });
   });
 }
 

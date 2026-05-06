@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { PtySessionService } from '../../src/terminal/PtySessionService';
+import { AttentionStateService } from '../../src/services/AttentionStateService';
 import { ConflictError } from '../../src/errors';
 
 // Mock node-pty
@@ -50,9 +51,9 @@ describe('PtySessionService', () => {
     expect(service.listRunningTasks()).toEqual([{ taskId: 1, command: 'planning' }]);
   });
 
-  it('throws ConflictError if session already running for taskId', () => {
-    service.startProcess(1, 'prompt', 'run');
-    expect(() => service.startProcess(1, 'prompt2', 'run')).toThrow(ConflictError);
+  it('throws ConflictError if session already running for taskId', async () => {
+    await service.startProcess(1, 'prompt', 'run');
+    await expect(service.startProcess(1, 'prompt2', 'run')).rejects.toThrow(ConflictError);
   });
 
   it('auto-sends prompt after fallback delay', () => {
@@ -151,5 +152,89 @@ describe('PtySessionService', () => {
 
     // exitSubscribers should NOT have been called because stopProcess cleared them
     expect(exitCallback).not.toHaveBeenCalled();
+  });
+});
+
+describe('PtySessionService - hook integration', () => {
+  let spawnMock: ReturnType<typeof vi.fn>;
+
+  beforeEach(async () => {
+    vi.useFakeTimers();
+    mockWrite.mockClear();
+    mockKill.mockClear();
+    mockResize.mockClear();
+    mockOnDataHandler = null;
+    mockOnExitHandler = null;
+    // get the spawn mock from node-pty
+    const pty = await import('node-pty');
+    spawnMock = pty.spawn as unknown as ReturnType<typeof vi.fn>;
+    spawnMock.mockClear();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('passes BOARD_TASK_ID, BOARD_API_URL, BOARD_HOOK_TOKEN to spawned process', async () => {
+    const attention = new AttentionStateService();
+    const svc = new PtySessionService(undefined, {
+      boardApiUrl: 'http://127.0.0.1:9999',
+      attentionStateService: attention,
+      hookSettingsDataDir: '/tmp/test-hooks-' + process.pid,
+    });
+
+    await svc.startProcess(123, 'prompt', 'run');
+    expect(spawnMock).toHaveBeenCalled();
+    const call = spawnMock.mock.calls[0];
+    const spawnOptions = call[2] as { env: Record<string, string> };
+    expect(spawnOptions.env.BOARD_TASK_ID).toBe('123');
+    expect(spawnOptions.env.BOARD_API_URL).toBe('http://127.0.0.1:9999');
+    expect(spawnOptions.env.BOARD_HOOK_TOKEN).toMatch(/^[0-9a-f]{64}$/);
+  });
+
+  it('includes --settings <path> in claude args', async () => {
+    const attention = new AttentionStateService();
+    const svc = new PtySessionService(undefined, {
+      boardApiUrl: 'http://127.0.0.1:9999',
+      attentionStateService: attention,
+      hookSettingsDataDir: '/tmp/test-hooks-' + process.pid,
+    });
+
+    await svc.startProcess(123, 'prompt', 'run');
+    expect(spawnMock).toHaveBeenCalled();
+    const call = spawnMock.mock.calls[0];
+    const args = call[1] as string[];
+    const idx = args.indexOf('--settings');
+    expect(idx).toBeGreaterThanOrEqual(0);
+    expect(args[idx + 1]).toMatch(/board-hook-settings\.json$/);
+  });
+
+  it('clearTask is called on stopProcess', async () => {
+    const attention = new AttentionStateService();
+    attention.setAttention(123, true);
+    const svc = new PtySessionService(undefined, {
+      boardApiUrl: 'http://127.0.0.1:9999',
+      attentionStateService: attention,
+      hookSettingsDataDir: '/tmp/test-hooks-' + process.pid,
+    });
+
+    await svc.startProcess(123, 'prompt', 'run');
+    expect(attention.getAttention(123)).toBe(true);
+    svc.stopProcess(123);
+    expect(attention.getAttention(123)).toBe(false);
+  });
+
+  it('clearTask is called on natural process exit', async () => {
+    const attention = new AttentionStateService();
+    attention.setAttention(456, true);
+    const svc = new PtySessionService(undefined, {
+      boardApiUrl: 'http://127.0.0.1:9999',
+      attentionStateService: attention,
+      hookSettingsDataDir: '/tmp/test-hooks-' + process.pid,
+    });
+
+    await svc.startProcess(456, 'prompt', 'run');
+    mockOnExitHandler?.({ exitCode: 0 });
+    expect(attention.getAttention(456)).toBe(false);
   });
 });

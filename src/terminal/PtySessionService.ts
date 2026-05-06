@@ -3,6 +3,9 @@ import { execSync } from 'child_process';
 import type { StorageBackend, RunLogRow } from '../db/types/repository';
 import type { RunLog, OutputEvent as ClaudeOutputEvent } from '../services/ClaudeProcessService';
 import { ConflictError } from '../errors';
+import { ensureBoardHookSettings } from '../hooks/claudeHookSettings';
+import { getHookToken } from '../utils/hookToken';
+import { AttentionStateService } from '../services/AttentionStateService';
 
 function resolveClaudePath(): string {
   try {
@@ -42,14 +45,31 @@ function hasClaudeReadySignal(text: string): boolean {
   return text.includes('bypass permissions');
 }
 
+export interface PtySessionServiceOptions {
+  boardApiUrl: string;
+  attentionStateService: AttentionStateService;
+  hookSettingsDataDir: string;
+}
+
 export class PtySessionService {
   private sessions: Map<number, SessionInfo> = new Map();
   private completedSnapshots: Map<number, string> = new Map();
   private db: StorageBackend | null;
   private runningTasksChangeSubscribers: Set<() => void> = new Set();
+  private boardApiUrl: string | null;
+  private attentionStateService: AttentionStateService | null;
+  private hookSettingsDataDir: string | null;
+  private hookSettingsPath: string | null = null;
 
-  constructor(db?: StorageBackend | null) {
+  constructor(db?: StorageBackend | null, options?: PtySessionServiceOptions) {
     this.db = db ?? null;
+    this.boardApiUrl = options?.boardApiUrl ?? null;
+    this.attentionStateService = options?.attentionStateService ?? null;
+    this.hookSettingsDataDir = options?.hookSettingsDataDir ?? null;
+  }
+
+  setBoardApiUrl(url: string): void {
+    this.boardApiUrl = url;
   }
 
   subscribeRunningTasksChange(callback: () => void): () => void {
@@ -63,14 +83,27 @@ export class PtySessionService {
     this.runningTasksChangeSubscribers.forEach((cb) => cb());
   }
 
-  startProcess(taskId: number, prompt: string, command = 'run', model?: string, effort?: string): void {
+  async startProcess(taskId: number, prompt: string, command = 'run', model?: string, effort?: string): Promise<void> {
     if (this.sessions.has(taskId)) {
       throw new ConflictError(`Process for taskId ${taskId} is already running`);
     }
 
+    // Ensure hook settings file exists if hook integration is configured
+    if (this.hookSettingsDataDir !== null && this.hookSettingsPath === null) {
+      this.hookSettingsPath = await ensureBoardHookSettings(this.hookSettingsDataDir);
+    }
+
     const modelArgs = model ? ['--model', model] : [];
     const effortArgs = effort ? ['--effort', effort] : [];
-    const args = [...modelArgs, ...effortArgs, '--dangerously-skip-permissions'];
+    const settingsArgs = this.hookSettingsPath ? ['--settings', this.hookSettingsPath] : [];
+    const args = [...settingsArgs, ...modelArgs, ...effortArgs, '--dangerously-skip-permissions'];
+
+    const hookEnv: Record<string, string> = {};
+    if (this.boardApiUrl !== null) {
+      hookEnv.BOARD_TASK_ID = String(taskId);
+      hookEnv.BOARD_API_URL = this.boardApiUrl;
+      hookEnv.BOARD_HOOK_TOKEN = getHookToken();
+    }
 
     const ptyProcess = pty.spawn(CLAUDE_BIN, args, {
       name: 'xterm-256color',
@@ -81,6 +114,7 @@ export class PtySessionService {
         ...process.env,
         COLORTERM: 'truecolor',
         TERM: 'xterm-256color',
+        ...hookEnv,
       },
     });
 
@@ -168,6 +202,8 @@ export class PtySessionService {
       const doneEvent: OutputEvent = { kind: 'done', exitCode: code };
       info.exitSubscribers.forEach((cb) => cb(doneEvent));
 
+      this.attentionStateService?.clearTask(taskId);
+
       if (this.sessions.get(taskId) === info) {
         this.sessions.delete(taskId);
         this.notifyRunningTasksChange();
@@ -186,6 +222,7 @@ export class PtySessionService {
     info.exitSubscribers.clear();
     info.ptyProcess.kill();
     this.sessions.delete(taskId);
+    this.attentionStateService?.clearTask(taskId);
     this.notifyRunningTasksChange();
     return true;
   }

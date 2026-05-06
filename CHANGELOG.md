@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- Fix Claude auto-exit not firing for board planning runs by checking `stop_hook_active` in the Stop hook input instead of the non-existent `stop_reason` field
+
 ## [3.5.0] - 2026-05-02
 
 ### Added

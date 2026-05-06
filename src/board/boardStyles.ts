@@ -86,6 +86,9 @@ export const BOARD_STYLES = `
     .priority-high { background: #fee2e2; color: #dc2626; }
     .priority-medium { background: #fef9c3; color: #ca8a04; }
     .priority-low { background: #dcfce7; color: #16a34a; }
+    .attention-indicator { display: inline-flex; align-items: center; margin-left: 4px; min-width: 14px; height: 14px; }
+    .attention-indicator.is-active .icon-question { color: var(--color-warning, #f59e0b); animation: attention-pulse 1.5s ease-in-out infinite; }
+    @keyframes attention-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
     .context-menu { position: fixed; background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 6px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); padding: 4px 0; z-index: 1000; display: none; min-width: 140px; }
     .context-menu-item { padding: 8px 14px; font-size: 13px; cursor: pointer; display: flex; align-items: center; gap: 8px; color: var(--text-primary); }
     .context-menu-item:hover { background: var(--bg-surface-hover); }

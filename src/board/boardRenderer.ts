@@ -58,6 +58,7 @@ export function renderCard(task: Task, tags: Tag[], blockedByIds: number[] = [],
       <div class="card-header">
         <span class="card-id">#${task.id}</span>
         ${priorityBadge}
+        <span class="attention-indicator" aria-live="polite"></span>
         ${cardActions}
       </div>
       <div class="card-title">${escapeHtml(task.title)}</div>

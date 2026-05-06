@@ -10,6 +10,7 @@ import { initFilters } from './filters';
 import { initBurgerMenu } from './burgerMenu';
 import { initDependencyVisualization } from './dependencyVisualization';
 import { initClaudeButton, registerClaudeButtonDetailHooks } from './claudeButton';
+import { startAttentionStream } from './attentionIndicator';
 
 initDragDrop();
 initAutoScroll();
@@ -26,3 +27,4 @@ registerClaudeButtonDetailHooks({
   updateTerminalTabUi,
 });
 initClaudeButton();
+startAttentionStream();
