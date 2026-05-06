@@ -2,7 +2,7 @@
 const I18N = {
   en: {
     nav: { features: "Features", demo: "Demo", board: "Board", workflow: "Workflow", install: "Install", docs: "Docs" },
-    heroTag: "v3.3.0",
+    heroTag: "v3.5.0",
     heroPill: "AI-native CLI · built for Claude Code",
     heroTitle1: "Task management",
     heroTitle2: "at the speed",
@@ -94,8 +94,9 @@ const I18N = {
         ["agkan task list", "show all"],
         ["agkan task update", "mutate"],
         ["agkan task find", "search"],
-        ["agkan task tree", "hierarchy"],
-        ["agkan task link", "block/depend"],
+        ["agkan task comment", "comments"],
+        ["agkan task meta", "metadata"],
+        ["agkan task archive", "archive"],
       ],
       tag: [
         ["agkan tag add", "create tag"],
@@ -103,15 +104,13 @@ const I18N = {
         ["agkan tag attach", "label task"],
         ["agkan tag detach", "unlabel"],
         ["agkan tag rename", "rename"],
-        ["agkan tag rm", "delete"],
+        ["agkan tag delete", "delete"],
       ],
       other: [
         ["agkan init", "set up repo"],
         ["agkan board", "open web UI"],
         ["agkan export", "dump JSON"],
         ["agkan import", "load JSON"],
-        ["agkan config", "prefs"],
-        ["agkan doctor", "diagnose"],
       ],
     },
 
@@ -250,6 +249,72 @@ const I18N = {
           opts: [["--json", "Output as JSON"]],
           examples: ["agkan task delete 42"],
         },
+        {
+          name: "agkan task comment",
+          desc: "Manage task comments",
+          syntax: "agkan task comment <add|list|delete> ...",
+          opts: [],
+          examples: [
+            'agkan task comment add 1 "Looks good"',
+            "agkan task comment list 1",
+            "agkan task comment delete 5",
+          ],
+        },
+        {
+          name: "agkan task meta",
+          desc: "Manage task metadata",
+          syntax: "agkan task meta <set|get|list|delete> ...",
+          opts: [],
+          examples: [
+            "agkan task meta set 1 branch feature/login",
+            "agkan task meta get 1 branch",
+            "agkan task meta list 1",
+            "agkan task meta delete 1 branch",
+          ],
+        },
+        {
+          name: "agkan task archive",
+          desc: "Archive done/closed tasks",
+          syntax: "agkan task archive [options]",
+          opts: [
+            ["--before <date>", "Archive tasks updated before this date (default: 3 days ago)"],
+            ["--status <statuses>", "Comma-separated statuses to target (default: done,closed)"],
+            ["--dry-run", "Preview without modifying"],
+            ["--json", "Output as JSON"],
+          ],
+          examples: [
+            "agkan task archive",
+            "agkan task archive --before 2026-01-01",
+            "agkan task archive --dry-run",
+          ],
+        },
+        {
+          name: "agkan task unarchive",
+          desc: "Unarchive a task",
+          syntax: "agkan task unarchive <id>",
+          opts: [],
+          examples: ["agkan task unarchive 42"],
+        },
+        {
+          name: "agkan task copy",
+          desc: "Copy a task by ID",
+          syntax: "agkan task copy <id>",
+          opts: [],
+          examples: ["agkan task copy 42"],
+        },
+        {
+          name: "agkan task purge",
+          desc: "Delete done/closed tasks older than a date",
+          syntax: "agkan task purge [options]",
+          opts: [
+            ["--before <date>", "Purge tasks updated before this date"],
+            ["--dry-run", "Preview without modifying"],
+          ],
+          examples: [
+            "agkan task purge --before 2026-01-01",
+            "agkan task purge --dry-run",
+          ],
+        },
       ],
       tag: [
         {
@@ -288,11 +353,11 @@ const I18N = {
           examples: ['agkan tag rename "frontend" "fe"'],
         },
         {
-          name: "agkan tag rm",
+          name: "agkan tag delete",
           desc: "Delete a tag",
-          syntax: "agkan tag rm <name>",
+          syntax: "agkan tag delete <name>",
           opts: [],
-          examples: ['agkan tag rm "obsolete"'],
+          examples: ['agkan tag delete "obsolete"'],
         },
       ],
       other: [
@@ -357,7 +422,7 @@ const I18N = {
 
   ja: {
     nav: { features: "特徴", demo: "デモ", board: "ボード", workflow: "ワークフロー", install: "導入", docs: "ドキュメント" },
-    heroTag: "v3.3.0",
+    heroTag: "v3.5.0",
     heroPill: "AIネイティブCLI · Claude Code連携",
     heroTitle1: "タスク管理を、",
     heroTitle2: "エージェントの",
@@ -448,8 +513,9 @@ const I18N = {
         ["agkan task list", "一覧"],
         ["agkan task update", "更新"],
         ["agkan task find", "検索"],
-        ["agkan task tree", "階層表示"],
-        ["agkan task link", "依存設定"],
+        ["agkan task comment", "コメント"],
+        ["agkan task meta", "メタデータ"],
+        ["agkan task archive", "アーカイブ"],
       ],
       tag: [
         ["agkan tag add", "タグ作成"],
@@ -457,15 +523,13 @@ const I18N = {
         ["agkan tag attach", "付与"],
         ["agkan tag detach", "外す"],
         ["agkan tag rename", "名前変更"],
-        ["agkan tag rm", "削除"],
+        ["agkan tag delete", "削除"],
       ],
       other: [
         ["agkan init", "初期化"],
         ["agkan board", "Web UIを開く"],
         ["agkan export", "JSON出力"],
         ["agkan import", "JSON取り込み"],
-        ["agkan config", "設定"],
-        ["agkan doctor", "診断"],
       ],
     },
 
@@ -604,6 +668,72 @@ const I18N = {
           opts: [["--json", "JSON形式で出力"]],
           examples: ["agkan task delete 42"],
         },
+        {
+          name: "agkan task comment",
+          desc: "タスクのコメントを管理",
+          syntax: "agkan task comment <add|list|delete> ...",
+          opts: [],
+          examples: [
+            'agkan task comment add 1 "動作確認しました"',
+            "agkan task comment list 1",
+            "agkan task comment delete 5",
+          ],
+        },
+        {
+          name: "agkan task meta",
+          desc: "タスクのメタデータを管理",
+          syntax: "agkan task meta <set|get|list|delete> ...",
+          opts: [],
+          examples: [
+            "agkan task meta set 1 branch feature/login",
+            "agkan task meta get 1 branch",
+            "agkan task meta list 1",
+            "agkan task meta delete 1 branch",
+          ],
+        },
+        {
+          name: "agkan task archive",
+          desc: "done/closedタスクをアーカイブ",
+          syntax: "agkan task archive [options]",
+          opts: [
+            ["--before <date>", "この日付より前に更新されたタスクをアーカイブ（デフォルト: 3日前）"],
+            ["--status <statuses>", "対象ステータスをカンマ区切りで指定（デフォルト: done,closed）"],
+            ["--dry-run", "変更せずにプレビュー"],
+            ["--json", "JSON形式で出力"],
+          ],
+          examples: [
+            "agkan task archive",
+            "agkan task archive --before 2026-01-01",
+            "agkan task archive --dry-run",
+          ],
+        },
+        {
+          name: "agkan task unarchive",
+          desc: "タスクのアーカイブを解除",
+          syntax: "agkan task unarchive <id>",
+          opts: [],
+          examples: ["agkan task unarchive 42"],
+        },
+        {
+          name: "agkan task copy",
+          desc: "タスクをIDでコピー",
+          syntax: "agkan task copy <id>",
+          opts: [],
+          examples: ["agkan task copy 42"],
+        },
+        {
+          name: "agkan task purge",
+          desc: "done/closedタスクを完全削除",
+          syntax: "agkan task purge [options]",
+          opts: [
+            ["--before <date>", "この日付より前に更新されたタスクを削除"],
+            ["--dry-run", "変更せずにプレビュー"],
+          ],
+          examples: [
+            "agkan task purge --before 2026-01-01",
+            "agkan task purge --dry-run",
+          ],
+        },
       ],
       tag: [
         {
@@ -642,11 +772,11 @@ const I18N = {
           examples: ['agkan tag rename "frontend" "fe"'],
         },
         {
-          name: "agkan tag rm",
+          name: "agkan tag delete",
           desc: "タグを削除",
-          syntax: "agkan tag rm <name>",
+          syntax: "agkan tag delete <name>",
           opts: [],
-          examples: ['agkan tag rm "obsolete"'],
+          examples: ['agkan tag delete "obsolete"'],
         },
       ],
       other: [

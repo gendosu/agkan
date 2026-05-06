@@ -28,16 +28,10 @@ const TERM_STEPS = [
   { type: "gap" },
 
   { type: "prompt" },
-  { type: "typed", tokens: [["cmd", "agkan run "], ["id2", "14"], [" ", " "], ["flag", "--agent"], [" ", " claude"]], speed: 22 },
+  { type: "typed", tokens: [["cmd", "agkan board start"]], speed: 22 },
   { type: "out", lines: [
-    ["dim", "▸ launching Claude Code in isolated shell..."],
-    ["dim", "▸ mounting .agkan/tasks/14.md as context"],
-    ["dim", "▸ session started — session-id 1f3a"],
-    [],
-    ["ok",  "✓ "], ["prompt", "Claude> "], ["", "Reading auth module at src/auth/*..."],
-    ["ok",  "✓ "], ["prompt", "Claude> "], ["", "Plan: WebAuthn registration + passkey verify"],
-    ["ok",  "✓ "], ["prompt", "Claude> "], ["", "Editing src/auth/passkey.ts (+187, −12)"],
-    ["ok",  "✓ "], ["prompt", "Claude> "], ["", "Running tests… 42 passed"],
+    ["ok", "✓ "], ["dim", "board started · "], ["str", "http://localhost:8080"],
+    ["dim", "  open board → task "], ["id", "#14"], ["dim", " → click Run to launch Claude Code"],
   ]},
   { type: "gap" },
 
@@ -199,7 +193,7 @@ function BigTerminal({ t }) {
             >
               <Icon name="replay" size={11} /> {t.termReplay}
             </button>
-            <span style={{ marginLeft: "auto" }}>session · agkan v3.3.0 · node 20.11</span>
+            <span style={{ marginLeft: "auto" }}>session · agkan v3.5.0 · node 20.11</span>
           </div>
         </div>
       </div>
