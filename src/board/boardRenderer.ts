@@ -141,23 +141,6 @@ function getContextMenuAndToast(): string {
   <div class="toast" id="toast">Failed to update task</div>`;
 }
 
-function getClaudeTerminalModal(): string {
-  return `
-  <div class="modal-overlay" id="claude-terminal-modal">
-    <div class="modal claude-terminal-modal-inner">
-      <div class="claude-stream-modal-header">
-        <h2 id="claude-terminal-title">Claude Terminal</h2>
-        <button id="claude-terminal-modal-close">&#x2715;</button>
-      </div>
-      <div id="claude-terminal-container"></div>
-      <div class="claude-stream-modal-footer">
-        <button id="claude-terminal-stop-btn" class="claude-stream-stop-btn">Stop</button>
-        <button id="claude-terminal-close-btn">Close</button>
-      </div>
-    </div>
-  </div>`;
-}
-
 function getPurgeAndVersionModals(): string {
   return `
   <div class="modal-overlay" id="purge-confirm-modal">
@@ -215,7 +198,7 @@ function getBoardBodyStatic(): string {
     var statusLabels = ${JSON.stringify(STATUS_LABELS)};
     var allPriorities = ${JSON.stringify(PRIORITIES)};`;
 
-  return `${getAddTaskModal()}${getContextMenuAndToast()}${getPurgeAndVersionModals()}${getClaudeTerminalModal()}
+  return `${getAddTaskModal()}${getContextMenuAndToast()}${getPurgeAndVersionModals()}
   <script>${configScript}
   </script>
   <link rel="stylesheet" href="/static/main.css">

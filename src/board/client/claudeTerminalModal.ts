@@ -15,15 +15,8 @@ export function registerClaudeButtonUpdateCallback(cb: () => void): void {
   _claudeButtonUpdateCallback = cb;
 }
 
-function getModalElements() {
-  return {
-    overlay: document.getElementById('claude-terminal-modal') as HTMLElement | null,
-    title: document.getElementById('claude-terminal-title') as HTMLElement | null,
-    container: document.getElementById('claude-terminal-container') as HTMLElement | null,
-    stopBtn: document.getElementById('claude-terminal-stop-btn') as HTMLButtonElement | null,
-    closeBtn: document.getElementById('claude-terminal-close-btn') as HTMLButtonElement | null,
-    modalClose: document.getElementById('claude-terminal-modal-close') as HTMLButtonElement | null,
-  };
+export function getCurrentTerminalTaskId(): number | null {
+  return _currentTaskId;
 }
 
 function closeWebSockets(): void {
@@ -33,27 +26,33 @@ function closeWebSockets(): void {
   _controlWs = null;
 }
 
-export function closeClaudeTerminalModal(): void {
+/**
+ * Disconnect WebSockets and resize observer, but preserve the xterm.js display
+ * (so output remains visible after a session completes).
+ */
+export function detachTerminal(): void {
   closeWebSockets();
   _resizeObserver?.disconnect();
   _resizeObserver = null;
-  const { overlay } = getModalElements();
-  overlay?.classList.remove('show');
+  _inputDisposable?.dispose();
+  _inputDisposable = null;
 }
 
-export function openClaudeTerminalModal(taskId: number): void {
-  closeWebSockets();
+/**
+ * Initialize (or reuse) the xterm.js terminal, attach it to the given container,
+ * and connect to the PTY WebSocket endpoints for the given task.
+ */
+export function attachTerminalToTab(taskId: number, container: HTMLElement): void {
+  // If already attached to this same task, just refit and bail out so we don't
+  // tear down a live session.
+  if (_currentTaskId === taskId && _ioWs && _ioWs.readyState !== WebSocket.CLOSED) {
+    _fitAddon?.fit();
+    return;
+  }
+
+  detachTerminal();
   _currentTaskId = taskId;
 
-  const { overlay, title, container, stopBtn } = getModalElements();
-  if (!overlay || !container) return;
-
-  title!.textContent = `Claude Terminal #${taskId}`;
-  stopBtn!.disabled = false;
-  stopBtn!.textContent = 'Stop';
-  overlay.classList.add('show');
-
-  // Initialize xterm.js terminal once; reuse across modal open/close
   if (!_terminal) {
     _terminal = new Terminal({
       cursorBlink: true,
@@ -70,11 +69,14 @@ export function openClaudeTerminalModal(taskId: number): void {
     _fitAddon = new FitAddon();
     _terminal.loadAddon(_fitAddon);
     _terminal.open(container);
-    _fitAddon.fit();
   } else {
-    // Reattach to container in case it was detached
+    // Re-open into the (possibly new) container and clear previous output for the new task.
     _terminal.reset();
+    if (_terminal.element?.parentElement !== container) {
+      _terminal.open(container);
+    }
   }
+  _fitAddon?.fit();
 
   const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
   const base = `${proto}//${location.host}`;
@@ -92,14 +94,12 @@ export function openClaudeTerminalModal(taskId: number): void {
   };
 
   // Forward user keystrokes to PTY
-  _inputDisposable?.dispose();
   _inputDisposable = _terminal.onData((data) => {
     if (_ioWs?.readyState === WebSocket.OPEN) {
       _ioWs.send(data);
     }
   });
 
-  // Control WebSocket for terminal resize
   _controlWs = new WebSocket(`${base}/api/terminal/${taskId}/control`);
 
   const sendResize = () => {
@@ -110,7 +110,6 @@ export function openClaudeTerminalModal(taskId: number): void {
     }
   };
 
-  _resizeObserver?.disconnect();
   _resizeObserver = new ResizeObserver(sendResize);
   _resizeObserver.observe(container);
 
@@ -119,35 +118,24 @@ export function openClaudeTerminalModal(taskId: number): void {
   };
 }
 
-async function handleStop(): Promise<void> {
-  if (_currentTaskId === null) return;
-  const { stopBtn } = getModalElements();
-  if (stopBtn) {
-    stopBtn.disabled = true;
-    stopBtn.textContent = 'Stopping...';
-  }
-  try {
-    await fetch(`/api/claude/tasks/${_currentTaskId}/run`, { method: 'DELETE' });
-  } catch {
-    // Ignore network errors
-  }
-  if (_claudeButtonUpdateCallback) _claudeButtonUpdateCallback();
+/**
+ * Refit the terminal to its current container size. Safe to call when the
+ * Terminal tab becomes visible (e.g. after a tab switch).
+ */
+export function fitTerminal(): void {
+  _fitAddon?.fit();
 }
 
-export function initClaudeTerminalModal(): void {
-  const { overlay, stopBtn, closeBtn, modalClose } = getModalElements();
-
-  modalClose?.addEventListener('click', () => closeClaudeTerminalModal());
-  closeBtn?.addEventListener('click', () => closeClaudeTerminalModal());
-  stopBtn?.addEventListener('click', () => {
-    void handleStop();
-  });
-  overlay?.addEventListener('click', (e) => {
-    if (e.target === overlay) closeClaudeTerminalModal();
-  });
-  document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape' && overlay?.classList.contains('show')) {
-      closeClaudeTerminalModal();
-    }
-  });
+/**
+ * Issue a stop request for the given task. Returns true on HTTP success.
+ */
+export async function stopTerminal(taskId: number): Promise<boolean> {
+  try {
+    const res = await fetch(`/api/claude/tasks/${taskId}/run`, { method: 'DELETE' });
+    if (_claudeButtonUpdateCallback) _claudeButtonUpdateCallback();
+    return res.ok;
+  } catch {
+    if (_claudeButtonUpdateCallback) _claudeButtonUpdateCallback();
+    return false;
+  }
 }

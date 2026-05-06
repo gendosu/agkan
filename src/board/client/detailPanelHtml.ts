@@ -260,11 +260,20 @@ export function buildDetailPanelHtml(): string {
     '<button class="detail-tab active" data-tab="details">Details</button>' +
     '<button class="detail-tab" data-tab="comments" id="detail-tab-comments">Comments</button>' +
     '<button class="detail-tab" data-tab="run-logs" id="detail-tab-run-logs">Run Logs</button>' +
+    '<button class="detail-tab" data-tab="terminal" id="detail-tab-terminal">Terminal</button>' +
     '</div>' +
     '<div class="detail-panel-body" id="detail-panel-body">' +
     '<div class="detail-tab-content active" id="detail-tab-content-details"></div>' +
     '<div class="detail-tab-content" id="detail-tab-content-comments"></div>' +
     '<div class="detail-tab-content" id="detail-tab-content-run-logs"></div>' +
+    '<div class="detail-tab-content detail-terminal-pane" id="detail-tab-content-terminal">' +
+    '<div class="detail-terminal-toolbar">' +
+    '<button id="detail-terminal-stop-btn" class="claude-stream-stop-btn" style="display:none;">Stop</button>' +
+    '</div>' +
+    '<div class="detail-terminal-host" id="detail-terminal-host">' +
+    '<div class="detail-terminal-placeholder" id="detail-terminal-placeholder">No terminal session yet.</div>' +
+    '</div>' +
+    '</div>' +
     '</div>' +
     '<div class="detail-panel-footer" id="detail-panel-footer"><button id="detail-save-btn">Save</button></div>' +
     '</div>'
