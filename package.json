@@ -11,7 +11,7 @@
     "bin"
   ],
   "scripts": {
-    "build": "tsc && node scripts/build-client.mjs",
+    "build": "tsc && node scripts/build-client.mjs && node scripts/build-hooks.mjs",
     "build:server": "tsc",
     "build:client": "node scripts/build-client.mjs",
     "dev": "tsc --watch",
