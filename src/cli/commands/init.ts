@@ -33,10 +33,15 @@ const DEFAULT_CONFIG_CONTENT = `# agkan configuration file
 # Model configuration
 # Claude model used when executing planning and run commands via the board.
 # Accepts full model names (e.g. claude-opus-4-7) or aliases (e.g. opus, sonnet, haiku).
+# Valid effort values: low | medium | high | xhigh | max
 # If omitted, the Claude CLI's default model is used.
 # models:
-#   planning: opus
-#   run: sonnet
+#   planning:
+#     model: opus
+#     effort: low
+#   run:
+#     model: sonnet
+#     effort: low
 `;
 
 const DEFAULT_TAGS = ['bug', 'security', 'improvement', 'test', 'performance', 'refactor', 'docs'];
