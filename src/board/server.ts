@@ -65,6 +65,11 @@ export function startBoardServer(port: number, boardTitle?: string): void {
 
   const app = new Hono();
   const resolvedConfigDir = path.join(process.cwd(), getDefaultDirName());
+  const ptyService = new PtySessionService(resolvedDb, {
+    boardApiUrl: '',
+    attentionStateService,
+    hookSettingsDataDir,
+  });
   const services: BoardServices = {
     ts: new TaskService(resolvedDb),
     tts: new TaskTagService(resolvedDb),
@@ -75,6 +80,7 @@ export function startBoardServer(port: number, boardTitle?: string): void {
     database: resolvedDb,
     boardTitle,
     configDir: resolvedConfigDir,
+    ptySessionService: ptyService,
   };
 
   registerBoardRoutes(app, services);
@@ -85,13 +91,7 @@ export function startBoardServer(port: number, boardTitle?: string): void {
     const boardApiUrl = `http://127.0.0.1:${info.port}`;
     console.log(`Server is running on http://localhost:${info.port}`);
 
-    const ptyService = new PtySessionService(resolvedDb, {
-      boardApiUrl,
-      attentionStateService,
-      hookSettingsDataDir,
-    });
-
-    services.ptySessionService = ptyService;
+    ptyService.setBoardApiUrl(boardApiUrl);
     registerHookRoutes(app, { attentionStateService, ptySessionService: ptyService });
 
     const { handleUpgrade } = createTerminalWsServer(ptyService);

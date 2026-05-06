@@ -68,6 +68,10 @@ export class PtySessionService {
     this.hookSettingsDataDir = options?.hookSettingsDataDir ?? null;
   }
 
+  setBoardApiUrl(url: string): void {
+    this.boardApiUrl = url;
+  }
+
   subscribeRunningTasksChange(callback: () => void): () => void {
     this.runningTasksChangeSubscribers.add(callback);
     return () => {
