@@ -641,6 +641,9 @@ function attachResizeMousedown(resizeHandle: HTMLElement, detailPanel: HTMLEleme
       savePanelWidthToConfig(currentWidth);
       document.removeEventListener('mousemove', onMouseMove);
       document.removeEventListener('mouseup', onMouseUp);
+      if (lastTab === 'terminal' && detailTaskId !== null && getCurrentTerminalTaskId() === detailTaskId) {
+        requestAnimationFrame(() => fitTerminal());
+      }
     }
 
     document.addEventListener('mousemove', onMouseMove);
