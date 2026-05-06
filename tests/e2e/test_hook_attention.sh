@@ -276,7 +276,7 @@ EOF
 
     # Fire Stop hook
     local hook_stdin
-    hook_stdin=$(printf '{"stop_reason":"end_turn","transcript_path":"%s","session_id":"test-session"}' "$transcript_tmp")
+    hook_stdin=$(printf '{"hook_event_name":"Stop","stop_hook_active":false,"transcript_path":"%s","session_id":"test-session"}' "$transcript_tmp")
 
     local hook_exit
     hook_exit=0
@@ -327,7 +327,7 @@ EOF
 
     # Fire Stop hook
     local hook_stdin
-    hook_stdin=$(printf '{"stop_reason":"end_turn","transcript_path":"%s","session_id":"test-session"}' "$transcript_tmp")
+    hook_stdin=$(printf '{"hook_event_name":"Stop","stop_hook_active":false,"transcript_path":"%s","session_id":"test-session"}' "$transcript_tmp")
 
     # Capture stop API calls by checking no stop request comes through
     # We'll count stop requests before and after
@@ -371,7 +371,7 @@ EOF
     cat > "$transcript_tmp" << 'EOF'
 {"type":"assistant","message":{"content":[{"type":"tool_use","name":"AskUserQuestion","id":"t1","input":{"question":"What do you want?"}}]}}
 EOF
-    hook_stdin=$(printf '{"stop_reason":"end_turn","transcript_path":"%s","session_id":"test-session"}' "$transcript_tmp")
+    hook_stdin=$(printf '{"hook_event_name":"Stop","stop_hook_active":false,"transcript_path":"%s","session_id":"test-session"}' "$transcript_tmp")
 
     hook_stderr_tmp=$(mktemp)
     echo "$hook_stdin" | BOARD_TASK_ID="$task_id" \

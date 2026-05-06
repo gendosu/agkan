@@ -42,7 +42,9 @@ async function main() {
     return;
   }
 
-  if (payload?.stop_reason !== 'end_turn') return;
+  // Avoid recursion: when the stop hook itself was the cause of the stop event,
+  // Claude sets stop_hook_active=true. We must not act again in that case.
+  if (payload?.stop_hook_active === true) return;
 
   const transcriptPath = payload?.transcript_path;
   if (typeof transcriptPath !== 'string') return;

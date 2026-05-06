@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### 修正
+- Stop hook 入力に存在しない `stop_reason` フィールドではなく `stop_hook_active` を確認するよう修正し、Board の planning 実行で Claude の自動終了が発火しなかった問題を修正
+
 ## [3.0.0-rc10] - 2026-04-04
 
 ### 追加

@@ -66,7 +66,7 @@ describe('hook-stop.mjs', () => {
       }) + '\n'
     );
     const code = await runHook(
-      { transcript_path: transcript, stop_reason: 'end_turn' },
+      { transcript_path: transcript, hook_event_name: 'Stop', stop_hook_active: false },
       {
         BOARD_TASK_ID: '5',
         BOARD_API_URL: `http://127.0.0.1:${svr.port}`,
@@ -90,7 +90,7 @@ describe('hook-stop.mjs', () => {
       }) + '\n'
     );
     const code = await runHook(
-      { transcript_path: transcript, stop_reason: 'end_turn' },
+      { transcript_path: transcript, hook_event_name: 'Stop', stop_hook_active: false },
       {
         BOARD_TASK_ID: '5',
         BOARD_API_URL: `http://127.0.0.1:${svr.port}`,
@@ -101,12 +101,18 @@ describe('hook-stop.mjs', () => {
     expect(svr.captured.length).toBe(before);
   });
 
-  it('does NOT post when stop_reason is not end_turn', async () => {
+  it('does NOT post when stop_hook_active is true (avoid recursion)', async () => {
     const before = svr.captured.length;
     const transcript = join(tmp, 't.jsonl');
-    writeFileSync(transcript, '');
+    writeFileSync(
+      transcript,
+      JSON.stringify({
+        type: 'assistant',
+        message: { content: [{ type: 'tool_use', name: 'Read', input: {} }] },
+      }) + '\n'
+    );
     const code = await runHook(
-      { transcript_path: transcript, stop_reason: 'tool_use' },
+      { transcript_path: transcript, hook_event_name: 'Stop', stop_hook_active: true },
       {
         BOARD_TASK_ID: '5',
         BOARD_API_URL: `http://127.0.0.1:${svr.port}`,
@@ -115,11 +121,45 @@ describe('hook-stop.mjs', () => {
     );
     expect(code).toBe(0);
     expect(svr.captured.length).toBe(before);
+  });
+
+  it('posts complete when payload has no stop_reason field (real Claude Code Stop hook input)', async () => {
+    // The real Claude Code Stop hook input does NOT include `stop_reason`.
+    // It includes: session_id, transcript_path, cwd, permission_mode,
+    // hook_event_name, stop_hook_active, last_assistant_message.
+    const transcript = join(tmp, 't.jsonl');
+    writeFileSync(
+      transcript,
+      JSON.stringify({
+        type: 'assistant',
+        message: { content: [{ type: 'tool_use', name: 'Bash', input: { command: 'ls' } }] },
+      }) + '\n'
+    );
+    const code = await runHook(
+      {
+        session_id: 'abc',
+        transcript_path: transcript,
+        cwd: '/workspace',
+        permission_mode: 'bypassPermissions',
+        hook_event_name: 'Stop',
+        stop_hook_active: false,
+        last_assistant_message: 'done',
+      },
+      {
+        BOARD_TASK_ID: '7',
+        BOARD_API_URL: `http://127.0.0.1:${svr.port}`,
+        BOARD_HOOK_TOKEN: 'tk',
+      }
+    );
+    expect(code).toBe(0);
+    const last = svr.captured.at(-1);
+    expect(last?.url).toBe('/api/internal/hooks/stop');
+    expect(last?.body).toEqual({ taskId: 7, reason: 'complete' });
   });
 
   it('exits 0 silently when transcript_path cannot be read', async () => {
     const code = await runHook(
-      { transcript_path: '/nonexistent/path.jsonl', stop_reason: 'end_turn' },
+      { transcript_path: '/nonexistent/path.jsonl', hook_event_name: 'Stop', stop_hook_active: false },
       {
         BOARD_TASK_ID: '5',
         BOARD_API_URL: `http://127.0.0.1:${svr.port}`,
