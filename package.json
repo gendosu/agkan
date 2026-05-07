@@ -28,7 +28,7 @@
     "type-check": "tsc --noEmit && tsc --noEmit -p src/board/client/tsconfig.json",
     "check": "pnpm run type-check && pnpm run lint && pnpm run format:check",
     "prepublishOnly": "pnpm run check && pnpm run build && vitest run",
-    "prepare": "husky || true && chmod +x node_modules/.bin/* node_modules/prettier/bin/*.cjs 2>/dev/null || true"
+    "prepare": "husky || true && chmod +x node_modules/.bin/* node_modules/prettier/bin/*.cjs node_modules/node-pty/prebuilds/*/spawn-helper 2>/dev/null || true"
   },
   "repository": {
     "type": "git",
