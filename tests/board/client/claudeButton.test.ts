@@ -35,7 +35,12 @@ function makeCardWithRunningBtn(taskId: number, status: string): HTMLElement {
   const btn = document.createElement('button');
   btn.className = 'claude-running-btn';
   btn.dataset.taskId = String(taskId);
-  btn.textContent = '● Running';
+  const spinner = document.createElement('span');
+  spinner.className = 'running-btn-spinner';
+  const label = document.createElement('span');
+  label.textContent = 'Running';
+  btn.appendChild(spinner);
+  btn.appendChild(label);
   actions.appendChild(btn);
   header.appendChild(actions);
   card.appendChild(header);

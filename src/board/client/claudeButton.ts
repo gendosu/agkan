@@ -83,7 +83,12 @@ function replaceWithRunningBtn(btn: HTMLButtonElement, taskId: number): void {
   const runningBtn = document.createElement('button');
   runningBtn.className = 'claude-running-btn';
   runningBtn.dataset.taskId = String(taskId);
-  runningBtn.textContent = '● Running';
+  const spinner = document.createElement('span');
+  spinner.className = 'running-btn-spinner';
+  const label = document.createElement('span');
+  label.textContent = 'Running';
+  runningBtn.appendChild(spinner);
+  runningBtn.appendChild(label);
   attachRunningBtnListener(runningBtn);
   btn.replaceWith(runningBtn);
 }
