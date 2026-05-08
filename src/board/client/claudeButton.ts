@@ -337,4 +337,16 @@ export function initClaudeButton(): void {
     const data = JSON.parse(event.data) as { tasks: { taskId: number; command: string }[] };
     handleRunningTasksUpdate(data.tasks);
   });
+  es.addEventListener('confirm-complete', (event: MessageEvent) => {
+    const data = JSON.parse(event.data) as { taskId: number; targetStatus: string };
+    const label = data.targetStatus === 'done' ? 'Done' : data.targetStatus === 'review' ? 'Review' : data.targetStatus;
+    const confirmed = window.confirm(`Task #${data.taskId} completed successfully.\nMove task to "${label}"?`);
+    if (confirmed) {
+      void fetch(`/api/tasks/${data.taskId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: data.targetStatus }),
+      });
+    }
+  });
 }

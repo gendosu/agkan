@@ -1,7 +1,11 @@
 import * as pty from 'node-pty';
 import { execSync } from 'child_process';
 import type { StorageBackend, RunLogRow } from '../db/types/repository';
-import type { RunLog, OutputEvent as ClaudeOutputEvent } from '../services/ClaudeProcessService';
+import type {
+  RunLog,
+  OutputEvent as ClaudeOutputEvent,
+  CompletionConfirmCallback,
+} from '../services/ClaudeProcessService';
 import { ConflictError } from '../errors';
 import { ensureBoardHookSettings } from '../hooks/claudeHookSettings';
 import { getHookToken } from '../utils/hookToken';
@@ -58,6 +62,8 @@ export class PtySessionService {
   private completedSnapshots: Map<number, string> = new Map();
   private db: StorageBackend | null;
   private runningTasksChangeSubscribers: Set<() => void> = new Set();
+  private userStoppedTasks: Set<number> = new Set();
+  private completionConfirmSubscribers: Set<CompletionConfirmCallback> = new Set();
   private boardApiUrl: string | null;
   private attentionStateService: AttentionStateService | null;
   private hookSettingsDataDir: string | null;
@@ -79,6 +85,21 @@ export class PtySessionService {
     return () => {
       this.runningTasksChangeSubscribers.delete(callback);
     };
+  }
+
+  subscribeCompletionConfirm(callback: CompletionConfirmCallback): () => void {
+    this.completionConfirmSubscribers.add(callback);
+    return () => {
+      this.completionConfirmSubscribers.delete(callback);
+    };
+  }
+
+  notifyCompletionConfirm(taskId: number, targetStatus: string): void {
+    this.completionConfirmSubscribers.forEach((cb) => cb(taskId, targetStatus));
+  }
+
+  isUserStopped(taskId: number): boolean {
+    return this.userStoppedTasks.has(taskId);
   }
 
   private notifyRunningTasksChange(): void {
@@ -224,6 +245,7 @@ export class PtySessionService {
         this.sessions.delete(taskId);
         this.notifyRunningTasksChange();
       }
+      this.userStoppedTasks.delete(taskId);
     });
   }
 
@@ -236,6 +258,7 @@ export class PtySessionService {
     }
     info.pendingPrompt = null;
     info.exitSubscribers.clear();
+    this.userStoppedTasks.add(taskId);
     info.ptyProcess.kill();
     this.sessions.delete(taskId);
     this.attentionStateService?.clearTask(taskId);

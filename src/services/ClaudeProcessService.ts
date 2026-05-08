@@ -72,10 +72,14 @@ interface ProcessInfo {
  * Manages claude CLI processes running in stream-json mode.
  * Keyed by taskId, supports start/stop/subscribe/list operations.
  */
+export type CompletionConfirmCallback = (taskId: number, targetStatus: string) => void;
+
 export class ClaudeProcessService {
   private processes: Map<number, ProcessInfo> = new Map();
   private db: StorageBackend | null;
   private runningTasksChangeSubscribers: Set<() => void> = new Set();
+  private userStoppedTasks: Set<number> = new Set();
+  private completionConfirmSubscribers: Set<CompletionConfirmCallback> = new Set();
 
   constructor(db?: StorageBackend | null) {
     this.db = db ?? null;
@@ -86,6 +90,25 @@ export class ClaudeProcessService {
     return () => {
       this.runningTasksChangeSubscribers.delete(callback);
     };
+  }
+
+  subscribeCompletionConfirm(callback: CompletionConfirmCallback): () => void {
+    this.completionConfirmSubscribers.add(callback);
+    return () => {
+      this.completionConfirmSubscribers.delete(callback);
+    };
+  }
+
+  notifyCompletionConfirm(taskId: number, targetStatus: string): void {
+    this.completionConfirmSubscribers.forEach((cb) => cb(taskId, targetStatus));
+  }
+
+  isUserStopped(taskId: number): boolean {
+    return this.userStoppedTasks.has(taskId);
+  }
+
+  private clearUserStopped(taskId: number): void {
+    this.userStoppedTasks.delete(taskId);
   }
 
   private notifyRunningTasksChange(): void {
@@ -258,6 +281,7 @@ export class ClaudeProcessService {
       } else {
         verboseLog(`[ClaudeProcessService] process close skipped map delete (stale entry) taskId=${taskId}`);
       }
+      this.clearUserStopped(taskId);
     });
   }
 
@@ -272,6 +296,7 @@ export class ClaudeProcessService {
       return false;
     }
     verboseLog(`[ClaudeProcessService] stopProcess taskId=${taskId} sending SIGTERM`);
+    this.userStoppedTasks.add(taskId);
     info.process.kill('SIGTERM');
     this.processes.delete(taskId);
     verboseLog(`[ClaudeProcessService] process removed from map (stop) taskId=${taskId} total=${this.processes.size}`);
