@@ -2,6 +2,7 @@ import { promises as fs } from 'fs';
 import { join, resolve } from 'path';
 
 const ATTENTION_HOOK = resolve(__dirname, 'hook-attention.mjs');
+const SESSION_START_HOOK = resolve(__dirname, 'hook-session-start.mjs');
 const STOP_HOOK = resolve(__dirname, 'hook-stop.mjs');
 
 const SETTINGS_FILE = 'board-hook-settings.json';
@@ -9,6 +10,11 @@ const SETTINGS_FILE = 'board-hook-settings.json';
 function buildSettings(): unknown {
   return {
     hooks: {
+      SessionStart: [
+        {
+          hooks: [{ type: 'command', command: `node ${SESSION_START_HOOK}` }],
+        },
+      ],
       PreToolUse: [
         {
           matcher: 'AskUserQuestion',

@@ -19,6 +19,7 @@ describe('claudeHookSettings', () => {
     const path = await ensureBoardHookSettings(tmp);
     expect(existsSync(path)).toBe(true);
     const json = JSON.parse(readFileSync(path, 'utf-8'));
+    expect(json.hooks.SessionStart).toBeDefined();
     expect(json.hooks.PreToolUse[0].matcher).toBe('AskUserQuestion');
     expect(json.hooks.PostToolUse[0].matcher).toBe('AskUserQuestion');
     expect(json.hooks.Stop).toBeDefined();
