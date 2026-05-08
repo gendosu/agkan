@@ -57,6 +57,11 @@ export class BulkRunService {
     this.stopRequested = true;
     this.runningChangeUnsub?.();
     this.runningChangeUnsub = null;
+    if (this.mode === 'running') {
+      this.mode = 'idle';
+      this.command = null;
+      this.notifyStateChange();
+    }
   }
 
   private selectNextTask(): number | null {
