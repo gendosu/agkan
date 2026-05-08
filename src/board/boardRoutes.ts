@@ -569,7 +569,8 @@ function registerClaudeRoutes(app: Hono, claudeProcess: PtySessionService, ts: T
     const stream = new ReadableStream({
       start(controller) {
         let finalized = false;
-        let stop: (() => void) | undefined;
+        let stopUpdate: (() => void) | undefined;
+        let stopRunning: (() => void) | undefined;
 
         const encode = (event: string, data: unknown): Uint8Array => {
           const payload = `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
@@ -579,18 +580,12 @@ function registerClaudeRoutes(app: Hono, claudeProcess: PtySessionService, ts: T
         const safeClose = () => {
           if (finalized) return;
           finalized = true;
-          stop?.();
+          stopUpdate?.();
+          stopRunning?.();
           controller.close();
         };
 
-        try {
-          controller.enqueue(encode('update', { logs: claudeProcess.getRunLogs(taskId) }));
-        } catch {
-          safeClose();
-          return;
-        }
-
-        stop = claudeProcess.subscribeOutput(taskId, () => {
+        const sendUpdate = () => {
           if (finalized) return;
           queueMicrotask(() => {
             if (finalized) return;
@@ -600,6 +595,26 @@ function registerClaudeRoutes(app: Hono, claudeProcess: PtySessionService, ts: T
               safeClose();
             }
           });
+        };
+
+        const resubscribe = () => {
+          stopUpdate?.();
+          stopUpdate = claudeProcess.subscribeOutputUpdate(taskId, sendUpdate);
+        };
+
+        try {
+          controller.enqueue(encode('update', { logs: claudeProcess.getRunLogs(taskId) }));
+        } catch {
+          safeClose();
+          return;
+        }
+
+        resubscribe();
+
+        // Re-subscribe when a new process starts for this task (e.g. user clicks Run while SSE is open)
+        stopRunning = claudeProcess.subscribeRunningTasksChange(() => {
+          resubscribe();
+          sendUpdate();
         });
 
         c.req.raw.signal?.addEventListener('abort', () => {
