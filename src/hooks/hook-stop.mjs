@@ -70,6 +70,11 @@ async function main() {
   ) {
     return;
   }
+  // Monitor is always waiting for streamed events from a background process.
+  // Signalling "complete" while Monitor is active would abort the wait.
+  if (lastTool?.name === 'Monitor') {
+    return;
+  }
 
   const taskId = Number(taskIdRaw);
   if (!Number.isFinite(taskId)) return;
