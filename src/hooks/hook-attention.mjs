@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { readFileSync } from 'fs';
 
 const argSubcmd = process.argv[2];
 const taskIdRaw = process.env.BOARD_TASK_ID;
@@ -17,7 +18,6 @@ if (!Number.isFinite(taskId)) {
 
 // Ignore events from subagents — only the main session should trigger attention.
 try {
-  const { readFileSync } = await import('fs');
   const mainSessionId = readFileSync(`/tmp/board-main-session-${taskIdRaw}`, 'utf-8').trim();
   if (mainSessionId) {
     const chunks = [];

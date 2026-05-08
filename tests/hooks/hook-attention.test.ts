@@ -137,6 +137,21 @@ describe('hook-attention.mjs', () => {
       expect(svr.captured.length).toBe(before);
     });
 
+    it('skips API for subagent on "post" (answered) as well', async () => {
+      const before = svr.captured.length;
+      const code = await runHook(
+        ['post'],
+        {
+          BOARD_TASK_ID: TASK_ID,
+          BOARD_API_URL: `http://127.0.0.1:${svr.port}`,
+          BOARD_HOOK_TOKEN: 'tok',
+        },
+        JSON.stringify({ session_id: SUB_SESSION })
+      );
+      expect(code).toBe(0);
+      expect(svr.captured.length).toBe(before);
+    });
+
     it('skips API when stdin payload has no session_id but session file exists', async () => {
       const before = svr.captured.length;
       const code = await runHook(
