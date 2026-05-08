@@ -79,6 +79,17 @@ async function main() {
   const taskId = Number(taskIdRaw);
   if (!Number.isFinite(taskId)) return;
 
+  // Clean up the main-session file so stale IDs don't persist across task restarts.
+  const sessionFile = `/tmp/board-main-session-${taskIdRaw}`;
+  try {
+    const mainSessionId = (await fs.readFile(sessionFile, 'utf-8')).trim();
+    if (mainSessionId && mainSessionId === payload?.session_id) {
+      await fs.unlink(sessionFile).catch(() => {});
+    }
+  } catch {
+    // file may not exist; ignore
+  }
+
   try {
     const res = await fetch(`${apiUrl}/api/internal/hooks/stop`, {
       method: 'POST',
