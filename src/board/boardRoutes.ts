@@ -24,6 +24,7 @@ import {
   renderBoard,
   buildBlockMap,
 } from './boardRenderer';
+import { BulkRunService, BulkRunCommand } from './BulkRunService';
 import { verifyHookToken, getHookToken } from '../utils/hookToken';
 import { AttentionStateService } from '../services/AttentionStateService';
 import { isTestMode } from '../db/config';
@@ -756,6 +757,73 @@ export function registerAttentionStreamRoute(app: Hono, deps: AttentionStreamDep
   });
 }
 
+function registerBulkRunRoutes(app: Hono, bulkRunService: BulkRunService): void {
+  app.post('/api/claude/bulk-run', async (c) => {
+    const body = (await c.req.json().catch(() => ({}))) as { command?: string };
+    const command: BulkRunCommand = body.command === 'pr' ? 'pr' : 'direct';
+    const result = await bulkRunService.start(command);
+    if (result.error) {
+      return c.json({ error: result.error }, 409);
+    }
+    return c.json({ started: true });
+  });
+
+  app.post('/api/claude/bulk-run/stop', (c) => {
+    bulkRunService.stop();
+    return c.json({ stopped: true });
+  });
+
+  app.get('/api/claude/bulk-run/stream', (c) => {
+    const stream = new ReadableStream({
+      start(controller) {
+        let finalized = false;
+
+        const encode = (event: string, data: unknown): Uint8Array => {
+          const payload = `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
+          return new TextEncoder().encode(payload);
+        };
+
+        const safeClose = () => {
+          if (finalized) return;
+          finalized = true;
+          unsub();
+          controller.close();
+        };
+
+        const sendUpdate = (status: ReturnType<BulkRunService['getStatus']>) => {
+          if (finalized) return;
+          try {
+            controller.enqueue(encode('update', status));
+          } catch {
+            safeClose();
+          }
+        };
+
+        const unsub = bulkRunService.subscribeStateChange(sendUpdate);
+
+        try {
+          controller.enqueue(encode('update', bulkRunService.getStatus()));
+        } catch {
+          safeClose();
+          return;
+        }
+
+        c.req.raw.signal?.addEventListener('abort', () => {
+          safeClose();
+        });
+      },
+    });
+
+    return new Response(stream, {
+      headers: {
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache',
+        Connection: 'keep-alive',
+      },
+    });
+  });
+}
+
 export function registerBoardRoutes(app: Hono, services: BoardServices): void {
   const { ts, tts, tbs, database, boardTitle, configDir } = services;
 
@@ -870,5 +938,7 @@ export function registerBoardRoutes(app: Hono, services: BoardServices): void {
   registerConfigApiRoutes(app, configDir);
   if (services.ptySessionService) {
     registerClaudeRoutes(app, services.ptySessionService, ts);
+    const bulkRunService = new BulkRunService(ts, tbs, services.ptySessionService);
+    registerBulkRunRoutes(app, bulkRunService);
   }
 }

@@ -11,6 +11,7 @@ import { initBurgerMenu } from './burgerMenu';
 import { initDependencyVisualization } from './dependencyVisualization';
 import { initClaudeButton, registerClaudeButtonDetailHooks } from './claudeButton';
 import { startAttentionStream } from './attentionIndicator';
+import { initBulkRunButton } from './bulkRunButton';
 
 initDragDrop();
 initAutoScroll();
@@ -27,4 +28,5 @@ registerClaudeButtonDetailHooks({
   updateTerminalTabUi,
 });
 initClaudeButton();
+initBulkRunButton();
 startAttentionStream();

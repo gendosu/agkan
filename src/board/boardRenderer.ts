@@ -81,12 +81,17 @@ export function renderColumn(
     })
     .join('');
 
+  const bulkRunBtn =
+    status === 'ready'
+      ? `<div class="bulk-run-split" id="bulk-run-split"><button class="bulk-run-btn" id="bulk-run-main-btn">&#9654; Run all</button><button class="bulk-run-toggle" id="bulk-run-toggle" title="More options">&#9660;</button><div class="bulk-run-menu" id="bulk-run-menu"><button class="bulk-run-menu-item" data-command="direct">&#9654; Run all (current branch)</button><button class="bulk-run-menu-item" data-command="pr">&#9654; Run all (create PR)</button></div></div>`
+      : '';
+
   return `
       <div class="column" data-status="${status}">
         <div class="column-header" style="border-top-color:${color}">
           <span class="column-title" style="color:${color}">${label}</span>
           <span class="column-header-right">
-            <span class="column-count">${tasks.length}</span>
+            ${bulkRunBtn}<span class="column-count">${tasks.length}</span>
             <button class="add-btn" data-status="${status}" title="Add task">+</button>
           </span>
         </div>
