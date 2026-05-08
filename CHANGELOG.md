@@ -7,8 +7,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.6.0] - 2026-05-08
+
+### Added
+- Add xterm.js terminal integration into detail panel Terminal tab for interactive Claude sessions
+- Add PTY-based Claude Code sessions via PtySessionService
+- Add WebSocket terminal server for PTY I/O relay
+- Add hook-attention.mjs to notify board on AskUserQuestion events
+- Add hook-stop.mjs to auto-stop board task on Claude completion
+- Add attention indicator to task cards for pending user input notification
+- Add AttentionStateService and SSE stream for tracking pending user attention per task
+- Add hook receiver routes and hook authentication token utility
+- Add spinning icon to running button state
+- Add bulk run button to Ready column header
+- Add exit code monitoring to planning command
+- Add `init: true` to devcontainer compose.yaml to prevent zombie processes
+- Add icon and improve description placeholder in Add Task modal
+
 ### Fixed
 - Fix Claude auto-exit not firing for board planning runs by checking `stop_hook_active` in the Stop hook input instead of the non-existent `stop_reason` field
+- Fix hook routes registration order to ensure stop hook and Claude routes work before server starts
+- Fix auto-reconnect terminal tab to running session after browser reload
+- Fix xterm resize when detail panel is resized with terminal tab active
+- Fix spurious Done transition by clearing exitSubscribers in stopProcess
+- Fix listener accumulation by replacing per-card hover listeners with event delegation
+- Suppress stop hook while Monitor is waiting for events
+- Skip stop hook when last tool is background Bash
+- Require user confirmation before moving task to Done/Review on process exit
+- Fix models section format in agkan init template
+- Show run logs live during PTY execution
+- Suppress attention indicator for subagent AskUserQuestion events
+- Clean up session file on stop and use static import in hook-attention
 
 ## [3.5.0] - 2026-05-02
 
