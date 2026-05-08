@@ -486,7 +486,11 @@ function registerClaudeRoutes(app: Hono, claudeProcess: PtySessionService, ts: T
       const targetStatus = command === 'pr' ? 'review' : 'done';
       const unsubscribe = claudeProcess.subscribeOutput(taskId, (evt) => {
         if (evt.kind === 'done' && evt.exitCode === 0) {
-          ts.updateTask(taskId, { status: targetStatus });
+          if (claudeProcess.isUserStopped(taskId)) {
+            // User explicitly stopped the process — do not auto-advance status
+          } else {
+            claudeProcess.notifyCompletionConfirm(taskId, targetStatus);
+          }
         }
         if (evt.kind === 'done' || evt.kind === 'error') {
           unsubscribe();
@@ -520,6 +524,7 @@ function registerClaudeRoutes(app: Hono, claudeProcess: PtySessionService, ts: T
     const stream = new ReadableStream({
       start(controller) {
         let finalized = false;
+        let unsubscribeConfirm: (() => void) | undefined;
 
         const encode = (event: string, data: unknown): Uint8Array => {
           const payload = `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
@@ -530,6 +535,7 @@ function registerClaudeRoutes(app: Hono, claudeProcess: PtySessionService, ts: T
           if (finalized) return;
           finalized = true;
           unsubscribe();
+          unsubscribeConfirm?.();
           controller.close();
         };
 
@@ -542,7 +548,17 @@ function registerClaudeRoutes(app: Hono, claudeProcess: PtySessionService, ts: T
           }
         };
 
+        const sendConfirmComplete = (taskId: number, targetStatus: string) => {
+          if (finalized) return;
+          try {
+            controller.enqueue(encode('confirm-complete', { taskId, targetStatus }));
+          } catch {
+            safeClose();
+          }
+        };
+
         const unsubscribe = claudeProcess.subscribeRunningTasksChange(sendUpdate);
+        unsubscribeConfirm = claudeProcess.subscribeCompletionConfirm(sendConfirmComplete);
 
         sendUpdate();
 

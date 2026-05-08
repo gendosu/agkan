@@ -32,6 +32,9 @@ function buildMockClaudeProcessService(): PtySessionService {
     subscribeOutput: vi.fn().mockReturnValue(() => {}),
     subscribeOutputUpdate: vi.fn().mockReturnValue(() => {}),
     subscribeRunningTasksChange: vi.fn().mockReturnValue(() => {}),
+    subscribeCompletionConfirm: vi.fn().mockReturnValue(() => {}),
+    notifyCompletionConfirm: vi.fn(),
+    isUserStopped: vi.fn().mockReturnValue(false),
     getRunLogs: vi.fn().mockReturnValue([]),
   } as unknown as PtySessionService;
   return mock;
@@ -300,7 +303,7 @@ describe('POST /api/claude/tasks/:taskId/run', () => {
 // POST /api/claude/tasks/:taskId/run — status auto-update on done
 // ─────────────────────────────────────────────────────────────────────────────
 describe('POST /api/claude/tasks/:taskId/run - status auto-update', () => {
-  it('updates status to done when run command completes with exitCode 0', async () => {
+  it('notifies confirm-complete (not auto-update) when run command completes with exitCode 0', async () => {
     let capturedCallback: SubscribeCallback | null = null;
     const mock = buildMockClaudeProcessService();
     (mock.subscribeOutput as ReturnType<typeof vi.fn>).mockImplementation((_taskId: number, cb: SubscribeCallback) => {
@@ -323,11 +326,13 @@ describe('POST /api/claude/tasks/:taskId/run - status auto-update', () => {
     expect(capturedCallback).not.toBeNull();
     capturedCallback!({ kind: 'done', exitCode: 0 });
 
+    // Status should NOT be auto-updated — client must confirm via SSE event
     const updated = services.ts.getTask(task.id);
-    expect(updated?.status).toBe('done');
+    expect(updated?.status).toBe('in_progress');
+    expect(mock.notifyCompletionConfirm).toHaveBeenCalledWith(task.id, 'done');
   });
 
-  it('updates status to review when pr command completes with exitCode 0', async () => {
+  it('notifies confirm-complete (not auto-update) when pr command completes with exitCode 0', async () => {
     let capturedCallback: SubscribeCallback | null = null;
     const mock = buildMockClaudeProcessService();
     (mock.subscribeOutput as ReturnType<typeof vi.fn>).mockImplementation((_taskId: number, cb: SubscribeCallback) => {
@@ -350,8 +355,10 @@ describe('POST /api/claude/tasks/:taskId/run - status auto-update', () => {
     expect(capturedCallback).not.toBeNull();
     capturedCallback!({ kind: 'done', exitCode: 0 });
 
+    // Status should NOT be auto-updated — client must confirm via SSE event
     const updated = services.ts.getTask(task.id);
-    expect(updated?.status).toBe('review');
+    expect(updated?.status).toBe('in_progress');
+    expect(mock.notifyCompletionConfirm).toHaveBeenCalledWith(task.id, 'review');
   });
 
   it('does not update status when exitCode is non-zero', async () => {
@@ -406,6 +413,35 @@ describe('POST /api/claude/tasks/:taskId/run - status auto-update', () => {
 
     const updated = services.ts.getTask(task.id);
     expect(updated?.status).toBe('ready');
+  });
+
+  it('does not notify confirm-complete when user stopped the process', async () => {
+    let capturedCallback: SubscribeCallback | null = null;
+    const mock = buildMockClaudeProcessService();
+    (mock.subscribeOutput as ReturnType<typeof vi.fn>).mockImplementation((_taskId: number, cb: SubscribeCallback) => {
+      capturedCallback = cb;
+      return () => {};
+    });
+    (mock.isUserStopped as ReturnType<typeof vi.fn>).mockReturnValue(true);
+
+    const services = buildServices(mock);
+    const task = services.ts.createTask({ title: 'Stopped Task', status: 'in_progress' });
+    const app = buildApp(services);
+
+    await app.fetch(
+      new Request(`http://localhost/api/claude/tasks/${task.id}/run`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ command: 'run' }),
+      })
+    );
+
+    expect(capturedCallback).not.toBeNull();
+    capturedCallback!({ kind: 'done', exitCode: 0 });
+
+    const updated = services.ts.getTask(task.id);
+    expect(updated?.status).toBe('in_progress');
+    expect(mock.notifyCompletionConfirm).not.toHaveBeenCalled();
   });
 });
 
