@@ -31,10 +31,12 @@ interface SessionInfo {
   outputBuffer: string;
   exitSubscribers: Set<SubscribeCallback>;
   rawOutputSubscribers: Set<(data: string) => void>;
+  outputUpdateSubscribers: Set<() => void>;
   runLogId: number | null;
   pendingPrompt: string | null;
   promptTimer: ReturnType<typeof setTimeout> | null;
   workspaceTrustHandled: boolean;
+  lastEventsUpdate: number;
 }
 
 function hasWorkspaceTrustPrompt(text: string): boolean {
@@ -126,10 +128,12 @@ export class PtySessionService {
       outputBuffer: '',
       exitSubscribers: new Set(),
       rawOutputSubscribers: new Set(),
+      outputUpdateSubscribers: new Set(),
       runLogId: null,
       pendingPrompt: prompt,
       promptTimer: null,
       workspaceTrustHandled: false,
+      lastEventsUpdate: 0,
     };
 
     this.sessions.set(taskId, info);
@@ -171,6 +175,15 @@ export class PtySessionService {
       }
 
       info.rawOutputSubscribers.forEach((cb) => cb(data));
+
+      // Throttle: persist current output snapshot as events every 2 seconds
+      const now = Date.now();
+      if (this.db && info.runLogId && now - info.lastEventsUpdate > 2000) {
+        info.lastEventsUpdate = now;
+        const cleanText = info.outputBuffer.replace(/\x1b\[[0-9;]*[mGKHFJlh]/g, '');
+        this.db.runLogs.updateEvents(info.runLogId, JSON.stringify([{ kind: 'text', text: cleanText }]));
+        info.outputUpdateSubscribers.forEach((cb) => cb());
+      }
     });
 
     ptyProcess.onExit(({ exitCode }) => {
@@ -198,6 +211,9 @@ export class PtySessionService {
         const firstKey = this.completedSnapshots.keys().next().value!;
         this.completedSnapshots.delete(firstKey);
       }
+
+      info.outputUpdateSubscribers.forEach((cb) => cb());
+      info.outputUpdateSubscribers.clear();
 
       const doneEvent: OutputEvent = { kind: 'done', exitCode: code };
       info.exitSubscribers.forEach((cb) => cb(doneEvent));
@@ -250,6 +266,24 @@ export class PtySessionService {
     info.exitSubscribers.add(callback);
     return () => {
       info.exitSubscribers.delete(callback);
+    };
+  }
+
+  subscribeOutputUpdate(taskId: number, callback: () => void): () => void {
+    const info = this.sessions.get(taskId);
+    if (!info) {
+      if (this.db) {
+        const row = this.db.runLogs.findLatestByTaskId(taskId);
+        if (row?.finished_at) {
+          callback();
+          return () => {};
+        }
+      }
+      return () => {};
+    }
+    info.outputUpdateSubscribers.add(callback);
+    return () => {
+      info.outputUpdateSubscribers.delete(callback);
     };
   }
 

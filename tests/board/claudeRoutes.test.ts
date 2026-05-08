@@ -30,6 +30,7 @@ function buildMockClaudeProcessService(): PtySessionService {
     stopProcess: vi.fn().mockReturnValue(true),
     listRunningTasks: vi.fn().mockReturnValue([]),
     subscribeOutput: vi.fn().mockReturnValue(() => {}),
+    subscribeOutputUpdate: vi.fn().mockReturnValue(() => {}),
     subscribeRunningTasksChange: vi.fn().mockReturnValue(() => {}),
     getRunLogs: vi.fn().mockReturnValue([]),
   } as unknown as PtySessionService;
@@ -670,10 +671,10 @@ describe('GET /api/claude/tasks/:taskId/run-logs/stream', () => {
     }
   });
 
-  it('sends updated logs when subscribeOutput fires', async () => {
-    let capturedCallback: SubscribeCallback | null = null;
+  it('sends updated logs when subscribeOutputUpdate fires', async () => {
+    let capturedCallback: (() => void) | null = null;
     const mock = buildMockClaudeProcessService();
-    (mock.subscribeOutput as ReturnType<typeof vi.fn>).mockImplementation((_taskId: number, cb: SubscribeCallback) => {
+    (mock.subscribeOutputUpdate as ReturnType<typeof vi.fn>).mockImplementation((_taskId: number, cb: () => void) => {
       capturedCallback = cb;
       return () => {};
     });
@@ -685,9 +686,9 @@ describe('GET /api/claude/tasks/:taskId/run-logs/stream', () => {
     const res = await app.fetch(new Request(`http://localhost/api/claude/tasks/${task.id}/run-logs/stream`));
 
     expect(res.status).toBe(200);
-    expect(mock.subscribeOutput).toHaveBeenCalledWith(task.id, expect.any(Function));
+    expect(mock.subscribeOutputUpdate).toHaveBeenCalledWith(task.id, expect.any(Function));
 
-    const cb = capturedCallback as SubscribeCallback | null;
+    const cb = capturedCallback as (() => void) | null;
     if (cb && res.body) {
       const reader = res.body.getReader();
       await reader.read(); // initial update event
@@ -702,7 +703,7 @@ describe('GET /api/claude/tasks/:taskId/run-logs/stream', () => {
           events: [{ kind: 'text', text: 'new output' }],
         },
       ]);
-      cb({ kind: 'done', exitCode: 0 });
+      cb();
 
       // queueMicrotask fires after synchronous code in the same tick
       await Promise.resolve();
@@ -717,7 +718,7 @@ describe('GET /api/claude/tasks/:taskId/run-logs/stream', () => {
   it('calls stop() when abort fires', async () => {
     const stopFn = vi.fn();
     const mock = buildMockClaudeProcessService();
-    (mock.subscribeOutput as ReturnType<typeof vi.fn>).mockReturnValue(stopFn);
+    (mock.subscribeOutputUpdate as ReturnType<typeof vi.fn>).mockReturnValue(stopFn);
 
     const services = buildServices(mock);
     const task = services.ts.createTask({ title: 'Task', status: 'done' });
