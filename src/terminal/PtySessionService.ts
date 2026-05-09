@@ -52,7 +52,7 @@ function hasClaudeReadySignal(text: string): boolean {
 }
 
 export interface PtySessionServiceOptions {
-  boardApiUrl: string;
+  boardApiUrl: string | null;
   attentionStateService: AttentionStateService;
   hookSettingsDataDir: string;
 }
@@ -122,7 +122,7 @@ export class PtySessionService {
     const args = [...settingsArgs, ...modelArgs, ...effortArgs, '--dangerously-skip-permissions'];
 
     const hookEnv: Record<string, string> = {};
-    if (this.boardApiUrl !== null) {
+    if (this.boardApiUrl !== null && this.boardApiUrl !== '') {
       hookEnv.BOARD_TASK_ID = String(taskId);
       hookEnv.BOARD_API_URL = this.boardApiUrl;
       hookEnv.BOARD_HOOK_TOKEN = getHookToken();

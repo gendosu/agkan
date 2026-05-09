@@ -79,15 +79,19 @@ async function main() {
   const taskId = Number(taskIdRaw);
   if (!Number.isFinite(taskId)) return;
 
-  // Clean up the main-session file so stale IDs don't persist across task restarts.
+  // Check whether this is the main session or a sub-agent session.
+  // Only the main session should notify the board; sub-agent sessions must be ignored.
   const sessionFile = `/tmp/board-main-session-${taskIdRaw}`;
   try {
     const mainSessionId = (await fs.readFile(sessionFile, 'utf-8')).trim();
-    if (mainSessionId && mainSessionId === payload?.session_id) {
-      await fs.unlink(sessionFile).catch(() => {});
+    if (mainSessionId && mainSessionId !== payload?.session_id) {
+      // This is a sub-agent stop — do not notify the board.
+      return;
     }
+    // This is the main session — clean up the file before notifying.
+    await fs.unlink(sessionFile).catch(() => {});
   } catch {
-    // file may not exist; ignore
+    // file may not exist (e.g. hook-session-start was not used); proceed with API call.
   }
 
   try {

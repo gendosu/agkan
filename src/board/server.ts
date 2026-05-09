@@ -66,7 +66,7 @@ export function startBoardServer(port: number, boardTitle?: string): void {
   const app = new Hono();
   const resolvedConfigDir = path.join(process.cwd(), getDefaultDirName());
   const ptyService = new PtySessionService(resolvedDb, {
-    boardApiUrl: '',
+    boardApiUrl: null,
     attentionStateService,
     hookSettingsDataDir,
   });
