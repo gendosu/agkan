@@ -16,6 +16,7 @@ let arrowMarkers: Map<string, SVGArrowMarker> = new Map();
 let scrollListener: ((event: Event) => void) | null = null;
 let columnScrollListener: ((event: Event) => void) | null = null;
 let resizeListener: (() => void) | null = null;
+let boardHoverListener: ((event: MouseEvent) => void) | null = null;
 
 function getOrCreateArrowMarker(svg: SVGSVGElement, color: string): string {
   const markerId = `arrow-${color.substring(1)}`;
@@ -230,17 +231,28 @@ function redrawDependencies(): void {
   svg.setAttribute('viewBox', `0 0 ${boardContainer.offsetWidth} ${boardContainer.offsetHeight}`);
 }
 
-function handleCardHoverEvents(): void {
-  const cards = document.querySelectorAll<HTMLElement>('.card');
+function attachHoverDelegation(): void {
+  const boardContainer = document.querySelector('.board-container') as HTMLElement;
+  if (!boardContainer || boardHoverListener) return;
 
-  cards.forEach((card) => {
-    card.addEventListener('mouseenter', () => {
+  boardHoverListener = (event: MouseEvent) => {
+    const targetCard = (event.target as HTMLElement).closest?.('.card');
+    const relatedCard = (event.relatedTarget as HTMLElement | null)?.closest?.('.card');
+    if (targetCard !== relatedCard) {
       redrawDependencies();
-    });
-    card.addEventListener('mouseleave', () => {
-      redrawDependencies();
-    });
-  });
+    }
+  };
+
+  boardContainer.addEventListener('mouseover', boardHoverListener);
+  boardContainer.addEventListener('mouseout', boardHoverListener);
+}
+
+function detachHoverDelegation(): void {
+  const boardContainer = document.querySelector('.board-container') as HTMLElement;
+  if (!boardContainer || !boardHoverListener) return;
+  boardContainer.removeEventListener('mouseover', boardHoverListener);
+  boardContainer.removeEventListener('mouseout', boardHoverListener);
+  boardHoverListener = null;
 }
 
 export function initDependencyVisualization(): void {
@@ -249,7 +261,6 @@ export function initDependencyVisualization(): void {
 
   const redrawIfVisible = () => {
     if (isDependencyVisible) {
-      handleCardHoverEvents();
       redrawDependencies();
     }
   };
@@ -265,8 +276,8 @@ export function initDependencyVisualization(): void {
 
     if (isDependencyVisible) {
       toggleBtn.classList.add('active');
+      attachHoverDelegation();
       redrawDependencies();
-      handleCardHoverEvents();
 
       // Redraw on scroll
       const board = document.querySelector('.board') as HTMLElement;
@@ -290,6 +301,7 @@ export function initDependencyVisualization(): void {
       }
     } else {
       toggleBtn.classList.remove('active');
+      detachHoverDelegation();
       const svg = document.querySelector('#dependency-svg');
       if (svg) svg.remove();
 
@@ -319,8 +331,6 @@ export function initDependencyVisualization(): void {
 
 export function redrawDependenciesAfterUpdate(): void {
   if (isDependencyVisible) {
-    // Update card references and redraw
-    handleCardHoverEvents();
     redrawDependencies();
   }
 }
