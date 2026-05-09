@@ -185,14 +185,21 @@ export class PtySessionService {
         ptyProcess.write('y\r');
       }
 
-      // Send pending prompt as soon as Claude's input prompt is ready
+      // Send pending prompt as soon as Claude's input prompt is ready.
+      // Delay slightly to ensure the interactive input line is fully initialized
+      // before writing — the ready signal fires before the prompt cursor appears.
       if (info.pendingPrompt !== null && hasClaudeReadySignal(info.outputBuffer)) {
         if (info.promptTimer !== null) {
           clearTimeout(info.promptTimer);
           info.promptTimer = null;
         }
-        ptyProcess.write(info.pendingPrompt + '\r');
+        const prompt = info.pendingPrompt;
         info.pendingPrompt = null;
+        setTimeout(() => {
+          if (this.sessions.has(taskId)) {
+            ptyProcess.write(prompt + '\r');
+          }
+        }, 500);
       }
 
       info.rawOutputSubscribers.forEach((cb) => cb(data));
