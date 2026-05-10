@@ -36,3 +36,7 @@ jobs:
 
       - name: Format check
         run: pnpm run format:check
+
+      - name: Test
+        run: pnpm run test
+        timeout-minutes: 20
