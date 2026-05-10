@@ -36,6 +36,10 @@ describe('stripAnsi', () => {
     expect(stripAnsi('line1\nloading\rdone\nline3')).toBe('line1\ndone\nline3');
   });
 
+  it('removes unterminated OSC sequences', () => {
+    expect(stripAnsi('\x1b]0;title')).toBe('');
+  });
+
   it('returns plain text unchanged', () => {
     expect(stripAnsi('hello world')).toBe('hello world');
   });

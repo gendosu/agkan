@@ -16,8 +16,8 @@ export function stripAnsi(text: string): string {
     text
       // CSI sequences: ESC [ <param bytes> <intermediate bytes> <final byte>
       .replace(/\x1b\[[\x30-\x3F]*[\x20-\x2F]*[\x40-\x7E]/g, '')
-      // OSC sequences: ESC ] ... BEL or ESC \
-      .replace(/\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)/g, '')
+      // OSC sequences: ESC ] ... BEL or ESC \ (also handles unterminated)
+      .replace(/\x1b\][^\x07\x1b]*(?:\x07|\x1b\\|$)/g, '')
       // Single ESC sequences (e.g. ESC = ESC >)
       .replace(/\x1b[=>]/g, '')
       // Carriage return overwrite: collapse lines with CR to last segment
