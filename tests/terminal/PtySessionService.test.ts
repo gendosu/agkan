@@ -1,7 +1,49 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { PtySessionService } from '../../src/terminal/PtySessionService';
+import { PtySessionService, stripAnsi } from '../../src/terminal/PtySessionService';
 import { AttentionStateService } from '../../src/services/AttentionStateService';
 import { ConflictError } from '../../src/errors';
+
+describe('stripAnsi', () => {
+  it('removes basic SGR color codes', () => {
+    expect(stripAnsi('\x1b[31mred\x1b[0m')).toBe('red');
+  });
+
+  it('removes private parameter CSI sequences (cursor hide/show)', () => {
+    expect(stripAnsi('\x1b[?25lhello\x1b[?25h')).toBe('hello');
+  });
+
+  it('removes bracketed paste mode sequences', () => {
+    expect(stripAnsi('\x1b[?2004htext\x1b[?2004l')).toBe('text');
+  });
+
+  it('removes OSC sequences (terminal title)', () => {
+    expect(stripAnsi('\x1b]0;My Terminal\x07hello')).toBe('hello');
+  });
+
+  it('removes OSC sequences with ST terminator', () => {
+    expect(stripAnsi('\x1b]0;title\x1b\\hello')).toBe('hello');
+  });
+
+  it('removes single ESC sequences', () => {
+    expect(stripAnsi('\x1b=text\x1b>')).toBe('text');
+  });
+
+  it('collapses carriage return overwrite to last segment', () => {
+    expect(stripAnsi('loading...\rprogress')).toBe('progress');
+  });
+
+  it('preserves newlines when collapsing CR', () => {
+    expect(stripAnsi('line1\nloading\rdone\nline3')).toBe('line1\ndone\nline3');
+  });
+
+  it('removes unterminated OSC sequences', () => {
+    expect(stripAnsi('\x1b]0;title')).toBe('');
+  });
+
+  it('returns plain text unchanged', () => {
+    expect(stripAnsi('hello world')).toBe('hello world');
+  });
+});
 
 // Mock node-pty
 const mockWrite = vi.fn();

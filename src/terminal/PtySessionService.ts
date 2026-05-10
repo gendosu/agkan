@@ -11,6 +11,20 @@ import { ensureBoardHookSettings } from '../hooks/claudeHookSettings';
 import { getHookToken } from '../utils/hookToken';
 import { AttentionStateService } from '../services/AttentionStateService';
 
+export function stripAnsi(text: string): string {
+  return (
+    text
+      // CSI sequences: ESC [ <param bytes> <intermediate bytes> <final byte>
+      .replace(/\x1b\[[\x30-\x3F]*[\x20-\x2F]*[\x40-\x7E]/g, '')
+      // OSC sequences: ESC ] ... BEL or ESC \ (also handles unterminated)
+      .replace(/\x1b\][^\x07\x1b]*(?:\x07|\x1b\\|$)/g, '')
+      // Single ESC sequences (e.g. ESC = ESC >)
+      .replace(/\x1b[=>]/g, '')
+      // Carriage return overwrite: collapse lines with CR to last segment
+      .replace(/[^\n]*\r([^\n])/g, '$1')
+  );
+}
+
 function resolveClaudePath(): string {
   try {
     return execSync('which claude', { env: process.env }).toString().trim() || 'claude';
@@ -208,7 +222,7 @@ export class PtySessionService {
       const now = Date.now();
       if (this.db && info.runLogId && now - info.lastEventsUpdate > 2000) {
         info.lastEventsUpdate = now;
-        const cleanText = info.outputBuffer.replace(/\x1b\[[0-9;]*[mGKHFJlh]/g, '');
+        const cleanText = stripAnsi(info.outputBuffer);
         this.db.runLogs.updateEvents(info.runLogId, JSON.stringify([{ kind: 'text', text: cleanText }]));
         info.outputUpdateSubscribers.forEach((cb) => cb());
       }
@@ -225,7 +239,7 @@ export class PtySessionService {
 
       if (this.db && info.runLogId) {
         const finishedAt = new Date().toISOString();
-        const cleanText = info.outputBuffer.replace(/\x1b\[[0-9;]*[mGKHFJlh]/g, '');
+        const cleanText = stripAnsi(info.outputBuffer);
         const events = JSON.stringify([{ kind: 'text', text: cleanText }]);
         this.db.runLogs.updateFinished(info.runLogId, finishedAt, code, events);
         const ids = this.db.runLogs.findIdsByTaskId(taskId);
