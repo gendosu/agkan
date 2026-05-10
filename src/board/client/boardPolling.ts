@@ -202,6 +202,7 @@ export function initBoardPolling(): void {
   let backoffMs = 1000;
   let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   let es: EventSource;
+  let stopped = false;
 
   function connect(): void {
     es = new EventSource('/api/board/stream');
@@ -218,6 +219,7 @@ export function initBoardPolling(): void {
     });
 
     es.onerror = () => {
+      if (stopped) return;
       setStreamState('board', 'disconnected');
       es.close();
       reconnectTimer = setTimeout(() => {
@@ -228,6 +230,7 @@ export function initBoardPolling(): void {
   }
 
   function reconnectNow(): void {
+    if (stopped) return;
     if (reconnectTimer !== null) {
       clearTimeout(reconnectTimer);
       reconnectTimer = null;
