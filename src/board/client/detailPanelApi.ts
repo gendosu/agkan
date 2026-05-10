@@ -3,6 +3,7 @@
 import type { TaskDetail } from './types';
 import { showToast } from './utils';
 import { refreshBoardCards } from './boardPolling';
+import { setStreamState, setRunLogsActive } from './connectionStatus';
 
 const PANEL_MIN_WIDTH = 280;
 const PANEL_MAX_WIDTH = 800;
@@ -106,7 +107,13 @@ export function subscribeRunLogs(
   onUpdate: (logs: Awaited<ReturnType<typeof fetchRunLogs>>) => void,
   onError: () => void
 ): EventSource {
+  setRunLogsActive(true);
   const es = new EventSource('/api/claude/tasks/' + taskId + '/run-logs/stream');
+
+  es.addEventListener('open', () => {
+    setStreamState('run-logs', 'connected');
+  });
+
   es.addEventListener('update', (event: Event) => {
     const msgEvent = event as MessageEvent;
     try {
@@ -116,7 +123,18 @@ export function subscribeRunLogs(
       // ignore parse errors
     }
   });
-  es.onerror = () => onError();
+
+  es.onerror = () => {
+    setStreamState('run-logs', 'disconnected');
+    onError();
+  };
+
+  const origClose = es.close.bind(es);
+  es.close = () => {
+    setRunLogsActive(false);
+    origClose();
+  };
+
   return es;
 }
 

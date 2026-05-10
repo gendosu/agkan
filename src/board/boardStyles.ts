@@ -297,4 +297,10 @@ export const BOARD_STYLES = `
     .run-log-body { display: none; font-family: 'Courier New', Courier, monospace; background: #0d0d0d; color: #22c55e; font-size: 11px; line-height: 1.5; padding: 8px 12px; white-space: pre-wrap; max-height: 300px; overflow-y: auto; }
     .run-log-item.open .run-log-body { display: block; }
     .run-log-tool-use { color: #94a3b8; }
-    .run-log-empty { padding: 24px 16px; font-size: 12px; color: var(--text-muted); text-align: center; }`;
+    .run-log-empty { padding: 24px 16px; font-size: 12px; color: var(--text-muted); text-align: center; }
+    .connection-status-btn { width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 16px; cursor: default; flex-shrink: 0; transition: opacity 0.2s; }
+    .connection-status-btn.connected { opacity: 1; }
+    .connection-status-btn.connecting { opacity: 0.6; animation: conn-pulse 1.5s ease-in-out infinite; }
+    .connection-status-btn.disconnected { cursor: pointer; opacity: 1; animation: none; }
+    .connection-status-btn.disconnected:hover { opacity: 0.8; }
+    @keyframes conn-pulse { 0%,100% { opacity: 0.6; } 50% { opacity: 1; } }`;
