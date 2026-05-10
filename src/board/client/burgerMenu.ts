@@ -2,6 +2,7 @@
 
 import { initDarkMode } from './darkMode';
 import { refreshBoardCards } from './boardPolling';
+import { onConnectionStateChange, triggerReconnectAll } from './connectionStatus';
 
 function initBurgerToggle(burgerBtn: HTMLButtonElement, burgerDropdown: HTMLElement): void {
   burgerBtn.addEventListener('click', (e: MouseEvent) => {
@@ -241,6 +242,35 @@ function initImportModal(burgerDropdown: HTMLElement): void {
   });
 }
 
+const STATE_ICONS: Record<string, string> = {
+  connected: '🟢',
+  connecting: '🟡',
+  disconnected: '🔴',
+};
+
+const STATE_TITLES: Record<string, string> = {
+  connected: 'Connected',
+  connecting: 'Connecting...',
+  disconnected: 'Disconnected — Click to reconnect',
+};
+
+function initConnectionStatusBtn(): void {
+  const btn = document.getElementById('connection-status-btn');
+  if (!btn) return;
+
+  onConnectionStateChange((state) => {
+    btn.className = `connection-status-btn ${state}`;
+    btn.textContent = STATE_ICONS[state] ?? '⚪';
+    btn.title = STATE_TITLES[state] ?? '';
+  });
+
+  btn.addEventListener('click', () => {
+    if (btn.classList.contains('disconnected')) {
+      triggerReconnectAll();
+    }
+  });
+}
+
 export function initBurgerMenu(): void {
   const burgerBtn = document.getElementById('burger-menu-btn') as HTMLButtonElement;
   const burgerDropdown = document.getElementById('burger-menu-dropdown') as HTMLElement;
@@ -252,4 +282,5 @@ export function initBurgerMenu(): void {
   initImportModal(burgerDropdown);
   initVersionModal(burgerDropdown);
   initDarkMode();
+  initConnectionStatusBtn();
 }

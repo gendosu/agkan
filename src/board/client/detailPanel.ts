@@ -18,6 +18,7 @@ import {
   PANEL_MIN_WIDTH,
   PANEL_MAX_WIDTH,
 } from './detailPanelApi';
+import { setRunLogsActive } from './connectionStatus';
 import {
   renderCommentItemHtml,
   renderAddCommentFormHtml,
@@ -41,6 +42,7 @@ function closeRunLogStream(): void {
   if (runLogEventSource !== null) {
     runLogEventSource.close();
     runLogEventSource = null;
+    setRunLogsActive(false);
   }
 }
 
@@ -382,6 +384,7 @@ function loadRunLogs(taskId: number): void {
   }
   pane.removeEventListener('click', handleRunLogToggle);
   pane.addEventListener('click', handleRunLogToggle);
+  setRunLogsActive(true);
   runLogEventSource = subscribeRunLogs(
     taskId,
     (logs) => {
