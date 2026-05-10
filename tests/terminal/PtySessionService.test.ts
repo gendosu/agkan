@@ -102,7 +102,9 @@ describe('PtySessionService', () => {
     service.startProcess(1, 'Task ID: 1\n/agkan-planning-subtask', 'planning');
     expect(mockWrite).not.toHaveBeenCalled();
     vi.advanceTimersByTime(10000);
-    expect(mockWrite).toHaveBeenCalledWith('Task ID: 1\n/agkan-planning-subtask\r');
+    expect(mockWrite).toHaveBeenCalledWith('Task ID: 1\n/agkan-planning-subtask');
+    vi.advanceTimersByTime(100);
+    expect(mockWrite).toHaveBeenCalledWith('\r');
   });
 
   it('sends prompt after 500ms delay when ready signal detected', () => {
@@ -112,12 +114,14 @@ describe('PtySessionService', () => {
     vi.advanceTimersByTime(499);
     expect(mockWrite).not.toHaveBeenCalled();
     vi.advanceTimersByTime(1);
-    expect(mockWrite).toHaveBeenCalledWith('hello\r');
+    expect(mockWrite).toHaveBeenCalledWith('hello');
+    vi.advanceTimersByTime(100);
+    expect(mockWrite).toHaveBeenCalledWith('\r');
   });
 
   it('does not send prompt via ready signal after fallback already fired', () => {
     service.startProcess(1, 'hello', 'run');
-    vi.advanceTimersByTime(10000);
+    vi.advanceTimersByTime(10100); // advance past fallback delay and enter key delay
     mockWrite.mockClear();
     mockOnDataHandler?.('bypass permissions');
     vi.advanceTimersByTime(500);

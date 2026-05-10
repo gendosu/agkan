@@ -35,6 +35,7 @@ function resolveClaudePath(): string {
 
 const CLAUDE_BIN = resolveClaudePath();
 const PROMPT_FALLBACK_DELAY_MS = 10000;
+const PROMPT_ENTER_DELAY_MS = 100;
 const MAX_SNAPSHOT_BYTES = 500_000;
 const MAX_COMPLETED_SNAPSHOTS = 10;
 
@@ -182,8 +183,14 @@ export class PtySessionService {
     info.promptTimer = setTimeout(() => {
       info.promptTimer = null;
       if (info.pendingPrompt !== null && this.sessions.has(taskId)) {
-        ptyProcess.write(info.pendingPrompt + '\r');
+        const fallbackPrompt = info.pendingPrompt;
         info.pendingPrompt = null;
+        ptyProcess.write(fallbackPrompt);
+        setTimeout(() => {
+          if (this.sessions.has(taskId)) {
+            ptyProcess.write('\r');
+          }
+        }, PROMPT_ENTER_DELAY_MS);
       }
     }, PROMPT_FALLBACK_DELAY_MS);
 
@@ -211,7 +218,12 @@ export class PtySessionService {
         info.pendingPrompt = null;
         setTimeout(() => {
           if (this.sessions.has(taskId)) {
-            ptyProcess.write(prompt + '\r');
+            ptyProcess.write(prompt);
+            setTimeout(() => {
+              if (this.sessions.has(taskId)) {
+                ptyProcess.write('\r');
+              }
+            }, PROMPT_ENTER_DELAY_MS);
           }
         }, 500);
       }
