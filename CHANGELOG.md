@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.7.0] - 2026-05-10
+
+### Added
+- Add connection status indicator with auto-reconnect to board header
+
+### Changed
+- Reorganize board header layout by moving connection status into burger menu wrapper
+
+### Fixed
+- Fix stop hook not firing when session ends via board run (#258)
+- Fix SessionStart hook error when using board run button (#259)
+- Fix missed enter key by delaying prompt send until after ready signal (#260)
+- Strip ANSI/CSI/OSC sequences from run log output (#262)
+- Handle unterminated OSC sequences in stripAnsi
+- Simplify pre-push hook to use type-check instead of vitest
+
 ## [3.6.0] - 2026-05-08
 
 ### Added
