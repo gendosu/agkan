@@ -39,8 +39,8 @@ export const BOARD_STYLES = `
     }
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg-page); color: var(--text-primary); }
-    header { background: var(--header-bg); color: white; padding: 12px 20px; display: flex; align-items: center; justify-content: space-between; }
-    header h1 { font-size: 18px; font-weight: 700; display: flex; align-items: center; gap: 8px; }
+    header { background: var(--header-bg); color: white; padding: 12px 20px; display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; }
+    header h1 { font-size: 18px; font-weight: 700; text-align: center; }
     .board-title { font-size: 14px; font-weight: 400; opacity: 0.75; }
     .board-container { display: flex; width: 100%; height: calc(100vh - 92px); gap: 0; }
     .board { display: flex; gap: 12px; padding: 16px; overflow-x: auto; flex: 1; align-items: stretch; min-width: 0; }
@@ -238,8 +238,8 @@ export const BOARD_STYLES = `
     .add-comment-cancel { margin-top: 6px; margin-left: 6px; padding: 5px 10px; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer; border: 1px solid var(--border-color); background: var(--bg-surface); color: var(--text-secondary); }
     .add-comment-cancel:hover { background: var(--bg-surface-hover); }
     @keyframes header-spin { to { transform: rotate(360deg); } }
-    #header-running-indicator { width: 16px; height: 16px; border: 2px solid rgba(255,255,255,0.3); border-top-color: white; border-radius: 50%; animation: header-spin 0.8s linear infinite; margin-left: 8px; flex-shrink: 0; }
-    .burger-menu-wrapper { position: relative; display: flex; align-items: center; gap: 6px; }
+    #header-running-indicator { width: 16px; height: 16px; border: 2px solid rgba(255,255,255,0.3); border-top-color: white; border-radius: 50%; animation: header-spin 0.8s linear infinite; flex-shrink: 0; }
+    .burger-menu-wrapper { position: relative; display: flex; align-items: center; gap: 6px; justify-content: flex-end; }
     .burger-menu-btn { background: none; border: none; color: white; cursor: pointer; padding: 4px 6px; border-radius: 4px; display: flex; flex-direction: column; gap: 4px; align-items: center; justify-content: center; opacity: 0.8; }
     .burger-menu-btn:hover { opacity: 1; background: rgba(255,255,255,0.1); }
     .burger-menu-btn span { display: block; width: 18px; height: 2px; background: white; border-radius: 1px; }
