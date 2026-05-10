@@ -239,7 +239,7 @@ export const BOARD_STYLES = `
     .add-comment-cancel:hover { background: var(--bg-surface-hover); }
     @keyframes header-spin { to { transform: rotate(360deg); } }
     #header-running-indicator { width: 16px; height: 16px; border: 2px solid rgba(255,255,255,0.3); border-top-color: white; border-radius: 50%; animation: header-spin 0.8s linear infinite; margin-left: 8px; flex-shrink: 0; }
-    .burger-menu-wrapper { position: relative; }
+    .burger-menu-wrapper { position: relative; display: flex; align-items: center; gap: 6px; }
     .burger-menu-btn { background: none; border: none; color: white; cursor: pointer; padding: 4px 6px; border-radius: 4px; display: flex; flex-direction: column; gap: 4px; align-items: center; justify-content: center; opacity: 0.8; }
     .burger-menu-btn:hover { opacity: 1; background: rgba(255,255,255,0.1); }
     .burger-menu-btn span { display: block; width: 18px; height: 2px; background: white; border-radius: 1px; }
