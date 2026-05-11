@@ -106,6 +106,14 @@ describe('createBoardApp', () => {
       expect(html).toContain('.board-title');
     });
 
+    it('should anchor burger menu to the third grid column so it stays on the right even without a board title', async () => {
+      const app = createBoardApp(taskService, taskTagService, metadataService);
+      const res = await app.fetch(new Request('http://localhost/'));
+      const html = await res.text();
+
+      expect(html).toMatch(/\.burger-menu-wrapper\s*\{[^}]*grid-column:\s*3/);
+    });
+
     it('should include board-container wrapper for side-by-side layout', async () => {
       const app = createBoardApp(taskService, taskTagService, metadataService);
       const res = await app.fetch(new Request('http://localhost/'));
