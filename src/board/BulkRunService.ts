@@ -14,12 +14,15 @@ export interface BulkRunStatus {
 
 type StateChangeCallback = (status: BulkRunStatus) => void;
 
+const POLL_INTERVAL_MS = 3000;
+
 export class BulkRunService {
   private mode: BulkRunState = 'idle';
   private command: BulkRunCommand | null = null;
   private stopRequested = false;
   private stateChangeSubscribers: Set<StateChangeCallback> = new Set();
   private runningChangeUnsub: (() => void) | null = null;
+  private pollTimer: ReturnType<typeof setTimeout> | null = null;
 
   constructor(
     private ts: TaskService,
@@ -57,6 +60,10 @@ export class BulkRunService {
     this.stopRequested = true;
     this.runningChangeUnsub?.();
     this.runningChangeUnsub = null;
+    if (this.pollTimer !== null) {
+      clearTimeout(this.pollTimer);
+      this.pollTimer = null;
+    }
     if (this.mode === 'running') {
       this.mode = 'idle';
       this.command = null;
@@ -98,9 +105,20 @@ export class BulkRunService {
   private finishLoop(): void {
     this.runningChangeUnsub?.();
     this.runningChangeUnsub = null;
+    if (this.pollTimer !== null) {
+      clearTimeout(this.pollTimer);
+      this.pollTimer = null;
+    }
     this.mode = 'idle';
     this.command = null;
     this.notifyStateChange();
+  }
+
+  private scheduleNextPoll(): void {
+    this.pollTimer = setTimeout(() => {
+      this.pollTimer = null;
+      void this.runNext();
+    }, POLL_INTERVAL_MS);
   }
 
   private async runNext(): Promise<void> {
@@ -125,7 +143,7 @@ export class BulkRunService {
 
     const taskId = this.selectNextTask();
     if (taskId === null) {
-      this.finishLoop();
+      this.scheduleNextPoll();
       return;
     }
 
