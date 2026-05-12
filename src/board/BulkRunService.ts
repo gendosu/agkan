@@ -109,9 +109,11 @@ export class BulkRunService {
       clearTimeout(this.pollTimer);
       this.pollTimer = null;
     }
-    this.mode = 'idle';
-    this.command = null;
-    this.notifyStateChange();
+    if (this.mode !== 'idle') {
+      this.mode = 'idle';
+      this.command = null;
+      this.notifyStateChange();
+    }
   }
 
   private scheduleNextPoll(): void {

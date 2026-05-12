@@ -145,7 +145,8 @@ describe('BulkRunService task selection', () => {
     const ts = new TaskService(db);
     const tbs = new TaskBlockService(db);
 
-    const pty = buildMockPty();
+    const startProcess = vi.fn().mockResolvedValue(undefined);
+    const pty = buildMockPty({ startProcess });
     const service = new BulkRunService(ts, tbs, pty);
 
     const stateChanges: string[] = [];
@@ -159,8 +160,8 @@ describe('BulkRunService task selection', () => {
     expect(service.getStatus().mode).toBe('idle');
     expect(stateChanges[stateChanges.length - 1]).toBe('idle');
 
-    // Timer should be cleared — advancing time should not trigger startProcess
-    const startProcess = vi.fn();
+    // Timer should be cleared — adding a ready task and advancing time must not trigger startProcess
+    ts.createTask({ title: 'new task', status: 'ready', priority: 'medium' });
     await vi.advanceTimersByTimeAsync(3000);
     expect(startProcess).not.toHaveBeenCalled();
 
