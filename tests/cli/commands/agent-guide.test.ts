@@ -50,4 +50,28 @@ describe('setupAgentGuideCommand', () => {
 
     expect(output).toContain('review');
   });
+
+  it('should output plain text without --hook flag', async () => {
+    const { logs } = await runCommand(program, ['agent-guide']);
+    const output = logs.join('\n');
+
+    expect(output).not.toMatch(/^\{/);
+    expect(output).toContain('agkan');
+  });
+
+  it('should output JSON with additionalContext when --hook flag is specified', async () => {
+    const { logs } = await runCommand(program, ['agent-guide', '--hook']);
+    const output = logs.join('\n');
+
+    const parsed = JSON.parse(output);
+    expect(parsed).toHaveProperty('additionalContext');
+    expect(typeof parsed.additionalContext).toBe('string');
+    expect(parsed.additionalContext).toContain('agkan');
+  });
+
+  it('should output valid single-line JSON when --hook flag is specified', async () => {
+    const { logs } = await runCommand(program, ['agent-guide', '--hook']);
+    expect(logs).toHaveLength(1);
+    expect(() => JSON.parse(logs[0])).not.toThrow();
+  });
 });
