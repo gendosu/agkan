@@ -94,7 +94,8 @@ describe('BulkRunService task selection', () => {
     expect(startProcess).toHaveBeenCalledWith(blocked.id, expect.any(String), 'run', undefined, undefined);
   });
 
-  it('stops loop when no ready tasks remain', async () => {
+  it('stays running and polls when no ready tasks remain', async () => {
+    vi.useFakeTimers();
     const db = getStorageBackend();
     const ts = new TaskService(db);
     const tbs = new TaskBlockService(db);
@@ -108,8 +109,63 @@ describe('BulkRunService task selection', () => {
     await service.start('direct');
 
     expect(stateChanges).toContain('running');
-    expect(stateChanges[stateChanges.length - 1]).toBe('idle');
+    expect(service.getStatus().mode).toBe('running');
+
+    vi.useRealTimers();
+    service.stop();
+  });
+
+  it('picks up new ready task added during polling', async () => {
+    vi.useFakeTimers();
+    const db = getStorageBackend();
+    const ts = new TaskService(db);
+    const tbs = new TaskBlockService(db);
+
+    const startProcess = vi.fn().mockResolvedValue(undefined);
+    const pty = buildMockPty({ startProcess });
+    const service = new BulkRunService(ts, tbs, pty);
+
+    await service.start('direct');
+    expect(startProcess).not.toHaveBeenCalled();
+    expect(service.getStatus().mode).toBe('running');
+
+    const newTask = ts.createTask({ title: 'new task', status: 'ready', priority: 'medium' });
+
+    await vi.advanceTimersByTimeAsync(3000);
+
+    expect(startProcess).toHaveBeenCalledWith(newTask.id, expect.any(String), 'run', undefined, undefined);
+
+    vi.useRealTimers();
+    service.stop();
+  });
+
+  it('transitions to idle on stop when polling with no ready tasks', async () => {
+    vi.useFakeTimers();
+    const db = getStorageBackend();
+    const ts = new TaskService(db);
+    const tbs = new TaskBlockService(db);
+
+    const startProcess = vi.fn().mockResolvedValue(undefined);
+    const pty = buildMockPty({ startProcess });
+    const service = new BulkRunService(ts, tbs, pty);
+
+    const stateChanges: string[] = [];
+    service.subscribeStateChange((s) => stateChanges.push(s.mode));
+
+    await service.start('direct');
+    expect(service.getStatus().mode).toBe('running');
+
+    service.stop();
+
     expect(service.getStatus().mode).toBe('idle');
+    expect(stateChanges[stateChanges.length - 1]).toBe('idle');
+
+    // Timer should be cleared — adding a ready task and advancing time must not trigger startProcess
+    ts.createTask({ title: 'new task', status: 'ready', priority: 'medium' });
+    await vi.advanceTimersByTimeAsync(3000);
+    expect(startProcess).not.toHaveBeenCalled();
+
+    vi.useRealTimers();
   });
 
   it('stop() sets mode to idle after current task finishes', async () => {
