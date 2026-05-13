@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.8.0] - 2026-05-14
+
+### Added
+- Keep BulkRun in running state and poll for new ready tasks
+
+### Fixed
+- Anchor burger menu to header grid column 3
+- Center board-title and move loading indicator next to connection status
+- Prevent double notifyStateChange when stop() is called during task execution
+- Split prompt and enter key writes with 100ms delay to prevent prompt being dropped
+
 ## [3.7.0] - 2026-05-10
 
 ### Added
