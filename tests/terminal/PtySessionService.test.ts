@@ -552,19 +552,17 @@ describe('PtySessionService - getRunLogs', () => {
         updateFinished: vi.fn(),
         updateEvents: vi.fn(),
         findLatestByTaskId: vi.fn(),
-        findByTaskId: vi
-          .fn()
-          .mockReturnValue([
-            {
-              id: 10,
-              task_id: 1,
-              started_at: '2024-01-01T00:00:00Z',
-              finished_at: '2024-01-01T01:00:00Z',
-              exit_code: 0,
-              session_id: null,
-              events: '[{"kind":"text","text":"hello"}]',
-            },
-          ]),
+        findByTaskId: vi.fn().mockReturnValue([
+          {
+            id: 10,
+            task_id: 1,
+            started_at: '2024-01-01T00:00:00Z',
+            finished_at: '2024-01-01T01:00:00Z',
+            exit_code: 0,
+            session_id: null,
+            events: '[{"kind":"text","text":"hello"}]',
+          },
+        ]),
         findIdsByTaskId: vi.fn().mockReturnValue([]),
         deleteMany: vi.fn(),
         updateSessionId: vi.fn(),
