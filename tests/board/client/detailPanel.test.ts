@@ -55,6 +55,16 @@ function setupMinimalBoardDOM(): void {
       dispatchEvent: vi.fn(),
     })),
   });
+
+  // jsdom does not implement ResizeObserver — provide a no-op stub
+  Object.defineProperty(window, 'ResizeObserver', {
+    writable: true,
+    value: class {
+      observe() {}
+      unobserve() {}
+      disconnect() {}
+    },
+  });
 }
 
 function setupBoardContainerDOM(): void {
@@ -80,6 +90,16 @@ function setupBoardContainerDOM(): void {
       removeEventListener: vi.fn(),
       dispatchEvent: vi.fn(),
     })),
+  });
+
+  // jsdom does not implement ResizeObserver — provide a no-op stub
+  Object.defineProperty(window, 'ResizeObserver', {
+    writable: true,
+    value: class {
+      observe() {}
+      unobserve() {}
+      disconnect() {}
+    },
   });
 }
 
