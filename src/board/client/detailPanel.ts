@@ -461,6 +461,14 @@ export function renderDetailPanel(data: TaskDetail): void {
     // Disconnect after the panel transition (250ms) plus a generous buffer.
     // After that point the panel is stable and the `input` listener handles edits.
     setTimeout(() => ro.disconnect(), 400);
+    // Double rAF guarantees at least one resize after layout settles, covering
+    // the task-switch case where the panel is already open and textarea width
+    // does not change (ResizeObserver may not fire without a size change).
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        autoResizeTextarea(textarea);
+      });
+    });
 
     textarea.addEventListener('input', () => {
       autoResizeTextarea(textarea);
