@@ -319,7 +319,12 @@ export function setupAgentGuideCommand(program: Command): void {
   program
     .command('agent-guide')
     .description('Show agent guide for using agkan')
-    .action(() => {
-      console.log(AGENT_GUIDE_CONTENT);
+    .option('--hook', 'Output as JSON for use in SessionStart hooks')
+    .action((options: { hook?: boolean }) => {
+      if (options.hook) {
+        console.log(JSON.stringify({ additionalContext: AGENT_GUIDE_CONTENT }));
+      } else {
+        console.log(AGENT_GUIDE_CONTENT);
+      }
     });
 }
