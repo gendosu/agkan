@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-const ioHandlers: Record<string, ((...args: unknown[]) => void)> = {};
-const controlHandlers: Record<string, ((...args: unknown[]) => void)> = {};
+const ioHandlers: Record<string, (...args: unknown[]) => void> = {};
+const controlHandlers: Record<string, (...args: unknown[]) => void> = {};
 
 const mockIoServer = {
   on: vi.fn((event: string, handler: (...args: unknown[]) => void) => {
