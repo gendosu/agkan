@@ -220,6 +220,459 @@ describe('PtySessionService', () => {
   });
 });
 
+describe('PtySessionService - model/effort/boardApiUrl args', () => {
+  let spawnMock: ReturnType<typeof vi.fn>;
+
+  beforeEach(async () => {
+    vi.useFakeTimers();
+    mockWrite.mockClear();
+    mockOnDataHandler = null;
+    mockOnExitHandler = null;
+    const pty = await import('node-pty');
+    spawnMock = pty.spawn as unknown as ReturnType<typeof vi.fn>;
+    spawnMock.mockClear();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('passes --model and --effort to spawn when provided', async () => {
+    const svc = new PtySessionService();
+    await svc.startProcess(1, 'prompt', 'run', 'claude-3-opus', 'high');
+    const args = spawnMock.mock.calls[0][1] as string[];
+    expect(args).toContain('--model');
+    expect(args[args.indexOf('--model') + 1]).toBe('claude-3-opus');
+    expect(args).toContain('--effort');
+    expect(args[args.indexOf('--effort') + 1]).toBe('high');
+  });
+
+  it('does not pass --model or --effort when not provided', async () => {
+    const svc = new PtySessionService();
+    await svc.startProcess(1, 'prompt', 'run');
+    const args = spawnMock.mock.calls[0][1] as string[];
+    expect(args).not.toContain('--model');
+    expect(args).not.toContain('--effort');
+  });
+
+  it('does not inject board env vars when boardApiUrl is empty string', async () => {
+    const savedTaskId = process.env.BOARD_TASK_ID;
+    const savedApiUrl = process.env.BOARD_API_URL;
+    delete process.env.BOARD_TASK_ID;
+    delete process.env.BOARD_API_URL;
+    try {
+      const attention = new AttentionStateService();
+      const svc = new PtySessionService(undefined, {
+        boardApiUrl: '',
+        attentionStateService: attention,
+        hookSettingsDataDir: null as unknown as string,
+      });
+      await svc.startProcess(1, 'prompt', 'run');
+      const env = (spawnMock.mock.calls[0][2] as { env: Record<string, string> }).env;
+      expect(env.BOARD_TASK_ID).toBeUndefined();
+      expect(env.BOARD_API_URL).toBeUndefined();
+    } finally {
+      if (savedTaskId !== undefined) process.env.BOARD_TASK_ID = savedTaskId;
+      if (savedApiUrl !== undefined) process.env.BOARD_API_URL = savedApiUrl;
+    }
+  });
+
+  it('does not inject board env vars when boardApiUrl is null', async () => {
+    const savedTaskId = process.env.BOARD_TASK_ID;
+    const savedApiUrl = process.env.BOARD_API_URL;
+    delete process.env.BOARD_TASK_ID;
+    delete process.env.BOARD_API_URL;
+    try {
+      const svc = new PtySessionService(undefined, {
+        boardApiUrl: null,
+        attentionStateService: new AttentionStateService(),
+        hookSettingsDataDir: null as unknown as string,
+      });
+      await svc.startProcess(1, 'prompt', 'run');
+      const env = (spawnMock.mock.calls[0][2] as { env: Record<string, string> }).env;
+      expect(env.BOARD_TASK_ID).toBeUndefined();
+      expect(env.BOARD_API_URL).toBeUndefined();
+    } finally {
+      if (savedTaskId !== undefined) process.env.BOARD_TASK_ID = savedTaskId;
+      if (savedApiUrl !== undefined) process.env.BOARD_API_URL = savedApiUrl;
+    }
+  });
+
+  it('does not include --settings when hookSettingsDataDir is null', async () => {
+    const svc = new PtySessionService(undefined, {
+      boardApiUrl: null,
+      attentionStateService: new AttentionStateService(),
+      hookSettingsDataDir: null as unknown as string,
+    });
+    await svc.startProcess(1, 'prompt', 'run');
+    const args = spawnMock.mock.calls[0][1] as string[];
+    expect(args).not.toContain('--settings');
+  });
+});
+
+describe('PtySessionService - output buffer truncation', () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    mockWrite.mockClear();
+    mockOnDataHandler = null;
+    mockOnExitHandler = null;
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('truncates outputBuffer to 500KB when more than 500KB data arrives', async () => {
+    const svc = new PtySessionService();
+    await svc.startProcess(1, 'prompt', 'run');
+    // Send 600KB of data
+    const chunk = 'x'.repeat(600_000);
+    mockOnDataHandler?.(chunk);
+    const snapshot = svc.getSnapshot(1);
+    expect(snapshot.length).toBeLessThanOrEqual(500_000);
+  });
+});
+
+describe('PtySessionService - completed snapshot eviction', () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    mockWrite.mockClear();
+    mockOnDataHandler = null;
+    mockOnExitHandler = null;
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('evicts oldest completed snapshot when more than 10 complete', async () => {
+    // We need separate spawn mock calls per session; reuse the same module-level mock
+    // but track handler per session via module-level vars — this test runs 11 sessions sequentially
+    const svc = new PtySessionService();
+
+    for (let i = 1; i <= 11; i++) {
+      mockOnDataHandler = null;
+      mockOnExitHandler = null;
+      await svc.startProcess(i, 'prompt', 'run');
+      mockOnDataHandler?.(`output-${i}`);
+      mockOnExitHandler?.({ exitCode: 0 });
+    }
+
+    // Task 1 should have been evicted
+    expect(svc.getSnapshot(1)).toBe('');
+    // Task 11 (most recent) should still be present
+    expect(svc.getSnapshot(11)).toBe('output-11');
+  });
+});
+
+describe('PtySessionService - subscribe methods for non-running tasks', () => {
+  let mockDb: { runLogs: ReturnType<typeof createMockRunLogs> };
+
+  function createMockRunLogs() {
+    return {
+      create: vi.fn().mockReturnValue(1),
+      updateFinished: vi.fn(),
+      updateEvents: vi.fn(),
+      findLatestByTaskId: vi.fn().mockReturnValue(null),
+      findByTaskId: vi.fn().mockReturnValue([]),
+      findIdsByTaskId: vi.fn().mockReturnValue([]),
+      deleteMany: vi.fn(),
+      updateSessionId: vi.fn(),
+    };
+  }
+
+  beforeEach(() => {
+    vi.useFakeTimers();
+    mockWrite.mockClear();
+    mockOnDataHandler = null;
+    mockOnExitHandler = null;
+    mockDb = { runLogs: createMockRunLogs() };
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('subscribeOutput with no DB and no session returns no-op unsubscribe immediately', () => {
+    const svc = new PtySessionService();
+    const cb = vi.fn();
+    const unsub = svc.subscribeOutput(99, cb);
+    expect(cb).not.toHaveBeenCalled();
+    expect(typeof unsub).toBe('function');
+    unsub(); // should not throw
+  });
+
+  it('subscribeOutput with DB finds latest run log and calls callback with done', () => {
+    mockDb.runLogs.findLatestByTaskId.mockReturnValue({
+      id: 5,
+      task_id: 99,
+      started_at: '2024-01-01',
+      finished_at: '2024-01-01',
+      exit_code: 0,
+      session_id: null,
+      events: '[]',
+    });
+    const svc = new PtySessionService(mockDb as never);
+    const cb = vi.fn();
+    const unsub = svc.subscribeOutput(99, cb);
+    expect(cb).toHaveBeenCalledWith({ kind: 'done', exitCode: 0 });
+    expect(typeof unsub).toBe('function');
+  });
+
+  it('subscribeOutput with DB returns no-op when no run log found', () => {
+    const svc = new PtySessionService(mockDb as never);
+    const cb = vi.fn();
+    svc.subscribeOutput(99, cb);
+    expect(cb).not.toHaveBeenCalled();
+  });
+
+  it('subscribeOutputUpdate with non-running finished task calls callback immediately', () => {
+    mockDb.runLogs.findLatestByTaskId.mockReturnValue({
+      id: 5,
+      task_id: 99,
+      started_at: '2024-01-01',
+      finished_at: '2024-01-01',
+      exit_code: 0,
+      session_id: null,
+      events: '[]',
+    });
+    const svc = new PtySessionService(mockDb as never);
+    const cb = vi.fn();
+    const unsub = svc.subscribeOutputUpdate(99, cb);
+    expect(cb).toHaveBeenCalledTimes(1);
+    unsub(); // should not throw
+  });
+
+  it('subscribeOutputUpdate with non-running unfinished task does not call callback', () => {
+    mockDb.runLogs.findLatestByTaskId.mockReturnValue({
+      id: 5,
+      task_id: 99,
+      started_at: '2024-01-01',
+      finished_at: null,
+      exit_code: null,
+      session_id: null,
+      events: '[]',
+    });
+    const svc = new PtySessionService(mockDb as never);
+    const cb = vi.fn();
+    svc.subscribeOutputUpdate(99, cb);
+    expect(cb).not.toHaveBeenCalled();
+  });
+
+  it('subscribeRawOutput with non-running task returns no-op unsubscribe', () => {
+    const svc = new PtySessionService();
+    const cb = vi.fn();
+    const unsub = svc.subscribeRawOutput(99, cb);
+    expect(cb).not.toHaveBeenCalled();
+    unsub(); // should not throw
+  });
+});
+
+describe('PtySessionService - DB integration on exit', () => {
+  function createMockRunLogs() {
+    return {
+      create: vi.fn().mockReturnValue(42),
+      updateFinished: vi.fn(),
+      updateEvents: vi.fn(),
+      findLatestByTaskId: vi.fn().mockReturnValue(null),
+      findByTaskId: vi.fn().mockReturnValue([]),
+      findIdsByTaskId: vi.fn().mockReturnValue([1, 2, 3, 4, 5, 6]),
+      deleteMany: vi.fn(),
+      updateSessionId: vi.fn(),
+    };
+  }
+
+  beforeEach(() => {
+    vi.useFakeTimers();
+    mockWrite.mockClear();
+    mockOnDataHandler = null;
+    mockOnExitHandler = null;
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('calls updateFinished with finishedAt, exitCode, and events on exit', async () => {
+    const mockDb = { runLogs: createMockRunLogs() };
+    const svc = new PtySessionService(mockDb as never);
+    await svc.startProcess(1, 'prompt', 'run');
+    mockOnDataHandler?.('hello output');
+    mockOnExitHandler?.({ exitCode: 2 });
+    expect(mockDb.runLogs.updateFinished).toHaveBeenCalledWith(
+      42,
+      expect.any(String),
+      2,
+      expect.stringContaining('hello output')
+    );
+  });
+
+  it('calls deleteMany for old run logs when count > 5', async () => {
+    const mockDb = { runLogs: createMockRunLogs() };
+    const svc = new PtySessionService(mockDb as never);
+    await svc.startProcess(1, 'prompt', 'run');
+    mockOnExitHandler?.({ exitCode: 0 });
+    expect(mockDb.runLogs.deleteMany).toHaveBeenCalledWith([6]);
+  });
+
+  it('does not call deleteMany when run log count <= 5', async () => {
+    const mockDb = { runLogs: createMockRunLogs() };
+    mockDb.runLogs.findIdsByTaskId.mockReturnValue([1, 2, 3, 4, 5]);
+    const svc = new PtySessionService(mockDb as never);
+    await svc.startProcess(1, 'prompt', 'run');
+    mockOnExitHandler?.({ exitCode: 0 });
+    expect(mockDb.runLogs.deleteMany).not.toHaveBeenCalled();
+  });
+
+  it('throttles updateEvents calls (not called if < 2000ms since last)', async () => {
+    const mockDb = { runLogs: createMockRunLogs() };
+    const svc = new PtySessionService(mockDb as never);
+    await svc.startProcess(1, 'prompt', 'run');
+    mockOnDataHandler?.('data1');
+    mockOnDataHandler?.('data2');
+    // Both data events arrive within 0ms — only one updateEvents call
+    expect(mockDb.runLogs.updateEvents).toHaveBeenCalledTimes(1);
+    // Advance 2001ms and trigger more data
+    vi.advanceTimersByTime(2001);
+    mockOnDataHandler?.('data3');
+    expect(mockDb.runLogs.updateEvents).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe('PtySessionService - getRunLogs', () => {
+  it('returns empty array when no DB configured', () => {
+    const svc = new PtySessionService();
+    expect(svc.getRunLogs(1)).toEqual([]);
+  });
+
+  it('maps DB rows to RunLog objects with JSON.parsed events', () => {
+    const mockDb = {
+      runLogs: {
+        create: vi.fn(),
+        updateFinished: vi.fn(),
+        updateEvents: vi.fn(),
+        findLatestByTaskId: vi.fn(),
+        findByTaskId: vi
+          .fn()
+          .mockReturnValue([
+            {
+              id: 10,
+              task_id: 1,
+              started_at: '2024-01-01T00:00:00Z',
+              finished_at: '2024-01-01T01:00:00Z',
+              exit_code: 0,
+              session_id: null,
+              events: '[{"kind":"text","text":"hello"}]',
+            },
+          ]),
+        findIdsByTaskId: vi.fn().mockReturnValue([]),
+        deleteMany: vi.fn(),
+        updateSessionId: vi.fn(),
+      },
+    };
+    const svc = new PtySessionService(mockDb as never);
+    const logs = svc.getRunLogs(1);
+    expect(logs).toHaveLength(1);
+    expect(logs[0].id).toBe(10);
+    expect(logs[0].events).toEqual([{ kind: 'text', text: 'hello' }]);
+  });
+});
+
+describe('PtySessionService - ready signal with session deleted before write', () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    mockWrite.mockClear();
+    mockOnDataHandler = null;
+    mockOnExitHandler = null;
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('does not write prompt if session is removed before the 500ms delay fires', async () => {
+    const svc = new PtySessionService();
+    await svc.startProcess(1, 'hello', 'run');
+    mockOnDataHandler?.('bypass permissions');
+    // Session exits before the 500ms delay fires
+    mockOnExitHandler?.({ exitCode: 0 });
+    mockWrite.mockClear();
+    vi.advanceTimersByTime(600);
+    // prompt should not have been written since session was gone
+    expect(mockWrite).not.toHaveBeenCalledWith('hello');
+  });
+});
+
+describe('PtySessionService - uncovered methods', () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    mockWrite.mockClear();
+    mockOnDataHandler = null;
+    mockOnExitHandler = null;
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('setBoardApiUrl updates the boardApiUrl', async () => {
+    const pty = await import('node-pty');
+    const spawnMock = pty.spawn as unknown as ReturnType<typeof vi.fn>;
+    spawnMock.mockClear();
+    const savedApiUrl = process.env.BOARD_API_URL;
+    const savedTaskId = process.env.BOARD_TASK_ID;
+    delete process.env.BOARD_API_URL;
+    delete process.env.BOARD_TASK_ID;
+    try {
+      const svc = new PtySessionService();
+      svc.setBoardApiUrl('http://example.com');
+      await svc.startProcess(1, 'prompt', 'run');
+      const env = (spawnMock.mock.calls[0][2] as { env: Record<string, string> }).env;
+      expect(env.BOARD_API_URL).toBe('http://example.com');
+      expect(env.BOARD_TASK_ID).toBe('1');
+    } finally {
+      if (savedApiUrl !== undefined) process.env.BOARD_API_URL = savedApiUrl;
+      if (savedTaskId !== undefined) process.env.BOARD_TASK_ID = savedTaskId;
+    }
+  });
+
+  it('isUserStopped returns true after stopProcess', async () => {
+    const svc = new PtySessionService();
+    await svc.startProcess(1, 'prompt', 'run');
+    svc.stopProcess(1);
+    expect(svc.isUserStopped(1)).toBe(true);
+  });
+
+  it('isUserStopped returns false for task that was never stopped', () => {
+    const svc = new PtySessionService();
+    expect(svc.isUserStopped(999)).toBe(false);
+  });
+
+  it('writeInput writes data to the session', async () => {
+    const svc = new PtySessionService();
+    await svc.startProcess(1, 'prompt', 'run');
+    mockWrite.mockClear();
+    svc.writeInput(1, 'some input');
+    expect(mockWrite).toHaveBeenCalledWith('some input');
+  });
+
+  it('writeInput is no-op for non-existent session', () => {
+    const svc = new PtySessionService();
+    expect(() => svc.writeInput(999, 'data')).not.toThrow();
+  });
+
+  it('subscribeCompletionConfirm and notifyCompletionConfirm work together', () => {
+    const svc = new PtySessionService();
+    const cb = vi.fn();
+    const unsub = svc.subscribeCompletionConfirm(cb);
+    svc.notifyCompletionConfirm(42, 'done');
+    expect(cb).toHaveBeenCalledWith(42, 'done');
+    unsub();
+    svc.notifyCompletionConfirm(42, 'done');
+    expect(cb).toHaveBeenCalledTimes(1);
+  });
+});
+
 describe('PtySessionService - hook integration', () => {
   let spawnMock: ReturnType<typeof vi.fn>;
 
