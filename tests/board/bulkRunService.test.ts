@@ -94,6 +94,24 @@ describe('BulkRunService task selection', () => {
     expect(startProcess).toHaveBeenCalledWith(blocked.id, expect.any(String), 'run', undefined, undefined);
   });
 
+  it('includes tasks whose blockers are in review', async () => {
+    const db = getStorageBackend();
+    const ts = new TaskService(db);
+    const tbs = new TaskBlockService(db);
+
+    const blocker = ts.createTask({ title: 'review blocker', status: 'review', priority: 'high' });
+    const blocked = ts.createTask({ title: 'ready task', status: 'ready', priority: 'critical' });
+
+    tbs.addBlock({ blocker_task_id: blocker.id, blocked_task_id: blocked.id });
+
+    const startProcess = vi.fn().mockResolvedValue(undefined);
+    const pty = buildMockPty({ startProcess });
+    const service = new BulkRunService(ts, tbs, pty);
+    await service.start('direct');
+
+    expect(startProcess).toHaveBeenCalledWith(blocked.id, expect.any(String), 'run', undefined, undefined);
+  });
+
   it('stays running and polls when no ready tasks remain', async () => {
     vi.useFakeTimers();
     const db = getStorageBackend();

@@ -88,7 +88,7 @@ export class BulkRunService {
       const blockerIds = blockedByMap.get(task.id) ?? [];
       return blockerIds.every((bid) => {
         const blocker = this.ts.getTask(bid);
-        return !blocker || blocker.status === 'done' || blocker.status === 'closed';
+        return !blocker || blocker.status === 'done' || blocker.status === 'closed' || blocker.status === 'review';
       });
     });
 
