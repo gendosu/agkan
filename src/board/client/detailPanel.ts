@@ -451,47 +451,17 @@ export function renderDetailPanel(data: TaskDetail): void {
   // Set up textarea auto-resize
   const textarea = document.getElementById('detail-edit-body') as HTMLTextAreaElement;
   if (textarea) {
-    const detailPanel = document.getElementById('detail-panel') as HTMLElement;
-    if (detailPanel && !detailPanel.classList.contains('open')) {
-      // Panel is about to open — wait for the CSS width transition to complete
-      // before measuring scrollHeight, otherwise the textarea is sized against
-      // a partially-transitioned (narrow) panel width.
-      const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-      if (prefersReducedMotion) {
-        // No transition will run — resize immediately.
-        autoResizeTextarea(textarea);
-      } else {
-        let done = false;
-        const finish = () => {
-          if (done) return;
-          done = true;
-          detailPanel.removeEventListener('transitionend', onTransitionEnd);
-          // Double rAF ensures browser reflow after the width transition completes
-          // before measuring scrollHeight, so tall descriptions size correctly.
-          requestAnimationFrame(() => {
-            requestAnimationFrame(() => {
-              autoResizeTextarea(textarea);
-            });
-          });
-        };
-        const onTransitionEnd = (e: TransitionEvent) => {
-          if (e.propertyName === 'width') finish();
-        };
-        detailPanel.addEventListener('transitionend', onTransitionEnd);
-        // Fallback: if transitionend fired before listener was registered,
-        // or if the transition is disabled/skipped, call after 260ms (> 250ms transition).
-        setTimeout(finish, 260);
-      }
-    } else {
-      // Panel is already open (task switch) — double rAF ensures reflow after
-      // innerHTML update before measuring scrollHeight, so tall descriptions
-      // size correctly on task switch.
-      requestAnimationFrame(() => {
-        requestAnimationFrame(() => {
-          autoResizeTextarea(textarea);
-        });
-      });
-    }
+    // ResizeObserver fires whenever the textarea's content-box width changes —
+    // including during the panel's CSS width transition — so autoResizeTextarea
+    // always measures scrollHeight at the actual current width.
+    const ro = new ResizeObserver(() => {
+      autoResizeTextarea(textarea);
+    });
+    ro.observe(textarea);
+    // Disconnect after the panel transition (250ms) plus a generous buffer.
+    // After that point the panel is stable and the `input` listener handles edits.
+    setTimeout(() => ro.disconnect(), 400);
+
     textarea.addEventListener('input', () => {
       autoResizeTextarea(textarea);
     });
