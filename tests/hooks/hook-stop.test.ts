@@ -218,6 +218,67 @@ describe('hook-stop.mjs', () => {
     expect(last?.body).toEqual({ taskId: 9, reason: 'complete' });
   });
 
+  it('does NOT post when last tool_use is Task with run_in_background: true', async () => {
+    const before = svr.captured.length;
+    const transcript = join(tmp, 't.jsonl');
+    writeFileSync(
+      transcript,
+      JSON.stringify({
+        type: 'assistant',
+        message: {
+          content: [
+            {
+              type: 'tool_use',
+              name: 'Task',
+              input: { description: 'run agent', prompt: 'do something', run_in_background: true },
+            },
+          ],
+        },
+      }) + '\n'
+    );
+    const code = await runHook(
+      { transcript_path: transcript, hook_event_name: 'Stop', stop_hook_active: false },
+      {
+        BOARD_TASK_ID: '5',
+        BOARD_API_URL: `http://127.0.0.1:${svr.port}`,
+        BOARD_HOOK_TOKEN: 'tk',
+      }
+    );
+    expect(code).toBe(0);
+    expect(svr.captured.length).toBe(before);
+  });
+
+  it('posts complete when last tool_use is Task without run_in_background', async () => {
+    const transcript = join(tmp, 't.jsonl');
+    writeFileSync(
+      transcript,
+      JSON.stringify({
+        type: 'assistant',
+        message: {
+          content: [
+            {
+              type: 'tool_use',
+              name: 'Task',
+              input: { description: 'run agent', prompt: 'do something' },
+            },
+          ],
+        },
+      }) + '\n'
+    );
+    const code = await runHook(
+      { transcript_path: transcript, hook_event_name: 'Stop', stop_hook_active: false },
+      {
+        BOARD_TASK_ID: '11',
+        BOARD_API_URL: `http://127.0.0.1:${svr.port}`,
+        BOARD_HOOK_TOKEN: 'tk',
+      }
+    );
+    expect(code).toBe(0);
+    const last = svr.captured.at(-1);
+    expect(last?.url).toBe('/api/internal/hooks/stop');
+    expect(last?.body).toEqual({ taskId: 11, reason: 'complete' });
+  });
+
   it('does NOT post when last tool_use is Monitor', async () => {
     const before = svr.captured.length;
     const transcript = join(tmp, 't.jsonl');

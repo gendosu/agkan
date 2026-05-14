@@ -10,6 +10,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - Add `--hook` flag to `agent-guide` command to output JSON format for SessionStart hooks
 
+### Fixed
+- Prevent PTY session from being killed when a backgrounded Task (sub-agent) is still running
+
 ## [3.8.0] - 2026-05-14
 
 ### Added

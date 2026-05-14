@@ -70,6 +70,16 @@ async function main() {
   ) {
     return;
   }
+  // When Claude ends a turn with a backgrounded Task (sub-agent) still running,
+  // do not signal "complete": that would kill the PTY session and abort the agent.
+  if (
+    lastTool?.name === 'Task' &&
+    lastTool.input &&
+    typeof lastTool.input === 'object' &&
+    lastTool.input.run_in_background === true
+  ) {
+    return;
+  }
   // Monitor is always waiting for streamed events from a background process.
   // Signalling "complete" while Monitor is active would abort the wait.
   if (lastTool?.name === 'Monitor') {
