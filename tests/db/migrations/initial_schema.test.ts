@@ -75,7 +75,7 @@ describe('initial_schema migration', () => {
           title TEXT NOT NULL,
           body TEXT,
           author TEXT,
-          status TEXT NOT NULL DEFAULT 'backlog' CHECK(status IN ('icebox_missing', 'backlog', 'ready', 'in_progress', 'review', 'done', 'closed')),
+          status TEXT NOT NULL DEFAULT 'backlog' CHECK(status IN ('backlog', 'ready', 'in_progress', 'review', 'done', 'closed')),
           created_at TEXT NOT NULL,
           updated_at TEXT NOT NULL,
           parent_id INTEGER DEFAULT NULL
