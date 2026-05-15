@@ -2,11 +2,12 @@
  * Tests for task block list command handler
  */
 
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { Command } from 'commander';
 import { setupBlockListCommand } from '../../../../src/cli/commands/block/list';
 import { getDatabase } from '../../../../src/db/connection';
 import { TaskService, TaskBlockService } from '../../../../src/services';
+import * as serviceContainer from '../../../../src/cli/utils/service-container';
 
 function resetDatabase() {
   const db = getDatabase();
@@ -189,5 +190,114 @@ describe('setupBlockListCommand', () => {
     expect(exitCode).toBe(1);
     const output = consoleLogs.join('\n');
     expect(output).toContain('number');
+  });
+
+  it('should display blockerTasks in standard output when task is blocked', async () => {
+    const taskService = new TaskService();
+    const task = taskService.createTask({ title: 'Main task', status: 'ready' });
+    const blocker = taskService.createTask({ title: 'Blocking task', status: 'ready' });
+
+    const taskBlockService = new TaskBlockService();
+    taskBlockService.addBlock({ blocker_task_id: blocker.id, blocked_task_id: task.id });
+
+    const consoleLogs: string[] = [];
+    const originalLog = console.log;
+    console.log = (...args: unknown[]) => consoleLogs.push(args.join(' '));
+
+    const originalExit = process.exit;
+    process.exit = (() => {}) as never;
+
+    try {
+      // Use standard output (no --json) to test blockerTasks.length > 0 branch
+      await program.parseAsync(['node', 'test', 'task', 'block', 'list', String(task.id)]);
+    } finally {
+      console.log = originalLog;
+      process.exit = originalExit;
+    }
+
+    const output = consoleLogs.join('\n');
+    expect(output).toContain('Blocking task');
+    expect(output).toMatch(/Blocked By: 1 task/);
+  });
+
+  it('should display blockedTasks in standard output when task is blocking others', async () => {
+    const taskService = new TaskService();
+    const task = taskService.createTask({ title: 'Main task', status: 'ready' });
+    const blocked = taskService.createTask({ title: 'Blocked by main', status: 'ready' });
+
+    const taskBlockService = new TaskBlockService();
+    taskBlockService.addBlock({ blocker_task_id: task.id, blocked_task_id: blocked.id });
+
+    const consoleLogs: string[] = [];
+    const originalLog = console.log;
+    console.log = (...args: unknown[]) => consoleLogs.push(args.join(' '));
+
+    const originalExit = process.exit;
+    process.exit = (() => {}) as never;
+
+    try {
+      // Use standard output (no --json) to test blockedTasks.length > 0 branch
+      await program.parseAsync(['node', 'test', 'task', 'block', 'list', String(task.id)]);
+    } finally {
+      console.log = originalLog;
+      process.exit = originalExit;
+    }
+
+    const output = consoleLogs.join('\n');
+    expect(output).toContain('Blocked by main');
+    expect(output).toMatch(/Blocking: 1 task/);
+  });
+
+  it('should show unknown error when non-Error object is thrown in catch', async () => {
+    const mockTaskService = new TaskService();
+    vi.spyOn(mockTaskService, 'getTask').mockImplementation(() => {
+      throw { code: 'UNKNOWN' };
+    });
+    vi.spyOn(serviceContainer, 'getServiceContainer').mockReturnValueOnce({
+      taskService: mockTaskService,
+      taskBlockService: new TaskBlockService(),
+    } as ReturnType<typeof serviceContainer.getServiceContainer>);
+
+    const consoleLogs: string[] = [];
+    const originalLog = console.log;
+    console.log = (...args: unknown[]) => consoleLogs.push(args.join(' '));
+
+    let exitCode: number | undefined;
+    const originalExit = process.exit;
+    process.exit = ((code?: number) => {
+      exitCode = code;
+    }) as never;
+
+    try {
+      await program.parseAsync(['node', 'test', 'task', 'block', 'list', '1']);
+    } finally {
+      console.log = originalLog;
+      process.exit = originalExit;
+      vi.restoreAllMocks();
+    }
+
+    expect(exitCode).toBe(1);
+    const output = consoleLogs.join('\n');
+    expect(output).toMatch(/unknown error/i);
+  });
+
+  it('should reuse existing block command when block command already exists under task', () => {
+    // Create a new program where task already has a block subcommand (but no 'list' yet)
+    const programWithBlock = new Command();
+    const taskCmd = programWithBlock.command('task').description('Task management commands');
+    taskCmd.command('block').description('Task blocking relationship commands');
+
+    // setupBlockListCommand should reuse the existing block command (not create a new one)
+    expect(() => setupBlockListCommand(programWithBlock)).not.toThrow();
+
+    // Verify list command was registered under the existing block command
+    const blockCommand = taskCmd.commands.find((cmd) => cmd.name() === 'block');
+    const listCommand = blockCommand?.commands.find((cmd) => cmd.name() === 'list');
+    expect(listCommand).toBeDefined();
+  });
+
+  it('should throw when task command does not exist', () => {
+    const emptyProgram = new Command();
+    expect(() => setupBlockListCommand(emptyProgram)).toThrow('Task command not found');
   });
 });

@@ -2,11 +2,12 @@
  * Tests for task meta get command handler
  */
 
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { Command } from 'commander';
 import { setupMetaGetCommand } from '../../../../src/cli/commands/meta/get';
 import { getDatabase } from '../../../../src/db/connection';
 import { TaskService, MetadataService } from '../../../../src/services';
+import * as serviceContainer from '../../../../src/cli/utils/service-container';
 
 function resetDatabase() {
   const db = getDatabase();
@@ -176,5 +177,114 @@ describe('setupMetaGetCommand', () => {
     expect(exitCode).toBe(1);
     const output = consoleLogs.join('\n');
     expect(output).toContain('number');
+  });
+
+  it('should create task command when it does not exist in program', () => {
+    const emptyProgram = new Command();
+    emptyProgram.exitOverride();
+    setupMetaGetCommand(emptyProgram);
+
+    const taskCommand = emptyProgram.commands.find((cmd) => cmd.name() === 'task');
+    expect(taskCommand).toBeDefined();
+
+    const metaCommand = taskCommand?.commands.find((cmd) => cmd.name() === 'meta');
+    expect(metaCommand).toBeDefined();
+
+    const getCommand = metaCommand?.commands.find((cmd) => cmd.name() === 'get');
+    expect(getCommand).toBeDefined();
+  });
+
+  it('should reuse existing meta command when it already exists', () => {
+    const reuseProgram = new Command();
+    reuseProgram.exitOverride();
+    const taskCmd = reuseProgram.command('task').description('Task management commands');
+    taskCmd.command('meta').description('Task metadata commands');
+    setupMetaGetCommand(reuseProgram);
+
+    const taskCommand = reuseProgram.commands.find((cmd) => cmd.name() === 'task');
+    const metaCommand = taskCommand?.commands.find((cmd) => cmd.name() === 'meta');
+    expect(metaCommand).toBeDefined();
+
+    const getCommand = metaCommand?.commands.find((cmd) => cmd.name() === 'get');
+    expect(getCommand).toBeDefined();
+  });
+
+  it('should output JSON error when task does not exist with --json option', async () => {
+    const consoleLogs: string[] = [];
+    const originalLog = console.log;
+    console.log = (...args: unknown[]) => consoleLogs.push(args.join(' '));
+
+    let exitCode: number | undefined;
+    const originalExit = process.exit;
+    process.exit = ((code?: number) => {
+      exitCode = code;
+    }) as never;
+
+    try {
+      await program.parseAsync(['node', 'test', 'task', 'meta', 'get', '999', 'priority', '--json']);
+    } finally {
+      console.log = originalLog;
+      process.exit = originalExit;
+    }
+
+    expect(exitCode).toBe(1);
+    const parsed = JSON.parse(consoleLogs[0]);
+    expect(parsed.success).toBe(false);
+    expect(parsed.error.message).toContain('999');
+  });
+
+  it('should output JSON error when metadata key does not exist with --json option', async () => {
+    const taskService = new TaskService();
+    const task = taskService.createTask({ title: 'Test task', status: 'ready' });
+
+    const consoleLogs: string[] = [];
+    const originalLog = console.log;
+    console.log = (...args: unknown[]) => consoleLogs.push(args.join(' '));
+
+    let exitCode: number | undefined;
+    const originalExit = process.exit;
+    process.exit = ((code?: number) => {
+      exitCode = code;
+    }) as never;
+
+    try {
+      await program.parseAsync(['node', 'test', 'task', 'meta', 'get', String(task.id), 'nonexistent', '--json']);
+    } finally {
+      console.log = originalLog;
+      process.exit = originalExit;
+    }
+
+    expect(exitCode).toBe(1);
+    const parsed = JSON.parse(consoleLogs[0]);
+    expect(parsed.success).toBe(false);
+    expect(parsed.error.message).toContain('nonexistent');
+  });
+
+  it('should handle non-Error thrown objects in catch block', async () => {
+    const spy = vi.spyOn(serviceContainer, 'getServiceContainer').mockImplementation(() => {
+      throw 'string error';
+    });
+
+    const consoleLogs: string[] = [];
+    const originalLog = console.log;
+    console.log = (...args: unknown[]) => consoleLogs.push(args.join(' '));
+
+    let exitCode: number | undefined;
+    const originalExit = process.exit;
+    process.exit = ((code?: number) => {
+      exitCode = code;
+    }) as never;
+
+    try {
+      await program.parseAsync(['node', 'test', 'task', 'meta', 'get', '1', 'priority']);
+    } finally {
+      console.log = originalLog;
+      process.exit = originalExit;
+      spy.mockRestore();
+    }
+
+    expect(exitCode).toBe(1);
+    const output = consoleLogs.join('\n');
+    expect(output).toContain('Unknown error');
   });
 });

@@ -2,11 +2,12 @@
  * Tests for tag detach command handler
  */
 
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { Command } from 'commander';
 import { setupTagDetachCommand } from '../../../../src/cli/commands/tag/detach';
 import { getDatabase } from '../../../../src/db/connection';
 import { TaskService, TagService, TaskTagService } from '../../../../src/services';
+import * as serviceContainer from '../../../../src/cli/utils/service-container';
 
 describe('setupTagDetachCommand', () => {
   let program: Command;
@@ -251,5 +252,113 @@ describe('setupTagDetachCommand', () => {
 
     const remainingTags = taskTagService.getTagsForTask(task.id);
     expect(remainingTags).toHaveLength(0);
+  });
+
+  it('should throw when tag command is not registered', () => {
+    const programWithoutTag = new Command();
+    expect(() => setupTagDetachCommand(programWithoutTag)).toThrow('Tag command not found');
+  });
+
+  it('should handle non-Error thrown in inner catch as unknown error', async () => {
+    const taskService = new TaskService();
+    const tagService = new TagService();
+    const taskTagService = new TaskTagService();
+
+    taskService.createTask({ title: 'Test task', body: null, author: null, status: 'ready', parent_id: null });
+    tagService.createTag({ name: 'test-tag' });
+    const task = taskService.listTasks()[0];
+    const tag = tagService.listTags()[0];
+    taskTagService.addTagToTask({ task_id: task.id, tag_id: tag.id });
+
+    const spy = vi.spyOn(serviceContainer, 'getServiceContainer').mockReturnValue({
+      taskService,
+      tagService,
+      taskTagService: {
+        addTagToTask: () => {},
+        getTagsForTask: () => [],
+        getTaskIdsForTag: () => [],
+        removeTagFromTask: () => {
+          throw 'string error';
+        },
+      },
+    } as ReturnType<typeof serviceContainer.getServiceContainer>);
+
+    const consoleLogs: string[] = [];
+    const originalLog = console.log;
+    console.log = (...args: unknown[]) => consoleLogs.push(args.join(' '));
+
+    let exitCode: number | undefined;
+    const originalExit = process.exit;
+    process.exit = ((code?: number) => {
+      exitCode = code;
+    }) as never;
+
+    try {
+      await program.parseAsync(['node', 'test', 'tag', 'detach', String(task.id), String(tag.id)]);
+    } finally {
+      console.log = originalLog;
+      process.exit = originalExit;
+      spy.mockRestore();
+    }
+
+    expect(exitCode).toBe(1);
+    const output = consoleLogs.join('\n');
+    expect(output).toContain('unknown error');
+  });
+
+  it('should handle plain Error thrown in outer catch', async () => {
+    const spy = vi.spyOn(serviceContainer, 'getServiceContainer').mockImplementation(() => {
+      throw new Error('outer plain error detach');
+    });
+
+    const consoleLogs: string[] = [];
+    const originalLog = console.log;
+    console.log = (...args: unknown[]) => consoleLogs.push(args.join(' '));
+
+    let exitCode: number | undefined;
+    const originalExit = process.exit;
+    process.exit = ((code?: number) => {
+      exitCode = code;
+    }) as never;
+
+    try {
+      await program.parseAsync(['node', 'test', 'tag', 'detach', '1', '1']);
+    } finally {
+      console.log = originalLog;
+      process.exit = originalExit;
+      spy.mockRestore();
+    }
+
+    expect(exitCode).toBe(1);
+    const output = consoleLogs.join('\n');
+    expect(output).toContain('outer plain error detach');
+  });
+
+  it('should handle non-Error thrown in outer catch as unknown error', async () => {
+    const spy = vi.spyOn(serviceContainer, 'getServiceContainer').mockImplementation(() => {
+      throw 'outer string error';
+    });
+
+    const consoleLogs: string[] = [];
+    const originalLog = console.log;
+    console.log = (...args: unknown[]) => consoleLogs.push(args.join(' '));
+
+    let exitCode: number | undefined;
+    const originalExit = process.exit;
+    process.exit = ((code?: number) => {
+      exitCode = code;
+    }) as never;
+
+    try {
+      await program.parseAsync(['node', 'test', 'tag', 'detach', '1', '1']);
+    } finally {
+      console.log = originalLog;
+      process.exit = originalExit;
+      spy.mockRestore();
+    }
+
+    expect(exitCode).toBe(1);
+    const output = consoleLogs.join('\n');
+    expect(output).toContain('unknown error');
   });
 });

@@ -201,4 +201,50 @@ describe('setupCommentListCommand', () => {
     const output = consoleLogs.join('\n');
     expect(output).toContain('number');
   });
+
+  it('should create task command when it does not exist', () => {
+    const programWithoutTask = new Command();
+    programWithoutTask.exitOverride();
+    setupCommentListCommand(programWithoutTask);
+
+    const taskCommand = programWithoutTask.commands.find((cmd) => cmd.name() === 'task');
+    expect(taskCommand).toBeDefined();
+
+    const commentCommand = taskCommand?.commands.find((cmd) => cmd.name() === 'comment');
+    expect(commentCommand).toBeDefined();
+
+    const listCommand = commentCommand?.commands.find((cmd) => cmd.name() === 'list');
+    expect(listCommand).toBeDefined();
+  });
+
+  it('should handle non-Error thrown in catch block', async () => {
+    const { vi } = await import('vitest');
+    const serviceContainerModule = await import('../../../../src/cli/utils/service-container');
+    const getServiceContainerSpy = vi.spyOn(serviceContainerModule, 'getServiceContainer');
+    getServiceContainerSpy.mockImplementation(() => {
+      throw 'string error';
+    });
+
+    const consoleLogs: string[] = [];
+    const originalLog = console.log;
+    console.log = (...args: unknown[]) => consoleLogs.push(args.join(' '));
+
+    let exitCode: number | undefined;
+    const originalExit = process.exit;
+    process.exit = ((code?: number) => {
+      exitCode = code;
+    }) as never;
+
+    try {
+      await program.parseAsync(['node', 'test', 'task', 'comment', 'list', '1']);
+    } finally {
+      console.log = originalLog;
+      process.exit = originalExit;
+      getServiceContainerSpy.mockRestore();
+    }
+
+    expect(exitCode).toBe(1);
+    const output = consoleLogs.join('\n');
+    expect(output).toContain('Unknown error');
+  });
 });

@@ -2,11 +2,12 @@
  * Tests for tag rename command handler
  */
 
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { Command } from 'commander';
 import { setupTagRenameCommand } from '../../../../src/cli/commands/tag/rename';
 import { getDatabase } from '../../../../src/db/connection';
 import { TagService } from '../../../../src/services';
+import * as serviceContainer from '../../../../src/cli/utils/service-container';
 
 describe('setupTagRenameCommand', () => {
   let program: Command;
@@ -265,5 +266,146 @@ describe('setupTagRenameCommand', () => {
     }
 
     expect(exitCode).toBe(1);
+  });
+
+  it('should throw when tag command is not registered', () => {
+    const programWithoutTag = new Command();
+    expect(() => setupTagRenameCommand(programWithoutTag)).toThrow('Tag command not found');
+  });
+
+  it('should show error when updateTag returns null', async () => {
+    const tagService = new TagService();
+    tagService.createTag({ name: 'null-update-tag' });
+    const tag = tagService.listTags()[0];
+
+    const spy = vi.spyOn(serviceContainer, 'getServiceContainer').mockReturnValue({
+      tagService: {
+        getTag: (id: number) => tagService.getTag(id),
+        getTagByName: (name: string) => tagService.getTagByName(name),
+        listTags: () => tagService.listTags(),
+        createTag: (data: Parameters<typeof tagService.createTag>[0]) => tagService.createTag(data),
+        updateTag: () => null,
+        deleteTag: (id: number) => tagService.deleteTag(id),
+      },
+    } as ReturnType<typeof serviceContainer.getServiceContainer>);
+
+    const consoleLogs: string[] = [];
+    const originalLog = console.log;
+    console.log = (...args: unknown[]) => consoleLogs.push(args.join(' '));
+
+    let exitCode: number | undefined;
+    const originalExit = process.exit;
+    process.exit = ((code?: number) => {
+      exitCode = code;
+    }) as never;
+
+    try {
+      await program.parseAsync(['node', 'test', 'tag', 'rename', String(tag.id), 'updated-name']);
+    } finally {
+      console.log = originalLog;
+      process.exit = originalExit;
+      spy.mockRestore();
+    }
+
+    expect(exitCode).toBe(1);
+    const output = consoleLogs.join('\n');
+    expect(output).toContain('Failed to rename');
+  });
+
+  it('should handle non-Error thrown in inner catch as unknown error', async () => {
+    const tagService = new TagService();
+    tagService.createTag({ name: 'inner-error-rename' });
+    const tag = tagService.listTags()[0];
+
+    const spy = vi.spyOn(serviceContainer, 'getServiceContainer').mockReturnValue({
+      tagService: {
+        getTag: (id: number) => tagService.getTag(id),
+        getTagByName: (name: string) => tagService.getTagByName(name),
+        listTags: () => tagService.listTags(),
+        createTag: (data: Parameters<typeof tagService.createTag>[0]) => tagService.createTag(data),
+        updateTag: () => {
+          throw 'string error';
+        },
+        deleteTag: (id: number) => tagService.deleteTag(id),
+      },
+    } as ReturnType<typeof serviceContainer.getServiceContainer>);
+
+    const consoleLogs: string[] = [];
+    const originalLog = console.log;
+    console.log = (...args: unknown[]) => consoleLogs.push(args.join(' '));
+
+    let exitCode: number | undefined;
+    const originalExit = process.exit;
+    process.exit = ((code?: number) => {
+      exitCode = code;
+    }) as never;
+
+    try {
+      await program.parseAsync(['node', 'test', 'tag', 'rename', String(tag.id), 'new-name-x']);
+    } finally {
+      console.log = originalLog;
+      process.exit = originalExit;
+      spy.mockRestore();
+    }
+
+    expect(exitCode).toBe(1);
+    const output = consoleLogs.join('\n');
+    expect(output).toContain('unknown error');
+  });
+
+  it('should handle plain Error thrown in outer catch', async () => {
+    const spy = vi.spyOn(serviceContainer, 'getServiceContainer').mockImplementation(() => {
+      throw new Error('outer plain error rename');
+    });
+
+    const consoleLogs: string[] = [];
+    const originalLog = console.log;
+    console.log = (...args: unknown[]) => consoleLogs.push(args.join(' '));
+
+    let exitCode: number | undefined;
+    const originalExit = process.exit;
+    process.exit = ((code?: number) => {
+      exitCode = code;
+    }) as never;
+
+    try {
+      await program.parseAsync(['node', 'test', 'tag', 'rename', '1', 'new-name-z']);
+    } finally {
+      console.log = originalLog;
+      process.exit = originalExit;
+      spy.mockRestore();
+    }
+
+    expect(exitCode).toBe(1);
+    const output = consoleLogs.join('\n');
+    expect(output).toContain('outer plain error rename');
+  });
+
+  it('should handle non-Error thrown in outer catch as unknown error', async () => {
+    const spy = vi.spyOn(serviceContainer, 'getServiceContainer').mockImplementation(() => {
+      throw 'outer string error';
+    });
+
+    const consoleLogs: string[] = [];
+    const originalLog = console.log;
+    console.log = (...args: unknown[]) => consoleLogs.push(args.join(' '));
+
+    let exitCode: number | undefined;
+    const originalExit = process.exit;
+    process.exit = ((code?: number) => {
+      exitCode = code;
+    }) as never;
+
+    try {
+      await program.parseAsync(['node', 'test', 'tag', 'rename', '1', 'new-name-y']);
+    } finally {
+      console.log = originalLog;
+      process.exit = originalExit;
+      spy.mockRestore();
+    }
+
+    expect(exitCode).toBe(1);
+    const output = consoleLogs.join('\n');
+    expect(output).toContain('unknown error');
   });
 });
