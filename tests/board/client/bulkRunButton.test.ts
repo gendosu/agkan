@@ -234,7 +234,9 @@ describe('mainBtn click', () => {
     vi.mocked(fetch).mockResolvedValue({
       ok: false,
       status: 502,
-      json: async () => { throw new Error('bad json'); },
+      json: async () => {
+        throw new Error('bad json');
+      },
     } as unknown as Response);
     initBulkRunButton();
     MockEventSource.lastInstance!.dispatch('update', { mode: 'idle' });

@@ -90,7 +90,10 @@ function setupGlobalMocks() {
     onerror: (() => void) | null;
     onopen: (() => void) | null;
 
-    constructor(_url: string) { // eslint-disable-line @typescript-eslint/no-unused-vars
+    constructor(
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      _url: string
+    ) {
       this.close = vi.fn();
       this.send = vi.fn();
       this.readyState = MockWebSocket.CONNECTING;
