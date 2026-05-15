@@ -99,6 +99,12 @@ export function switchTab(tabName: string): void {
   }
   const footer = document.getElementById('detail-panel-footer');
   if (footer) footer.style.display = tabName === 'details' ? '' : 'none';
+  if (tabName === 'details') {
+    const textarea = document.getElementById('detail-edit-body') as HTMLTextAreaElement;
+    if (textarea) {
+      requestAnimationFrame(() => autoResizeTextarea(textarea));
+    }
+  }
   if (tabName === 'run-logs' && detailTaskId !== null && (!isSameTab || runLogsLoadedTaskId !== detailTaskId)) {
     loadRunLogs(detailTaskId);
   }
