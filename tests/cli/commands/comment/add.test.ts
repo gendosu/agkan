@@ -187,4 +187,19 @@ describe('setupCommentAddCommand', () => {
     const output = consoleLogs.join('\n');
     expect(output).toContain('number');
   });
+
+  it('should create task command when it does not exist', () => {
+    const programWithoutTask = new Command();
+    programWithoutTask.exitOverride();
+    setupCommentAddCommand(programWithoutTask);
+
+    const taskCommand = programWithoutTask.commands.find((cmd) => cmd.name() === 'task');
+    expect(taskCommand).toBeDefined();
+
+    const commentCommand = taskCommand?.commands.find((cmd) => cmd.name() === 'comment');
+    expect(commentCommand).toBeDefined();
+
+    const addCommand = commentCommand?.commands.find((cmd) => cmd.name() === 'add');
+    expect(addCommand).toBeDefined();
+  });
 });
