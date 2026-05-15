@@ -2,11 +2,12 @@
  * Tests for tag list command handler
  */
 
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { Command } from 'commander';
 import { setupTagListCommand } from '../../../../src/cli/commands/tag/list';
 import { getDatabase } from '../../../../src/db/connection';
 import { TagService } from '../../../../src/services';
+import * as serviceContainer from '../../../../src/cli/utils/service-container';
 
 describe('setupTagListCommand', () => {
   let program: Command;
@@ -155,5 +156,66 @@ describe('setupTagListCommand', () => {
     const parsed = JSON.parse(consoleLogs.join(''));
     expect(parsed.tags[0].taskCount).toBeDefined();
     expect(parsed.tags[0].taskCount).toBe(0);
+  });
+
+  it('should throw when tag command is not registered', () => {
+    const programWithoutTag = new Command();
+    expect(() => setupTagListCommand(programWithoutTag)).toThrow('Tag command not found');
+  });
+
+  it('should handle Error thrown in catch block', async () => {
+    const spy = vi.spyOn(serviceContainer, 'getServiceContainer').mockImplementation(() => {
+      throw new Error('service initialization failed');
+    });
+
+    const consoleLogs: string[] = [];
+    const originalLog = console.log;
+    console.log = (...args: unknown[]) => consoleLogs.push(args.join(' '));
+
+    let exitCode: number | undefined;
+    const originalExit = process.exit;
+    process.exit = ((code?: number) => {
+      exitCode = code;
+    }) as never;
+
+    try {
+      await program.parseAsync(['node', 'test', 'tag', 'list']);
+    } finally {
+      console.log = originalLog;
+      process.exit = originalExit;
+      spy.mockRestore();
+    }
+
+    expect(exitCode).toBe(1);
+    const output = consoleLogs.join('\n');
+    expect(output).toContain('service initialization failed');
+  });
+
+  it('should handle non-Error thrown in catch block as unknown error', async () => {
+    const spy = vi.spyOn(serviceContainer, 'getServiceContainer').mockImplementation(() => {
+      throw 'string error';
+    });
+
+    const consoleLogs: string[] = [];
+    const originalLog = console.log;
+    console.log = (...args: unknown[]) => consoleLogs.push(args.join(' '));
+
+    let exitCode: number | undefined;
+    const originalExit = process.exit;
+    process.exit = ((code?: number) => {
+      exitCode = code;
+    }) as never;
+
+    try {
+      await program.parseAsync(['node', 'test', 'tag', 'list']);
+    } finally {
+      console.log = originalLog;
+      process.exit = originalExit;
+      spy.mockRestore();
+    }
+
+    expect(exitCode).toBe(1);
+    const output = consoleLogs.join('\n');
+    expect(output).toContain('unknown error');
   });
 });

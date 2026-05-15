@@ -2,11 +2,12 @@
  * Tests for tag delete command handler
  */
 
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { Command } from 'commander';
 import { setupTagDeleteCommand } from '../../../../src/cli/commands/tag/delete';
 import { getDatabase } from '../../../../src/db/connection';
 import { TagService } from '../../../../src/services';
+import * as serviceContainer from '../../../../src/cli/utils/service-container';
 
 describe('setupTagDeleteCommand', () => {
   let program: Command;
@@ -182,5 +183,107 @@ describe('setupTagDeleteCommand', () => {
 
     const remaining = tagService.listTags();
     expect(remaining).toHaveLength(0);
+  });
+
+  it('should throw when tag command is not registered', () => {
+    const programWithoutTag = new Command();
+    expect(() => setupTagDeleteCommand(programWithoutTag)).toThrow('Tag command not found');
+  });
+
+  it('should handle non-Error thrown in inner catch as unknown error', async () => {
+    const tagService = new TagService();
+    tagService.createTag({ name: 'inner-error-tag' });
+    const tag = tagService.listTags()[0];
+
+    const spy = vi.spyOn(serviceContainer, 'getServiceContainer').mockReturnValue({
+      tagService: {
+        getTag: (id: number) => tagService.getTag(id),
+        getTagByName: (name: string) => tagService.getTagByName(name),
+        listTags: () => tagService.listTags(),
+        createTag: (data: Parameters<typeof tagService.createTag>[0]) => tagService.createTag(data),
+        updateTag: (id: number, data: Parameters<typeof tagService.updateTag>[1]) => tagService.updateTag(id, data),
+        deleteTag: () => {
+          throw 'string error';
+        },
+      },
+    } as ReturnType<typeof serviceContainer.getServiceContainer>);
+
+    const consoleLogs: string[] = [];
+    const originalLog = console.log;
+    console.log = (...args: unknown[]) => consoleLogs.push(args.join(' '));
+
+    let exitCode: number | undefined;
+    const originalExit = process.exit;
+    process.exit = ((code?: number) => {
+      exitCode = code;
+    }) as never;
+
+    try {
+      await program.parseAsync(['node', 'test', 'tag', 'delete', String(tag.id)]);
+    } finally {
+      console.log = originalLog;
+      process.exit = originalExit;
+      spy.mockRestore();
+    }
+
+    expect(exitCode).toBe(1);
+    const output = consoleLogs.join('\n');
+    expect(output).toContain('unknown error');
+  });
+
+  it('should handle plain Error thrown in outer catch', async () => {
+    const spy = vi.spyOn(serviceContainer, 'getServiceContainer').mockImplementation(() => {
+      throw new Error('outer plain error delete');
+    });
+
+    const consoleLogs: string[] = [];
+    const originalLog = console.log;
+    console.log = (...args: unknown[]) => consoleLogs.push(args.join(' '));
+
+    let exitCode: number | undefined;
+    const originalExit = process.exit;
+    process.exit = ((code?: number) => {
+      exitCode = code;
+    }) as never;
+
+    try {
+      await program.parseAsync(['node', 'test', 'tag', 'delete', '1']);
+    } finally {
+      console.log = originalLog;
+      process.exit = originalExit;
+      spy.mockRestore();
+    }
+
+    expect(exitCode).toBe(1);
+    const output = consoleLogs.join('\n');
+    expect(output).toContain('outer plain error delete');
+  });
+
+  it('should handle non-Error thrown in outer catch as unknown error', async () => {
+    const spy = vi.spyOn(serviceContainer, 'getServiceContainer').mockImplementation(() => {
+      throw 'outer string error';
+    });
+
+    const consoleLogs: string[] = [];
+    const originalLog = console.log;
+    console.log = (...args: unknown[]) => consoleLogs.push(args.join(' '));
+
+    let exitCode: number | undefined;
+    const originalExit = process.exit;
+    process.exit = ((code?: number) => {
+      exitCode = code;
+    }) as never;
+
+    try {
+      await program.parseAsync(['node', 'test', 'tag', 'delete', '1']);
+    } finally {
+      console.log = originalLog;
+      process.exit = originalExit;
+      spy.mockRestore();
+    }
+
+    expect(exitCode).toBe(1);
+    const output = consoleLogs.join('\n');
+    expect(output).toContain('unknown error');
   });
 });
