@@ -2,11 +2,12 @@
  * Tests for task block remove command handler
  */
 
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { Command } from 'commander';
 import { setupBlockRemoveCommand } from '../../../../src/cli/commands/block/remove';
 import { getDatabase } from '../../../../src/db/connection';
 import { TaskService, TaskBlockService } from '../../../../src/services';
+import * as serviceContainer from '../../../../src/cli/utils/service-container';
 
 function resetDatabase() {
   const db = getDatabase();
@@ -251,5 +252,132 @@ describe('setupBlockRemoveCommand', () => {
     expect(exitCode).toBe(1);
     const output = consoleLogs.join('\n');
     expect(output).toContain('number');
+  });
+
+  it('should show error with Error message when removeBlock throws an Error', async () => {
+    const taskService = new TaskService();
+    const blocker = taskService.createTask({ title: 'Blocker task', status: 'ready' });
+    const blocked = taskService.createTask({ title: 'Blocked task', status: 'ready' });
+
+    const mockTaskBlockService = new TaskBlockService();
+    vi.spyOn(mockTaskBlockService, 'removeBlock').mockImplementation(() => {
+      throw new Error('Database error during removal');
+    });
+    vi.spyOn(serviceContainer, 'getServiceContainer').mockReturnValueOnce({
+      taskService: new TaskService(),
+      taskBlockService: mockTaskBlockService,
+    } as ReturnType<typeof serviceContainer.getServiceContainer>);
+
+    const consoleLogs: string[] = [];
+    const originalLog = console.log;
+    console.log = (...args: unknown[]) => consoleLogs.push(args.join(' '));
+
+    let exitCode: number | undefined;
+    const originalExit = process.exit;
+    process.exit = ((code?: number) => {
+      exitCode = code;
+    }) as never;
+
+    try {
+      await program.parseAsync(['node', 'test', 'task', 'block', 'remove', String(blocker.id), String(blocked.id)]);
+    } finally {
+      console.log = originalLog;
+      process.exit = originalExit;
+      vi.restoreAllMocks();
+    }
+
+    expect(exitCode).toBe(1);
+    const output = consoleLogs.join('\n');
+    expect(output).toContain('Database error during removal');
+  });
+
+  it('should show unknown error when non-Error object is thrown from inner catch (removeBlock)', async () => {
+    const taskService = new TaskService();
+    const blocker = taskService.createTask({ title: 'Blocker task', status: 'ready' });
+    const blocked = taskService.createTask({ title: 'Blocked task', status: 'ready' });
+
+    const mockTaskBlockService = new TaskBlockService();
+    vi.spyOn(mockTaskBlockService, 'removeBlock').mockImplementation(() => {
+      throw { code: 'DB_ERROR' };
+    });
+    vi.spyOn(serviceContainer, 'getServiceContainer').mockReturnValueOnce({
+      taskService: new TaskService(),
+      taskBlockService: mockTaskBlockService,
+    } as ReturnType<typeof serviceContainer.getServiceContainer>);
+
+    const consoleLogs: string[] = [];
+    const originalLog = console.log;
+    console.log = (...args: unknown[]) => consoleLogs.push(args.join(' '));
+
+    let exitCode: number | undefined;
+    const originalExit = process.exit;
+    process.exit = ((code?: number) => {
+      exitCode = code;
+    }) as never;
+
+    try {
+      await program.parseAsync(['node', 'test', 'task', 'block', 'remove', String(blocker.id), String(blocked.id)]);
+    } finally {
+      console.log = originalLog;
+      process.exit = originalExit;
+      vi.restoreAllMocks();
+    }
+
+    expect(exitCode).toBe(1);
+    const output = consoleLogs.join('\n');
+    expect(output).toMatch(/unknown error/i);
+  });
+
+  it('should show unknown error when non-Error object is thrown from outer catch', async () => {
+    const mockTaskService = new TaskService();
+    vi.spyOn(mockTaskService, 'getTask').mockImplementation(() => {
+      throw 'string error thrown from getTask';
+    });
+    vi.spyOn(serviceContainer, 'getServiceContainer').mockReturnValueOnce({
+      taskService: mockTaskService,
+      taskBlockService: new TaskBlockService(),
+    } as ReturnType<typeof serviceContainer.getServiceContainer>);
+
+    const consoleLogs: string[] = [];
+    const originalLog = console.log;
+    console.log = (...args: unknown[]) => consoleLogs.push(args.join(' '));
+
+    let exitCode: number | undefined;
+    const originalExit = process.exit;
+    process.exit = ((code?: number) => {
+      exitCode = code;
+    }) as never;
+
+    try {
+      await program.parseAsync(['node', 'test', 'task', 'block', 'remove', '1', '2']);
+    } finally {
+      console.log = originalLog;
+      process.exit = originalExit;
+      vi.restoreAllMocks();
+    }
+
+    expect(exitCode).toBe(1);
+    const output = consoleLogs.join('\n');
+    expect(output).toMatch(/unknown error/i);
+  });
+
+  it('should reuse existing block command when block command already exists under task', () => {
+    // Create a new program where task already has a block subcommand (but no 'remove' yet)
+    const programWithBlock = new Command();
+    const taskCmd = programWithBlock.command('task').description('Task management commands');
+    taskCmd.command('block').description('Task blocking relationship commands');
+
+    // setupBlockRemoveCommand should reuse the existing block command (not create a new one)
+    expect(() => setupBlockRemoveCommand(programWithBlock)).not.toThrow();
+
+    // Verify remove command was registered under the existing block command
+    const blockCommand = taskCmd.commands.find((cmd) => cmd.name() === 'block');
+    const removeCommand = blockCommand?.commands.find((cmd) => cmd.name() === 'remove');
+    expect(removeCommand).toBeDefined();
+  });
+
+  it('should throw when task command does not exist', () => {
+    const emptyProgram = new Command();
+    expect(() => setupBlockRemoveCommand(emptyProgram)).toThrow('Task command not found');
   });
 });

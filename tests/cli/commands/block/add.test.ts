@@ -2,11 +2,12 @@
  * Tests for task block add command handler
  */
 
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { Command } from 'commander';
 import { setupBlockAddCommand } from '../../../../src/cli/commands/block/add';
 import { getDatabase } from '../../../../src/db/connection';
 import { TaskService, TaskBlockService } from '../../../../src/services';
+import * as serviceContainer from '../../../../src/cli/utils/service-container';
 
 function resetDatabase() {
   const db = getDatabase();
@@ -275,5 +276,206 @@ describe('setupBlockAddCommand', () => {
     expect(exitCode).toBe(1);
     const output = consoleLogs.join('\n');
     expect(output).toMatch(/already exists/i);
+  });
+
+  it('should show circular dependency error when cycle/circular error is thrown', async () => {
+    const taskService = new TaskService();
+    const blocker = taskService.createTask({ title: 'Blocker task', status: 'ready' });
+    const blocked = taskService.createTask({ title: 'Blocked task', status: 'ready' });
+
+    const mockTaskBlockService = new TaskBlockService();
+    vi.spyOn(mockTaskBlockService, 'addBlock').mockImplementation(() => {
+      throw new Error('would create circular dependency between tasks');
+    });
+    vi.spyOn(serviceContainer, 'getServiceContainer').mockReturnValueOnce({
+      taskService: new TaskService(),
+      taskBlockService: mockTaskBlockService,
+    } as ReturnType<typeof serviceContainer.getServiceContainer>);
+
+    const consoleLogs: string[] = [];
+    const originalLog = console.log;
+    console.log = (...args: unknown[]) => consoleLogs.push(args.join(' '));
+
+    let exitCode: number | undefined;
+    const originalExit = process.exit;
+    process.exit = ((code?: number) => {
+      exitCode = code;
+    }) as never;
+
+    try {
+      await program.parseAsync(['node', 'test', 'task', 'block', 'add', String(blocker.id), String(blocked.id)]);
+    } finally {
+      console.log = originalLog;
+      process.exit = originalExit;
+      vi.restoreAllMocks();
+    }
+
+    expect(exitCode).toBe(1);
+    const output = consoleLogs.join('\n');
+    expect(output).toMatch(/circular/i);
+  });
+
+  it('should show circular dependency error when cycle error is thrown', async () => {
+    const taskService = new TaskService();
+    const blocker = taskService.createTask({ title: 'Blocker task', status: 'ready' });
+    const blocked = taskService.createTask({ title: 'Blocked task', status: 'ready' });
+
+    const mockTaskBlockService = new TaskBlockService();
+    vi.spyOn(mockTaskBlockService, 'addBlock').mockImplementation(() => {
+      throw new Error('would create a cycle in blocking graph');
+    });
+    vi.spyOn(serviceContainer, 'getServiceContainer').mockReturnValueOnce({
+      taskService: new TaskService(),
+      taskBlockService: mockTaskBlockService,
+    } as ReturnType<typeof serviceContainer.getServiceContainer>);
+
+    const consoleLogs: string[] = [];
+    const originalLog = console.log;
+    console.log = (...args: unknown[]) => consoleLogs.push(args.join(' '));
+
+    let exitCode: number | undefined;
+    const originalExit = process.exit;
+    process.exit = ((code?: number) => {
+      exitCode = code;
+    }) as never;
+
+    try {
+      await program.parseAsync(['node', 'test', 'task', 'block', 'add', String(blocker.id), String(blocked.id)]);
+    } finally {
+      console.log = originalLog;
+      process.exit = originalExit;
+      vi.restoreAllMocks();
+    }
+
+    expect(exitCode).toBe(1);
+    const output = consoleLogs.join('\n');
+    expect(output).toMatch(/circular/i);
+  });
+
+  it('should show generic Error message when a non-cycle non-unique Error is thrown from addBlock', async () => {
+    const taskService = new TaskService();
+    const blocker = taskService.createTask({ title: 'Blocker task', status: 'ready' });
+    const blocked = taskService.createTask({ title: 'Blocked task', status: 'ready' });
+
+    const mockTaskBlockService = new TaskBlockService();
+    vi.spyOn(mockTaskBlockService, 'addBlock').mockImplementation(() => {
+      throw new Error('Some other generic database error');
+    });
+    vi.spyOn(serviceContainer, 'getServiceContainer').mockReturnValueOnce({
+      taskService: new TaskService(),
+      taskBlockService: mockTaskBlockService,
+    } as ReturnType<typeof serviceContainer.getServiceContainer>);
+
+    const consoleLogs: string[] = [];
+    const originalLog = console.log;
+    console.log = (...args: unknown[]) => consoleLogs.push(args.join(' '));
+
+    let exitCode: number | undefined;
+    const originalExit = process.exit;
+    process.exit = ((code?: number) => {
+      exitCode = code;
+    }) as never;
+
+    try {
+      await program.parseAsync(['node', 'test', 'task', 'block', 'add', String(blocker.id), String(blocked.id)]);
+    } finally {
+      console.log = originalLog;
+      process.exit = originalExit;
+      vi.restoreAllMocks();
+    }
+
+    expect(exitCode).toBe(1);
+    const output = consoleLogs.join('\n');
+    expect(output).toContain('Some other generic database error');
+  });
+
+  it('should show unknown error when non-Error object is thrown from addBlock', async () => {
+    const taskService = new TaskService();
+    const blocker = taskService.createTask({ title: 'Blocker task', status: 'ready' });
+    const blocked = taskService.createTask({ title: 'Blocked task', status: 'ready' });
+
+    const mockTaskBlockService = new TaskBlockService();
+    vi.spyOn(mockTaskBlockService, 'addBlock').mockImplementation(() => {
+      throw { code: 'UNKNOWN', message: 'not an Error object' };
+    });
+    vi.spyOn(serviceContainer, 'getServiceContainer').mockReturnValueOnce({
+      taskService: new TaskService(),
+      taskBlockService: mockTaskBlockService,
+    } as ReturnType<typeof serviceContainer.getServiceContainer>);
+
+    const consoleLogs: string[] = [];
+    const originalLog = console.log;
+    console.log = (...args: unknown[]) => consoleLogs.push(args.join(' '));
+
+    let exitCode: number | undefined;
+    const originalExit = process.exit;
+    process.exit = ((code?: number) => {
+      exitCode = code;
+    }) as never;
+
+    try {
+      await program.parseAsync(['node', 'test', 'task', 'block', 'add', String(blocker.id), String(blocked.id)]);
+    } finally {
+      console.log = originalLog;
+      process.exit = originalExit;
+      vi.restoreAllMocks();
+    }
+
+    expect(exitCode).toBe(1);
+    const output = consoleLogs.join('\n');
+    expect(output).toMatch(/unknown error/i);
+  });
+
+  it('should show unknown error when non-Error object is thrown from outer catch', async () => {
+    const mockTaskService = new TaskService();
+    vi.spyOn(mockTaskService, 'getTask').mockImplementation(() => {
+      throw 'string error';
+    });
+    vi.spyOn(serviceContainer, 'getServiceContainer').mockReturnValueOnce({
+      taskService: mockTaskService,
+      taskBlockService: new TaskBlockService(),
+    } as ReturnType<typeof serviceContainer.getServiceContainer>);
+
+    const consoleLogs: string[] = [];
+    const originalLog = console.log;
+    console.log = (...args: unknown[]) => consoleLogs.push(args.join(' '));
+
+    let exitCode: number | undefined;
+    const originalExit = process.exit;
+    process.exit = ((code?: number) => {
+      exitCode = code;
+    }) as never;
+
+    try {
+      await program.parseAsync(['node', 'test', 'task', 'block', 'add', '1', '2']);
+    } finally {
+      console.log = originalLog;
+      process.exit = originalExit;
+      vi.restoreAllMocks();
+    }
+
+    expect(exitCode).toBe(1);
+    const output = consoleLogs.join('\n');
+    expect(output).toMatch(/unknown error/i);
+  });
+
+  it('should reuse existing block command when block command already exists under task', () => {
+    // Create a new program where task already has a block subcommand (but no 'add' yet)
+    const programWithBlock = new Command();
+    const taskCmd = programWithBlock.command('task').description('Task management commands');
+    taskCmd.command('block').description('Task blocking relationship commands');
+
+    // setupBlockAddCommand should reuse the existing block command (not create a new one)
+    expect(() => setupBlockAddCommand(programWithBlock)).not.toThrow();
+
+    // Verify add command was registered under the existing block command
+    const blockCommand = taskCmd.commands.find((cmd) => cmd.name() === 'block');
+    const addCommand = blockCommand?.commands.find((cmd) => cmd.name() === 'add');
+    expect(addCommand).toBeDefined();
+  });
+
+  it('should throw when task command does not exist', () => {
+    const emptyProgram = new Command();
+    expect(() => setupBlockAddCommand(emptyProgram)).toThrow('Task command not found');
   });
 });
