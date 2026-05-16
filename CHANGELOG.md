@@ -7,11 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.9.0] - 2026-05-16
+
 ### Added
 - Add `--hook` flag to `agent-guide` command to output JSON format for SessionStart hooks
+- Treat review status as resolved in BulkRunService blocker filter
 
 ### Fixed
 - Prevent PTY session from being killed when a backgrounded Task (sub-agent) is still running
+- Resize description textarea correctly using ResizeObserver when switching to details tab
+- Align board header title to left edge
 
 ## [3.8.0] - 2026-05-14
 
