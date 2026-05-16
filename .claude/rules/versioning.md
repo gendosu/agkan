@@ -53,12 +53,12 @@ We follow semantic versioning (MAJOR.MINOR.PATCH) for all our releases:
      pnpm version patch|minor|major
      ```
 
-4. **Update CHANGELOG**: Document changes in `CHANGELOG.md`
+4. **Update CHANGELOG**: Document changes in both `CHANGELOG.md` and `CHANGELOG.ja.md`
    - See CHANGELOG section below for format
 
 5. **Commit Changes**: Commit version bump and CHANGELOG
    ```bash
-   git add package.json CHANGELOG.md
+   git add package.json CHANGELOG.md CHANGELOG.ja.md
    git commit -m "chore: release v1.2.0"
    ```
 
@@ -93,7 +93,16 @@ We follow semantic versioning (MAJOR.MINOR.PATCH) for all our releases:
 ## 3. CHANGELOG Management
 
 ### File Location
-- `CHANGELOG.md` in the project root
+- `CHANGELOG.md` in the project root (English)
+- `CHANGELOG.ja.md` in the project root (Japanese)
+
+Both files must be updated together on every release. `CHANGELOG.ja.md` uses Japanese section headings:
+- `### 追加` (Added)
+- `### 変更` (Changed)
+- `### 非推奨` (Deprecated)
+- `### 削除` (Removed)
+- `### 修正` (Fixed)
+- `### セキュリティ` (Security)
 
 ### Format
 Follow [Keep a Changelog](https://keepachangelog.com/) format:
@@ -152,7 +161,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ```
 
 ### Update Rules
-1. **Always update CHANGELOG** before releasing a new version
+1. **Always update both CHANGELOG.md and CHANGELOG.ja.md** before releasing a new version
 2. **Group changes by category**: Added, Changed, Deprecated, Removed, Fixed, Security
 3. **Write user-facing descriptions**: Focus on what users will experience, not implementation details
 4. **Include issue/PR references** when applicable: `(#123)`
@@ -165,17 +174,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 # 1. Make changes and commit
 git commit -m "feat: add new feature"
 
-# 2. Update CHANGELOG.md (add to Unreleased section)
-# Edit CHANGELOG.md manually
+# 2. Update CHANGELOG.md and CHANGELOG.ja.md (add to Unreleased section)
+# Edit both files manually
 
 # 3. When ready to release
 pnpm version minor  # This updates package.json
 
-# 4. Update CHANGELOG.md (move Unreleased to new version)
-# Edit CHANGELOG.md: change [Unreleased] to [1.2.0] - 2026-02-14
+# 4. Update CHANGELOG.md and CHANGELOG.ja.md (move Unreleased to new version)
+# Edit both files: change [Unreleased] to [1.2.0] - 2026-02-14
 
 # 5. Commit and tag
-git add package.json CHANGELOG.md
+git add package.json CHANGELOG.md CHANGELOG.ja.md
 git commit -m "chore: release v1.2.0"
 git tag -a v1.2.0 -m "Release v1.2.0"
 
@@ -189,4 +198,4 @@ git push origin main --tags
 2. **Test before releasing**: Run full test suite and manual tests
 3. **Document breaking changes**: Clearly note breaking changes in CHANGELOG
 4. **Consistent tagging**: Always use `v` prefix for git tags (e.g., `v1.2.0`)
-5. **Keep CHANGELOG updated**: Update CHANGELOG with each significant change, not just at release time
+5. **Keep both CHANGELOGs updated**: Update CHANGELOG.md and CHANGELOG.ja.md with each significant change, not just at release time
