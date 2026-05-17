@@ -9,25 +9,25 @@ describe('TaskService', () => {
   let taskService: TaskService;
 
   beforeEach(() => {
-    // 各テストの前にデータベースをリセット
+    // Reset database before each test
     resetDatabase();
     taskService = new TaskService();
   });
 
   describe('createTask', () => {
-    it('基本的なタスク作成テスト - titleのみ指定してタスク作成', () => {
-      // タスクを作成
+    it('Basic task creation test - Create task by specifying only title', () => {
+      // Create a task
       const task = taskService.createTask({
-        title: 'テストタスク',
+        title: 'Test Task',
       });
 
-      // 検証
+      // Verify
       expect(task).toBeDefined();
       expect(task.id).toBeDefined();
       expect(typeof task.id).toBe('number');
       expect(task.id).toBeGreaterThan(0);
 
-      expect(task.title).toBe('テストタスク');
+      expect(task.title).toBe('Test Task');
 
       expect(task.created_at).toBeDefined();
       expect(typeof task.created_at).toBe('string');
@@ -38,22 +38,22 @@ describe('TaskService', () => {
       expect(task.status).toBe('backlog');
     });
 
-    it('すべてのフィールドを指定したタスク作成テスト', () => {
-      // すべてのフィールドを指定してタスクを作成
+    it('Complete task creation test - Create task by specifying all fields', () => {
+      // Create a task with all fields specified
       const task = taskService.createTask({
-        title: '完全なタスク',
-        body: 'タスクの詳細な説明文',
-        author: 'テスト作成者',
+        title: 'Complete Task',
+        body: 'Detailed task description',
+        author: 'Test Author',
         status: 'in_progress',
       });
 
-      // 指定したフィールドの検証
-      expect(task.title).toBe('完全なタスク');
-      expect(task.body).toBe('タスクの詳細な説明文');
-      expect(task.author).toBe('テスト作成者');
+      // Verify specified fields
+      expect(task.title).toBe('Complete Task');
+      expect(task.body).toBe('Detailed task description');
+      expect(task.author).toBe('Test Author');
       expect(task.status).toBe('in_progress');
 
-      // 自動生成されるフィールドの検証
+      // Verify auto-generated fields
       expect(task.id).toBeDefined();
       expect(typeof task.id).toBe('number');
       expect(task.id).toBeGreaterThan(0);
@@ -65,341 +65,356 @@ describe('TaskService', () => {
       expect(typeof task.updated_at).toBe('string');
     });
 
-    it('必須フィールド（title）が空の場合はエラーが発生する', () => {
+    it('Error when required field (title) is empty', () => {
       expect(() => {
         taskService.createTask({ title: '' });
       }).toThrow('Title is required');
     });
 
-    it('titleが空白のみの場合はエラーが発生する', () => {
+    it('Error when title contains only whitespace', () => {
       expect(() => {
         taskService.createTask({ title: '   ' });
       }).toThrow('Title is required');
     });
 
-    it('titleが200文字を超える場合はエラーが発生する', () => {
+    it('Error when title exceeds 200 characters', () => {
       expect(() => {
         taskService.createTask({ title: 'a'.repeat(201) });
       }).toThrow('Title must not exceed 200 characters');
     });
 
-    it('bodyが10000文字を超える場合はエラーが発生する', () => {
+    it('Error when body exceeds 10000 characters', () => {
       expect(() => {
         taskService.createTask({ title: 'valid title', body: 'b'.repeat(10001) });
       }).toThrow('Body must not exceed 10000 characters');
     });
 
-    it('authorが100文字を超える場合はエラーが発生する', () => {
+    it('Error when author exceeds 100 characters', () => {
       expect(() => {
         taskService.createTask({ title: 'valid title', author: 'c'.repeat(101) });
       }).toThrow('Author must not exceed 100 characters');
     });
 
-    it('assigneesを指定したタスク作成テスト', () => {
+    it('Create task with assignees specified', () => {
       const task = taskService.createTask({
-        title: 'テストタスク',
+        title: 'Test Task',
         assignees: 'user1,user2,user3',
       });
 
       expect(task.assignees).toBe('user1,user2,user3');
     });
 
-    it('assigneesを指定しない場合はnullになる', () => {
-      const task = taskService.createTask({ title: 'テストタスク' });
+    it('assignees becomes null when not specified', () => {
+      const task = taskService.createTask({ title: 'Test Task' });
 
       expect(task.assignees).toBeNull();
     });
 
-    it('assigneesが500文字を超える場合はエラーが発生する', () => {
+    it('Error when assignees exceeds 500 characters', () => {
       expect(() => {
         taskService.createTask({ title: 'valid title', assignees: 'a'.repeat(501) });
       }).toThrow('Assignees must not exceed 500 characters');
     });
 
-    it('priorityを指定したタスク作成テスト', () => {
+    it('Create task with priority specified', () => {
       const task = taskService.createTask({
-        title: 'テストタスク',
+        title: 'Test Task',
         priority: 'high',
       });
 
       expect(task.priority).toBe('high');
     });
 
-    it('priorityを指定しない場合はnullになる', () => {
-      const task = taskService.createTask({ title: 'テストタスク' });
+    it('priority becomes null when not specified', () => {
+      const task = taskService.createTask({ title: 'Test Task' });
 
       expect(task.priority).toBeNull();
     });
 
-    it('すべてのpriority値でタスク作成できる', () => {
+    it('Can create tasks with all priority values', () => {
       const priorities = ['critical', 'high', 'medium', 'low'] as const;
       for (const priority of priorities) {
         const task = taskService.createTask({
-          title: `タスク-${priority}`,
+          title: `Task-${priority}`,
           priority,
         });
         expect(task.priority).toBe(priority);
       }
     });
+
+    it('Create task with branch specified', () => {
+      const task = taskService.createTask({
+        title: 'Test Task',
+        branch: 'feature/my-branch',
+      });
+
+      expect(task.branch).toBe('feature/my-branch');
+    });
+
+    it('branch becomes null when not specified', () => {
+      const task = taskService.createTask({ title: 'Test Task' });
+
+      expect(task.branch).toBeNull();
+    });
   });
 
   describe('getTask', () => {
-    it('存在するタスクのID指定取得テスト', () => {
-      // テスト用のタスクを作成
+    it('Get task by ID when task exists', () => {
+      // Create a task for testing
       const createdTask = taskService.createTask({
-        title: '取得テスト用タスク',
-        body: 'このタスクは取得テスト用です',
-        author: 'テスター',
+        title: 'Get Test Task',
+        body: 'This task is for get testing',
+        author: 'Tester',
         status: 'in_progress',
       });
 
-      // 作成したタスクのIDでタスクを取得
+      // Get the created task by ID
       const retrievedTask = taskService.getTask(createdTask.id);
 
-      // 取得したタスクが存在することを確認
+      // Verify the retrieved task exists
       expect(retrievedTask).toBeDefined();
 
-      // すべてのフィールドが正しく取得できることを検証
+      // Verify all fields are retrieved correctly
       expect(retrievedTask!.id).toBe(createdTask.id);
-      expect(retrievedTask!.title).toBe('取得テスト用タスク');
-      expect(retrievedTask!.body).toBe('このタスクは取得テスト用です');
-      expect(retrievedTask!.author).toBe('テスター');
+      expect(retrievedTask!.title).toBe('Get Test Task');
+      expect(retrievedTask!.body).toBe('This task is for get testing');
+      expect(retrievedTask!.author).toBe('Tester');
       expect(retrievedTask!.status).toBe('in_progress');
       expect(retrievedTask!.created_at).toBeDefined();
       expect(retrievedTask!.updated_at).toBeDefined();
     });
 
-    it('存在しないタスクのID指定取得テスト', () => {
-      // 存在しないIDでタスクを取得
+    it('Get task by ID when task does not exist', () => {
+      // Try to get a task with non-existent ID
       const retrievedTask = taskService.getTask(99999);
 
-      // nullが返ることを確認
+      // Verify null is returned
       expect(retrievedTask).toBeNull();
     });
   });
 
   describe('listTasks', () => {
-    it('フィルターなしの全件取得テスト - 複数のタスクを作成して全件取得、作成日時の降順で取得されることを検証', () => {
-      // 複数のタスクを作成（created_atが異なることを保証するため順次作成）
+    it('Get all tasks without filter - Create multiple tasks and retrieve all in descending order by creation time', () => {
+      // Create multiple tasks (ensure created_at is different by creating sequentially)
       const task1 = taskService.createTask({
-        title: '最初のタスク',
-        body: '一番古いタスク',
-        author: 'ユーザーA',
+        title: 'First Task',
+        body: 'Oldest task',
+        author: 'User A',
         status: 'backlog',
       });
 
       const task2 = taskService.createTask({
-        title: '2番目のタスク',
-        body: '2番目に作成されたタスク',
-        author: 'ユーザーB',
+        title: 'Second Task',
+        body: 'Second created task',
+        author: 'User B',
         status: 'in_progress',
       });
 
       const task3 = taskService.createTask({
-        title: '3番目のタスク',
-        body: '最新のタスク',
-        author: 'ユーザーC',
+        title: 'Third Task',
+        body: 'Latest task',
+        author: 'User C',
         status: 'done',
       });
 
-      // フィルターなしで全件取得
+      // Get all tasks without filter
       const allTasks = taskService.listTasks();
 
-      // 3件のタスクが取得されることを検証
+      // Verify 3 tasks are retrieved
       expect(allTasks).toBeDefined();
       expect(allTasks.length).toBe(3);
 
-      // created_atの降順（新しい順）で取得されることを検証
+      // Verify tasks are retrieved in descending order by created_at (newest first)
       expect(allTasks[0].id).toBe(task3.id);
-      expect(allTasks[0].title).toBe('3番目のタスク');
+      expect(allTasks[0].title).toBe('Third Task');
       expect(allTasks[1].id).toBe(task2.id);
-      expect(allTasks[1].title).toBe('2番目のタスク');
+      expect(allTasks[1].title).toBe('Second Task');
       expect(allTasks[2].id).toBe(task1.id);
-      expect(allTasks[2].title).toBe('最初のタスク');
+      expect(allTasks[2].title).toBe('First Task');
 
-      // 各タスクのフィールドが正しく取得されることを検証
-      expect(allTasks[0].body).toBe('最新のタスク');
-      expect(allTasks[0].author).toBe('ユーザーC');
+      // Verify each task's fields are retrieved correctly
+      expect(allTasks[0].body).toBe('Latest task');
+      expect(allTasks[0].author).toBe('User C');
       expect(allTasks[0].status).toBe('done');
       expect(allTasks[0].created_at).toBeDefined();
       expect(allTasks[0].updated_at).toBeDefined();
     });
 
-    it('ステータスでのフィルター取得テスト - 異なるステータスのタスクを複数作成し、特定のステータスでフィルターして取得', () => {
-      // 異なるステータスのタスクを作成
+    it('Filter by status - Create multiple tasks with different statuses and filter by specific status', () => {
+      // Create tasks with different statuses
       const task1 = taskService.createTask({
-        title: 'バックログタスク',
-        body: 'ステータスがbacklogのタスク',
-        author: 'ユーザーA',
+        title: 'Backlog Task',
+        body: 'Task with backlog status',
+        author: 'User A',
         status: 'backlog',
       });
 
       const task2 = taskService.createTask({
-        title: '進行中タスク1',
-        body: 'ステータスがin_progressのタスク1',
-        author: 'ユーザーB',
+        title: 'In Progress Task 1',
+        body: 'Task with in_progress status 1',
+        author: 'User B',
         status: 'in_progress',
       });
 
       const task3 = taskService.createTask({
-        title: '進行中タスク2',
-        body: 'ステータスがin_progressのタスク2',
-        author: 'ユーザーC',
+        title: 'In Progress Task 2',
+        body: 'Task with in_progress status 2',
+        author: 'User C',
         status: 'in_progress',
       });
 
       const task4 = taskService.createTask({
-        title: '完了タスク',
-        body: 'ステータスがdoneのタスク',
-        author: 'ユーザーD',
+        title: 'Completed Task',
+        body: 'Task with done status',
+        author: 'User D',
         status: 'done',
       });
 
-      // in_progressステータスでフィルター取得
+      // Filter by in_progress status
       const inProgressTasks = taskService.listTasks({ status: 'in_progress' });
 
-      // 2件のin_progressタスクが取得されることを検証
+      // Verify 2 in_progress tasks are retrieved
       expect(inProgressTasks).toBeDefined();
       expect(inProgressTasks.length).toBe(2);
 
-      // 取得されたタスクがすべてin_progressステータスであることを検証
+      // Verify all retrieved tasks have in_progress status
       expect(inProgressTasks[0].status).toBe('in_progress');
       expect(inProgressTasks[1].status).toBe('in_progress');
 
-      // 新しい順（created_atの降順）で取得されることを検証
+      // Verify tasks are retrieved in newest order (descending by created_at)
       expect(inProgressTasks[0].id).toBe(task3.id);
-      expect(inProgressTasks[0].title).toBe('進行中タスク2');
+      expect(inProgressTasks[0].title).toBe('In Progress Task 2');
       expect(inProgressTasks[1].id).toBe(task2.id);
-      expect(inProgressTasks[1].title).toBe('進行中タスク1');
+      expect(inProgressTasks[1].title).toBe('In Progress Task 1');
 
-      // 他のステータスのタスクが含まれていないことを検証
+      // Verify tasks with other statuses are not included
       const taskIds = inProgressTasks.map((t) => t.id);
-      expect(taskIds).not.toContain(task1.id); // backlogタスクは含まれない
-      expect(taskIds).not.toContain(task4.id); // doneタスクは含まれない
+      expect(taskIds).not.toContain(task1.id); // backlog task is not included
+      expect(taskIds).not.toContain(task4.id); // done task is not included
     });
 
-    it('作成者（author）でのフィルター取得テスト - 異なる作成者のタスクを複数作成し、特定の作成者でフィルターして取得', () => {
-      // 異なる作成者のタスクを作成
+    it('Filter by author - Create multiple tasks by different authors and filter by specific author', () => {
+      // Create tasks by different authors
       const task1 = taskService.createTask({
-        title: 'Aliceのタスク1',
-        body: 'Aliceが作成したタスク1',
+        title: "Alice's Task 1",
+        body: 'Task 1 created by Alice',
         author: 'Alice',
         status: 'backlog',
       });
 
       const task2 = taskService.createTask({
-        title: 'Bobのタスク1',
-        body: 'Bobが作成したタスク1',
+        title: "Bob's Task 1",
+        body: 'Task 1 created by Bob',
         author: 'Bob',
         status: 'in_progress',
       });
 
       const task3 = taskService.createTask({
-        title: 'Bobのタスク2',
-        body: 'Bobが作成したタスク2',
+        title: "Bob's Task 2",
+        body: 'Task 2 created by Bob',
         author: 'Bob',
         status: 'done',
       });
 
       const task4 = taskService.createTask({
-        title: 'Charlieのタスク1',
-        body: 'Charlieが作成したタスク1',
+        title: "Charlie's Task 1",
+        body: 'Task 1 created by Charlie',
         author: 'Charlie',
         status: 'backlog',
       });
 
       const task5 = taskService.createTask({
-        title: 'Bobのタスク3',
-        body: 'Bobが作成したタスク3',
+        title: "Bob's Task 3",
+        body: 'Task 3 created by Bob',
         author: 'Bob',
         status: 'backlog',
       });
 
-      // Bobの作成者でフィルター取得
+      // Filter by Bob as author
       const bobTasks = taskService.listTasks({ author: 'Bob' });
 
-      // 3件のBobのタスクが取得されることを検証
+      // Verify 3 tasks by Bob are retrieved
       expect(bobTasks).toBeDefined();
       expect(bobTasks.length).toBe(3);
 
-      // 取得されたタスクがすべてBobの作成であることを検証
+      // Verify all retrieved tasks are created by Bob
       expect(bobTasks[0].author).toBe('Bob');
       expect(bobTasks[1].author).toBe('Bob');
       expect(bobTasks[2].author).toBe('Bob');
 
-      // 新しい順（created_atの降順）で取得されることを検証
+      // Verify tasks are retrieved in newest order (descending by created_at)
       expect(bobTasks[0].id).toBe(task5.id);
-      expect(bobTasks[0].title).toBe('Bobのタスク3');
+      expect(bobTasks[0].title).toBe("Bob's Task 3");
       expect(bobTasks[1].id).toBe(task3.id);
-      expect(bobTasks[1].title).toBe('Bobのタスク2');
+      expect(bobTasks[1].title).toBe("Bob's Task 2");
       expect(bobTasks[2].id).toBe(task2.id);
-      expect(bobTasks[2].title).toBe('Bobのタスク1');
+      expect(bobTasks[2].title).toBe("Bob's Task 1");
 
-      // 他の作成者のタスクが含まれていないことを検証
+      // Verify tasks by other authors are not included
       const taskIds = bobTasks.map((t) => t.id);
-      expect(taskIds).not.toContain(task1.id); // Aliceのタスクは含まれない
-      expect(taskIds).not.toContain(task4.id); // Charlieのタスクは含まれない
+      expect(taskIds).not.toContain(task1.id); // Alice's task is not included
+      expect(taskIds).not.toContain(task4.id); // Charlie's task is not included
     });
 
-    it('複合フィルター（status + author）の取得テスト - ステータスと作成者の両方を指定したフィルター', () => {
-      // 異なるステータスと作成者の組み合わせでタスクを作成
+    it('Combined filter (status + author) - Filter by both status and author', () => {
+      // Create tasks with different status and author combinations
       const task1 = taskService.createTask({
         title: 'Alice - Backlog',
-        body: 'Aliceのbacklogタスク',
+        body: "Alice's backlog task",
         author: 'Alice',
         status: 'backlog',
       });
 
       const task2 = taskService.createTask({
         title: 'Alice - In Progress',
-        body: 'Aliceのin_progressタスク',
+        body: "Alice's in_progress task",
         author: 'Alice',
         status: 'in_progress',
       });
 
       const task3 = taskService.createTask({
         title: 'Bob - Backlog',
-        body: 'Bobのbacklogタスク',
+        body: "Bob's backlog task",
         author: 'Bob',
         status: 'backlog',
       });
 
       const task4 = taskService.createTask({
         title: 'Bob - In Progress',
-        body: 'Bobのin_progressタスク',
+        body: "Bob's in_progress task",
         author: 'Bob',
         status: 'in_progress',
       });
 
       const task5 = taskService.createTask({
         title: 'Alice - Done',
-        body: 'Aliceのdoneタスク',
+        body: "Alice's done task",
         author: 'Alice',
         status: 'done',
       });
 
-      // status='in_progress' AND author='Alice'でフィルター取得
+      // Filter by status='in_progress' AND author='Alice'
       const filteredTasks = taskService.listTasks({ status: 'in_progress', author: 'Alice' });
 
-      // 1件のタスクのみが取得されることを検証
+      // Verify only 1 task is retrieved
       expect(filteredTasks).toBeDefined();
       expect(filteredTasks.length).toBe(1);
 
-      // 取得されたタスクが正しい条件を満たしていることを検証
+      // Verify the retrieved task meets both conditions
       expect(filteredTasks[0].id).toBe(task2.id);
       expect(filteredTasks[0].title).toBe('Alice - In Progress');
       expect(filteredTasks[0].status).toBe('in_progress');
       expect(filteredTasks[0].author).toBe('Alice');
 
-      // 他のタスクが含まれていないことを検証
+      // Verify other tasks are not included
       const taskIds = filteredTasks.map((t) => t.id);
-      expect(taskIds).not.toContain(task1.id); // Aliceのbacklogは含まれない
-      expect(taskIds).not.toContain(task3.id); // Bobのbacklogは含まれない
-      expect(taskIds).not.toContain(task4.id); // Bobのin_progressは含まれない
-      expect(taskIds).not.toContain(task5.id); // Aliceのdoneは含まれない
+      expect(taskIds).not.toContain(task1.id); // Alice's backlog is not included
+      expect(taskIds).not.toContain(task3.id); // Bob's backlog is not included
+      expect(taskIds).not.toContain(task4.id); // Bob's in_progress is not included
+      expect(taskIds).not.toContain(task5.id); // Alice's done is not included
     });
 
-    it('assigneesフィルターのテスト - CSV形式のassigneesフィールドに対してLIKEマッチングで絞り込み', () => {
+    it('Filter by assignees - Use LIKE matching to narrow down CSV format assignees field', () => {
       const task1 = taskService.createTask({
         title: 'Task assigned to Alice',
         assignees: 'Alice',
@@ -429,31 +444,31 @@ describe('TaskService', () => {
         status: 'backlog',
       });
 
-      // Aliceでフィルター: task1, task2がマッチ
+      // Filter by Alice: task1, task2 match
       const aliceTasks = taskService.listTasks({ assignees: 'Alice' });
       expect(aliceTasks).toHaveLength(2);
       const aliceIds = aliceTasks.map((t) => t.id);
       expect(aliceIds).toContain(task1.id);
       expect(aliceIds).toContain(task2.id);
 
-      // Bobでフィルター: task2, task3がマッチ
+      // Filter by Bob: task2, task3 match
       const bobTasks = taskService.listTasks({ assignees: 'Bob' });
       expect(bobTasks).toHaveLength(2);
       const bobIds = bobTasks.map((t) => t.id);
       expect(bobIds).toContain(task2.id);
       expect(bobIds).toContain(task3.id);
 
-      // Charlieでフィルター: task4のみ
+      // Filter by Charlie: task4 only
       const charlieTasks = taskService.listTasks({ assignees: 'Charlie' });
       expect(charlieTasks).toHaveLength(1);
       expect(charlieTasks[0].id).toBe(task4.id);
 
-      // 存在しないアサイニーでフィルター: 0件
+      // Filter by non-existent assignee: 0 results
       const nonExistentTasks = taskService.listTasks({ assignees: 'David' });
       expect(nonExistentTasks).toHaveLength(0);
     });
 
-    it('assigneesフィルターと他のフィルターの複合テスト - assigneesとstatusの組み合わせ', () => {
+    it('Combined filter with assignees - Combination of assignees and status', () => {
       taskService.createTask({
         title: 'Alice backlog',
         assignees: 'Alice',
@@ -478,28 +493,28 @@ describe('TaskService', () => {
       expect(filtered[0].id).toBe(task2.id);
     });
 
-    it('複数ステータスでのフィルター取得テスト - status配列を指定して複数ステータスのタスクを同時取得', () => {
+    it('Filter by multiple statuses - Specify status array to get tasks with multiple statuses simultaneously', () => {
       const task1 = taskService.createTask({
-        title: 'Backlogタスク',
+        title: 'Backlog Task',
         status: 'backlog',
       });
 
       const task2 = taskService.createTask({
-        title: 'Readyタスク',
+        title: 'Ready Task',
         status: 'ready',
       });
 
       const task3 = taskService.createTask({
-        title: 'In Progressタスク',
+        title: 'In Progress Task',
         status: 'in_progress',
       });
 
       const task4 = taskService.createTask({
-        title: 'Doneタスク',
+        title: 'Done Task',
         status: 'done',
       });
 
-      // 複数ステータス（backlog, ready）でフィルター
+      // Filter by multiple statuses (backlog, ready)
       const filteredTasks = taskService.listTasks({ status: ['backlog', 'ready'] });
 
       expect(filteredTasks).toBeDefined();
@@ -513,7 +528,7 @@ describe('TaskService', () => {
       expect(taskIds).not.toContain(task4.id);
     });
 
-    it('複数ステータスでのフィルターと作成者の複合フィルターテスト', () => {
+    it('Combined filter with multiple statuses and author', () => {
       taskService.createTask({
         title: 'Alice Backlog',
         author: 'Alice',
@@ -538,7 +553,7 @@ describe('TaskService', () => {
         status: 'done',
       });
 
-      // 複数ステータス + 作成者フィルター
+      // Multiple statuses + author filter
       const filteredTasks = taskService.listTasks({
         status: ['backlog', 'in_progress'],
         author: 'Alice',
@@ -549,9 +564,9 @@ describe('TaskService', () => {
       expect(filteredTasks.every((t) => t.status === 'backlog' || t.status === 'in_progress')).toBe(true);
     });
 
-    it('単一ステータスを配列で渡してもフィルターが正しく動作する', () => {
-      taskService.createTask({ title: 'Readyタスク', status: 'ready' });
-      taskService.createTask({ title: 'Backlogタスク', status: 'backlog' });
+    it('Filter works correctly when single status is passed as array', () => {
+      taskService.createTask({ title: 'Ready Task', status: 'ready' });
+      taskService.createTask({ title: 'Backlog Task', status: 'backlog' });
 
       const filteredTasks = taskService.listTasks({ status: ['ready'] });
 
@@ -559,7 +574,7 @@ describe('TaskService', () => {
       expect(filteredTasks[0].status).toBe('ready');
     });
 
-    it('ソートオプションでid昇順にソートできる', () => {
+    it('Can sort by id in ascending order', () => {
       const task1 = taskService.createTask({ title: 'Task A', status: 'backlog' });
       const task2 = taskService.createTask({ title: 'Task B', status: 'backlog' });
       const task3 = taskService.createTask({ title: 'Task C', status: 'backlog' });
@@ -570,7 +585,7 @@ describe('TaskService', () => {
       expect(tasks[2].id).toBe(task3.id);
     });
 
-    it('ソートオプションでid降順にソートできる', () => {
+    it('Can sort by id in descending order', () => {
       const task1 = taskService.createTask({ title: 'Task A', status: 'backlog' });
       const task2 = taskService.createTask({ title: 'Task B', status: 'backlog' });
       const task3 = taskService.createTask({ title: 'Task C', status: 'backlog' });
@@ -581,7 +596,7 @@ describe('TaskService', () => {
       expect(tasks[2].id).toBe(task1.id);
     });
 
-    it('ソートオプションでtitle昇順にソートできる', () => {
+    it('Can sort by title in ascending order', () => {
       taskService.createTask({ title: 'Charlie', status: 'backlog' });
       taskService.createTask({ title: 'Alice', status: 'backlog' });
       taskService.createTask({ title: 'Bob', status: 'backlog' });
@@ -592,7 +607,7 @@ describe('TaskService', () => {
       expect(tasks[2].title).toBe('Charlie');
     });
 
-    it('ソートオプションでstatus昇順にソートできる', () => {
+    it('Can sort by status in ascending order', () => {
       taskService.createTask({ title: 'Task In Progress', status: 'in_progress' });
       taskService.createTask({ title: 'Task Backlog', status: 'backlog' });
       taskService.createTask({ title: 'Task Done', status: 'done' });
@@ -603,7 +618,7 @@ describe('TaskService', () => {
       expect(tasks[2].status).toBe('in_progress');
     });
 
-    it('ソートオプションでupdated_at降順にソートできる', () => {
+    it('Can sort by updated_at in descending order', () => {
       const task1 = taskService.createTask({ title: 'Task A', status: 'backlog' });
       taskService.createTask({ title: 'Task B', status: 'backlog' });
       // Update task1 to make its updated_at newer
@@ -613,7 +628,7 @@ describe('TaskService', () => {
       expect(tasks[0].title).toBe('Task A Updated');
     });
 
-    it('デフォルトソートはcreated_at降順のまま', () => {
+    it('Default sort remains created_at descending', () => {
       const task1 = taskService.createTask({ title: 'First', status: 'backlog' });
       const task2 = taskService.createTask({ title: 'Second', status: 'backlog' });
 
@@ -622,7 +637,7 @@ describe('TaskService', () => {
       expect(tasks[1].id).toBe(task1.id);
     });
 
-    it('フィルターとソートを組み合わせて使用できる', () => {
+    it('Can use filters and sort together', () => {
       taskService.createTask({ title: 'Charlie', status: 'in_progress' });
       taskService.createTask({ title: 'Alice', status: 'in_progress' });
       taskService.createTask({ title: 'Bob', status: 'backlog' });
@@ -633,7 +648,7 @@ describe('TaskService', () => {
       expect(tasks[1].title).toBe('Charlie');
     });
 
-    it('priorityフィルターでタスクをフィルタリングできる', () => {
+    it('Can filter tasks by priority', () => {
       taskService.createTask({ title: 'Critical Task', priority: 'critical' });
       taskService.createTask({ title: 'High Task', priority: 'high' });
       taskService.createTask({ title: 'No Priority Task' });
@@ -647,7 +662,7 @@ describe('TaskService', () => {
       expect(highTasks[0].title).toBe('High Task');
     });
 
-    it('priorityソートで降順（critical > high > medium > low > 未設定）にソートできる', () => {
+    it('Can sort by priority in descending order (critical > high > medium > low > unset)', () => {
       taskService.createTask({ title: 'Low Task', priority: 'low' });
       taskService.createTask({ title: 'No Priority Task' });
       taskService.createTask({ title: 'High Task', priority: 'high' });
@@ -662,7 +677,7 @@ describe('TaskService', () => {
       expect(tasks[4].title).toBe('No Priority Task');
     });
 
-    it('priorityソートで昇順（未設定 > low > medium > high > critical）にソートできる', () => {
+    it('Can sort by priority in ascending order (unset > low > medium > high > critical)', () => {
       taskService.createTask({ title: 'Low Task', priority: 'low' });
       taskService.createTask({ title: 'No Priority Task' });
       taskService.createTask({ title: 'High Task', priority: 'high' });
@@ -679,157 +694,157 @@ describe('TaskService', () => {
   });
 
   describe('updateTask', () => {
-    it('タイトル（title）の更新テスト - タスク作成後、タイトルのみを更新し、他のフィールドが変更されていないことを検証', () => {
-      // 完全なデータでタスクを作成
+    it('Update title - After creating a task, update only the title and verify other fields are unchanged', () => {
+      // Create a task with complete data
       const createdTask = taskService.createTask({
-        title: '元のタイトル',
-        body: '元の本文',
-        author: '元の作成者',
+        title: 'Original Title',
+        body: 'Original Body',
+        author: 'Original Author',
         status: 'in_progress',
       });
 
-      // 元の値を保存
+      // Save original values
       const originalTitle = createdTask.title;
       const originalBody = createdTask.body;
       const originalAuthor = createdTask.author;
       const originalStatus = createdTask.status;
       const originalCreatedAt = createdTask.created_at;
 
-      // タイトルのみを更新
+      // Update only the title
       const updatedTask = taskService.updateTask(createdTask.id, {
-        title: '新しいタイトル',
+        title: 'New Title',
       });
 
-      // 更新されたタスクが返されることを確認
+      // Verify the updated task is returned
       expect(updatedTask).toBeDefined();
       expect(updatedTask).not.toBeNull();
 
-      // タイトルが更新されていることを検証
-      expect(updatedTask!.title).toBe('新しいタイトル');
+      // Verify the title is updated
+      expect(updatedTask!.title).toBe('New Title');
       expect(updatedTask!.title).not.toBe(originalTitle);
 
-      // 他のフィールドが変更されていないことを検証
+      // Verify other fields are unchanged
       expect(updatedTask!.body).toBe(originalBody);
       expect(updatedTask!.author).toBe(originalAuthor);
       expect(updatedTask!.status).toBe(originalStatus);
       expect(updatedTask!.created_at).toBe(originalCreatedAt);
 
-      // updated_atが更新されていることを検証
+      // Verify updated_at is updated
       expect(updatedTask!.updated_at).toBeDefined();
-      // Note: タイムスタンプの精度によっては同じ値になる場合があるが、
-      // 少なくともupdated_atフィールドが存在することを確認
+      // Note: Depending on timestamp precision, updated_at might be the same value,
+      // but at least verify the updated_at field exists
       expect(typeof updatedTask!.updated_at).toBe('string');
 
-      // getTask()で取得しても同じ結果が得られることを確認
+      // Verify the same result is obtained via getTask()
       const retrievedTask = taskService.getTask(createdTask.id);
       expect(retrievedTask).toBeDefined();
-      expect(retrievedTask!.title).toBe('新しいタイトル');
+      expect(retrievedTask!.title).toBe('New Title');
       expect(retrievedTask!.body).toBe(originalBody);
       expect(retrievedTask!.author).toBe(originalAuthor);
       expect(retrievedTask!.status).toBe(originalStatus);
     });
 
-    it('本文（body）の更新テスト - タスク作成後、本文のみを更新し、他のフィールドが変更されていないことを検証', () => {
-      // 完全なデータでタスクを作成
+    it('Update body - After creating a task, update only the body and verify other fields are unchanged', () => {
+      // Create a task with complete data
       const createdTask = taskService.createTask({
-        title: '元のタイトル',
-        body: '元の本文',
-        author: '元の作成者',
+        title: 'Original Title',
+        body: 'Original Body',
+        author: 'Original Author',
         status: 'in_progress',
       });
 
-      // 元の値を保存
+      // Save original values
       const originalTitle = createdTask.title;
       const originalBody = createdTask.body;
       const originalAuthor = createdTask.author;
       const originalStatus = createdTask.status;
       const originalCreatedAt = createdTask.created_at;
 
-      // 本文のみを更新
+      // Update only the body
       const updatedTask = taskService.updateTask(createdTask.id, {
-        body: '新しい本文',
+        body: 'New Body',
       });
 
-      // 更新されたタスクが返されることを確認
+      // Verify the updated task is returned
       expect(updatedTask).toBeDefined();
       expect(updatedTask).not.toBeNull();
 
-      // 本文が更新されていることを検証
-      expect(updatedTask!.body).toBe('新しい本文');
+      // Verify the body is updated
+      expect(updatedTask!.body).toBe('New Body');
       expect(updatedTask!.body).not.toBe(originalBody);
 
-      // 他のフィールドが変更されていないことを検証
+      // Verify other fields are unchanged
       expect(updatedTask!.title).toBe(originalTitle);
       expect(updatedTask!.author).toBe(originalAuthor);
       expect(updatedTask!.status).toBe(originalStatus);
       expect(updatedTask!.created_at).toBe(originalCreatedAt);
 
-      // updated_atが更新されていることを検証
+      // Verify updated_at is updated
       expect(updatedTask!.updated_at).toBeDefined();
       expect(typeof updatedTask!.updated_at).toBe('string');
 
-      // getTask()で取得しても同じ結果が得られることを確認
+      // Verify the same result is obtained via getTask()
       const retrievedTask = taskService.getTask(createdTask.id);
       expect(retrievedTask).toBeDefined();
-      expect(retrievedTask!.body).toBe('新しい本文');
+      expect(retrievedTask!.body).toBe('New Body');
       expect(retrievedTask!.title).toBe(originalTitle);
       expect(retrievedTask!.author).toBe(originalAuthor);
       expect(retrievedTask!.status).toBe(originalStatus);
     });
 
-    it('作成者（author）の更新テスト - タスク作成後、作成者のみを更新し、他のフィールドが変更されていないことを検証', () => {
-      // 完全なデータでタスクを作成
+    it('Update author - After creating a task, update only the author and verify other fields are unchanged', () => {
+      // Create a task with complete data
       const createdTask = taskService.createTask({
-        title: '元のタイトル',
-        body: '元の本文',
-        author: '元の作成者',
+        title: 'Original Title',
+        body: 'Original Body',
+        author: 'Original Author',
         status: 'in_progress',
       });
 
-      // 元の値を保存
+      // Save original values
       const originalTitle = createdTask.title;
       const originalBody = createdTask.body;
       const originalAuthor = createdTask.author;
       const originalStatus = createdTask.status;
       const originalCreatedAt = createdTask.created_at;
 
-      // 作成者のみを更新
+      // Update only the author
       const updatedTask = taskService.updateTask(createdTask.id, {
-        author: '新しい作成者',
+        author: 'New Author',
       });
 
-      // 更新されたタスクが返されることを確認
+      // Verify the updated task is returned
       expect(updatedTask).toBeDefined();
       expect(updatedTask).not.toBeNull();
 
-      // 作成者が更新されていることを検証
-      expect(updatedTask!.author).toBe('新しい作成者');
+      // Verify the author is updated
+      expect(updatedTask!.author).toBe('New Author');
       expect(updatedTask!.author).not.toBe(originalAuthor);
 
-      // 他のフィールドが変更されていないことを検証
+      // Verify other fields are unchanged
       expect(updatedTask!.title).toBe(originalTitle);
       expect(updatedTask!.body).toBe(originalBody);
       expect(updatedTask!.status).toBe(originalStatus);
       expect(updatedTask!.created_at).toBe(originalCreatedAt);
 
-      // updated_atが更新されていることを検証
+      // Verify updated_at is updated
       expect(updatedTask!.updated_at).toBeDefined();
       expect(typeof updatedTask!.updated_at).toBe('string');
 
-      // getTask()で取得しても同じ結果が得られることを確認
+      // Verify the same result is obtained via getTask()
       const retrievedTask = taskService.getTask(createdTask.id);
       expect(retrievedTask).toBeDefined();
-      expect(retrievedTask!.author).toBe('新しい作成者');
+      expect(retrievedTask!.author).toBe('New Author');
       expect(retrievedTask!.title).toBe(originalTitle);
       expect(retrievedTask!.body).toBe(originalBody);
       expect(retrievedTask!.status).toBe(originalStatus);
     });
 
-    it('assigneesの更新テスト - タスク作成後、assigneesを更新し、他のフィールドが変更されていないことを検証', () => {
+    it('Update assignees - After creating a task, update assignees and verify other fields are unchanged', () => {
       const createdTask = taskService.createTask({
-        title: '元のタイトル',
-        body: '元の本文',
-        author: '元の作成者',
+        title: 'Original Title',
+        body: 'Original Body',
+        author: 'Original Author',
         assignees: 'user1,user2',
         status: 'in_progress',
       });
@@ -852,17 +867,17 @@ describe('TaskService', () => {
       expect(updatedTask!.status).toBe(originalStatus);
     });
 
-    it('assigneesが500文字を超える場合は更新でエラーが発生する', () => {
-      const createdTask = taskService.createTask({ title: 'テストタスク' });
+    it('Error when assignees exceeds 500 characters during update', () => {
+      const createdTask = taskService.createTask({ title: 'Test Task' });
 
       expect(() => {
         taskService.updateTask(createdTask.id, { assignees: 'a'.repeat(501) });
       }).toThrow('Assignees must not exceed 500 characters');
     });
 
-    it('assigneesに空文字列を指定した場合はnullに変換される', () => {
+    it('Empty string for assignees is converted to null', () => {
       const createdTask = taskService.createTask({
-        title: 'テストタスク',
+        title: 'Test Task',
         assignees: 'user1,user2',
       });
 
@@ -875,8 +890,8 @@ describe('TaskService', () => {
       expect(updatedTask!.assignees).toBeNull();
     });
 
-    it('priorityの更新テスト - priorityを設定できる', () => {
-      const createdTask = taskService.createTask({ title: 'テストタスク' });
+    it('Update priority - Can set priority', () => {
+      const createdTask = taskService.createTask({ title: 'Test Task' });
 
       const updatedTask = taskService.updateTask(createdTask.id, {
         priority: 'critical',
@@ -886,9 +901,9 @@ describe('TaskService', () => {
       expect(updatedTask!.priority).toBe('critical');
     });
 
-    it('priorityの更新テスト - priorityをnullに設定できる', () => {
+    it('Update priority - Can set priority to null', () => {
       const createdTask = taskService.createTask({
-        title: 'テストタスク',
+        title: 'Test Task',
         priority: 'high',
       });
 
@@ -900,46 +915,46 @@ describe('TaskService', () => {
       expect(updatedTask!.priority).toBeNull();
     });
 
-    it('ステータス（status）の更新テスト - タスク作成後、ステータスのみを更新し、他のフィールドが変更されていないことを検証', () => {
-      // 完全なデータでタスクを作成
+    it('Update status - After creating a task, update only the status and verify other fields are unchanged', () => {
+      // Create a task with complete data
       const createdTask = taskService.createTask({
-        title: '元のタイトル',
-        body: '元の本文',
-        author: '元の作成者',
+        title: 'Original Title',
+        body: 'Original Body',
+        author: 'Original Author',
         status: 'backlog',
       });
 
-      // 元の値を保存
+      // Save original values
       const originalTitle = createdTask.title;
       const originalBody = createdTask.body;
       const originalAuthor = createdTask.author;
       const originalStatus = createdTask.status;
       const originalCreatedAt = createdTask.created_at;
 
-      // ステータスのみを更新（backlog → ready）
+      // Update only the status (backlog → ready)
       const updatedTask = taskService.updateTask(createdTask.id, {
         status: 'ready',
       });
 
-      // 更新されたタスクが返されることを確認
+      // Verify the updated task is returned
       expect(updatedTask).toBeDefined();
       expect(updatedTask).not.toBeNull();
 
-      // ステータスが更新されていることを検証
+      // Verify the status is updated
       expect(updatedTask!.status).toBe('ready');
       expect(updatedTask!.status).not.toBe(originalStatus);
 
-      // 他のフィールドが変更されていないことを検証
+      // Verify other fields are unchanged
       expect(updatedTask!.title).toBe(originalTitle);
       expect(updatedTask!.body).toBe(originalBody);
       expect(updatedTask!.author).toBe(originalAuthor);
       expect(updatedTask!.created_at).toBe(originalCreatedAt);
 
-      // updated_atが更新されていることを検証
+      // Verify updated_at is updated
       expect(updatedTask!.updated_at).toBeDefined();
       expect(typeof updatedTask!.updated_at).toBe('string');
 
-      // getTask()で取得しても同じ結果が得られることを確認
+      // Verify the same result is obtained via getTask()
       const retrievedTask = taskService.getTask(createdTask.id);
       expect(retrievedTask).toBeDefined();
       expect(retrievedTask!.status).toBe('ready');
@@ -948,193 +963,207 @@ describe('TaskService', () => {
       expect(retrievedTask!.author).toBe(originalAuthor);
     });
 
-    it('複数フィールドの同時更新テスト - title、body、statusを同時に更新し、すべてのフィールドが正しく更新されることを検証', () => {
-      // 完全なデータでタスクを作成
+    it('Update multiple fields simultaneously - Update title, body, and status at the same time and verify all fields are updated correctly', () => {
+      // Create a task with complete data
       const createdTask = taskService.createTask({
-        title: '元のタイトル',
-        body: '元の本文',
-        author: '元の作成者',
+        title: 'Original Title',
+        body: 'Original Body',
+        author: 'Original Author',
         status: 'backlog',
       });
 
-      // 元の値を保存
+      // Save original values
       const originalTitle = createdTask.title;
       const originalBody = createdTask.body;
       const originalAuthor = createdTask.author;
       const originalStatus = createdTask.status;
       const originalCreatedAt = createdTask.created_at;
 
-      // 複数のフィールドを同時に更新（title、body、status）
+      // Update multiple fields simultaneously (title, body, status)
       const updatedTask = taskService.updateTask(createdTask.id, {
-        title: '新しいタイトル',
-        body: '新しい本文',
+        title: 'New Title',
+        body: 'New Body',
         status: 'in_progress',
       });
 
-      // 更新されたタスクが返されることを確認
+      // Verify the updated task is returned
       expect(updatedTask).toBeDefined();
       expect(updatedTask).not.toBeNull();
 
-      // すべての更新対象フィールドが正しく更新されていることを検証
-      expect(updatedTask!.title).toBe('新しいタイトル');
+      // Verify all updated fields are correct
+      expect(updatedTask!.title).toBe('New Title');
       expect(updatedTask!.title).not.toBe(originalTitle);
 
-      expect(updatedTask!.body).toBe('新しい本文');
+      expect(updatedTask!.body).toBe('New Body');
       expect(updatedTask!.body).not.toBe(originalBody);
 
       expect(updatedTask!.status).toBe('in_progress');
       expect(updatedTask!.status).not.toBe(originalStatus);
 
-      // 更新していないフィールドが変更されていないことを検証
+      // Verify unchanged fields remain the same
       expect(updatedTask!.author).toBe(originalAuthor);
       expect(updatedTask!.created_at).toBe(originalCreatedAt);
 
-      // updated_atが更新されていることを検証
+      // Verify updated_at is updated
       expect(updatedTask!.updated_at).toBeDefined();
       expect(typeof updatedTask!.updated_at).toBe('string');
 
-      // getTask()で取得しても同じ結果が得られることを確認
+      // Verify the same result is obtained via getTask()
       const retrievedTask = taskService.getTask(createdTask.id);
       expect(retrievedTask).toBeDefined();
-      expect(retrievedTask!.title).toBe('新しいタイトル');
-      expect(retrievedTask!.body).toBe('新しい本文');
+      expect(retrievedTask!.title).toBe('New Title');
+      expect(retrievedTask!.body).toBe('New Body');
       expect(retrievedTask!.status).toBe('in_progress');
       expect(retrievedTask!.author).toBe(originalAuthor);
     });
 
-    it('存在しないタスクの更新テスト - 存在しないIDで更新を試行し、nullが返ることを検証', () => {
-      // 存在しないID（99999）で更新を試行
+    it('Update non-existent task - Attempt to update with non-existent ID and verify null is returned', () => {
+      // Attempt to update with non-existent ID (99999)
       const updatedTask = taskService.updateTask(99999, {
-        title: '新しいタイトル',
+        title: 'New Title',
       });
 
-      // nullが返されることを検証
+      // Verify null is returned
       expect(updatedTask).toBeNull();
     });
 
-    it('titleを空文字列に更新しようとするとエラーが発生する', () => {
-      const task = taskService.createTask({ title: 'オリジナル' });
+    it('Error when updating title to empty string', () => {
+      const task = taskService.createTask({ title: 'Original' });
       expect(() => {
         taskService.updateTask(task.id, { title: '' });
       }).toThrow('Title is required');
     });
 
-    it('titleを200文字超に更新しようとするとエラーが発生する', () => {
-      const task = taskService.createTask({ title: 'オリジナル' });
+    it('Error when updating title to exceed 200 characters', () => {
+      const task = taskService.createTask({ title: 'Original' });
       expect(() => {
         taskService.updateTask(task.id, { title: 'a'.repeat(201) });
       }).toThrow('Title must not exceed 200 characters');
     });
 
-    it('bodyを10000文字超に更新しようとするとエラーが発生する', () => {
-      const task = taskService.createTask({ title: 'オリジナル' });
+    it('Error when updating body to exceed 10000 characters', () => {
+      const task = taskService.createTask({ title: 'Original' });
       expect(() => {
         taskService.updateTask(task.id, { body: 'b'.repeat(10001) });
       }).toThrow('Body must not exceed 10000 characters');
     });
 
-    it('authorを100文字超に更新しようとするとエラーが発生する', () => {
-      const task = taskService.createTask({ title: 'オリジナル' });
+    it('Error when updating author to exceed 100 characters', () => {
+      const task = taskService.createTask({ title: 'Original' });
       expect(() => {
         taskService.updateTask(task.id, { author: 'c'.repeat(101) });
       }).toThrow('Author must not exceed 100 characters');
     });
 
-    it('null値での更新テスト - bodyとauthorをnullに設定し、nullが正しく保存されることを検証', () => {
-      // body と author に値を持つタスクを作成
+    it('Update with null values - Set body and author to null and verify null is correctly saved', () => {
+      // Create a task with values for body and author
       const createdTask = taskService.createTask({
-        title: 'テストタスク',
-        body: '元の本文',
-        author: '元の作成者',
+        title: 'Test Task',
+        body: 'Original Body',
+        author: 'Original Author',
         status: 'backlog',
       });
 
-      // 作成時の値を確認
-      expect(createdTask.body).toBe('元の本文');
-      expect(createdTask.author).toBe('元の作成者');
+      // Verify values are set at creation
+      expect(createdTask.body).toBe('Original Body');
+      expect(createdTask.author).toBe('Original Author');
 
-      // bodyとauthorをnullに更新
+      // Update body and author to null
       const updatedTask = taskService.updateTask(createdTask.id, {
         body: null as string | null,
         author: null as string | null,
       });
 
-      // 更新されたタスクが返されることを確認
+      // Verify the updated task is returned
       expect(updatedTask).toBeDefined();
       expect(updatedTask).not.toBeNull();
 
-      // bodyとauthorがnullになっていることを検証
+      // Verify body and author are null
       expect(updatedTask!.body).toBeNull();
       expect(updatedTask!.author).toBeNull();
 
-      // 他のフィールドが変更されていないことを検証
-      expect(updatedTask!.title).toBe('テストタスク');
+      // Verify other fields are unchanged
+      expect(updatedTask!.title).toBe('Test Task');
       expect(updatedTask!.status).toBe('backlog');
 
-      // getTask()で取得しても同じ結果が得られることを確認
+      // Verify the same result is obtained via getTask()
       const retrievedTask = taskService.getTask(createdTask.id);
       expect(retrievedTask).toBeDefined();
       expect(retrievedTask!.body).toBeNull();
       expect(retrievedTask!.author).toBeNull();
-      expect(retrievedTask!.title).toBe('テストタスク');
+      expect(retrievedTask!.title).toBe('Test Task');
       expect(retrievedTask!.status).toBe('backlog');
+    });
+
+    it('Can update branch', () => {
+      const createdTask = taskService.createTask({ title: 'Test Task' });
+
+      const updatedTask = taskService.updateTask(createdTask.id, {
+        branch: 'feature/updated-branch',
+      });
+
+      expect(updatedTask).toBeDefined();
+      expect(updatedTask!.branch).toBe('feature/updated-branch');
+
+      const retrievedTask = taskService.getTask(createdTask.id);
+      expect(retrievedTask!.branch).toBe('feature/updated-branch');
     });
   });
 
   describe('deleteTask', () => {
-    it('存在するタスクの削除テスト - タスク作成後に削除を実行し、削除成功と削除後の取得がnullになることを検証', () => {
-      // タスクを作成
+    it('Delete existing task - After creating a task, delete it and verify deletion success and null return on retrieval', () => {
+      // Create a task
       const createdTask = taskService.createTask({
-        title: '削除テスト用タスク',
-        body: 'このタスクは削除されます',
-        author: 'テスター',
+        title: 'Task for Delete Test',
+        body: 'This task will be deleted',
+        author: 'Tester',
         status: 'backlog',
       });
 
-      // タスクが作成されたことを確認
+      // Verify task is created
       expect(createdTask).toBeDefined();
       expect(createdTask.id).toBeDefined();
 
-      // タスクを削除
+      // Delete the task
       const deleteResult = taskService.deleteTask(createdTask.id);
 
-      // 削除が成功したことを検証（trueが返る）
+      // Verify deletion succeeded (true is returned)
       expect(deleteResult).toBe(true);
 
-      // 削除後にタスクを取得
+      // Retrieve the task after deletion
       const retrievedTask = taskService.getTask(createdTask.id);
 
-      // 削除されたタスクはnullが返ることを検証
+      // Verify deleted task returns null
       expect(retrievedTask).toBeNull();
     });
 
-    it('存在しないタスクの削除テスト - 存在しないIDで削除を試行し、falseが返ることを検証', () => {
-      // 存在しないID（99999）で削除を試行
+    it('Delete non-existent task - Attempt to delete with non-existent ID and verify false is returned', () => {
+      // Attempt to delete with non-existent ID (99999)
       const deleteResult = taskService.deleteTask(99999);
 
-      // 削除が失敗したことを検証（falseが返る）
+      // Verify deletion failed (false is returned)
       expect(deleteResult).toBe(false);
     });
   });
 
-  describe('統合シナリオテスト', () => {
-    it('タスクのライフサイクル全体テスト - 作成からステータス遷移、情報追加、削除までの一連の流れを検証', () => {
-      // 1. タスク作成（backlog）
+  describe('Integration scenario tests', () => {
+    it('Full task lifecycle test - Verify the complete flow from creation through status transitions, information addition, to deletion', () => {
+      // 1. Create task (backlog)
       const createdTask = taskService.createTask({
-        title: 'ライフサイクルテストタスク',
+        title: 'Lifecycle Test Task',
         status: 'backlog',
       });
 
       expect(createdTask).toBeDefined();
       expect(createdTask.id).toBeDefined();
-      expect(createdTask.title).toBe('ライフサイクルテストタスク');
+      expect(createdTask.title).toBe('Lifecycle Test Task');
       expect(createdTask.status).toBe('backlog');
       expect(createdTask.body).toBeNull();
       expect(createdTask.author).toBeNull();
 
       const taskId = createdTask.id;
 
-      // 2. ステータス更新（backlog → ready）
+      // 2. Update status (backlog → ready)
       const readyTask = taskService.updateTask(taskId, {
         status: 'ready',
       });
@@ -1142,19 +1171,19 @@ describe('TaskService', () => {
       expect(readyTask).toBeDefined();
       expect(readyTask).not.toBeNull();
       expect(readyTask!.status).toBe('ready');
-      expect(readyTask!.title).toBe('ライフサイクルテストタスク');
+      expect(readyTask!.title).toBe('Lifecycle Test Task');
 
-      // 3. bodyフィールドの追加
+      // 3. Add body field
       const taskWithBody = taskService.updateTask(taskId, {
-        body: 'タスクの詳細な説明文',
+        body: 'Detailed task description',
       });
 
       expect(taskWithBody).toBeDefined();
       expect(taskWithBody).not.toBeNull();
-      expect(taskWithBody!.body).toBe('タスクの詳細な説明文');
+      expect(taskWithBody!.body).toBe('Detailed task description');
       expect(taskWithBody!.status).toBe('ready');
 
-      // 4. ステータス更新（ready → in_progress）
+      // 4. Update status (ready → in_progress)
       const inProgressTask = taskService.updateTask(taskId, {
         status: 'in_progress',
       });
@@ -1162,20 +1191,20 @@ describe('TaskService', () => {
       expect(inProgressTask).toBeDefined();
       expect(inProgressTask).not.toBeNull();
       expect(inProgressTask!.status).toBe('in_progress');
-      expect(inProgressTask!.body).toBe('タスクの詳細な説明文');
+      expect(inProgressTask!.body).toBe('Detailed task description');
 
-      // 5. authorフィールドの追加
+      // 5. Add author field
       const taskWithAuthor = taskService.updateTask(taskId, {
-        author: 'テスト担当者',
+        author: 'Test Assignee',
       });
 
       expect(taskWithAuthor).toBeDefined();
       expect(taskWithAuthor).not.toBeNull();
-      expect(taskWithAuthor!.author).toBe('テスト担当者');
+      expect(taskWithAuthor!.author).toBe('Test Assignee');
       expect(taskWithAuthor!.status).toBe('in_progress');
-      expect(taskWithAuthor!.body).toBe('タスクの詳細な説明文');
+      expect(taskWithAuthor!.body).toBe('Detailed task description');
 
-      // 6. ステータス更新（in_progress → done）
+      // 6. Update status (in_progress → done)
       const doneTask = taskService.updateTask(taskId, {
         status: 'done',
       });
@@ -1183,10 +1212,10 @@ describe('TaskService', () => {
       expect(doneTask).toBeDefined();
       expect(doneTask).not.toBeNull();
       expect(doneTask!.status).toBe('done');
-      expect(doneTask!.author).toBe('テスト担当者');
-      expect(doneTask!.body).toBe('タスクの詳細な説明文');
+      expect(doneTask!.author).toBe('Test Assignee');
+      expect(doneTask!.body).toBe('Detailed task description');
 
-      // 7. ステータス更新（done → closed）
+      // 7. Update status (done → closed)
       const closedTask = taskService.updateTask(taskId, {
         status: 'closed',
       });
@@ -1194,124 +1223,124 @@ describe('TaskService', () => {
       expect(closedTask).toBeDefined();
       expect(closedTask).not.toBeNull();
       expect(closedTask!.status).toBe('closed');
-      expect(closedTask!.title).toBe('ライフサイクルテストタスク');
-      expect(closedTask!.body).toBe('タスクの詳細な説明文');
-      expect(closedTask!.author).toBe('テスト担当者');
+      expect(closedTask!.title).toBe('Lifecycle Test Task');
+      expect(closedTask!.body).toBe('Detailed task description');
+      expect(closedTask!.author).toBe('Test Assignee');
 
-      // 8. タスクの削除
+      // 8. Delete the task
       const deleteResult = taskService.deleteTask(taskId);
 
       expect(deleteResult).toBe(true);
 
-      // 9. 削除後の確認
+      // 9. Verify after deletion
       const deletedTask = taskService.getTask(taskId);
 
       expect(deletedTask).toBeNull();
     });
 
-    it('複数タスクの作成と管理テスト - 10件のタスクを作成し、フィルター、更新、削除を行い、操作が相互に干渉しないことを検証', () => {
-      // 1. 10件のタスクを作成（異なるステータス、作成者）
+    it('Create and manage multiple tasks test - Create 10 tasks, perform filtering, updating, and deletion, and verify operations do not interfere with each other', () => {
+      // 1. Create 10 tasks (different statuses, authors)
       const task1 = taskService.createTask({
-        title: 'タスク1',
+        title: 'Task 1',
         body: 'Alice - backlog',
         author: 'Alice',
         status: 'backlog',
       });
 
       const task2 = taskService.createTask({
-        title: 'タスク2',
+        title: 'Task 2',
         body: 'Alice - ready',
         author: 'Alice',
         status: 'ready',
       });
 
       const task3 = taskService.createTask({
-        title: 'タスク3',
+        title: 'Task 3',
         body: 'Alice - in_progress',
         author: 'Alice',
         status: 'in_progress',
       });
 
       const task4 = taskService.createTask({
-        title: 'タスク4',
+        title: 'Task 4',
         body: 'Bob - backlog',
         author: 'Bob',
         status: 'backlog',
       });
 
       const task5 = taskService.createTask({
-        title: 'タスク5',
+        title: 'Task 5',
         body: 'Bob - ready',
         author: 'Bob',
         status: 'ready',
       });
 
       const task6 = taskService.createTask({
-        title: 'タスク6',
+        title: 'Task 6',
         body: 'Bob - in_progress',
         author: 'Bob',
         status: 'in_progress',
       });
 
       const task7 = taskService.createTask({
-        title: 'タスク7',
+        title: 'Task 7',
         body: 'Charlie - done',
         author: 'Charlie',
         status: 'done',
       });
 
       const task8 = taskService.createTask({
-        title: 'タスク8',
+        title: 'Task 8',
         body: 'Charlie - closed',
         author: 'Charlie',
         status: 'closed',
       });
 
       const task9 = taskService.createTask({
-        title: 'タスク9',
+        title: 'Task 9',
         body: 'David - backlog',
         author: 'David',
         status: 'backlog',
       });
 
       const task10 = taskService.createTask({
-        title: 'タスク10',
+        title: 'Task 10',
         body: 'David - in_progress',
         author: 'David',
         status: 'in_progress',
       });
 
-      // 2. フィルター機能で正しく取得できることを検証
-      // 全件取得（10件）
+      // 2. Verify filtering works correctly
+      // Get all tasks (10)
       const allTasks = taskService.listTasks();
       expect(allTasks.length).toBe(10);
 
-      // backlogステータスでフィルター（3件: task1, task4, task9）
+      // Filter by backlog status (3: task1, task4, task9)
       const backlogTasks = taskService.listTasks({ status: 'backlog' });
       expect(backlogTasks.length).toBe(3);
       expect(backlogTasks.every((t) => t.status === 'backlog')).toBe(true);
 
-      // in_progressステータスでフィルター（3件: task3, task6, task10）
+      // Filter by in_progress status (3: task3, task6, task10)
       const inProgressTasks = taskService.listTasks({ status: 'in_progress' });
       expect(inProgressTasks.length).toBe(3);
       expect(inProgressTasks.every((t) => t.status === 'in_progress')).toBe(true);
 
-      // Alice作成者でフィルター（3件: task1, task2, task3）
+      // Filter by Alice author (3: task1, task2, task3)
       const aliceTasks = taskService.listTasks({ author: 'Alice' });
       expect(aliceTasks.length).toBe(3);
       expect(aliceTasks.every((t) => t.author === 'Alice')).toBe(true);
 
-      // Bob作成者でフィルター（3件: task4, task5, task6）
+      // Filter by Bob author (3: task4, task5, task6)
       const bobTasks = taskService.listTasks({ author: 'Bob' });
       expect(bobTasks.length).toBe(3);
       expect(bobTasks.every((t) => t.author === 'Bob')).toBe(true);
 
-      // 複合フィルター: status='backlog' AND author='Bob'（1件: task4）
+      // Combined filter: status='backlog' AND author='Bob' (1: task4)
       const bobBacklogTasks = taskService.listTasks({ status: 'backlog', author: 'Bob' });
       expect(bobBacklogTasks.length).toBe(1);
       expect(bobBacklogTasks[0].id).toBe(task4.id);
 
-      // 3. 一部のタスクを更新（task2, task5, task8）
+      // 3. Update some tasks (task2, task5, task8)
       const updatedTask2 = taskService.updateTask(task2.id, {
         status: 'in_progress',
         body: 'Alice - ready → in_progress',
@@ -1329,13 +1358,13 @@ describe('TaskService', () => {
       expect(updatedTask5!.body).toBe('Bob - ready → done');
 
       const updatedTask8 = taskService.updateTask(task8.id, {
-        title: 'タスク8（更新済み）',
+        title: 'Task 8 (Updated)',
       });
       expect(updatedTask8).not.toBeNull();
-      expect(updatedTask8!.title).toBe('タスク8（更新済み）');
+      expect(updatedTask8!.title).toBe('Task 8 (Updated)');
       expect(updatedTask8!.status).toBe('closed');
 
-      // 4. 一部のタスクを削除（task1, task7, task9）
+      // 4. Delete some tasks (task1, task7, task9)
       const deleteResult1 = taskService.deleteTask(task1.id);
       expect(deleteResult1).toBe(true);
 
@@ -1345,17 +1374,17 @@ describe('TaskService', () => {
       const deleteResult9 = taskService.deleteTask(task9.id);
       expect(deleteResult9).toBe(true);
 
-      // 5. 残りのタスクが影響を受けていないことを検証
-      // 全件取得（7件: 10件 - 削除3件）
+      // 5. Verify remaining tasks are unaffected
+      // Get all remaining tasks (7: 10 - 3 deleted)
       const remainingTasks = taskService.listTasks();
       expect(remainingTasks.length).toBe(7);
 
-      // 削除されたタスクは取得できない
+      // Deleted tasks cannot be retrieved
       expect(taskService.getTask(task1.id)).toBeNull();
       expect(taskService.getTask(task7.id)).toBeNull();
       expect(taskService.getTask(task9.id)).toBeNull();
 
-      // 更新されたタスクは更新後の内容が保持されている
+      // Updated tasks retain their updated content
       const verifyTask2 = taskService.getTask(task2.id);
       expect(verifyTask2).not.toBeNull();
       expect(verifyTask2!.status).toBe('in_progress');
@@ -1370,49 +1399,49 @@ describe('TaskService', () => {
 
       const verifyTask8 = taskService.getTask(task8.id);
       expect(verifyTask8).not.toBeNull();
-      expect(verifyTask8!.title).toBe('タスク8（更新済み）');
+      expect(verifyTask8!.title).toBe('Task 8 (Updated)');
       expect(verifyTask8!.status).toBe('closed');
 
-      // 更新も削除もされていないタスクは元のデータが保持されている
+      // Tasks that were neither updated nor deleted retain original data
       const verifyTask3 = taskService.getTask(task3.id);
       expect(verifyTask3).not.toBeNull();
-      expect(verifyTask3!.title).toBe('タスク3');
+      expect(verifyTask3!.title).toBe('Task 3');
       expect(verifyTask3!.body).toBe('Alice - in_progress');
       expect(verifyTask3!.author).toBe('Alice');
       expect(verifyTask3!.status).toBe('in_progress');
 
       const verifyTask4 = taskService.getTask(task4.id);
       expect(verifyTask4).not.toBeNull();
-      expect(verifyTask4!.title).toBe('タスク4');
+      expect(verifyTask4!.title).toBe('Task 4');
       expect(verifyTask4!.body).toBe('Bob - backlog');
       expect(verifyTask4!.author).toBe('Bob');
       expect(verifyTask4!.status).toBe('backlog');
 
       const verifyTask6 = taskService.getTask(task6.id);
       expect(verifyTask6).not.toBeNull();
-      expect(verifyTask6!.title).toBe('タスク6');
+      expect(verifyTask6!.title).toBe('Task 6');
       expect(verifyTask6!.body).toBe('Bob - in_progress');
       expect(verifyTask6!.author).toBe('Bob');
       expect(verifyTask6!.status).toBe('in_progress');
 
       const verifyTask10 = taskService.getTask(task10.id);
       expect(verifyTask10).not.toBeNull();
-      expect(verifyTask10!.title).toBe('タスク10');
+      expect(verifyTask10!.title).toBe('Task 10');
       expect(verifyTask10!.body).toBe('David - in_progress');
       expect(verifyTask10!.author).toBe('David');
       expect(verifyTask10!.status).toBe('in_progress');
 
-      // 6. 更新後のフィルター検証
-      // in_progressステータスでフィルター（4件: task2更新分, task3, task6, task10）
+      // 6. Verify filtering reflects updates
+      // Filter by in_progress status (4: task2 updated, task3, task6, task10)
       const updatedInProgressTasks = taskService.listTasks({ status: 'in_progress' });
       expect(updatedInProgressTasks.length).toBe(4);
 
-      // doneステータスでフィルター（1件: task5更新分）
+      // Filter by done status (1: task5 updated)
       const doneTasks = taskService.listTasks({ status: 'done' });
       expect(doneTasks.length).toBe(1);
       expect(doneTasks[0].id).toBe(task5.id);
 
-      // backlogステータスでフィルター（1件: task4のみ、task1削除、task9削除）
+      // Filter by backlog status (1: task4 only, task1 deleted, task9 deleted)
       const updatedBacklogTasks = taskService.listTasks({ status: 'backlog' });
       expect(updatedBacklogTasks.length).toBe(1);
       expect(updatedBacklogTasks[0].id).toBe(task4.id);
@@ -1420,7 +1449,7 @@ describe('TaskService', () => {
   });
 
   describe('getTaskCountByStatus', () => {
-    it('すべてのステータスのタスクが存在する場合の集計テスト', () => {
+    it('Count test when tasks exist for all statuses', () => {
       taskService.createTask({ title: 'Task 1', status: 'backlog' });
       taskService.createTask({ title: 'Task 2', status: 'backlog' });
       taskService.createTask({ title: 'Task 3', status: 'ready' });
@@ -1439,7 +1468,7 @@ describe('TaskService', () => {
       expect(counts.closed).toBe(1);
     });
 
-    it('タスクが0件の場合の集計テスト', () => {
+    it('Count test when there are 0 tasks', () => {
       const counts = taskService.getTaskCountByStatus();
 
       expect(counts.backlog).toBe(0);
@@ -1449,7 +1478,7 @@ describe('TaskService', () => {
       expect(counts.closed).toBe(0);
     });
 
-    it('特定のステータスのみタスクが存在する場合の集計テスト', () => {
+    it('Count test when tasks exist only for specific statuses', () => {
       taskService.createTask({ title: 'Task 1', status: 'in_progress' });
       taskService.createTask({ title: 'Task 2', status: 'in_progress' });
 
@@ -1462,7 +1491,7 @@ describe('TaskService', () => {
       expect(counts.closed).toBe(0);
     });
 
-    it('タスク更新後の集計テスト - ステータス変更がカウントに反映される', () => {
+    it('Count test after task update - Status change is reflected in count', () => {
       const task = taskService.createTask({ title: 'Task 1', status: 'backlog' });
 
       let counts = taskService.getTaskCountByStatus();
@@ -1476,7 +1505,7 @@ describe('TaskService', () => {
       expect(counts.in_progress).toBe(1);
     });
 
-    it('タスク削除後の集計テスト - 削除がカウントに反映される', () => {
+    it('Count test after task deletion - Deletion is reflected in count', () => {
       const task1 = taskService.createTask({ title: 'Task 1', status: 'done' });
       taskService.createTask({ title: 'Task 2', status: 'done' });
 
@@ -1491,144 +1520,144 @@ describe('TaskService', () => {
   });
 
   describe('searchTasks', () => {
-    it('キーワード検索 - タイトルにマッチするタスクを検索', () => {
-      // テスト用のタスクを作成
-      taskService.createTask({ title: 'テスト タスク1', body: '本文A', status: 'backlog' });
-      taskService.createTask({ title: '重要な会議', body: '本文B', status: 'in_progress' });
-      taskService.createTask({ title: 'テスト タスク2', body: '本文C', status: 'ready' });
-      taskService.createTask({ title: '買い物リスト', body: '本文D', status: 'done' });
+    it('Keyword search - Search for tasks matching title', () => {
+      // Create test tasks
+      taskService.createTask({ title: 'Test Task 1', body: 'Body A', status: 'backlog' });
+      taskService.createTask({ title: 'Important Meeting', body: 'Body B', status: 'in_progress' });
+      taskService.createTask({ title: 'Test Task 2', body: 'Body C', status: 'ready' });
+      taskService.createTask({ title: 'Shopping List', body: 'Body D', status: 'done' });
 
-      // 「テスト」をキーワードに検索
-      const results = taskService.searchTasks('テスト');
+      // Search by "Test" keyword
+      const results = taskService.searchTasks('Test');
 
-      // 2件のタスクが見つかることを検証（done/closedは除外される）
+      // Verify 2 tasks are found (done/closed are excluded)
       expect(results).toHaveLength(2);
-      expect(results[0].title).toContain('テスト');
-      expect(results[1].title).toContain('テスト');
+      expect(results[0].title).toContain('Test');
+      expect(results[1].title).toContain('Test');
     });
 
-    it('キーワード検索 - 本文にマッチするタスクを検索', () => {
-      // テスト用のタスクを作成
-      taskService.createTask({ title: 'タスク1', body: '重要な内容', status: 'backlog' });
-      taskService.createTask({ title: 'タスク2', body: '普通の内容', status: 'in_progress' });
-      taskService.createTask({ title: 'タスク3', body: '重要な議題', status: 'ready' });
+    it('Keyword search - Search for tasks matching body', () => {
+      // Create test tasks
+      taskService.createTask({ title: 'Task 1', body: 'Important Content', status: 'backlog' });
+      taskService.createTask({ title: 'Task 2', body: 'Regular Content', status: 'in_progress' });
+      taskService.createTask({ title: 'Task 3', body: 'Important Topic', status: 'ready' });
 
-      // 「重要」をキーワードに検索
-      const results = taskService.searchTasks('重要');
+      // Search by "Important" keyword
+      const results = taskService.searchTasks('Important');
 
-      // 2件のタスクが見つかることを検証
+      // Verify 2 tasks are found
       expect(results).toHaveLength(2);
-      expect(results.every((t) => t.body && t.body.includes('重要'))).toBe(true);
+      expect(results.every((t) => t.body && t.body.includes('Important'))).toBe(true);
     });
 
-    it('キーワード検索 - done/closedステータスのタスクは除外される', () => {
-      // テスト用のタスクを作成
-      taskService.createTask({ title: 'アクティブなタスク', body: '本文', status: 'in_progress' });
-      taskService.createTask({ title: '完了したタスク', body: '本文', status: 'done' });
-      taskService.createTask({ title: 'クローズしたタスク', body: '本文', status: 'closed' });
+    it('Keyword search - Tasks with done/closed status are excluded', () => {
+      // Create test tasks
+      taskService.createTask({ title: 'Active Task', body: 'Body', status: 'in_progress' });
+      taskService.createTask({ title: 'Completed Task', body: 'Body', status: 'done' });
+      taskService.createTask({ title: 'Closed Task', body: 'Body', status: 'closed' });
 
-      // 「タスク」をキーワードに検索
-      const results = taskService.searchTasks('タスク');
+      // Search by "Task" keyword
+      const results = taskService.searchTasks('Task');
 
-      // 1件のタスクのみ見つかることを検証（done/closedは除外）
+      // Verify only 1 task is found (done/closed are excluded)
       expect(results).toHaveLength(1);
-      expect(results[0].title).toBe('アクティブなタスク');
+      expect(results[0].title).toBe('Active Task');
       expect(results[0].status).toBe('in_progress');
     });
 
-    it('キーワード検索 - includeAll=trueでdone/closedも検索対象に含む', () => {
-      // テスト用のタスクを作成
-      taskService.createTask({ title: 'アクティブなタスク', body: '本文', status: 'in_progress' });
-      taskService.createTask({ title: '完了したタスク', body: '本文', status: 'done' });
-      taskService.createTask({ title: 'クローズしたタスク', body: '本文', status: 'closed' });
+    it('Keyword search - include done/closed in search results with includeAll=true', () => {
+      // Create test tasks
+      taskService.createTask({ title: 'Active Task', body: 'Body', status: 'in_progress' });
+      taskService.createTask({ title: 'Completed Task', body: 'Body', status: 'done' });
+      taskService.createTask({ title: 'Closed Task', body: 'Body', status: 'closed' });
 
-      // includeAll=trueで「タスク」をキーワードに検索
-      const results = taskService.searchTasks('タスク', true);
+      // Search with includeAll=true for "Task" keyword
+      const results = taskService.searchTasks('Task', true);
 
-      // 3件すべてのタスクが見つかることを検証
+      // Verify all 3 tasks are found
       expect(results).toHaveLength(3);
       expect(results.map((t) => t.status)).toContain('in_progress');
       expect(results.map((t) => t.status)).toContain('done');
       expect(results.map((t) => t.status)).toContain('closed');
     });
 
-    it('キーワード検索 - マッチするタスクがない場合は空配列を返す', () => {
-      // テスト用のタスクを作成
-      taskService.createTask({ title: 'タスク1', body: '本文A', status: 'backlog' });
-      taskService.createTask({ title: 'タスク2', body: '本文B', status: 'in_progress' });
+    it('Keyword search - Return empty array when no matching tasks found', () => {
+      // Create test tasks
+      taskService.createTask({ title: 'Task 1', body: 'Body A', status: 'backlog' });
+      taskService.createTask({ title: 'Task 2', body: 'Body B', status: 'in_progress' });
 
-      // マッチしないキーワードで検索
-      const results = taskService.searchTasks('存在しないキーワード');
+      // Search for non-matching keyword
+      const results = taskService.searchTasks('Non-existent Keyword');
 
-      // 空配列が返ることを検証
+      // Verify empty array is returned
       expect(results).toHaveLength(0);
     });
 
-    it('数値キーワード - IDで完全一致検索できる', () => {
-      const task1 = taskService.createTask({ title: 'ユニークなタスク', status: 'backlog' });
-      taskService.createTask({ title: '別のタスク', status: 'backlog' });
+    it('Numeric keyword - Search by ID with exact match', () => {
+      const task1 = taskService.createTask({ title: 'Unique Task', status: 'backlog' });
+      taskService.createTask({ title: 'Another Task', status: 'backlog' });
 
       const results = taskService.searchTasks(String(task1.id));
 
       expect(results.some((t) => t.id === task1.id)).toBe(true);
     });
 
-    it('数値キーワード - doneステータスのタスクでもIDで検索できる（--allなし）', () => {
-      const task = taskService.createTask({ title: '完了済みタスク', status: 'done' });
+    it('Numeric keyword - Search by ID in done status tasks (without --all)', () => {
+      const task = taskService.createTask({ title: 'Completed Task', status: 'done' });
 
-      // includeAll=false（デフォルト）のままID検索 → ステータスフィルタを突破できる
+      // Search by ID with includeAll=false (default) → can bypass status filter
       const results = taskService.searchTasks(String(task.id));
 
       expect(results.some((t) => t.id === task.id)).toBe(true);
     });
 
-    it('数値キーワード - タイトル/ボディのLIKE検索も同時に機能する', () => {
-      const task1 = taskService.createTask({ title: 'ユニークタイトル999', status: 'backlog' });
-      const task2 = taskService.createTask({ title: 'IDで検索されるタスク', status: 'backlog' });
+    it('Numeric keyword - Title/body LIKE search also works simultaneously', () => {
+      const task1 = taskService.createTask({ title: 'Unique Title 999', status: 'backlog' });
+      const task2 = taskService.createTask({ title: 'Task to be searched by ID', status: 'backlog' });
 
-      // task2のIDで検索するとtask2がヒット、task1はLIKEでタイトルにIDが含まれないのでヒットしない
+      // Search by task2's ID - task2 matches ID, task1 doesn't match ID or title/body
       const results = taskService.searchTasks(String(task2.id));
 
       expect(results.some((t) => t.id === task2.id)).toBe(true);
-      // task1はIDも一致せず、タイトル/ボディにtask2.idのテキストが含まれない（通常は）
+      // task1 doesn't match because ID doesn't match and title/body doesn't contain task2's ID text (normally)
       expect(results.every((t) => t.id !== task1.id || String(task1.title).includes(String(task2.id)))).toBe(true);
     });
   });
 
   describe('Parent-Child Relationships', () => {
-    it('親タスクを指定してタスクを作成できる', () => {
-      // 親タスクを作成
+    it('Can create task with parent task specified', () => {
+      // Create parent task
       const parent = taskService.createTask({ title: 'Parent Task' });
 
-      // 親タスクを指定して子タスクを作成
+      // Create child task with parent task specified
       const child = taskService.createTask({
         title: 'Child Task',
         parent_id: parent.id,
       });
 
-      // 子タスクのparent_idが正しく設定されていることを検証
+      // Verify child task's parent_id is correctly set
       expect(child.parent_id).toBe(parent.id);
     });
 
-    it('存在しない親IDでエラーが発生する', () => {
-      // 存在しない親IDでタスクを作成しようとするとエラー
+    it('Error when non-existent parent ID is specified', () => {
+      // Attempt to create task with non-existent parent ID
       expect(() => {
         taskService.createTask({ title: 'Task', parent_id: 99999 });
       }).toThrow('Parent task with id 99999 does not exist');
     });
 
-    it('子タスクを取得できる', () => {
-      // 親タスクを作成
+    it('Can retrieve child tasks', () => {
+      // Create parent task
       const parent = taskService.createTask({ title: 'Parent' });
 
-      // 2つの子タスクを作成
+      // Create 2 child tasks
       const child1 = taskService.createTask({ title: 'Child 1', parent_id: parent.id });
       const child2 = taskService.createTask({ title: 'Child 2', parent_id: parent.id });
 
-      // 子タスクを取得
+      // Retrieve child tasks
       const children = taskService.getChildTasks(parent.id);
 
-      // 2件の子タスクが取得されることを検証
+      // Verify 2 child tasks are retrieved
       expect(children).toHaveLength(2);
       expect(children[0].id).toBe(child1.id);
       expect(children[0].title).toBe('Child 1');
@@ -1636,71 +1665,71 @@ describe('TaskService', () => {
       expect(children[1].title).toBe('Child 2');
     });
 
-    it('親タスクを取得できる', () => {
-      // 親タスクと子タスクを作成
+    it('Can retrieve parent task', () => {
+      // Create parent and child tasks
       const parent = taskService.createTask({ title: 'Parent Task' });
       const child = taskService.createTask({ title: 'Child Task', parent_id: parent.id });
 
-      // 子タスクから親タスクを取得
+      // Retrieve parent task from child
       const retrievedParent = taskService.getParentTask(child.id);
 
-      // 親タスクが正しく取得されることを検証
+      // Verify parent task is correctly retrieved
       expect(retrievedParent).not.toBeNull();
       expect(retrievedParent!.id).toBe(parent.id);
       expect(retrievedParent!.title).toBe('Parent Task');
     });
 
-    it('親がないタスクのgetParentTaskはnullを返す', () => {
-      // 親がないタスクを作成
+    it('getParentTask returns null when task has no parent', () => {
+      // Create task without parent
       const task = taskService.createTask({ title: 'Root Task' });
 
-      // 親タスクを取得
+      // Retrieve parent task
       const parent = taskService.getParentTask(task.id);
 
-      // nullが返ることを検証
+      // Verify null is returned
       expect(parent).toBeNull();
     });
 
-    it('循環参照を検出する', () => {
-      // task1を作成
+    it('Circular reference is detected', () => {
+      // Create task1
       const task1 = taskService.createTask({ title: 'Task 1' });
-      // task2を作成（task1の子）
+      // Create task2 as child of task1
       const task2 = taskService.createTask({ title: 'Task 2', parent_id: task1.id });
 
-      // task1の親にtask2を設定しようとすると循環参照エラー
+      // Attempting to set task2 as parent of task1 causes circular reference error
       expect(() => {
         taskService.updateTask(task1.id, { parent_id: task2.id });
       }).toThrow(/cycle|circular/i);
     });
 
-    it('自分自身を親に設定しようとすると循環参照エラーが発生する', () => {
-      // タスクを作成
+    it('Error when attempting to set self as parent', () => {
+      // Create a task
       const task = taskService.createTask({ title: 'Task' });
 
-      // 自分自身を親に設定しようとすると循環参照エラー
+      // Attempting to set self as parent causes circular reference error
       expect(() => {
         taskService.updateTask(task.id, { parent_id: task.id });
       }).toThrow(/cycle|circular/i);
     });
 
-    it('親タスク削除時に子タスクが孤児化する', () => {
-      // 親タスクと子タスクを作成
+    it('Child tasks become orphaned when parent task is deleted', () => {
+      // Create parent and child tasks
       const parent = taskService.createTask({ title: 'Parent' });
       const child = taskService.createTask({ title: 'Child', parent_id: parent.id });
 
-      // 親タスクを削除
+      // Delete parent task
       taskService.deleteTask(parent.id);
 
-      // 子タスクを取得
+      // Retrieve child task
       const updatedChild = taskService.getTask(child.id);
 
-      // 子タスクは削除されずに残っており、parent_idがnullになっていることを検証
+      // Verify child task still exists but parent_id is null
       expect(updatedChild).not.toBeNull();
       expect(updatedChild!.parent_id).toBeNull();
     });
 
-    it('子孫タスクを再帰的に取得できる', () => {
-      // 3階層のタスク構造を作成
+    it('Can recursively retrieve descendant tasks', () => {
+      // Create 3-level task structure
       // Task 1
       //   - Task 2
       //     - Task 3
@@ -1712,13 +1741,13 @@ describe('TaskService', () => {
       const task4 = taskService.createTask({ title: 'Task 4', parent_id: task2.id });
       const task5 = taskService.createTask({ title: 'Task 5', parent_id: task1.id });
 
-      // task1の子孫タスクを再帰的に取得
+      // Recursively retrieve descendant tasks of task1
       const descendants = taskService.getDescendantTasks(task1.id);
 
-      // 4件の子孫タスクが取得されることを検証（task2, task3, task4, task5）
+      // Verify 4 descendant tasks are retrieved (task2, task3, task4, task5)
       expect(descendants).toHaveLength(4);
 
-      // すべての子孫タスクが含まれていることを検証
+      // Verify all descendant tasks are included
       const descendantIds = descendants.map((t) => t.id);
       expect(descendantIds).toContain(task2.id);
       expect(descendantIds).toContain(task3.id);
@@ -1726,109 +1755,109 @@ describe('TaskService', () => {
       expect(descendantIds).toContain(task5.id);
     });
 
-    it('子孫が存在しないタスクのgetDescendantTasksは空配列を返す', () => {
-      // 子がないタスクを作成
+    it('getDescendantTasks returns empty array when task has no descendants', () => {
+      // Create a task without children
       const task = taskService.createTask({ title: 'Leaf Task' });
 
-      // 子孫タスクを取得
+      // Retrieve descendant tasks
       const descendants = taskService.getDescendantTasks(task.id);
 
-      // 空配列が返ることを検証
+      // Verify empty array is returned
       expect(descendants).toHaveLength(0);
     });
 
-    it('ルートタスクを取得できる - 親が存在する場合', () => {
-      // 3階層のタスク構造を作成
+    it('Can retrieve root task - With parent existing', () => {
+      // Create 3-level task structure
       // grandparent -> parent -> child
       const grandparent = taskService.createTask({ title: 'Grandparent' });
       const parent = taskService.createTask({ title: 'Parent', parent_id: grandparent.id });
       const child = taskService.createTask({ title: 'Child', parent_id: parent.id });
 
-      // 子タスクからルートタスクを取得
+      // Retrieve root task from child
       const root = taskService.getRootTask(child.id);
 
-      // ルートタスクがgrandparentであることを検証
+      // Verify root task is grandparent
       expect(root).not.toBeNull();
       expect(root!.id).toBe(grandparent.id);
       expect(root!.title).toBe('Grandparent');
     });
 
-    it('ルートタスクを取得できる - 親がない場合は自分自身を返す', () => {
-      // 親がないタスクを作成
+    it('Can retrieve root task - When task has no parent, returns self', () => {
+      // Create task without parent
       const task = taskService.createTask({ title: 'Root Task' });
 
-      // ルートタスクを取得
+      // Retrieve root task
       const root = taskService.getRootTask(task.id);
 
-      // 自分自身が返ることを検証
+      // Verify self is returned
       expect(root).not.toBeNull();
       expect(root!.id).toBe(task.id);
       expect(root!.title).toBe('Root Task');
     });
 
-    it('ルートタスクを取得 - 存在しないタスクIDの場合はnullを返す', () => {
-      // 存在しないIDでルートタスクを取得
+    it('Retrieve root task - Returns null for non-existent task ID', () => {
+      // Retrieve root task for non-existent ID
       const root = taskService.getRootTask(99999);
 
-      // nullが返ることを検証
+      // Verify null is returned
       expect(root).toBeNull();
     });
 
-    it('ルートタスクを取得 - 親タスクが途中で削除されている場合', () => {
-      // 3階層のタスク構造を作成
+    it('Retrieve root task - When parent task is deleted mid-chain', () => {
+      // Create 3-level task structure
       const grandparent = taskService.createTask({ title: 'Grandparent' });
       const parent = taskService.createTask({ title: 'Parent', parent_id: grandparent.id });
       const child = taskService.createTask({ title: 'Child', parent_id: parent.id });
 
-      // 中間の親タスクを削除（parent_idはnullになる）
+      // Delete intermediate parent task (parent_id becomes null)
       taskService.deleteTask(parent.id);
 
-      // 子タスクからルートタスクを取得
+      // Retrieve root task from child
       const root = taskService.getRootTask(child.id);
 
-      // 孤児化した子タスク自身が返ることを検証
+      // Verify orphaned child itself is returned
       expect(root).not.toBeNull();
       expect(root!.id).toBe(child.id);
     });
 
-    it('parent_idをnullに更新できる', () => {
-      // 親子関係のあるタスクを作成
+    it('Can update parent_id to null', () => {
+      // Create parent-child relationship
       const parent = taskService.createTask({ title: 'Parent' });
       const child = taskService.createTask({ title: 'Child', parent_id: parent.id });
 
-      // 子タスクのparent_idが設定されていることを確認
+      // Verify parent_id is set
       expect(child.parent_id).toBe(parent.id);
 
-      // parent_idをnullに更新
+      // Update parent_id to null
       const updatedChild = taskService.updateTask(child.id, { parent_id: null });
 
-      // parent_idがnullになっていることを検証
+      // Verify parent_id is null
       expect(updatedChild).not.toBeNull();
       expect(updatedChild!.parent_id).toBeNull();
     });
 
-    it('存在する親タスクにparent_idを更新できる', () => {
-      // 2つの親タスクと1つの子タスクを作成
+    it('Can update parent_id to existing parent task', () => {
+      // Create 2 parent tasks and 1 child task
       const parent1 = taskService.createTask({ title: 'Parent 1' });
       const parent2 = taskService.createTask({ title: 'Parent 2' });
       const child = taskService.createTask({ title: 'Child', parent_id: parent1.id });
 
-      // 最初の親がparent1であることを確認
+      // Verify initial parent is parent1
       expect(child.parent_id).toBe(parent1.id);
 
-      // parent_idをparent2に変更
+      // Update parent_id to parent2
       const updatedChild = taskService.updateTask(child.id, { parent_id: parent2.id });
 
-      // parent_idがparent2に変更されていることを検証
+      // Verify parent_id is changed to parent2
       expect(updatedChild).not.toBeNull();
       expect(updatedChild!.parent_id).toBe(parent2.id);
     });
 
-    it('updateで存在しない親IDを設定するとエラーが発生する', () => {
-      // タスクを作成
+    it('Error when updating to non-existent parent ID', () => {
+      // Create a task
       const task = taskService.createTask({ title: 'Task' });
 
-      // 存在しない親IDに更新しようとするとエラー
+      // Attempt to update parent_id to non-existent ID
       expect(() => {
         taskService.updateTask(task.id, { parent_id: 99999 });
       }).toThrow('Parent task with id 99999 does not exist');

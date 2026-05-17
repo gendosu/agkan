@@ -530,4 +530,45 @@ describe('setupTaskAddCommand', () => {
       expect(logs.join('\n')).toContain('Invalid priority');
     });
   });
+
+  describe('--branch option', () => {
+    it('should have --branch option registered', () => {
+      const taskCommand = program.commands.find((cmd) => cmd.name() === 'task');
+      const addCommand = taskCommand?.commands.find((cmd) => cmd.name() === 'add');
+      const options = addCommand?.options || [];
+      const optionNames = options.map((opt) => opt.long);
+      expect(optionNames).toContain('--branch');
+    });
+
+    it('should create task with branch', async () => {
+      const { exitCode, logs } = await runCommand(program, [
+        'task',
+        'add',
+        'Branch Task',
+        '--branch',
+        'feature/my-branch',
+        '--json',
+      ]);
+      expect(exitCode).toBeUndefined();
+      const output = JSON.parse(logs[0]);
+      expect(output.success).toBe(true);
+      expect(output.task.branch).toBe('feature/my-branch');
+    });
+
+    it('should persist branch in database', async () => {
+      await runCommand(program, ['task', 'add', 'Branch Task', '--branch', 'feature/my-branch']);
+      const taskService = new TaskService();
+      const tasks = taskService.listTasks();
+      expect(tasks).toHaveLength(1);
+      expect(tasks[0].branch).toBe('feature/my-branch');
+    });
+
+    it('should set branch to null when --branch is not specified', async () => {
+      await runCommand(program, ['task', 'add', 'No Branch Task']);
+      const taskService = new TaskService();
+      const tasks = taskService.listTasks();
+      expect(tasks).toHaveLength(1);
+      expect(tasks[0].branch).toBeNull();
+    });
+  });
 });

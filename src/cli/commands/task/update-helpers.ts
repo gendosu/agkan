@@ -15,6 +15,7 @@ export interface UpdateOptions {
   author?: string;
   assignees?: string;
   priority?: string;
+  branch?: string;
   file?: string;
   json?: boolean;
 }
@@ -23,7 +24,15 @@ export interface UpdateOptions {
  * Returns true if the user is using flag-based mode (as opposed to positional syntax).
  */
 export function isFlagMode(options: UpdateOptions, field: string | undefined): boolean {
-  const flagFields = [options.title, options.status, options.body, options.author, options.assignees, options.priority];
+  const flagFields = [
+    options.title,
+    options.status,
+    options.body,
+    options.author,
+    options.assignees,
+    options.priority,
+    options.branch,
+  ];
   return flagFields.some((v) => v !== undefined) || (!!options.file && !field);
 }
 
@@ -82,6 +91,7 @@ export function buildFlagModeInput(options: UpdateOptions, formatter: OutputForm
     author: options.author,
     assignees: options.assignees,
     priority: options.priority,
+    branch: options.branch,
   };
 
   if (options.file) {
@@ -106,17 +116,17 @@ export function buildFlagModeInput(options: UpdateOptions, formatter: OutputForm
   return updateInput;
 }
 
-const SUPPORTED_FIELDS = ['status', 'title', 'body', 'author', 'assignees', 'priority'] as const;
+const SUPPORTED_FIELDS = ['status', 'title', 'body', 'author', 'assignees', 'priority', 'branch'] as const;
 type SupportedField = (typeof SUPPORTED_FIELDS)[number];
 
 function validateFieldName(field: string | undefined, formatter: OutputFormatter): field is SupportedField {
   if (!field) {
     formatter.error(
-      'No fields specified. Use --title, --status, --body, --author, --assignees flags or positional arguments: <field> <value>',
+      'No fields specified. Use --title, --status, --body, --author, --assignees, --branch flags or positional arguments: <field> <value>',
       () => {
         console.log(
           chalk.red(
-            '\nError: No fields specified. Use --title, --status, --body, --author, --assignees flags or positional arguments: <field> <value>\n'
+            '\nError: No fields specified. Use --title, --status, --body, --author, --assignees, --branch flags or positional arguments: <field> <value>\n'
           )
         );
       }

@@ -6,6 +6,11 @@
 import type { Priority } from './Priority';
 
 /**
+ * Marker value indicating that a git branch name should be auto-generated at runtime
+ */
+export const BRANCH_AUTO_GENERATE = '<auto-generate>';
+
+/**
  * Task status type
  */
 export type TaskStatus = 'icebox' | 'backlog' | 'ready' | 'in_progress' | 'review' | 'done' | 'closed';
@@ -26,6 +31,7 @@ export interface Task {
   updated_at: string;
   parent_id: number | null;
   is_archived: 0 | 1;
+  branch: string | null;
 }
 
 /**
@@ -46,6 +52,7 @@ export interface CreateTaskInput {
   status?: TaskStatus;
   priority?: Priority | null;
   parent_id?: number | null;
+  branch?: string | null;
   /** Optional tag IDs to attach atomically with task creation */
   tagIds?: number[];
 }
@@ -68,4 +75,5 @@ export interface UpdateTaskInput {
   status?: TaskStatus;
   priority?: Priority | null;
   parent_id?: number | null;
+  branch?: string | null;
 }

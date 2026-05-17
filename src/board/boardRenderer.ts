@@ -122,6 +122,11 @@ function getAddTaskModal(): string {
         <option value="">None</option>
         ${BOARD_PRIORITY_OPTIONS}
       </select>
+      <label for="add-branch">Branch</label>
+      <div class="branch-select-wrapper" id="add-branch-wrapper">
+        <input type="text" id="add-branch" name="branch" placeholder="✨ Auto-generate on run" readonly>
+        <div class="branch-select-dropdown" id="add-branch-dropdown" style="display:none;"></div>
+      </div>
       <label>Tags</label>
       <div class="tag-select-wrapper" id="add-tags-wrapper">
         <div class="tag-select-control" id="add-tag-select-control"></div>

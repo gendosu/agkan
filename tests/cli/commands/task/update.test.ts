@@ -835,4 +835,59 @@ describe('setupTaskUpdateCommand', () => {
       expect(updatedTask?.priority).toBe('critical');
     });
   });
+
+  describe('--branch option', () => {
+    it('should have --branch option registered', () => {
+      const taskCommand = program.commands.find((cmd) => cmd.name() === 'task');
+      const updateCommand = taskCommand?.commands.find((cmd) => cmd.name() === 'update');
+      const options = updateCommand?.options || [];
+      const optionNames = options.map((opt) => opt.long);
+      expect(optionNames).toContain('--branch');
+    });
+
+    it('should update branch with --branch flag', async () => {
+      const taskService = new TaskService();
+      const task = taskService.createTask({ title: 'Branch test' });
+
+      const { exitCode } = await runCommand(program, [
+        'task',
+        'update',
+        String(task.id),
+        '--branch',
+        'feature/new-branch',
+      ]);
+      expect(exitCode).toBeUndefined();
+
+      const updatedTask = taskService.getTask(task.id);
+      expect(updatedTask?.branch).toBe('feature/new-branch');
+    });
+
+    it('should clear branch when --branch is empty string', async () => {
+      const taskService = new TaskService();
+      const task = taskService.createTask({ title: 'Branch test', branch: 'feature/old-branch' });
+
+      const { exitCode } = await runCommand(program, ['task', 'update', String(task.id), '--branch', '']);
+      expect(exitCode).toBeUndefined();
+
+      const updatedTask = taskService.getTask(task.id);
+      expect(updatedTask?.branch).toBeNull();
+    });
+
+    it('should update branch with positional syntax', async () => {
+      const taskService = new TaskService();
+      const task = taskService.createTask({ title: 'Branch test' });
+
+      const { exitCode } = await runCommand(program, [
+        'task',
+        'update',
+        String(task.id),
+        'branch',
+        'feature/positional-branch',
+      ]);
+      expect(exitCode).toBeUndefined();
+
+      const updatedTask = taskService.getTask(task.id);
+      expect(updatedTask?.branch).toBe('feature/positional-branch');
+    });
+  });
 });

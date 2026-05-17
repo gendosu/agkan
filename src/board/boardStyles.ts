@@ -171,6 +171,22 @@ export const BOARD_STYLES = `
     .tag-select-option { padding: 6px 10px; font-size: 12px; cursor: pointer; color: var(--text-primary); }
     .tag-select-option:hover, .tag-select-option.focused { background: #eff6ff; color: #0369a1; }
     .tag-select-no-options { padding: 6px 10px; font-size: 12px; color: var(--text-muted); font-style: italic; }
+    .branch-select-wrapper { position: relative; }
+    .branch-input-row { display: flex; gap: 6px; align-items: center; }
+    .branch-input-row > input { flex: 1; }
+    .branch-select-dropdown { position: absolute; top: calc(100% + 2px); left: 0; right: 0; background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 6px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); z-index: 100; max-height: 180px; overflow-y: auto; }
+    .branch-select-option { padding: 6px 10px; font-size: 12px; cursor: pointer; color: var(--text-primary); }
+    .branch-select-option:hover, .branch-select-option.focused { background: #eff6ff; color: #0369a1; }
+    .branch-select-option-auto { border-bottom: 1px solid var(--border-color); }
+    .branch-select-option-auto.selected::before { content: '✓'; margin-right: 6px; color: #16a34a; font-weight: 700; }
+    .branch-select-option.selected::before { content: '✓'; margin-right: 6px; color: #16a34a; font-weight: 700; }
+    .branch-select-separator { height: 0; }
+    .branch-auto-mode { cursor: pointer; user-select: none; color: var(--text-secondary); font-style: italic; }
+    [data-theme="dark"] .branch-select-option:hover, [data-theme="dark"] .branch-select-option.focused { background: #1e3a5f; color: #93c5fd; }
+    [data-theme="dark"] .branch-select-option-auto { border-bottom-color: #334155; }
+    [data-theme="dark"] .branch-select-option-auto.selected::before { color: #4ade80; }
+    [data-theme="dark"] .branch-select-option.selected::before { color: #4ade80; }
+    [data-theme="dark"] .branch-auto-mode { color: #94a3b8; }
     .filter-bar { display: flex; align-items: center; gap: 16px; height: 44px; background: var(--bg-surface-subtle); border-bottom: 1px solid var(--border-color); padding: 0 16px; flex-shrink: 0; overflow-x: auto; }
     .filter-group { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
     .filter-label { font-size: 10px; font-weight: 700; text-transform: uppercase; color: var(--text-muted); letter-spacing: 0.05em; white-space: nowrap; }

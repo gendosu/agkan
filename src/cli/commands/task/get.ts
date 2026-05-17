@@ -25,6 +25,7 @@ interface TaskOutputData {
   priority: string | null;
   parent_id: number | null;
   is_archived: number;
+  branch: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -55,6 +56,7 @@ function formatTaskOutput(task: Task): TaskOutputData {
     priority: task.priority,
     parent_id: task.parent_id,
     is_archived: task.is_archived,
+    branch: task.branch,
     created_at: task.created_at,
     updated_at: task.updated_at,
   };
@@ -191,6 +193,9 @@ function renderTaskHeader(task: Task): void {
   }
   if (task.priority) {
     console.log(`${chalk.bold('Priority:')} ${task.priority}`);
+  }
+  if (task.branch) {
+    console.log(`${chalk.bold('Branch:')} ${task.branch}`);
   }
   console.log(`${chalk.bold('Created:')} ${formatDate(task.created_at)}`);
   console.log(`${chalk.bold('Updated:')} ${formatDate(task.updated_at)}`);

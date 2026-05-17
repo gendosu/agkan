@@ -3,6 +3,9 @@
 import type { TaskDetail } from './types';
 import { escapeHtmlClient, relativeTime } from './utils';
 
+const BRANCH_AUTO_GENERATE = '<auto-generate>';
+const BRANCH_AUTO_GENERATE_DISPLAY = '✨ Auto-generate on run';
+
 export function renderCommentItemHtml(
   comment: { id: number; content: string; author?: string | null; created_at?: string },
   taskId: number
@@ -87,6 +90,28 @@ export function renderPriorityField(currentPriority: string | null | undefined, 
     html += '<option value="' + p + '"' + selected + '>' + p.charAt(0).toUpperCase() + p.slice(1) + '</option>';
   });
   html += '</select></div>';
+  return html;
+}
+
+export function renderBranchField(currentBranch: string | null | undefined): string {
+  const isAuto = currentBranch === null || currentBranch === undefined || currentBranch === BRANCH_AUTO_GENERATE;
+  const displayValue = isAuto ? BRANCH_AUTO_GENERATE_DISPLAY : escapeHtmlClient(currentBranch as string);
+  const readOnlyAttr = isAuto ? ' readonly' : '';
+  const autoClass = isAuto ? ' branch-auto-mode' : '';
+
+  let html = '<div class="detail-field">';
+  html += '<div class="detail-field-label">Branch</div>';
+  html += '<div class="branch-select-wrapper" id="detail-branch-wrapper">';
+  html +=
+    '<input id="detail-edit-branch" class="detail-edit-input' +
+    autoClass +
+    '" type="text" value="' +
+    displayValue +
+    '" autocomplete="off"' +
+    readOnlyAttr +
+    '>';
+  html += '<div id="detail-branch-dropdown" class="branch-select-dropdown" style="display:none;"></div>';
+  html += '</div></div>';
   return html;
 }
 
@@ -176,6 +201,7 @@ export function renderDetailPanelHtml(data: TaskDetail): string {
   let html = '';
   html += renderStatusField(task.status, allStatuses, statusLabels);
   html += renderPriorityField(task.priority, allPriorities);
+  html += renderBranchField(task.branch);
   html += '<div class="detail-field"><div class="detail-field-label">Tags</div>';
   html += '<div id="detail-tags-container"></div></div>';
 

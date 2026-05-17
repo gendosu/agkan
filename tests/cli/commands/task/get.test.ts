@@ -402,4 +402,53 @@ describe('setupTaskGetCommand', () => {
       expect(parsed.task.is_archived).toBe(0);
     });
   });
+
+  describe('branch field', () => {
+    it('should include branch in JSON output', async () => {
+      const taskService = new TaskService();
+      const task = taskService.createTask({ title: 'Branch Task', branch: 'feature/my-branch' });
+
+      const { exitCode, logs } = await runCommand(program, ['task', 'get', String(task.id), '--json']);
+      expect(exitCode).toBeUndefined();
+
+      const parsed = JSON.parse(logs[0]);
+      expect(parsed.success).toBe(true);
+      expect(parsed.task.branch).toBe('feature/my-branch');
+    });
+
+    it('should include branch=null in JSON output when not set', async () => {
+      const taskService = new TaskService();
+      const task = taskService.createTask({ title: 'No Branch Task' });
+
+      const { exitCode, logs } = await runCommand(program, ['task', 'get', String(task.id), '--json']);
+      expect(exitCode).toBeUndefined();
+
+      const parsed = JSON.parse(logs[0]);
+      expect(parsed.success).toBe(true);
+      expect(parsed.task.branch).toBeNull();
+    });
+
+    it('should display branch in plain text output', async () => {
+      const taskService = new TaskService();
+      const task = taskService.createTask({ title: 'Branch Task', branch: 'feature/plain-branch' });
+
+      const { exitCode, logs } = await runCommand(program, ['task', 'get', String(task.id)]);
+      expect(exitCode).toBeUndefined();
+
+      const output = logs.join('\n');
+      expect(output).toContain('Branch:');
+      expect(output).toContain('feature/plain-branch');
+    });
+
+    it('should not display branch in plain text output when not set', async () => {
+      const taskService = new TaskService();
+      const task = taskService.createTask({ title: 'No Branch Task' });
+
+      const { exitCode, logs } = await runCommand(program, ['task', 'get', String(task.id)]);
+      expect(exitCode).toBeUndefined();
+
+      const output = logs.join('\n');
+      expect(output).not.toContain('Branch:');
+    });
+  });
 });

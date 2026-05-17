@@ -19,6 +19,11 @@ import { PtySessionService } from '../../src/terminal/PtySessionService';
 import { getStorageBackend } from '../../src/db/connection';
 import { registerBoardRoutes, BoardServices } from '../../src/board/boardRoutes';
 
+vi.mock('child_process', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('child_process')>();
+  return { ...actual, execFileSync: vi.fn(actual.execFileSync) };
+});
+
 type SubscribeCallback = (event: { kind: 'done'; exitCode: number } | { kind: 'error'; message: string }) => void;
 
 const TEST_CONFIG_DIR = path.join(process.cwd(), '.agkan-test-claude-routes-' + process.pid);
@@ -61,11 +66,15 @@ function buildApp(services: BoardServices): Hono {
   return app;
 }
 
-beforeEach(() => {
+beforeEach(async () => {
   resetDatabase();
   if (fs.existsSync(TEST_CONFIG_DIR)) {
     fs.rmSync(TEST_CONFIG_DIR, { recursive: true });
   }
+  // Reset execFileSync mock to default behavior (return empty buffer for git commands)
+  const { execFileSync } = await import('child_process');
+  vi.mocked(execFileSync).mockReset();
+  vi.mocked(execFileSync).mockReturnValue(Buffer.from(''));
 });
 
 afterEach(() => {
@@ -84,7 +93,7 @@ describe('POST /api/claude/tasks/:taskId/run', () => {
   it('returns 201 and starts a process for a valid task', async () => {
     const mock = buildMockClaudeProcessService();
     const services = buildServices(mock);
-    const task = services.ts.createTask({ title: 'Test Task', status: 'backlog' });
+    const task = services.ts.createTask({ title: 'Test Task', status: 'backlog', branch: 'feature/test' });
     const app = buildApp(services);
 
     const res = await app.fetch(
@@ -111,7 +120,7 @@ describe('POST /api/claude/tasks/:taskId/run', () => {
   it('uses planning prompt when command is planning', async () => {
     const mock = buildMockClaudeProcessService();
     const services = buildServices(mock);
-    const task = services.ts.createTask({ title: 'Planning Task', status: 'backlog' });
+    const task = services.ts.createTask({ title: 'Planning Task', status: 'backlog', branch: 'feature/planning' });
     const app = buildApp(services);
 
     const res = await app.fetch(
@@ -135,7 +144,7 @@ describe('POST /api/claude/tasks/:taskId/run', () => {
   it('defaults to run command when no command specified', async () => {
     const mock = buildMockClaudeProcessService();
     const services = buildServices(mock);
-    const task = services.ts.createTask({ title: 'Default Task', status: 'backlog' });
+    const task = services.ts.createTask({ title: 'Default Task', status: 'backlog', branch: 'feature/default' });
     const app = buildApp(services);
 
     const res = await app.fetch(
@@ -216,7 +225,7 @@ describe('POST /api/claude/tasks/:taskId/run', () => {
     fs.writeFileSync(TEST_AGKAN_CONFIG, yaml.dump({ models: { run: { model: 'claude-sonnet-4-6', effort: 'high' } } }));
     const mock = buildMockClaudeProcessService();
     const services = buildServices(mock);
-    const task = services.ts.createTask({ title: 'Config Task', status: 'backlog' });
+    const task = services.ts.createTask({ title: 'Config Task', status: 'backlog', branch: 'feature/config' });
     const app = buildApp(services);
 
     const res = await app.fetch(
@@ -241,7 +250,7 @@ describe('POST /api/claude/tasks/:taskId/run', () => {
     fs.writeFileSync(TEST_AGKAN_CONFIG, yaml.dump({ models: { run: { effort: 'max' } } }));
     const mock = buildMockClaudeProcessService();
     const services = buildServices(mock);
-    const task = services.ts.createTask({ title: 'Effort Only Task', status: 'backlog' });
+    const task = services.ts.createTask({ title: 'Effort Only Task', status: 'backlog', branch: 'feature/effort' });
     const app = buildApp(services);
 
     const res = await app.fetch(
@@ -296,6 +305,67 @@ describe('POST /api/claude/tasks/:taskId/run', () => {
     );
 
     expect(res.status).toBe(404);
+  });
+
+  it('does not call git checkout when branch is <auto-generate>', async () => {
+    const { execFileSync } = await import('child_process');
+    const mock = buildMockClaudeProcessService();
+    const services = buildServices(mock);
+    const task = services.ts.createTask({ title: 'Auto Branch Task', status: 'backlog', branch: '<auto-generate>' });
+    const app = buildApp(services);
+
+    const res = await app.fetch(
+      new Request(`http://localhost/api/claude/tasks/${task.id}/run`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ command: 'run' }),
+      })
+    );
+
+    expect(res.status).toBe(201);
+    // git checkout must NOT be called for <auto-generate> branch
+    const checkoutCalls = vi
+      .mocked(execFileSync)
+      .mock.calls.filter((args) => Array.isArray(args[1]) && (args[1] as string[]).includes('checkout'));
+    expect(checkoutCalls).toHaveLength(0);
+  });
+
+  it('includes branch generation instruction in prompt when branch is <auto-generate>', async () => {
+    const mock = buildMockClaudeProcessService();
+    const services = buildServices(mock);
+    const task = services.ts.createTask({ title: 'Auto Branch Task', status: 'backlog', branch: '<auto-generate>' });
+    const app = buildApp(services);
+
+    const res = await app.fetch(
+      new Request(`http://localhost/api/claude/tasks/${task.id}/run`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ command: 'run' }),
+      })
+    );
+
+    expect(res.status).toBe(201);
+    const promptArg = (mock.startProcess as ReturnType<typeof vi.fn>).mock.calls[0][1] as string;
+    expect(promptArg).toContain('No branch specified');
+  });
+
+  it('includes branch generation instruction in prompt when branch is null', async () => {
+    const mock = buildMockClaudeProcessService();
+    const services = buildServices(mock);
+    const task = services.ts.createTask({ title: 'No Branch Task', status: 'backlog' });
+    const app = buildApp(services);
+
+    const res = await app.fetch(
+      new Request(`http://localhost/api/claude/tasks/${task.id}/run`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ command: 'run' }),
+      })
+    );
+
+    expect(res.status).toBe(201);
+    const promptArg = (mock.startProcess as ReturnType<typeof vi.fn>).mock.calls[0][1] as string;
+    expect(promptArg).toContain('No branch specified');
   });
 });
 
@@ -626,6 +696,133 @@ describe('GET /api/claude/tasks/:taskId/run-logs', () => {
     const res = await app.fetch(new Request(`http://localhost/api/claude/tasks/${task.id}/run-logs`));
 
     expect(res.status).toBe(404);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// POST /api/claude/tasks/:taskId/run — branch checkout behavior
+// ─────────────────────────────────────────────────────────────────────────────
+describe('POST /api/claude/tasks/:taskId/run - branch checkout', () => {
+  it('calls git checkout when branch is set and branch exists locally', async () => {
+    const { execFileSync } = await import('child_process');
+    const execFileSyncMock = vi.mocked(execFileSync);
+    // Simulate: branch --list returns branch name (branch exists)
+    execFileSyncMock.mockImplementation((cmd: unknown, args: unknown) => {
+      const argsArr = args as string[];
+      if (cmd === 'git' && argsArr[0] === 'branch' && argsArr[1] === '--list') {
+        return Buffer.from('  feature/my-branch\n');
+      }
+      if (cmd === 'git' && argsArr[0] === 'checkout') {
+        return Buffer.from('');
+      }
+      return Buffer.from('');
+    });
+
+    const mock = buildMockClaudeProcessService();
+    const services = buildServices(mock);
+    const task = services.ts.createTask({ title: 'Branch Task', status: 'backlog', branch: 'feature/my-branch' });
+    const app = buildApp(services);
+
+    const res = await app.fetch(
+      new Request(`http://localhost/api/claude/tasks/${task.id}/run`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ command: 'run' }),
+      })
+    );
+
+    expect(res.status).toBe(201);
+    expect(execFileSyncMock).toHaveBeenCalledWith('git', ['checkout', 'feature/my-branch'], expect.any(Object));
+  });
+
+  it('calls git checkout -b when branch is set but does not exist locally', async () => {
+    const { execFileSync } = await import('child_process');
+    const execFileSyncMock = vi.mocked(execFileSync);
+    // Simulate: branch --list returns empty string (branch does not exist)
+    execFileSyncMock.mockImplementation((cmd: unknown, args: unknown) => {
+      const argsArr = args as string[];
+      if (cmd === 'git' && argsArr[0] === 'branch' && argsArr[1] === '--list') {
+        return Buffer.from('');
+      }
+      if (cmd === 'git' && argsArr[0] === 'checkout') {
+        return Buffer.from('');
+      }
+      return Buffer.from('');
+    });
+
+    const mock = buildMockClaudeProcessService();
+    const services = buildServices(mock);
+    const task = services.ts.createTask({ title: 'New Branch Task', status: 'backlog', branch: 'feature/new-branch' });
+    const app = buildApp(services);
+
+    const res = await app.fetch(
+      new Request(`http://localhost/api/claude/tasks/${task.id}/run`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ command: 'run' }),
+      })
+    );
+
+    expect(res.status).toBe(201);
+    expect(execFileSyncMock).toHaveBeenCalledWith('git', ['checkout', '-b', 'feature/new-branch'], expect.any(Object));
+  });
+
+  it('appends branch generation instructions to prompt when branch is not set', async () => {
+    const mock = buildMockClaudeProcessService();
+    const services = buildServices(mock);
+    const task = services.ts.createTask({ title: 'No Branch Task', status: 'backlog' });
+    const app = buildApp(services);
+
+    const res = await app.fetch(
+      new Request(`http://localhost/api/claude/tasks/${task.id}/run`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ command: 'run' }),
+      })
+    );
+
+    expect(res.status).toBe(201);
+    const startProcessCall = (mock.startProcess as ReturnType<typeof vi.fn>).mock.calls[0];
+    const prompt = startProcessCall[1] as string;
+    expect(prompt).toContain('No branch specified');
+    expect(prompt).toContain(`PATCH /api/tasks/${task.id}`);
+  });
+
+  it('returns 500 when git checkout fails', async () => {
+    const { execFileSync } = await import('child_process');
+    const execFileSyncMock = vi.mocked(execFileSync);
+    // Simulate: branch --list returns branch name (branch exists), but checkout throws
+    execFileSyncMock.mockImplementation((cmd: unknown, args: unknown) => {
+      const argsArr = args as string[];
+      if (cmd === 'git' && argsArr[0] === 'branch' && argsArr[1] === '--list') {
+        return Buffer.from('  feature/fail-branch\n');
+      }
+      if (cmd === 'git' && argsArr[0] === 'checkout') {
+        throw new Error('git checkout failed');
+      }
+      return Buffer.from('');
+    });
+
+    const mock = buildMockClaudeProcessService();
+    const services = buildServices(mock);
+    const task = services.ts.createTask({
+      title: 'Fail Branch Task',
+      status: 'backlog',
+      branch: 'feature/fail-branch',
+    });
+    const app = buildApp(services);
+
+    const res = await app.fetch(
+      new Request(`http://localhost/api/claude/tasks/${task.id}/run`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ command: 'run' }),
+      })
+    );
+
+    expect(res.status).toBe(500);
+    const data = (await res.json()) as { error: string };
+    expect(data.error).toContain('feature/fail-branch');
   });
 });
 

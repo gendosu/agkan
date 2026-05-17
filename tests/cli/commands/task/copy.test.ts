@@ -214,4 +214,39 @@ describe('setupTaskCopyCommand', () => {
       expect(output.tags[0].name).toBe('feat');
     });
   });
+
+  describe('branch field', () => {
+    it('should copy branch from original task', async () => {
+      const original = taskService.createTask({ title: 'Task with branch', branch: 'feature/original-branch' });
+
+      const { exitCode } = await runCommand(program, ['task', 'copy', original.id.toString()]);
+      expect(exitCode).toBeUndefined();
+
+      const tasks = taskService.listTasks();
+      const copied = tasks.find((t) => t.id !== original.id);
+      expect(copied?.branch).toBe('feature/original-branch');
+    });
+
+    it('should include branch in JSON output when copying', async () => {
+      const original = taskService.createTask({ title: 'Task with branch', branch: 'feature/json-branch' });
+
+      const { exitCode, logs } = await runCommand(program, ['task', 'copy', original.id.toString(), '--json']);
+      expect(exitCode).toBeUndefined();
+
+      const output = JSON.parse(logs[0]);
+      expect(output.success).toBe(true);
+      expect(output.task.branch).toBe('feature/json-branch');
+    });
+
+    it('should copy null branch when original has no branch', async () => {
+      const original = taskService.createTask({ title: 'Task without branch' });
+
+      const { exitCode } = await runCommand(program, ['task', 'copy', original.id.toString()]);
+      expect(exitCode).toBeUndefined();
+
+      const tasks = taskService.listTasks();
+      const copied = tasks.find((t) => t.id !== original.id);
+      expect(copied?.branch).toBeNull();
+    });
+  });
 });

@@ -81,6 +81,7 @@ function taskToJson(task: Task): object {
     status: task.status,
     priority: task.priority,
     parent_id: task.parent_id,
+    branch: task.branch,
     created_at: task.created_at,
     updated_at: task.updated_at,
   };

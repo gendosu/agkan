@@ -144,8 +144,8 @@ class SQLiteTaskRepository implements TaskRepository {
   create(input: CreateTaskInput & { status: TaskStatus; created_at: string; updated_at: string }): Task {
     const result = this.db
       .prepare(
-        `INSERT INTO tasks (title, body, author, assignees, status, priority, parent_id, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+        `INSERT INTO tasks (title, body, author, assignees, status, priority, parent_id, branch, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
       )
       .run(
         input.title,
@@ -155,6 +155,7 @@ class SQLiteTaskRepository implements TaskRepository {
         input.status,
         input.priority !== undefined ? input.priority : null,
         input.parent_id !== undefined ? input.parent_id : null,
+        input.branch !== undefined ? input.branch : null,
         input.created_at,
         input.updated_at
       );
@@ -184,6 +185,7 @@ class SQLiteTaskRepository implements TaskRepository {
       ['status', 'status', (v) => v as string],
       ['priority', 'priority', (v) => v as string | null],
       ['parent_id', 'parent_id', (v) => v as number | null],
+      ['branch', 'branch', (v) => v as string | null],
       ['updated_at', 'updated_at', (v) => v as string],
     ];
     const updates: string[] = [];

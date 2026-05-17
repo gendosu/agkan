@@ -6,6 +6,15 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { Hono } from 'hono';
 import fs from 'fs';
 import path from 'path';
+import { execSync } from 'child_process';
+
+vi.mock('child_process', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('child_process')>();
+  return {
+    ...actual,
+    execSync: vi.fn(),
+  };
+});
 import { resetDatabase } from '../../src/db/reset';
 import { TaskService } from '../../src/services/TaskService';
 import { TaskTagService } from '../../src/services/TaskTagService';
@@ -182,6 +191,20 @@ describe('POST /api/tasks', () => {
     );
     const task = (await res.json()) as { priority: string };
     expect(task.priority).toBe('high');
+  });
+
+  it('creates task with branch', async () => {
+    const app = buildApp(buildServices());
+    const res = await app.fetch(
+      new Request('http://localhost/api/tasks', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title: 'Branch Task', branch: 'feature/my-branch' }),
+      })
+    );
+    expect(res.status).toBe(201);
+    const task = (await res.json()) as { branch: string | null };
+    expect(task.branch).toBe('feature/my-branch');
   });
 
   it('creates task with tags and attaches them', async () => {
@@ -417,6 +440,38 @@ describe('PATCH /api/tasks/:id', () => {
     expect(res.status).toBe(200);
     const updated = (await res.json()) as { priority: string | null };
     expect(updated.priority).toBeNull();
+  });
+
+  it('updates task branch', async () => {
+    const services = buildServices();
+    const task = services.ts.createTask({ title: 'Task', status: 'backlog' });
+    const app = buildApp(services);
+    const res = await app.fetch(
+      new Request(`http://localhost/api/tasks/${task.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ branch: 'feature/new-branch' }),
+      })
+    );
+    expect(res.status).toBe(200);
+    const updated = (await res.json()) as { branch: string | null };
+    expect(updated.branch).toBe('feature/new-branch');
+  });
+
+  it('updates task branch to null when branch is null', async () => {
+    const services = buildServices();
+    const task = services.ts.createTask({ title: 'Task', status: 'backlog', branch: 'feature/old-branch' });
+    const app = buildApp(services);
+    const res = await app.fetch(
+      new Request(`http://localhost/api/tasks/${task.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ branch: null }),
+      })
+    );
+    expect(res.status).toBe(200);
+    const updated = (await res.json()) as { branch: string | null };
+    expect(updated.branch).toBeNull();
   });
 });
 
@@ -1308,5 +1363,41 @@ describe('hook receiver routes', () => {
 
     controller.abort();
     reader.cancel();
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// GET /api/git/branches
+// ─────────────────────────────────────────────────────────────────────────────
+describe('GET /api/git/branches', () => {
+  afterEach(() => {
+    vi.mocked(execSync).mockReset();
+  });
+
+  it('returns 200 with formatted branch list', async () => {
+    vi.mocked(execSync).mockReturnValue(
+      Buffer.from('* main\n  feature/foo\n  remotes/origin/main\n  remotes/origin/feature/foo\n')
+    );
+    const app = buildApp(buildServices());
+    const res = await app.fetch(new Request('http://localhost/api/git/branches'));
+    expect(res.status).toBe(200);
+    const data = (await res.json()) as { branches: string[] };
+    expect(Array.isArray(data.branches)).toBe(true);
+    expect(data.branches).toContain('main');
+    expect(data.branches).toContain('feature/foo');
+    // deduplication: remotes/origin/main -> main, already present, so only one entry
+    expect(data.branches.filter((b) => b === 'main')).toHaveLength(1);
+    expect(data.branches.filter((b) => b === 'feature/foo')).toHaveLength(1);
+  });
+
+  it('returns 200 with empty branches array when execSync throws', async () => {
+    vi.mocked(execSync).mockImplementation(() => {
+      throw new Error('not a git repository');
+    });
+    const app = buildApp(buildServices());
+    const res = await app.fetch(new Request('http://localhost/api/git/branches'));
+    expect(res.status).toBe(200);
+    const data = (await res.json()) as { branches: string[] };
+    expect(data.branches).toEqual([]);
   });
 });

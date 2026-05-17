@@ -41,6 +41,7 @@ export function setupTaskAddCommand(program: Command): void {
     .option('--priority <priority>', 'Task priority (critical, high, medium, low)', 'medium')
     .option('-p, --parent <id>', 'Parent task ID')
     .option('--file <path>', 'Read body from markdown file')
+    .option('--branch <branch>', 'Git branch name for the task')
     .option('--blocked-by <ids>', 'Comma-separated task IDs that block this task')
     .option('--blocks <ids>', 'Comma-separated task IDs that this task blocks')
     .option('--json', 'Output in JSON format')
@@ -139,6 +140,7 @@ export function setupTaskAddCommand(program: Command): void {
           status: options.status as TaskStatus,
           priority: options.priority ? (options.priority as Priority) : undefined,
           parent_id: parentId,
+          branch: options.branch ?? null,
         });
 
         try {

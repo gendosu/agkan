@@ -22,6 +22,7 @@ export interface TaskData {
   priority?: string | null;
   created_at?: string;
   updated_at?: string;
+  branch?: string | null;
 }
 
 export interface TaskDetail {
