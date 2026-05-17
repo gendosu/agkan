@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.10.0] - 2026-05-17
+
+### Added
+- Add `branch` field to tasks table and models
+
+### Fixed
+- Detect Stop hook recursion via `stop_hook_active` instead of non-existent `stop_reason`
+
 ## [3.9.0] - 2026-05-16
 
 ### Added
