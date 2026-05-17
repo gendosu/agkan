@@ -10,13 +10,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [3.11.0] - 2026-05-17
 
 ### 追加
+- `agkan context` コマンドを追加。Claude Code の SessionStart hook 用に最小限のセッションブリーフを出力します (`--hook` で `additionalContext` を含む単一行 JSON)。
 - `agkan agent-guide --hook` の代替として `agkan context --hook` コマンドを追加
+
+### 変更
+- `agkan init` が `.claude/settings.local.json` に SessionStart hook (`agkan context --hook` を呼び出す) を追加するようになりました。マージは冪等で、既存エントリとインデントを保持します。
 
 ### 修正
 - ボードのブランチドロップダウンの表示件数が10件に固定されていた問題を修正
 
 ### 非推奨
-- `agkan agent-guide --hook` は非推奨となりました。次のメジャーバージョンで削除される予定です。代わりに `agkan context --hook` を使用してください。
+- `agkan agent-guide --hook` を非推奨にしました。次のメジャーバージョンで削除予定です。SessionStart hook 用途では `agkan context --hook` を使用してください。`agent-guide` コマンド本体 (`--hook` なし) は引き続き完全リファレンスとして利用できます。
 
 ## [3.10.0] - 2026-05-17
 
