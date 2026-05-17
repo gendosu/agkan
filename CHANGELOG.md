@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.11.0] - 2026-05-17
+
+### Added
+- Add `agkan context --hook` command as a replacement for `agkan agent-guide --hook`
+
+### Fixed
+- Remove hardcoded limit of 10 items in branch dropdown suggestions on the board
+
 ### Deprecated
 - `agkan agent-guide --hook` is deprecated and will be removed in the next major version. Use `agkan context --hook` instead.
 
