@@ -7,6 +7,7 @@ import fs from 'fs';
 import path from 'path';
 import { getConfigFileName, getDefaultDirName } from '../../db/config';
 import { TagService } from '../../services';
+import { installSessionStartHook } from '../integrations/claudeSettings';
 
 const DEFAULT_CONFIG_CONTENT = `# agkan configuration file
 #
@@ -99,6 +100,14 @@ export function setupInitCommand(program: Command): void {
         if (error instanceof Error) {
           console.error(`Warning: Failed to create default tags: ${error.message}`);
         }
+      }
+
+      // Install Claude Code SessionStart hook (non-critical)
+      const claudeResult = installSessionStartHook(cwd);
+      if (claudeResult.status === 'error') {
+        console.error(`Warning: ${claudeResult.message}`);
+      } else {
+        console.log(claudeResult.message);
       }
     });
 }

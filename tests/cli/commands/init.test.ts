@@ -168,4 +168,38 @@ describe('setupInitCommand', () => {
 
     expect(countAfter).toBe(countBefore);
   });
+
+  it('should create .claude/settings.local.json with agkan SessionStart hook', async () => {
+    await program.parseAsync(['node', 'test', 'init']);
+
+    const settingsPath = path.join(tmpDir, '.claude', 'settings.local.json');
+    expect(fs.existsSync(settingsPath)).toBe(true);
+
+    const config = JSON.parse(fs.readFileSync(settingsPath, 'utf8'));
+    expect(config.hooks.SessionStart).toBeDefined();
+    expect(config.hooks.SessionStart[0].hooks[0].command).toBe('agkan context --hook');
+    expect(config.hooks.SessionStart[0].matcher).toBe('startup|resume|clear|compact');
+  });
+
+  it('should be idempotent when init is run twice (Claude hook not duplicated)', async () => {
+    await program.parseAsync(['node', 'test', 'init']);
+    await program.parseAsync(['node', 'test', 'init']);
+
+    const settingsPath = path.join(tmpDir, '.claude', 'settings.local.json');
+    const config = JSON.parse(fs.readFileSync(settingsPath, 'utf8'));
+    expect(config.hooks.SessionStart).toHaveLength(1);
+  });
+
+  it('should preserve existing settings.local.json entries when merging', async () => {
+    const claudeDir = path.join(tmpDir, '.claude');
+    fs.mkdirSync(claudeDir);
+    const settingsPath = path.join(claudeDir, 'settings.local.json');
+    fs.writeFileSync(settingsPath, JSON.stringify({ permissions: { allow: ['Bash(ls:*)'] } }, null, 2));
+
+    await program.parseAsync(['node', 'test', 'init']);
+
+    const config = JSON.parse(fs.readFileSync(settingsPath, 'utf8'));
+    expect(config.permissions.allow).toEqual(['Bash(ls:*)']);
+    expect(config.hooks.SessionStart[0].hooks[0].command).toBe('agkan context --hook');
+  });
 });
