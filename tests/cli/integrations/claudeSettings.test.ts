@@ -133,9 +133,7 @@ describe('installSessionStartHook', () => {
     expect(result.message).toMatch(/backup:/);
 
     const claudeDir = path.join(tmpDir, '.claude');
-    const backupFiles = fs.readdirSync(claudeDir).filter((f) =>
-      f.startsWith('settings.local.json.agkan-backup-')
-    );
+    const backupFiles = fs.readdirSync(claudeDir).filter((f) => f.startsWith('settings.local.json.agkan-backup-'));
     expect(backupFiles).toHaveLength(1);
     const backupContent = JSON.parse(fs.readFileSync(path.join(claudeDir, backupFiles[0]), 'utf8'));
     expect(backupContent).toEqual(existing);
@@ -148,9 +146,7 @@ describe('installSessionStartHook', () => {
     expect(result.message).not.toMatch(/backup/);
 
     const claudeDir = path.join(tmpDir, '.claude');
-    const backupFiles = fs.readdirSync(claudeDir).filter((f) =>
-      f.startsWith('settings.local.json.agkan-backup-')
-    );
+    const backupFiles = fs.readdirSync(claudeDir).filter((f) => f.startsWith('settings.local.json.agkan-backup-'));
     expect(backupFiles).toHaveLength(0);
   });
 
@@ -167,9 +163,7 @@ describe('installSessionStartHook', () => {
 
     expect(result.status).toBe('skipped');
     const claudeDir = path.join(tmpDir, '.claude');
-    const backupFiles = fs.readdirSync(claudeDir).filter((f) =>
-      f.startsWith('settings.local.json.agkan-backup-')
-    );
+    const backupFiles = fs.readdirSync(claudeDir).filter((f) => f.startsWith('settings.local.json.agkan-backup-'));
     expect(backupFiles).toHaveLength(0);
   });
 

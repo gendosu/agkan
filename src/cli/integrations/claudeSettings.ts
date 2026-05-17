@@ -119,9 +119,7 @@ export function installSessionStartHook(cwd: string): ClaudeSettingsResult {
 
     fs.writeFileSync(settingsPath, JSON.stringify(config, null, indent) + '\n', 'utf8');
 
-    const relativeBackup = backupPath
-      ? path.relative(cwd, backupPath)
-      : undefined;
+    const relativeBackup = backupPath ? path.relative(cwd, backupPath) : undefined;
 
     return fileExisted
       ? {
