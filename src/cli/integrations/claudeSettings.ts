@@ -95,12 +95,36 @@ export function installSessionStartHook(cwd: string): ClaudeSettingsResult {
       hooks: [{ type: 'command', command: HOOK_COMMAND }],
     });
 
+    let backupPath: string | undefined;
+    if (fileExisted) {
+      const now = new Date();
+      const ts =
+        String(now.getFullYear()) +
+        String(now.getMonth() + 1).padStart(2, '0') +
+        String(now.getDate()).padStart(2, '0') +
+        String(now.getHours()).padStart(2, '0') +
+        String(now.getMinutes()).padStart(2, '0') +
+        String(now.getSeconds()).padStart(2, '0');
+      backupPath = `${settingsPath}.agkan-backup-${ts}`;
+      try {
+        fs.copyFileSync(settingsPath, backupPath);
+      } catch (backupErr) {
+        const reason = backupErr instanceof Error ? backupErr.message : String(backupErr);
+        return {
+          status: 'error',
+          message: `Failed to backup ${RELATIVE_SETTINGS_PATH}: ${reason}`,
+        };
+      }
+    }
+
     fs.writeFileSync(settingsPath, JSON.stringify(config, null, indent) + '\n', 'utf8');
+
+    const relativeBackup = backupPath ? path.relative(cwd, backupPath) : undefined;
 
     return fileExisted
       ? {
           status: 'updated',
-          message: `Updated: ${RELATIVE_SETTINGS_PATH} (added agkan SessionStart hook)`,
+          message: `Updated: ${RELATIVE_SETTINGS_PATH} (added agkan SessionStart hook, backup: ${relativeBackup})`,
         }
       : {
           status: 'created',

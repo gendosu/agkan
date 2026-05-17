@@ -122,6 +122,74 @@ describe('installSessionStartHook', () => {
     expect(written).toMatch(/^\{\n {4}"/);
   });
 
+  it('should create a backup file when updating an existing settings file', () => {
+    fs.mkdirSync(path.join(tmpDir, '.claude'));
+    const existing = { permissions: { allow: ['Bash(ls:*)'] } };
+    fs.writeFileSync(settingsPath, JSON.stringify(existing, null, 2));
+
+    const result = installSessionStartHook(tmpDir);
+
+    expect(result.status).toBe('updated');
+    expect(result.message).toMatch(/backup:/);
+
+    const claudeDir = path.join(tmpDir, '.claude');
+    const backupFiles = fs.readdirSync(claudeDir).filter((f) => f.startsWith('settings.local.json.agkan-backup-'));
+    expect(backupFiles).toHaveLength(1);
+    const backupContent = JSON.parse(fs.readFileSync(path.join(claudeDir, backupFiles[0]), 'utf8'));
+    expect(backupContent).toEqual(existing);
+  });
+
+  it('should not create a backup when creating a new settings file', () => {
+    const result = installSessionStartHook(tmpDir);
+
+    expect(result.status).toBe('created');
+    expect(result.message).not.toMatch(/backup/);
+
+    const claudeDir = path.join(tmpDir, '.claude');
+    const backupFiles = fs.readdirSync(claudeDir).filter((f) => f.startsWith('settings.local.json.agkan-backup-'));
+    expect(backupFiles).toHaveLength(0);
+  });
+
+  it('should not create a backup when skipped', () => {
+    fs.mkdirSync(path.join(tmpDir, '.claude'));
+    const existing = {
+      hooks: {
+        SessionStart: [{ matcher: MATCHER, hooks: [{ type: 'command', command: HOOK_COMMAND }] }],
+      },
+    };
+    fs.writeFileSync(settingsPath, JSON.stringify(existing, null, 2));
+
+    const result = installSessionStartHook(tmpDir);
+
+    expect(result.status).toBe('skipped');
+    const claudeDir = path.join(tmpDir, '.claude');
+    const backupFiles = fs.readdirSync(claudeDir).filter((f) => f.startsWith('settings.local.json.agkan-backup-'));
+    expect(backupFiles).toHaveLength(0);
+  });
+
+  it('should not overwrite the original file when backup fails', () => {
+    fs.mkdirSync(path.join(tmpDir, '.claude'));
+    const existing = { permissions: { allow: [] } };
+    const originalContent = JSON.stringify(existing, null, 2);
+    fs.writeFileSync(settingsPath, originalContent);
+
+    // Make the directory read-only so copyFileSync fails
+    const claudeDir = path.join(tmpDir, '.claude');
+    fs.chmodSync(claudeDir, 0o555);
+
+    let result: ReturnType<typeof installSessionStartHook>;
+    try {
+      result = installSessionStartHook(tmpDir);
+    } finally {
+      fs.chmodSync(claudeDir, 0o755);
+    }
+
+    expect(result!.status).toBe('error');
+    expect(result!.message).toMatch(/backup/i);
+    // Original file must be unchanged
+    expect(fs.readFileSync(settingsPath, 'utf8')).toBe(originalContent);
+  });
+
   it('should return error result on unparseable JSON without throwing', () => {
     fs.mkdirSync(path.join(tmpDir, '.claude'));
     fs.writeFileSync(settingsPath, '{ not valid json');

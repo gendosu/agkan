@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- `agkan init` now creates a timestamped backup (`.claude/settings.local.json.agkan-backup-<YYYYMMDDHHmmss>`) before overwriting an existing `settings.local.json`. Backup failure aborts the write to avoid data loss.
+
 ## [3.11.0] - 2026-05-17
 
 ### Added
