@@ -458,9 +458,7 @@ function renderDetailBranchDropdown(dropdown: HTMLElement, inputValue: string): 
   // When in auto-generate mode, show all suggestions unfiltered
   const isAutoMode = branchInternalValue === BRANCH_AUTO_GENERATE;
   const q = isAutoMode ? '' : inputValue.trim().toLowerCase();
-  const filtered = q
-    ? branchSuggestions.filter((b) => b.toLowerCase().includes(q)).slice(0, 10)
-    : branchSuggestions.slice(0, 10);
+  const filtered = q ? branchSuggestions.filter((b) => b.toLowerCase().includes(q)) : branchSuggestions;
 
   dropdown.innerHTML = '';
 
