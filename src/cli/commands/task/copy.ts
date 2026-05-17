@@ -64,6 +64,7 @@ export function setupTaskCopyCommand(program: Command): void {
           assignees: original.assignees ?? undefined,
           priority: original.priority ?? undefined,
           parent_id: original.parent_id ?? undefined,
+          branch: original.branch ?? undefined,
           status: options.status as TaskStatus,
         });
 
@@ -85,6 +86,7 @@ export function setupTaskCopyCommand(program: Command): void {
               status: copied.status,
               priority: copied.priority,
               parent_id: copied.parent_id,
+              branch: copied.branch,
               created_at: copied.created_at,
               updated_at: copied.updated_at,
             },

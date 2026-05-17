@@ -1,5 +1,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
+import { execSync, execFileSync } from 'child_process';
 import { Hono } from 'hono';
 import { verboseLog } from '../utils/logger';
 import { TaskService } from '../services/TaskService';
@@ -11,6 +12,7 @@ import { TaskBlockService } from '../services/TaskBlockService';
 import { ExportImportService, ExportData } from '../services/ExportImportService';
 import { PtySessionService } from '../terminal/PtySessionService';
 import { TaskStatus, isPriority, Priority } from '../models';
+import { BRANCH_AUTO_GENERATE } from '../models/Task';
 import { ConflictError } from '../errors';
 import { StorageBackend } from '../db/types/repository';
 import { readBoardConfig, writeBoardConfig, DETAIL_PANE_MAX_WIDTH, VALID_THEMES, ThemePreference } from './boardConfig';
@@ -47,10 +49,17 @@ type TaskPatchBody = {
   body?: string | null;
   status?: BoardTaskStatus;
   priority?: string | null;
+  branch?: string | null;
 };
 
 type BoardTaskStatus = TaskStatus;
-type TaskUpdateInput = { title?: string; body?: string; status?: BoardTaskStatus; priority?: Priority | null };
+type TaskUpdateInput = {
+  title?: string;
+  body?: string;
+  status?: BoardTaskStatus;
+  priority?: Priority | null;
+  branch?: string | null;
+};
 const NON_ARCHIVE_STATUSES: TaskStatus[] = ['icebox', 'backlog', 'ready', 'in_progress', 'review', 'done', 'closed'];
 
 function buildTaskUpdateInput(body: TaskPatchBody): { input: TaskUpdateInput; error?: string } {
@@ -78,6 +87,10 @@ function buildTaskUpdateInput(body: TaskPatchBody): { input: TaskUpdateInput; er
     input.priority = body.priority && isPriority(body.priority) ? body.priority : null;
   }
 
+  if (body.branch !== undefined) {
+    input.branch = body.branch ?? null;
+  }
+
   return { input };
 }
 
@@ -102,6 +115,7 @@ function registerTaskCrudRoutes(
       body?: string | null;
       status?: BoardTaskStatus;
       priority?: string | null;
+      branch?: string | null;
       tags?: unknown;
       metadata?: unknown;
     }>();
@@ -121,6 +135,7 @@ function registerTaskCrudRoutes(
       body: body.body || undefined,
       status,
       priority,
+      branch: body.branch ?? undefined,
       tagIds: tagIds && tagIds.length > 0 ? tagIds : undefined,
     });
 
@@ -329,6 +344,24 @@ function registerUtilityRoutes(app: Hono, ts: TaskService): void {
     const { version } = require('../../package.json') as { version: string };
     return c.json({ version });
   });
+  app.get('/api/git/branches', (c) => {
+    try {
+      const output = execSync('git branch -a', { cwd: process.cwd() }).toString();
+      const branches = output
+        .split('\n')
+        .map((line) =>
+          line
+            .replace(/^\*?\s+/, '')
+            .replace(/^remotes\/origin\//, '')
+            .trim()
+        )
+        .filter((line) => line && !line.startsWith('HEAD ->'))
+        .filter((line, idx, arr) => arr.indexOf(line) === idx);
+      return c.json({ branches });
+    } catch {
+      return c.json({ branches: [] });
+    }
+  });
 }
 
 function registerExportImportRoutes(app: Hono, services: BoardServices): void {
@@ -446,16 +479,39 @@ function registerClaudeRoutes(app: Hono, claudeProcess: PtySessionService, ts: T
   app.post('/api/claude/tasks/:taskId/run', async (c) => {
     const taskId = Number(c.req.param('taskId'));
     if (isNaN(taskId)) return c.json({ error: 'Invalid taskId' }, 400);
-    if (!ts.getTask(taskId)) return c.json({ error: 'Task not found' }, 404);
+    const task = ts.getTask(taskId);
+    if (!task) return c.json({ error: 'Task not found' }, 404);
+
+    if (task.branch && task.branch !== BRANCH_AUTO_GENERATE) {
+      try {
+        const branchExists = execFileSync('git', ['branch', '--list', task.branch], { cwd: process.cwd() })
+          .toString()
+          .trim();
+        if (branchExists) {
+          execFileSync('git', ['checkout', task.branch], { cwd: process.cwd() });
+        } else {
+          execFileSync('git', ['checkout', '-b', task.branch], { cwd: process.cwd() });
+        }
+      } catch (e) {
+        console.error(`[boardRoutes] git checkout failed:`, e);
+        return c.json({ error: `Failed to checkout branch: ${task.branch}` }, 500);
+      }
+    }
 
     const body = (await c.req.json().catch(() => ({}))) as { command?: string };
     const command = body.command === 'planning' ? 'planning' : body.command === 'pr' ? 'pr' : 'run';
+
+    const branchInstruction =
+      !task.branch || task.branch === BRANCH_AUTO_GENERATE
+        ? `\n\nNo branch specified: Read this task's title and body, and generate an appropriate git branch name for the work. Format: task/${taskId}-<kebab-case> (alphanumeric characters and hyphens only, maximum 60 characters). Run git checkout -b with the generated branch name before starting work, then save the branch field via PATCH /api/tasks/${taskId} (body: { "branch": "<generated-branch-name>" }) after starting work.`
+        : '';
+
     const prompt =
       command === 'planning'
-        ? `Task ID: ${taskId}\n/agkan-planning-subtask`
+        ? `Task ID: ${taskId}\n/agkan-planning-subtask${branchInstruction}`
         : command === 'pr'
-          ? `Task ID: ${taskId}\n/agkan-subtask`
-          : `Task ID: ${taskId}\n/agkan-subtask-direct`;
+          ? `Task ID: ${taskId}\n/agkan-subtask${branchInstruction}`
+          : `Task ID: ${taskId}\n/agkan-subtask-direct${branchInstruction}`;
 
     const config = loadConfig();
     // 'pr' and 'run' commands both use the run model configuration

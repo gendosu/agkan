@@ -27,6 +27,9 @@ function applyTaskUpdate(
     ...(updateInput.priority !== undefined && {
       priority: updateInput.priority === '' ? null : (updateInput.priority as Priority),
     }),
+    ...(updateInput.branch !== undefined && {
+      branch: updateInput.branch === '' ? null : updateInput.branch,
+    }),
   });
 }
 
@@ -75,7 +78,10 @@ export function setupTaskUpdateCommand(program: Command): void {
   taskCommand
     .command('update')
     .argument('<id>', 'Task ID')
-    .argument('[field]', 'Field to update (status, title, body, author, assignees) - for legacy positional syntax')
+    .argument(
+      '[field]',
+      'Field to update (status, title, body, author, assignees, branch) - for legacy positional syntax'
+    )
     .argument('[value]', 'New value - for legacy positional syntax')
     .option('--title <title>', 'Update title')
     .option('--status <status>', 'Update status')
@@ -83,6 +89,7 @@ export function setupTaskUpdateCommand(program: Command): void {
     .option('--author <author>', 'Update author')
     .option('--assignees <assignees>', 'Update assignees')
     .option('--priority <priority>', 'Update priority (critical, high, medium, low, or empty to clear)')
+    .option('--branch <branch>', 'Update git branch name (or empty to clear)')
     .option('--file <path>', 'Read body from file (only valid for body field)')
     .option('--json', 'Output in JSON format')
     .description('Update a task field')
