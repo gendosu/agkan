@@ -319,9 +319,12 @@ export function setupAgentGuideCommand(program: Command): void {
   program
     .command('agent-guide')
     .description('Show agent guide for using agkan')
-    .option('--hook', 'Output as JSON for use in SessionStart hooks')
+    .option('--hook', '[DEPRECATED] Output as JSON for use in SessionStart hooks. Use `agkan context --hook` instead.')
     .action((options: { hook?: boolean }) => {
       if (options.hook) {
+        console.error(
+          '[DEPRECATED] `agkan agent-guide --hook` is deprecated and will be removed in the next major version. Use `agkan context --hook` instead.'
+        );
         console.log(JSON.stringify({ additionalContext: AGENT_GUIDE_CONTENT }));
       } else {
         console.log(AGENT_GUIDE_CONTENT);

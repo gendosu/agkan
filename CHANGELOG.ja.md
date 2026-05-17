@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### 非推奨
+- `agkan agent-guide --hook` は非推奨となりました。次のメジャーバージョンで削除される予定です。代わりに `agkan context --hook` を使用してください。
+
 ## [3.10.0] - 2026-05-17
 
 ### 追加

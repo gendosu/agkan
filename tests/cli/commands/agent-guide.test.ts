@@ -74,4 +74,23 @@ describe('setupAgentGuideCommand', () => {
     expect(logs).toHaveLength(1);
     expect(() => JSON.parse(logs[0])).not.toThrow();
   });
+
+  it('should output deprecation warning to stderr when --hook flag is specified', async () => {
+    const { errors } = await runCommand(program, ['agent-guide', '--hook']);
+    expect(errors).toHaveLength(1);
+    expect(errors[0]).toContain('DEPRECATED');
+    expect(errors[0]).toContain('agkan context --hook');
+  });
+
+  it('should not output deprecation warning to stderr without --hook flag', async () => {
+    const { errors } = await runCommand(program, ['agent-guide']);
+    expect(errors).toHaveLength(0);
+  });
+
+  it('should output JSON to stdout unchanged when --hook flag is specified', async () => {
+    const { logs } = await runCommand(program, ['agent-guide', '--hook']);
+    const parsed = JSON.parse(logs[0]);
+    expect(parsed).toHaveProperty('additionalContext');
+    expect(parsed.additionalContext).toContain('agkan');
+  });
 });
