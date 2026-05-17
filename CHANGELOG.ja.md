@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### 追加
+- `agkan init` 実行時、既存の `settings.local.json` を上書きする前にタイムスタンプ付きバックアップ (`.claude/settings.local.json.agkan-backup-<YYYYMMDDHHmmss>`) を作成するようになりました。バックアップ失敗時はデータ保護のため書き込みを中断します。
+
 ## [3.11.0] - 2026-05-17
 
 ### 追加
