@@ -93,4 +93,11 @@ describe('setupAgentGuideCommand', () => {
     expect(parsed).toHaveProperty('additionalContext');
     expect(parsed.additionalContext).toContain('agkan');
   });
+
+  it('should mention the lightweight agkan context command', async () => {
+    const { logs } = await runCommand(program, ['agent-guide']);
+    const output = logs.join('\n');
+
+    expect(output).toContain('agkan context');
+  });
 });
