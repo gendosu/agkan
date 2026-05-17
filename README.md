@@ -49,6 +49,24 @@ npm install -g https://github.com/gendosu/agkan.git
 
 ## Usage
 
+### Initialize a Project
+
+Run `agkan init` in your project directory to set up agkan:
+
+```bash
+agkan init
+```
+
+This creates:
+- `.agkan.yml` — configuration file
+- `.agkan/` — data directory
+
+`agkan init` also installs a SessionStart hook into `.claude/settings.local.json`
+so that Claude Code automatically loads a minimal agkan usage brief at the
+start of every session. The hook calls `agkan context --hook`. This step is
+idempotent and merges into existing settings without touching unrelated keys.
+If you are not using Claude Code, you can safely ignore the generated file.
+
 ### Create Tasks
 
 Basic task creation:

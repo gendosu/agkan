@@ -12,6 +12,8 @@ const AGENT_GUIDE_CONTENT = `# agkan
 
 **7 statuses:** \`icebox\` → \`backlog\` → \`ready\` → \`in_progress\` → \`review\` → \`done\` → \`closed\`
 
+For a one-line session brief (used by Claude Code's SessionStart hook), run \`agkan context\`.
+
 ---
 
 ## Quick Reference

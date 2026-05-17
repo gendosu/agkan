@@ -55,6 +55,9 @@ import { setupAgentGuideCommand } from './commands/agent-guide';
 // Init command handler
 import { setupInitCommand } from './commands/init';
 
+// Context command handler
+import { setupContextCommand } from './commands/context';
+
 // Export/Import command handlers
 import { setupExportCommand } from './commands/export';
 import { setupImportCommand } from './commands/import';
@@ -123,6 +126,9 @@ setupAgentGuideCommand(program);
 
 // Register init command
 setupInitCommand(program);
+
+// Register context command
+setupContextCommand(program);
 
 // Register export/import commands
 setupExportCommand(program);

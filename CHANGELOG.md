@@ -10,13 +10,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [3.11.0] - 2026-05-17
 
 ### Added
+- `agkan context` command outputting a minimal session brief for Claude Code's SessionStart hook (use `--hook` for single-line JSON with `additionalContext`).
 - Add `agkan context --hook` command as a replacement for `agkan agent-guide --hook`
+
+### Changed
+- `agkan init` now also configures `.claude/settings.local.json` with a SessionStart hook calling `agkan context --hook`. Merge is idempotent and preserves existing entries and indentation.
 
 ### Fixed
 - Remove hardcoded limit of 10 items in branch dropdown suggestions on the board
 
 ### Deprecated
-- `agkan agent-guide --hook` is deprecated and will be removed in the next major version. Use `agkan context --hook` instead.
+- `agkan agent-guide --hook` is deprecated and will be removed in the next major version. Use `agkan context --hook` instead. The `agent-guide` command itself (without `--hook`) remains the canonical full reference.
 
 ## [3.10.0] - 2026-05-17
 

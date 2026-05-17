@@ -47,6 +47,7 @@ source "$E2E_DIR/test_task_comments.sh"
 source "$E2E_DIR/test_task_copy.sh"
 source "$E2E_DIR/test_task_archive.sh"
 source "$E2E_DIR/test_hook_attention.sh"
+source "$E2E_DIR/test_context_command.sh"
 
 ################################################################################
 # Main Test Execution
@@ -77,6 +78,7 @@ main() {
     test_task_copy
     test_task_archive
     test_hook_attention
+    test_context_command
 
     # Cleanup
     cleanup_test_db
