@@ -62,73 +62,77 @@ type TaskUpdateInput = {
 };
 const NON_ARCHIVE_STATUSES: TaskStatus[] = ['icebox', 'backlog', 'ready', 'in_progress', 'review', 'done', 'closed'];
 
-function buildTaskUpdateInput(body: TaskPatchBody): { input: TaskUpdateInput; error?: string } {
-  const input: TaskUpdateInput = {};
+function applyStatusUpdate(input: TaskUpdateInput, status: BoardTaskStatus): string | undefined {
+  if (!STATUSES.includes(status)) return 'Invalid status';
+  input.status = status;
+  return undefined;
+}
 
-  if (body.status !== undefined) {
-    if (!STATUSES.includes(body.status)) {
-      return { input, error: 'Invalid status' };
-    }
-    input.status = body.status;
-  }
+function applyTitleUpdate(input: TaskUpdateInput, title: string): string | undefined {
+  const trimmed = title.trim();
+  if (!trimmed) return 'Title cannot be empty';
+  input.title = trimmed;
+  return undefined;
+}
 
-  if (body.title !== undefined) {
-    if (!body.title.trim()) {
-      return { input, error: 'Title cannot be empty' };
-    }
-    input.title = body.title.trim();
-  }
-
-  if (body.body !== undefined) {
-    input.body = body.body ?? '';
-  }
-
+function applyOptionalUpdates(input: TaskUpdateInput, body: TaskPatchBody): void {
+  if (body.body !== undefined) input.body = body.body ?? '';
   if (body.priority !== undefined) {
     input.priority = body.priority && isPriority(body.priority) ? body.priority : null;
   }
+  if (body.branch !== undefined) input.branch = body.branch ?? null;
+}
 
-  if (body.branch !== undefined) {
-    input.branch = body.branch ?? null;
+function buildTaskUpdateInput(body: TaskPatchBody): { input: TaskUpdateInput; error?: string } {
+  const input: TaskUpdateInput = {};
+  if (body.status !== undefined) {
+    const error = applyStatusUpdate(input, body.status);
+    if (error) return { input, error };
   }
-
+  if (body.title !== undefined) {
+    const error = applyTitleUpdate(input, body.title);
+    if (error) return { input, error };
+  }
+  applyOptionalUpdates(input, body);
   return { input };
 }
 
-function registerTaskCrudRoutes(
-  app: Hono,
-  ts: TaskService,
-  tts: TaskTagService,
-  tbs: TaskBlockService,
-  ms: MetadataService,
-  tags: TagService
-): void {
-  app.get('/api/tasks', (c) => {
-    const includeAll = c.req.query('all') === 'true' || c.req.query('all') === '1';
-    if (includeAll) {
-      return c.json({ tasks: ts.listTasks({ includeArchived: true }, 'id', 'asc') });
-    }
-    return c.json({ tasks: ts.listTasks({}, 'id', 'asc') });
-  });
+type CreateTaskBody = {
+  title: string;
+  body?: string | null;
+  status?: BoardTaskStatus;
+  priority?: string | null;
+  branch?: string | null;
+  tags?: unknown;
+  metadata?: unknown;
+};
+
+function resolveTagIds(rawTags: unknown, tags: TagService): number[] | undefined {
+  if (!Array.isArray(rawTags)) return undefined;
+  const ids = rawTags.map(Number).filter((n) => !isNaN(n) && tags.getTag(n));
+  return ids.length > 0 ? ids : undefined;
+}
+
+function persistTaskMetadata(taskId: number, rawMetadata: unknown, ms: MetadataService): void {
+  if (!Array.isArray(rawMetadata)) return;
+  for (const entry of rawMetadata) {
+    if (!entry || typeof entry !== 'object') continue;
+    const key = (entry as { key: unknown }).key;
+    if (typeof key !== 'string' || !key.trim()) continue;
+    const value = (entry as { value: unknown }).value;
+    ms.setMetadata({ task_id: taskId, key: key.trim(), value: String(value ?? '') });
+  }
+}
+
+function registerCreateTaskRoute(app: Hono, ts: TaskService, ms: MetadataService, tags: TagService): void {
   app.post('/api/tasks', async (c) => {
-    const body = await c.req.json<{
-      title: string;
-      body?: string | null;
-      status?: BoardTaskStatus;
-      priority?: string | null;
-      branch?: string | null;
-      tags?: unknown;
-      metadata?: unknown;
-    }>();
+    const body = await c.req.json<CreateTaskBody>();
     if (!body.title || typeof body.title !== 'string' || !body.title.trim()) {
       return c.json({ error: 'Title is required' }, 400);
     }
     const status = body.status && STATUSES.includes(body.status) ? body.status : 'backlog';
     const priority = body.priority && isPriority(body.priority) ? body.priority : undefined;
-
-    // Resolve valid tag IDs before task creation
-    const tagIds = Array.isArray(body.tags)
-      ? body.tags.map(Number).filter((n) => !isNaN(n) && tags.getTag(n))
-      : undefined;
+    const tagIds = resolveTagIds(body.tags, tags);
 
     const task = ts.createTask({
       title: body.title.trim(),
@@ -136,42 +140,47 @@ function registerTaskCrudRoutes(
       status,
       priority,
       branch: body.branch ?? undefined,
-      tagIds: tagIds && tagIds.length > 0 ? tagIds : undefined,
+      tagIds,
     });
-
-    // Store metadata if provided
-    if (Array.isArray(body.metadata)) {
-      for (const entry of body.metadata) {
-        if (
-          entry &&
-          typeof entry === 'object' &&
-          typeof (entry as { key: unknown }).key === 'string' &&
-          (entry as { key: string }).key.trim() !== ''
-        ) {
-          const metaEntry = entry as { key: string; value: unknown };
-          ms.setMetadata({
-            task_id: task.id,
-            key: metaEntry.key.trim(),
-            value: String(metaEntry.value ?? ''),
-          });
-        }
-      }
-    }
-
+    persistTaskMetadata(task.id, body.metadata, ms);
     return c.json(task, 201);
   });
+}
+
+function registerListTaskRoute(app: Hono, ts: TaskService): void {
+  app.get('/api/tasks', (c) => {
+    const includeAll = c.req.query('all') === 'true' || c.req.query('all') === '1';
+    const opts = includeAll ? { includeArchived: true } : {};
+    return c.json({ tasks: ts.listTasks(opts, 'id', 'asc') });
+  });
+}
+
+function registerGetTaskRoute(
+  app: Hono,
+  ts: TaskService,
+  tts: TaskTagService,
+  tbs: TaskBlockService,
+  ms: MetadataService
+): void {
   app.get('/api/tasks/:id', (c) => {
     const id = Number(c.req.param('id'));
     if (isNaN(id)) return c.json({ error: 'Invalid task id' }, 400);
     const task = ts.getTask(id);
     if (!task) return c.json({ error: 'Task not found' }, 404);
     const parent = task.parent_id ? ts.getTask(task.parent_id) : null;
-    const blockedByIds = tbs.getBlockerTaskIds(id);
-    const blockingIds = tbs.getBlockedTaskIds(id);
-    const blockedBy = blockedByIds.map((bid) => ts.getTask(bid)).filter(Boolean);
-    const blocking = blockingIds.map((bid) => ts.getTask(bid)).filter(Boolean);
+    const blockedBy = tbs
+      .getBlockerTaskIds(id)
+      .map((bid) => ts.getTask(bid))
+      .filter(Boolean);
+    const blocking = tbs
+      .getBlockedTaskIds(id)
+      .map((bid) => ts.getTask(bid))
+      .filter(Boolean);
     return c.json({ task, tags: tts.getTagsForTask(id), metadata: ms.listMetadata(id), parent, blockedBy, blocking });
   });
+}
+
+function registerPatchAndDeleteTaskRoutes(app: Hono, ts: TaskService): void {
   app.patch('/api/tasks/:id', async (c) => {
     const id = Number(c.req.param('id'));
     if (isNaN(id)) return c.json({ error: 'Invalid task id' }, 400);
@@ -190,7 +199,21 @@ function registerTaskCrudRoutes(
   });
 }
 
-function registerCommentRoutes(app: Hono, cs: CommentService, ts: TaskService): void {
+function registerTaskCrudRoutes(
+  app: Hono,
+  ts: TaskService,
+  tts: TaskTagService,
+  tbs: TaskBlockService,
+  ms: MetadataService,
+  tags: TagService
+): void {
+  registerListTaskRoute(app, ts);
+  registerCreateTaskRoute(app, ts, ms, tags);
+  registerGetTaskRoute(app, ts, tts, tbs, ms);
+  registerPatchAndDeleteTaskRoutes(app, ts);
+}
+
+function registerTaskCommentRoutes(app: Hono, cs: CommentService, ts: TaskService): void {
   app.get('/api/tasks/:id/comments', (c) => {
     const id = Number(c.req.param('id'));
     if (isNaN(id)) return c.json({ error: 'Invalid task id' }, 400);
@@ -212,6 +235,9 @@ function registerCommentRoutes(app: Hono, cs: CommentService, ts: TaskService): 
       return c.json({ error: e instanceof Error ? e.message : 'Invalid input' }, 400);
     }
   });
+}
+
+function registerCommentIdRoutes(app: Hono, cs: CommentService): void {
   app.get('/api/comments/:id', (c) => {
     const id = Number(c.req.param('id'));
     if (isNaN(id)) return c.json({ error: 'Invalid comment id' }, 400);
@@ -241,6 +267,11 @@ function registerCommentRoutes(app: Hono, cs: CommentService, ts: TaskService): 
     if (!deleted) return c.json({ error: 'Comment not found' }, 404);
     return c.json({ success: true });
   });
+}
+
+function registerCommentRoutes(app: Hono, cs: CommentService, ts: TaskService): void {
+  registerTaskCommentRoutes(app, cs, ts);
+  registerCommentIdRoutes(app, cs);
 }
 
 function registerTagRoutes(app: Hono, tts: TaskTagService, tags: TagService, ts: TaskService): void {

@@ -123,56 +123,66 @@ export class BulkRunService {
     }, POLL_INTERVAL_MS);
   }
 
-  private async runNext(): Promise<void> {
-    if (this.stopRequested) {
-      this.finishLoop();
-      return;
-    }
+  private waitForRunningToFinish(): void {
+    this.runningChangeUnsub?.();
+    this.runningChangeUnsub = this.claudeProcess.subscribeRunningTasksChange(() => {
+      if (this.claudeProcess.listRunningTasks().length === 0) {
+        this.runningChangeUnsub?.();
+        this.runningChangeUnsub = null;
+        void this.runNext();
+      }
+    });
+  }
 
-    // If another process is already running, wait for it to finish
-    const running = this.claudeProcess.listRunningTasks();
-    if (running.length > 0) {
-      this.runningChangeUnsub?.();
-      this.runningChangeUnsub = this.claudeProcess.subscribeRunningTasksChange(() => {
-        if (this.claudeProcess.listRunningTasks().length === 0) {
-          this.runningChangeUnsub?.();
-          this.runningChangeUnsub = null;
-          void this.runNext();
-        }
-      });
-      return;
-    }
-
-    const taskId = this.selectNextTask();
-    if (taskId === null) {
-      this.scheduleNextPoll();
-      return;
-    }
-
+  private buildLaunchParams(taskId: number): {
+    prompt: string;
+    ptyCommand: 'pr' | 'run';
+    model: string | undefined;
+    effort: string | undefined;
+  } {
     const command = this.command!;
-    const ptyCommand = command === 'pr' ? 'pr' : 'run';
+    const ptyCommand: 'pr' | 'run' = command === 'pr' ? 'pr' : 'run';
     const prompt =
       command === 'pr' ? `Task ID: ${taskId}\n/agkan-subtask` : `Task ID: ${taskId}\n/agkan-subtask-direct`;
+    const rawConfig = loadConfig().models?.run;
+    return {
+      prompt,
+      ptyCommand,
+      model: rawConfig?.model?.trim() || undefined,
+      effort: rawConfig?.effort?.trim() || undefined,
+    };
+  }
 
-    const config = loadConfig();
-    const rawConfig = config.models?.run;
-    const model = rawConfig?.model?.trim() || undefined;
-    const effort = rawConfig?.effort?.trim() || undefined;
-
+  private async launchTask(taskId: number): Promise<void> {
+    const { prompt, ptyCommand, model, effort } = this.buildLaunchParams(taskId);
     try {
       await this.claudeProcess.startProcess(taskId, prompt, ptyCommand, model, effort);
     } catch {
-      // Start failed - try next task
       void this.runNext();
       return;
     }
-
-    // When this task's process exits, run next
     const unsubscribe = this.claudeProcess.subscribeOutput(taskId, (evt) => {
       if (evt.kind === 'done' || evt.kind === 'error') {
         unsubscribe();
         void this.runNext();
       }
     });
+  }
+
+  private async runNext(): Promise<void> {
+    if (this.stopRequested) {
+      this.finishLoop();
+      return;
+    }
+    if (this.claudeProcess.listRunningTasks().length > 0) {
+      this.waitForRunningToFinish();
+      return;
+    }
+    const taskId = this.selectNextTask();
+    if (taskId === null) {
+      this.scheduleNextPoll();
+      return;
+    }
+    await this.launchTask(taskId);
   }
 }
