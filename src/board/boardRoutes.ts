@@ -502,9 +502,11 @@ function registerClaudeRoutes(app: Hono, claudeProcess: PtySessionService, ts: T
     const command = body.command === 'planning' ? 'planning' : body.command === 'pr' ? 'pr' : 'run';
 
     const branchInstruction =
-      !task.branch || task.branch === BRANCH_AUTO_GENERATE
-        ? `\n\nNo branch specified: Read this task's title and body, and generate an appropriate git branch name for the work. Format: task/${taskId}-<kebab-case> (alphanumeric characters and hyphens only, maximum 60 characters). Run git checkout -b with the generated branch name before starting work, then save the branch field via PATCH /api/tasks/${taskId} (body: { "branch": "<generated-branch-name>" }) after starting work.`
-        : '';
+      command === 'planning'
+        ? ''
+        : !task.branch || task.branch === BRANCH_AUTO_GENERATE
+          ? `\n\nNo branch specified: Read this task's title and body, and generate an appropriate git branch name for the work. Format: task/${taskId}-<kebab-case> (alphanumeric characters and hyphens only, maximum 60 characters). Run git checkout -b with the generated branch name before starting work, then save the branch field via PATCH /api/tasks/${taskId} (body: { "branch": "<generated-branch-name>" }) after starting work.`
+          : '';
 
     const prompt =
       command === 'planning'
