@@ -152,7 +152,7 @@ function getContextMenuAndToast(): string {
   <div class="toast" id="toast">Failed to update task</div>`;
 }
 
-function getPurgeAndVersionModals(): string {
+function getPurgeModal(): string {
   return `
   <div class="modal-overlay" id="purge-confirm-modal">
     <div class="modal">
@@ -164,7 +164,11 @@ function getPurgeAndVersionModals(): string {
         <button id="purge-confirm-btn" class="primary" style="background:#dc2626;border-color:#dc2626;">Purge</button>
       </div>
     </div>
-  </div>
+  </div>`;
+}
+
+function getArchiveModal(): string {
+  return `
   <div class="modal-overlay" id="archive-confirm-modal">
     <div class="modal">
       <h2>Archive Tasks</h2>
@@ -175,7 +179,11 @@ function getPurgeAndVersionModals(): string {
         <button id="archive-confirm-btn" class="primary">Archive</button>
       </div>
     </div>
-  </div>
+  </div>`;
+}
+
+function getImportModal(): string {
+  return `
   <div class="modal-overlay" id="import-modal">
     <div class="modal" style="width:420px;">
       <h2>Import Tasks</h2>
@@ -191,7 +199,11 @@ function getPurgeAndVersionModals(): string {
         <button id="import-confirm-btn" class="primary" disabled>Import</button>
       </div>
     </div>
-  </div>
+  </div>`;
+}
+
+function getVersionInfoModal(): string {
+  return `
   <div class="modal-overlay" id="version-info-modal">
     <div class="modal" style="width:320px;">
       <h2>Version Info</h2>
@@ -201,6 +213,10 @@ function getPurgeAndVersionModals(): string {
       </div>
     </div>
   </div>`;
+}
+
+function getPurgeAndVersionModals(): string {
+  return `${getPurgeModal()}${getArchiveModal()}${getImportModal()}${getVersionInfoModal()}`;
 }
 
 function getBoardBodyStatic(): string {
@@ -216,33 +232,13 @@ function getBoardBodyStatic(): string {
   <script src="/static/main.js"></script>`;
 }
 
-export function renderBoard(
-  tasksByStatus: Map<TaskStatus, Task[]>,
-  tagMap: Map<number, Tag[]>,
-  boardTitle?: string,
-  theme?: string,
-  blockMap: Map<number, { blockedBy: number[]; blocking: number[] }> = new Map()
-): string {
-  const columns = STATUSES.map((status) =>
-    renderColumn(status, tasksByStatus.get(status) || [], tagMap, blockMap)
-  ).join('');
+function renderBoardHeader(boardTitle?: string): string {
   const titleHtml = boardTitle ? `<span class="board-title">${escapeHtml(boardTitle)}</span>` : '';
-  const boardBodyStatic = getBoardBodyStatic();
-  const dataThemeAttr = theme === 'dark' || theme === 'light' ? ` data-theme="${theme}"` : '';
+  return `<header><h1>agkan board</h1>${titleHtml}<div class="burger-menu-wrapper"><div id="header-running-indicator" style="display:none"></div><div id="connection-status-btn" class="connection-status-btn connecting" title="Connecting..."></div><button class="burger-menu-btn" id="burger-menu-btn" title="Menu" aria-label="Menu"><span></span><span></span><span></span></button><div class="burger-menu-dropdown" id="burger-menu-dropdown"><div class="burger-menu-item danger" id="burger-purge-tasks">&#128465; Purge Tasks</div><div class="burger-menu-item" id="burger-archive-tasks">&#128230; Archive Tasks</div><div class="burger-menu-item" id="burger-export-tasks">&#8595; Export Tasks</div><div class="burger-menu-item" id="burger-import-tasks">&#8593; Import Tasks</div><div class="burger-menu-item" id="burger-version-info">&#8505; Version Info</div><div class="burger-menu-separator"></div><div class="burger-menu-item" id="burger-theme-dark">Dark Mode</div><div class="burger-menu-item" id="burger-theme-light">Light Mode</div><div class="burger-menu-item" id="burger-theme-system">System Setting</div></div></div></header>`;
+}
 
-  return `<!DOCTYPE html>
-<html lang="en"${dataThemeAttr}>
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>agkan board</title>
-  <link rel="icon" type="image/png" href="${BOARD_FAVICON_BASE64}">
-  <style>${BOARD_STYLES}
-  </style>
-</head>
-<body>
-  <header><h1>agkan board</h1>${titleHtml}<div class="burger-menu-wrapper"><div id="header-running-indicator" style="display:none"></div><div id="connection-status-btn" class="connection-status-btn connecting" title="Connecting..."></div><button class="burger-menu-btn" id="burger-menu-btn" title="Menu" aria-label="Menu"><span></span><span></span><span></span></button><div class="burger-menu-dropdown" id="burger-menu-dropdown"><div class="burger-menu-item danger" id="burger-purge-tasks">&#128465; Purge Tasks</div><div class="burger-menu-item" id="burger-archive-tasks">&#128230; Archive Tasks</div><div class="burger-menu-item" id="burger-export-tasks">&#8595; Export Tasks</div><div class="burger-menu-item" id="burger-import-tasks">&#8593; Import Tasks</div><div class="burger-menu-item" id="burger-version-info">&#8505; Version Info</div><div class="burger-menu-separator"></div><div class="burger-menu-item" id="burger-theme-dark">Dark Mode</div><div class="burger-menu-item" id="burger-theme-light">Light Mode</div><div class="burger-menu-item" id="burger-theme-system">System Setting</div></div></div></header>
-  <div class="filter-bar" id="filter-bar">
+function renderFilterBar(): string {
+  return `<div class="filter-bar" id="filter-bar">
     <div class="filter-group">
       <input type="search" id="filter-search" class="filter-search-input" placeholder="Search tasks...">
     </div>
@@ -263,9 +259,36 @@ export function renderBoard(
     </div>
     <button class="dependency-toggle-btn" id="dependency-toggle" title="Show/hide task dependencies">Show dependencies</button>
     <button class="filter-clear-btn" id="filter-clear">Clear filters</button>
-  </div>
+  </div>`;
+}
+
+export function renderBoard(
+  tasksByStatus: Map<TaskStatus, Task[]>,
+  tagMap: Map<number, Tag[]>,
+  boardTitle?: string,
+  theme?: string,
+  blockMap: Map<number, { blockedBy: number[]; blocking: number[] }> = new Map()
+): string {
+  const columns = STATUSES.map((status) =>
+    renderColumn(status, tasksByStatus.get(status) || [], tagMap, blockMap)
+  ).join('');
+  const dataThemeAttr = theme === 'dark' || theme === 'light' ? ` data-theme="${theme}"` : '';
+
+  return `<!DOCTYPE html>
+<html lang="en"${dataThemeAttr}>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>agkan board</title>
+  <link rel="icon" type="image/png" href="${BOARD_FAVICON_BASE64}">
+  <style>${BOARD_STYLES}
+  </style>
+</head>
+<body>
+  ${renderBoardHeader(boardTitle)}
+  ${renderFilterBar()}
   <div class="board-container">
-    <div class="board">${columns}</div>${boardBodyStatic}
+    <div class="board">${columns}</div>${getBoardBodyStatic()}
   </div>
 </body>
 </html>`;

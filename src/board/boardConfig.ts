@@ -21,46 +21,41 @@ interface RawConfigFile {
   [key: string]: unknown;
 }
 
+function loadRawBoardSection(configFile: string): RawConfigFile['board'] | null {
+  if (!fs.existsSync(configFile)) return null;
+  try {
+    const content = fs.readFileSync(configFile, 'utf8');
+    const raw = yaml.load(content) as RawConfigFile | null | undefined;
+    if (!raw || typeof raw !== 'object') return null;
+    const board = raw.board;
+    if (!board || typeof board !== 'object') return null;
+    return board;
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Read board config from .agkan/config.yml (or the provided directory).
  * Returns an empty object if the file does not exist, is invalid, or values are out of range.
  */
 export function readBoardConfig(configDir: string): BoardConfig {
-  const configFile = path.join(configDir, 'config.yml');
+  const board = loadRawBoardSection(path.join(configDir, 'config.yml'));
+  if (!board) return {};
 
-  if (!fs.existsSync(configFile)) {
-    return {};
+  const result: BoardConfig = {};
+
+  const detailPaneWidth = board.detailPaneWidth;
+  if (typeof detailPaneWidth === 'number' && detailPaneWidth <= DETAIL_PANE_MAX_WIDTH) {
+    result.detailPaneWidth = detailPaneWidth;
   }
 
-  try {
-    const content = fs.readFileSync(configFile, 'utf8');
-    const raw = yaml.load(content) as RawConfigFile | null | undefined;
-
-    if (!raw || typeof raw !== 'object') {
-      return {};
-    }
-
-    const board = raw.board;
-    if (!board || typeof board !== 'object') {
-      return {};
-    }
-
-    const result: BoardConfig = {};
-
-    const detailPaneWidth = board.detailPaneWidth;
-    if (typeof detailPaneWidth === 'number' && detailPaneWidth <= DETAIL_PANE_MAX_WIDTH) {
-      result.detailPaneWidth = detailPaneWidth;
-    }
-
-    const theme = board.theme;
-    if (typeof theme === 'string' && (VALID_THEMES as string[]).includes(theme)) {
-      result.theme = theme as ThemePreference;
-    }
-
-    return result;
-  } catch {
-    return {};
+  const theme = board.theme;
+  if (typeof theme === 'string' && (VALID_THEMES as string[]).includes(theme)) {
+    result.theme = theme as ThemePreference;
   }
+
+  return result;
 }
 
 /**
