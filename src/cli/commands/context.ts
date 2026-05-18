@@ -8,7 +8,9 @@
 
 import { Command } from 'commander';
 
-const CONTEXT_CONTENT = `This project uses agkan (Agent Kanban) for task management.
+const CONTEXT_CONTENT = `IMPORTANT: Task management MUST use agkan. All task tracking and status updates are required to go through agkan. Do NOT use any other task management system.
+
+This project uses agkan (Agent Kanban) for task management.
 
 Common commands:
 - agkan task list [--status <s>] [--tag <id>] [--tree]
