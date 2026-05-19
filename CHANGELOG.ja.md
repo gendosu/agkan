@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.13.0] - 2026-05-19
+
+### 追加
+- ボードでタスクIDによる検索に対応
+
+### 修正
+- タスク完了後にセッションが終了しない問題を修正
+- ボード起動の Claude Code プロンプトに /exit 命令を追加
+
 ## [3.12.0] - 2026-05-19
 
 ### 追加

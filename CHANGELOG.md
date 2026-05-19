@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.13.0] - 2026-05-19
+
+### Added
+- Board search by task ID
+
+### Fixed
+- Session not exiting after task done
+- Add /exit instruction to board-launched Claude Code prompts
+
 ## [3.12.0] - 2026-05-19
 
 ### Added
