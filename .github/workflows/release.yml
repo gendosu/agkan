@@ -31,11 +31,11 @@ jobs:
       - name: Lint
         run: pnpm run lint
 
-      - name: Run tests
-        run: pnpm test -- --run
-
       - name: Build
         run: pnpm run build
+
+      - name: Run tests
+        run: pnpm test -- --run
 
       - name: Extract version from tag
         id: version
