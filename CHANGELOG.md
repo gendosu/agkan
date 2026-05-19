@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.12.0] - 2026-05-19
+
+### Added
+- Add mandatory agkan task management instruction to context output
+
+### Fixed
+- Skip branch instruction when command is planning
+
 ## [3.11.1] - 2026-05-17
 
 ### Added
