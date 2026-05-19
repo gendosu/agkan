@@ -1,0 +1,1659 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Branch Field Feature — Implementation Plan</title>
+<style>
+  :root {
+    --bg: #0f172a;
+    --surface: #1e293b;
+    --surface2: #263347;
+    --border: #334155;
+    --text: #e2e8f0;
+    --text-muted: #94a3b8;
+    --accent: #38bdf8;
+    --accent2: #818cf8;
+    --green: #4ade80;
+    --yellow: #fbbf24;
+    --red: #f87171;
+    --code-bg: #0d1117;
+    --code-border: #21262d;
+    --tag-create: #166534;
+    --tag-create-text: #86efac;
+    --tag-modify: #1e3a5f;
+    --tag-modify-text: #93c5fd;
+    --tag-test: #3b1f5e;
+    --tag-test-text: #c4b5fd;
+    --radius: 8px;
+    --radius-sm: 4px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.6;
+    font-size: 14px;
+  }
+
+  /* Layout */
+  .layout {
+    display: flex;
+    min-height: 100vh;
+  }
+
+  /* Sidebar */
+  .sidebar {
+    width: 260px;
+    flex-shrink: 0;
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    padding: 24px 0;
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    overflow-y: auto;
+  }
+
+  .sidebar-logo {
+    padding: 0 20px 20px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 16px;
+  }
+
+  .sidebar-logo h2 {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--accent);
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+  }
+
+  .sidebar-logo p {
+    font-size: 11px;
+    color: var(--text-muted);
+    margin-top: 4px;
+  }
+
+  .nav-section {
+    padding: 0 12px;
+    margin-bottom: 8px;
+  }
+
+  .nav-label {
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-muted);
+    padding: 8px 8px 4px;
+  }
+
+  .nav-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 8px;
+    border-radius: var(--radius-sm);
+    color: var(--text-muted);
+    text-decoration: none;
+    font-size: 13px;
+    transition: all 0.15s;
+    cursor: pointer;
+  }
+
+  .nav-item:hover {
+    background: var(--surface2);
+    color: var(--text);
+  }
+
+  .nav-item .task-num {
+    font-size: 10px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    padding: 1px 5px;
+    color: var(--text-muted);
+    font-weight: 600;
+    flex-shrink: 0;
+  }
+
+  /* Progress in sidebar */
+  .progress-bar {
+    margin: 0 20px 20px;
+    padding-top: 16px;
+    border-top: 1px solid var(--border);
+  }
+
+  .progress-label {
+    display: flex;
+    justify-content: space-between;
+    font-size: 11px;
+    color: var(--text-muted);
+    margin-bottom: 6px;
+  }
+
+  .progress-track {
+    height: 4px;
+    background: var(--surface2);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+
+  .progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--accent), var(--accent2));
+    border-radius: 2px;
+    transition: width 0.3s ease;
+  }
+
+  /* Main content */
+  .main {
+    flex: 1;
+    padding: 48px 64px;
+    max-width: 900px;
+  }
+
+  /* Header */
+  .plan-header {
+    margin-bottom: 40px;
+    padding-bottom: 32px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .plan-header h1 {
+    font-size: 28px;
+    font-weight: 700;
+    color: var(--text);
+    margin-bottom: 16px;
+    line-height: 1.3;
+  }
+
+  .meta-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+    margin-top: 20px;
+  }
+
+  .meta-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 14px 16px;
+  }
+
+  .meta-card .meta-label {
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: var(--text-muted);
+    margin-bottom: 6px;
+  }
+
+  .meta-card .meta-value {
+    font-size: 13px;
+    color: var(--text);
+    line-height: 1.5;
+  }
+
+  .meta-card .meta-value code {
+    font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+    font-size: 12px;
+    background: var(--code-bg);
+    padding: 1px 5px;
+    border-radius: 3px;
+    color: var(--accent);
+  }
+
+  .notice {
+    background: #1a2535;
+    border: 1px solid #2d4a6e;
+    border-left: 3px solid var(--accent);
+    border-radius: var(--radius);
+    padding: 12px 16px;
+    margin-bottom: 24px;
+    font-size: 13px;
+    color: var(--text-muted);
+  }
+
+  .notice strong { color: var(--accent); }
+
+  /* File Map */
+  .section { margin-bottom: 48px; }
+
+  .section-title {
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--text);
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .section-title::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+
+  th {
+    text-align: left;
+    padding: 8px 12px;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-muted);
+    border-bottom: 1px solid var(--border);
+  }
+
+  td {
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--border);
+    vertical-align: middle;
+  }
+
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: rgba(255,255,255,0.02); }
+
+  .badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-size: 11px;
+    font-weight: 600;
+  }
+
+  .badge-create { background: var(--tag-create); color: var(--tag-create-text); }
+  .badge-modify { background: var(--tag-modify); color: var(--tag-modify-text); }
+
+  td code, td .filepath {
+    font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+    font-size: 12px;
+    color: var(--accent2);
+  }
+
+  /* Task cards */
+  .task-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    margin-bottom: 32px;
+    overflow: hidden;
+  }
+
+  .task-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 16px 20px;
+    background: var(--surface2);
+    border-bottom: 1px solid var(--border);
+    cursor: pointer;
+    user-select: none;
+  }
+
+  .task-header:hover { background: #2d3f56; }
+
+  .task-num-badge {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    font-weight: 700;
+    color: #0f172a;
+    flex-shrink: 0;
+  }
+
+  .task-title-text {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text);
+    flex: 1;
+  }
+
+  .task-files-pills {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+
+  .file-pill {
+    font-size: 10px;
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    padding: 2px 7px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+    background: var(--surface);
+  }
+
+  .task-body {
+    padding: 20px;
+  }
+
+  /* Steps */
+  .step {
+    display: flex;
+    gap: 14px;
+    margin-bottom: 20px;
+    align-items: flex-start;
+  }
+
+  .step-checkbox {
+    width: 18px;
+    height: 18px;
+    border: 2px solid var(--border);
+    border-radius: 4px;
+    flex-shrink: 0;
+    margin-top: 2px;
+    cursor: pointer;
+    appearance: none;
+    -webkit-appearance: none;
+    position: relative;
+    transition: all 0.15s;
+    background: transparent;
+  }
+
+  .step-checkbox:checked {
+    background: var(--green);
+    border-color: var(--green);
+  }
+
+  .step-checkbox:checked::after {
+    content: '✓';
+    position: absolute;
+    top: -2px;
+    left: 2px;
+    font-size: 12px;
+    color: #0f172a;
+    font-weight: 700;
+  }
+
+  .step-content { flex: 1; }
+
+  .step-label {
+    font-weight: 600;
+    color: var(--text);
+    margin-bottom: 8px;
+    font-size: 13px;
+  }
+
+  .step-desc {
+    color: var(--text-muted);
+    font-size: 13px;
+    margin-bottom: 10px;
+    line-height: 1.6;
+  }
+
+  .step-desc code {
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    font-size: 12px;
+    background: var(--code-bg);
+    padding: 1px 5px;
+    border-radius: 3px;
+    color: var(--accent2);
+  }
+
+  /* Code blocks */
+  .code-block {
+    background: var(--code-bg);
+    border: 1px solid var(--code-border);
+    border-radius: var(--radius-sm);
+    margin: 8px 0;
+    overflow: hidden;
+  }
+
+  .code-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 6px 12px;
+    background: #161b22;
+    border-bottom: 1px solid var(--code-border);
+  }
+
+  .code-lang {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  .copy-btn {
+    font-size: 11px;
+    color: var(--text-muted);
+    background: none;
+    border: 1px solid var(--code-border);
+    border-radius: 3px;
+    padding: 2px 8px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+
+  .copy-btn:hover {
+    color: var(--text);
+    border-color: var(--border);
+  }
+
+  pre {
+    padding: 14px 16px;
+    overflow-x: auto;
+    font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+    font-size: 12.5px;
+    line-height: 1.7;
+    color: #e6edf3;
+  }
+
+  /* Syntax colors */
+  .kw { color: #ff7b72; }
+  .str { color: #a5d6ff; }
+  .cm { color: #8b949e; font-style: italic; }
+  .fn { color: #d2a8ff; }
+  .num { color: #79c0ff; }
+  .type { color: #ffa657; }
+  .op { color: #ff7b72; }
+
+  /* Expected output */
+  .expected {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    color: var(--text-muted);
+    margin-top: 8px;
+    padding: 6px 10px;
+    background: rgba(74, 222, 128, 0.05);
+    border: 1px solid rgba(74, 222, 128, 0.15);
+    border-radius: var(--radius-sm);
+  }
+
+  .expected .dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--green);
+    flex-shrink: 0;
+  }
+
+  /* Divider */
+  .task-divider {
+    height: 1px;
+    background: var(--border);
+    margin: 16px 0;
+  }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: #475569; }
+
+  /* Collapsible */
+  .task-body.collapsed { display: none; }
+  .collapse-icon {
+    color: var(--text-muted);
+    font-size: 12px;
+    transition: transform 0.2s;
+  }
+  .collapsed-header .collapse-icon { transform: rotate(-90deg); }
+
+  /* Stats bar */
+  .stats-bar {
+    display: flex;
+    gap: 24px;
+    padding: 16px 20px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    margin-bottom: 32px;
+  }
+
+  .stat-item {
+    text-align: center;
+  }
+
+  .stat-num {
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--text);
+    line-height: 1;
+  }
+
+  .stat-num.green { color: var(--green); }
+  .stat-num.blue { color: var(--accent); }
+  .stat-num.purple { color: var(--accent2); }
+
+  .stat-label {
+    font-size: 11px;
+    color: var(--text-muted);
+    margin-top: 4px;
+  }
+</style>
+</head>
+<body>
+
+<div class="layout">
+  <!-- Sidebar -->
+  <nav class="sidebar">
+    <div class="sidebar-logo">
+      <h2>Implementation Plan</h2>
+      <p>Branch Field Feature</p>
+    </div>
+
+    <div class="nav-section">
+      <div class="nav-label">Overview</div>
+      <a class="nav-item" href="#overview">File Map</a>
+    </div>
+
+    <div class="nav-section">
+      <div class="nav-label">Tasks</div>
+      <a class="nav-item" href="#task1"><span class="task-num">T1</span> DBマイグレーション</a>
+      <a class="nav-item" href="#task2"><span class="task-num">T2</span> Task型更新</a>
+      <a class="nav-item" href="#task3"><span class="task-num">T3</span> SQLiteアダプター</a>
+      <a class="nav-item" href="#task4"><span class="task-num">T4</span> GET /api/git/branches</a>
+      <a class="nav-item" href="#task5"><span class="task-num">T5</span> POST/PATCH branch対応</a>
+      <a class="nav-item" href="#task6"><span class="task-num">T6</span> run時ブランチ処理</a>
+      <a class="nav-item" href="#task7"><span class="task-num">T7</span> addTaskModal UI</a>
+      <a class="nav-item" href="#task8"><span class="task-num">T8</span> detailパネル UI</a>
+      <a class="nav-item" href="#task9"><span class="task-num">T9</span> CSSスタイル</a>
+      <a class="nav-item" href="#task10"><span class="task-num">T10</span> 最終確認</a>
+    </div>
+
+    <div class="progress-bar">
+      <div class="progress-label">
+        <span>進捗</span>
+        <span id="progress-text">0 / 38</span>
+      </div>
+      <div class="progress-track">
+        <div class="progress-fill" id="progress-fill" style="width:0%"></div>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Main -->
+  <main class="main">
+    <!-- Header -->
+    <div class="plan-header">
+      <h1>Branch Field Feature<br>Implementation Plan</h1>
+
+      <div class="notice">
+        <strong>For agentic workers:</strong> Use <code>superpowers:subagent-driven-development</code> (recommended) or <code>superpowers:executing-plans</code> to implement this plan task-by-task.
+      </div>
+
+      <div class="meta-grid">
+        <div class="meta-card">
+          <div class="meta-label">Goal</div>
+          <div class="meta-value">タスクにgitブランチを紐付け、detailパネル・作成モーダルからブランチを指定・サジェスト表示。実行時に自動checkout。</div>
+        </div>
+        <div class="meta-card">
+          <div class="meta-label">Architecture</div>
+          <div class="meta-value"><code>branch TEXT</code> をDBに追加。<code>GET /api/git/branches</code> 新設。UI両画面にサジェスト入力。run時にbranch処理。</div>
+        </div>
+        <div class="meta-card">
+          <div class="meta-label">Tech Stack</div>
+          <div class="meta-value">TypeScript, Hono, better-sqlite3, vitest, <code>execSync</code> (child_process)</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Stats -->
+    <div class="stats-bar">
+      <div class="stat-item">
+        <div class="stat-num blue">10</div>
+        <div class="stat-label">Tasks</div>
+      </div>
+      <div class="stat-item">
+        <div class="stat-num purple">38</div>
+        <div class="stat-label">Steps</div>
+      </div>
+      <div class="stat-item">
+        <div class="stat-num">10</div>
+        <div class="stat-label">Files changed</div>
+      </div>
+      <div class="stat-item">
+        <div class="stat-num green" id="done-count">0</div>
+        <div class="stat-label">Done</div>
+      </div>
+    </div>
+
+    <!-- File Map -->
+    <div class="section" id="overview">
+      <div class="section-title">File Map</div>
+      <div class="task-card">
+        <table>
+          <thead>
+            <tr>
+              <th>操作</th>
+              <th>ファイル</th>
+              <th>内容</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td><span class="badge badge-create">Create</span></td><td><span class="filepath">src/db/migrations/20260516000000_add_branch_to_tasks.ts</span></td><td>branchカラム追加マイグレーション</td></tr>
+            <tr><td><span class="badge badge-modify">Modify</span></td><td><span class="filepath">src/db/migrations/index.ts</span></td><td>新マイグレーション登録</td></tr>
+            <tr><td><span class="badge badge-modify">Modify</span></td><td><span class="filepath">src/models/Task.ts</span></td><td>Task/CreateTaskInput/UpdateTaskInputにbranch追加</td></tr>
+            <tr><td><span class="badge badge-modify">Modify</span></td><td><span class="filepath">src/db/adapters/sqlite-storage-backend.ts</span></td><td>INSERT/UPDATEにbranch対応</td></tr>
+            <tr><td><span class="badge badge-modify">Modify</span></td><td><span class="filepath">src/board/boardRoutes.ts</span></td><td>GET /api/git/branches追加、POST/PATCHにbranch対応、run時branch処理</td></tr>
+            <tr><td><span class="badge badge-modify">Modify</span></td><td><span class="filepath">src/board/boardRenderer.ts</span></td><td>addModalのHTMLにbranch入力追加</td></tr>
+            <tr><td><span class="badge badge-modify">Modify</span></td><td><span class="filepath">src/board/client/types.ts</span></td><td>TaskDataにbranch追加</td></tr>
+            <tr><td><span class="badge badge-modify">Modify</span></td><td><span class="filepath">src/board/client/addTaskModal.ts</span></td><td>branch入力ロジック（サジェスト・自動生成）</td></tr>
+            <tr><td><span class="badge badge-modify">Modify</span></td><td><span class="filepath">src/board/client/detailPanelHtml.ts</span></td><td>renderBranchField()追加</td></tr>
+            <tr><td><span class="badge badge-modify">Modify</span></td><td><span class="filepath">src/board/client/detailPanel.ts</span></td><td>branch収集・保存・サジェストワイヤリング</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Task 1 -->
+    <div class="task-card" id="task1">
+      <div class="task-header" onclick="toggleTask(this)">
+        <div class="task-num-badge">1</div>
+        <div class="task-title-text">DBマイグレーション — branchカラム追加</div>
+        <div class="task-files-pills">
+          <span class="file-pill">migrations/</span>
+          <span class="file-pill">index.ts</span>
+        </div>
+        <span class="collapse-icon">▼</span>
+      </div>
+      <div class="task-body">
+
+        <div class="step">
+          <input type="checkbox" class="step-checkbox" onchange="updateProgress()">
+          <div class="step-content">
+            <div class="step-label">Step 1: マイグレーションファイルを作成</div>
+            <div class="code-block">
+              <div class="code-header"><span class="code-lang">TypeScript</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+              <pre><span class="cm">// src/db/migrations/20260516000000_add_branch_to_tasks.ts</span>
+<span class="kw">import type</span> { MigratableDatabase } <span class="kw">from</span> <span class="str">'./types'</span>;
+
+<span class="kw">export function</span> <span class="fn">up</span>(db: MigratableDatabase): <span class="type">void</span> {
+  <span class="kw">const</span> columns = (db.<span class="fn">prepare</span>(<span class="str">`PRAGMA table_info(tasks)`</span>).<span class="fn">all</span>() <span class="kw">as</span> Array&lt;{ name: <span class="type">string</span> }&gt;).<span class="fn">map</span>((c) =&gt; c.name);
+  <span class="kw">if</span> (!columns.<span class="fn">includes</span>(<span class="str">'branch'</span>)) {
+    db.<span class="fn">exec</span>(<span class="str">`ALTER TABLE tasks ADD COLUMN branch TEXT DEFAULT NULL`</span>);
+  }
+}</pre>
+            </div>
+          </div>
+        </div>
+
+        <div class="step">
+          <input type="checkbox" class="step-checkbox" onchange="updateProgress()">
+          <div class="step-content">
+            <div class="step-label">Step 2: マイグレーションをindex.tsに登録</div>
+            <div class="code-block">
+              <div class="code-header"><span class="code-lang">TypeScript</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+              <pre><span class="kw">import</span> { up <span class="kw">as</span> addBranch } <span class="kw">from</span> <span class="str">'./20260516000000_add_branch_to_tasks'</span>;
+
+<span class="cm">// migrations配列に追加:</span>
+{
+  version: <span class="str">'20260516000000'</span>,
+  description: <span class="str">'add_branch_to_tasks'</span>,
+  up: addBranch,
+},</pre>
+            </div>
+          </div>
+        </div>
+
+        <div class="step">
+          <input type="checkbox" class="step-checkbox" onchange="updateProgress()">
+          <div class="step-content">
+            <div class="step-label">Step 3: スキーマテストを実行</div>
+            <div class="code-block">
+              <div class="code-header"><span class="code-lang">bash</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+              <pre>pnpm vitest run tests/db/schema.test.ts</pre>
+            </div>
+            <div class="expected"><span class="dot"></span>Expected: PASS（既存テストが通ること）</div>
+          </div>
+        </div>
+
+        <div class="step">
+          <input type="checkbox" class="step-checkbox" onchange="updateProgress()">
+          <div class="step-content">
+            <div class="step-label">Step 4: コミット</div>
+            <div class="code-block">
+              <div class="code-header"><span class="code-lang">bash</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+              <pre>git add src/db/migrations/20260516000000_add_branch_to_tasks.ts src/db/migrations/index.ts
+git commit -m <span class="str">"feat: add branch column to tasks via migration"</span></pre>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Task 2 -->
+    <div class="task-card" id="task2">
+      <div class="task-header" onclick="toggleTask(this)">
+        <div class="task-num-badge">2</div>
+        <div class="task-title-text">Task型にbranchを追加</div>
+        <div class="task-files-pills">
+          <span class="file-pill">Task.ts</span>
+          <span class="file-pill">types.ts</span>
+        </div>
+        <span class="collapse-icon">▼</span>
+      </div>
+      <div class="task-body">
+
+        <div class="step">
+          <input type="checkbox" class="step-checkbox" onchange="updateProgress()">
+          <div class="step-content">
+            <div class="step-label">Step 1: Task.tsのインターフェースを更新</div>
+            <div class="code-block">
+              <div class="code-header"><span class="code-lang">TypeScript</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+              <pre><span class="kw">export interface</span> <span class="type">Task</span> {
+  id: <span class="type">number</span>;
+  title: <span class="type">string</span>;
+  body: <span class="type">string</span> | <span class="kw">null</span>;
+  author: <span class="type">string</span> | <span class="kw">null</span>;
+  assignees: <span class="type">string</span> | <span class="kw">null</span>;
+  status: <span class="type">TaskStatus</span>;
+  priority: <span class="type">Priority</span> | <span class="kw">null</span>;
+  branch: <span class="type">string</span> | <span class="kw">null</span>;   <span class="cm">// ← 追加</span>
+  created_at: <span class="type">string</span>;
+  updated_at: <span class="type">string</span>;
+  parent_id: <span class="type">number</span> | <span class="kw">null</span>;
+  is_archived: <span class="num">0</span> | <span class="num">1</span>;
+}
+
+<span class="kw">export interface</span> <span class="type">CreateTaskInput</span> {
+  <span class="cm">// ...既存フィールド...</span>
+  branch?: <span class="type">string</span> | <span class="kw">null</span>;   <span class="cm">// ← 追加</span>
+}
+
+<span class="kw">export interface</span> <span class="type">UpdateTaskInput</span> {
+  <span class="cm">// ...既存フィールド...</span>
+  branch?: <span class="type">string</span> | <span class="kw">null</span>;   <span class="cm">// ← 追加</span>
+}</pre>
+            </div>
+          </div>
+        </div>
+
+        <div class="step">
+          <input type="checkbox" class="step-checkbox" onchange="updateProgress()">
+          <div class="step-content">
+            <div class="step-label">Step 2: クライアント型 TaskData を更新</div>
+            <div class="code-block">
+              <div class="code-header"><span class="code-lang">TypeScript — src/board/client/types.ts</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+              <pre><span class="kw">export interface</span> <span class="type">TaskData</span> {
+  id: <span class="type">number</span>;
+  title: <span class="type">string</span>;
+  body?: <span class="type">string</span> | <span class="kw">null</span>;
+  status: <span class="type">string</span>;
+  priority?: <span class="type">string</span> | <span class="kw">null</span>;
+  branch?: <span class="type">string</span> | <span class="kw">null</span>;   <span class="cm">// ← 追加</span>
+  created_at?: <span class="type">string</span>;
+  updated_at?: <span class="type">string</span>;
+}</pre>
+            </div>
+          </div>
+        </div>
+
+        <div class="step">
+          <input type="checkbox" class="step-checkbox" onchange="updateProgress()">
+          <div class="step-content">
+            <div class="step-label">Step 3: 型チェック実行</div>
+            <div class="code-block">
+              <div class="code-header"><span class="code-lang">bash</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+              <pre>pnpm run type-check</pre>
+            </div>
+            <div class="expected"><span class="dot"></span>Expected: エラーなし（Task 3完了後に解消）</div>
+          </div>
+        </div>
+
+        <div class="step">
+          <input type="checkbox" class="step-checkbox" onchange="updateProgress()">
+          <div class="step-content">
+            <div class="step-label">Step 4: コミット</div>
+            <div class="code-block">
+              <div class="code-header"><span class="code-lang">bash</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+              <pre>git add src/models/Task.ts src/board/client/types.ts
+git commit -m <span class="str">"feat: add branch field to Task and CreateTaskInput/UpdateTaskInput types"</span></pre>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Task 3 -->
+    <div class="task-card" id="task3">
+      <div class="task-header" onclick="toggleTask(this)">
+        <div class="task-num-badge">3</div>
+        <div class="task-title-text">SQLiteアダプターにbranch対応を追加</div>
+        <div class="task-files-pills">
+          <span class="file-pill">sqlite-storage-backend.ts</span>
+        </div>
+        <span class="collapse-icon">▼</span>
+      </div>
+      <div class="task-body">
+
+        <div class="step">
+          <input type="checkbox" class="step-checkbox" onchange="updateProgress()">
+          <div class="step-content">
+            <div class="step-label">Step 1: テストを追加（TDD）</div>
+            <div class="step-desc">
+              <code>tests/db/sqlite-adapter.test.ts</code> の末尾に追加
+            </div>
+            <div class="code-block">
+              <div class="code-header"><span class="code-lang">TypeScript</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+              <pre><span class="fn">describe</span>(<span class="str">'branch field'</span>, () =&gt; {
+  <span class="fn">it</span>(<span class="str">'creates task with branch'</span>, () =&gt; {
+    <span class="kw">const</span> db = <span class="fn">getStorageBackend</span>();
+    <span class="fn">resetDatabase</span>();
+    <span class="kw">const</span> task = db.tasks.<span class="fn">create</span>({
+      title: <span class="str">'test'</span>, status: <span class="str">'backlog'</span>, branch: <span class="str">'task/1-test'</span>,
+      created_at: <span class="kw">new</span> <span class="type">Date</span>().<span class="fn">toISOString</span>(), updated_at: <span class="kw">new</span> <span class="type">Date</span>().<span class="fn">toISOString</span>(),
+    });
+    <span class="fn">expect</span>(task.branch).<span class="fn">toBe</span>(<span class="str">'task/1-test'</span>);
+  });
+
+  <span class="fn">it</span>(<span class="str">'creates task with null branch by default'</span>, () =&gt; {
+    <span class="kw">const</span> db = <span class="fn">getStorageBackend</span>();
+    <span class="fn">resetDatabase</span>();
+    <span class="kw">const</span> task = db.tasks.<span class="fn">create</span>({
+      title: <span class="str">'test'</span>, status: <span class="str">'backlog'</span>,
+      created_at: <span class="kw">new</span> <span class="type">Date</span>().<span class="fn">toISOString</span>(), updated_at: <span class="kw">new</span> <span class="type">Date</span>().<span class="fn">toISOString</span>(),
+    });
+    <span class="fn">expect</span>(task.branch).<span class="fn">toBeNull</span>();
+  });
+
+  <span class="fn">it</span>(<span class="str">'updates task branch'</span>, () =&gt; {
+    <span class="kw">const</span> db = <span class="fn">getStorageBackend</span>();
+    <span class="fn">resetDatabase</span>();
+    <span class="kw">const</span> task = db.tasks.<span class="fn">create</span>({ title: <span class="str">'test'</span>, status: <span class="str">'backlog'</span>,
+      created_at: <span class="kw">new</span> <span class="type">Date</span>().<span class="fn">toISOString</span>(), updated_at: <span class="kw">new</span> <span class="type">Date</span>().<span class="fn">toISOString</span>() });
+    <span class="kw">const</span> updated = db.tasks.<span class="fn">update</span>(task.id, { branch: <span class="str">'task/42-my-branch'</span>, updated_at: <span class="kw">new</span> <span class="type">Date</span>().<span class="fn">toISOString</span>() });
+    <span class="fn">expect</span>(updated?.branch).<span class="fn">toBe</span>(<span class="str">'task/42-my-branch'</span>);
+  });
+});</pre>
+            </div>
+          </div>
+        </div>
+
+        <div class="step">
+          <input type="checkbox" class="step-checkbox" onchange="updateProgress()">
+          <div class="step-content">
+            <div class="step-label">Step 2: テストが失敗することを確認</div>
+            <div class="code-block">
+              <div class="code-header"><span class="code-lang">bash</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+              <pre>pnpm vitest run tests/db/sqlite-adapter.test.ts</pre>
+            </div>
+            <div class="expected"><span class="dot" style="background:var(--red)"></span>Expected: FAIL（branchカラムが未対応のため）</div>
+          </div>
+        </div>
+
+        <div class="step">
+          <input type="checkbox" class="step-checkbox" onchange="updateProgress()">
+          <div class="step-content">
+            <div class="step-label">Step 3: create() メソッドを更新</div>
+            <div class="code-block">
+              <div class="code-header"><span class="code-lang">TypeScript — sqlite-storage-backend.ts</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+              <pre><span class="fn">create</span>(input: CreateTaskInput &amp; { status: TaskStatus; created_at: <span class="type">string</span>; updated_at: <span class="type">string</span> }): <span class="type">Task</span> {
+  <span class="kw">const</span> result = <span class="kw">this</span>.db
+    .<span class="fn">prepare</span>(
+      <span class="str">`INSERT INTO tasks (title, body, author, assignees, status, priority, parent_id, branch, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`</span>
+    )
+    .<span class="fn">run</span>(
+      input.title, input.body ?? <span class="kw">null</span>, input.author ?? <span class="kw">null</span>, input.assignees ?? <span class="kw">null</span>,
+      input.status, input.priority !== <span class="kw">undefined</span> ? input.priority : <span class="kw">null</span>,
+      input.parent_id !== <span class="kw">undefined</span> ? input.parent_id : <span class="kw">null</span>,
+      input.branch !== <span class="kw">undefined</span> ? input.branch : <span class="kw">null</span>,  <span class="cm">// ← 追加</span>
+      input.created_at, input.updated_at
+    );
+  <span class="kw">return this</span>.<span class="fn">findById</span>(result.lastInsertRowid <span class="kw">as</span> <span class="type">number</span>)!;
+}</pre>
+            </div>
+          </div>
+        </div>
+
+        <div class="step">
+          <input type="checkbox" class="step-checkbox" onchange="updateProgress()">
+          <div class="step-content">
+            <div class="step-label">Step 4: buildUpdateClauses() に branch を追加</div>
+            <div class="code-block">
+              <div class="code-header"><span class="code-lang">TypeScript</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+              <pre><span class="cm">// fields配列に追加（updated_atの前）:</span>
+[<span class="str">'branch'</span>, <span class="str">'branch'</span>, (v) =&gt; (v <span class="kw">as</span> <span class="type">string</span> | <span class="kw">null</span>) ?? <span class="kw">null</span>],</pre>
+            </div>
+          </div>
+        </div>
+
+        <div class="step">
+          <input type="checkbox" class="step-checkbox" onchange="updateProgress()">
+          <div class="step-content">
+            <div class="step-label">Step 5: テストが通ることを確認</div>
+            <div class="code-block">
+              <div class="code-header"><span class="code-lang">bash</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+              <pre>pnpm vitest run tests/db/sqlite-adapter.test.ts</pre>
+            </div>
+            <div class="expected"><span class="dot"></span>Expected: PASS</div>
+          </div>
+        </div>
+
+        <div class="step">
+          <input type="checkbox" class="step-checkbox" onchange="updateProgress()">
+          <div class="step-content">
+            <div class="step-label">Step 6: コミット</div>
+            <div class="code-block">
+              <div class="code-header"><span class="code-lang">bash</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+              <pre>git add src/db/adapters/sqlite-storage-backend.ts tests/db/sqlite-adapter.test.ts
+git commit -m <span class="str">"feat: add branch field support to SQLite task repository"</span></pre>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Task 4 -->
+    <div class="task-card" id="task4">
+      <div class="task-header" onclick="toggleTask(this)">
+        <div class="task-num-badge">4</div>
+        <div class="task-title-text">GET /api/git/branches エンドポイント追加</div>
+        <div class="task-files-pills">
+          <span class="file-pill">boardRoutes.ts</span>
+        </div>
+        <span class="collapse-icon">▼</span>
+      </div>
+      <div class="task-body">
+
+        <div class="step">
+          <input type="checkbox" class="step-checkbox" onchange="updateProgress()">
+          <div class="step-content">
+            <div class="step-label">Step 1: テストを追加（TDD）</div>
+            <div class="code-block">
+              <div class="code-header"><span class="code-lang">TypeScript — tests/board/boardRoutes.test.ts</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+              <pre><span class="fn">describe</span>(<span class="str">'GET /api/git/branches'</span>, () =&gt; {
+  <span class="fn">it</span>(<span class="str">'returns list of git branches'</span>, <span class="kw">async</span> () =&gt; {
+    <span class="kw">const</span> { execSync } = <span class="kw">await import</span>(<span class="str">'child_process'</span>);
+    vi.<span class="fn">mocked</span>(execSync).<span class="fn">mockReturnValue</span>(<span class="type">Buffer</span>.<span class="fn">from</span>(<span class="str">'  main\n* fix/my-branch\n  task/123-foo\n'</span>));
+    <span class="kw">const</span> res = <span class="kw">await</span> app.<span class="fn">request</span>(<span class="str">'/api/git/branches'</span>);
+    <span class="fn">expect</span>(res.status).<span class="fn">toBe</span>(<span class="num">200</span>);
+    <span class="kw">const</span> body = <span class="kw">await</span> res.<span class="fn">json</span>();
+    <span class="fn">expect</span>(body.branches).<span class="fn">toEqual</span>([<span class="str">'main'</span>, <span class="str">'fix/my-branch'</span>, <span class="str">'task/123-foo'</span>]);
+  });
+  <span class="fn">it</span>(<span class="str">'returns empty list when git fails'</span>, <span class="kw">async</span> () =&gt; {
+    <span class="kw">const</span> { execSync } = <span class="kw">await import</span>(<span class="str">'child_process'</span>);
+    vi.<span class="fn">mocked</span>(execSync).<span class="fn">mockImplementation</span>(() =&gt; { <span class="kw">throw new</span> <span class="type">Error</span>(<span class="str">'not a git repo'</span>); });
+    <span class="kw">const</span> res = <span class="kw">await</span> app.<span class="fn">request</span>(<span class="str">'/api/git/branches'</span>);
+    <span class="fn">expect</span>(((<span class="kw">await</span> res.<span class="fn">json</span>()) <span class="kw">as</span> <span class="kw">any</span>).branches).<span class="fn">toEqual</span>([]);
+  });
+});</pre>
+            </div>
+          </div>
+        </div>
+
+        <div class="step">
+          <input type="checkbox" class="step-checkbox" onchange="updateProgress()">
+          <div class="step-content">
+            <div class="step-label">Step 2: テストが失敗することを確認</div>
+            <div class="code-block">
+              <div class="code-header"><span class="code-lang">bash</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+              <pre>pnpm vitest run tests/board/boardRoutes.test.ts -t <span class="str">"GET /api/git/branches"</span></pre>
+            </div>
+            <div class="expected"><span class="dot" style="background:var(--red)"></span>Expected: FAIL</div>
+          </div>
+        </div>
+
+        <div class="step">
+          <input type="checkbox" class="step-checkbox" onchange="updateProgress()">
+          <div class="step-content">
+            <div class="step-label">Step 3: boardRoutes.ts にエンドポイントを追加</div>
+            <div class="step-desc">先頭に <code>import { execSync } from 'child_process';</code> を追加し、<code>app.get('/api/tasks', ...)</code> の前に追加：</div>
+            <div class="code-block">
+              <div class="code-header"><span class="code-lang">TypeScript</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+              <pre>app.<span class="fn">get</span>(<span class="str">'/api/git/branches'</span>, (c) =&gt; {
+  <span class="kw">try</span> {
+    <span class="kw">const</span> output = <span class="fn">execSync</span>(<span class="str">'git branch -a'</span>, { cwd: process.<span class="fn">cwd</span>() }).<span class="fn">toString</span>();
+    <span class="kw">const</span> branches = output
+      .<span class="fn">split</span>(<span class="str">'\n'</span>)
+      .<span class="fn">map</span>((line) =&gt; line.<span class="fn">replace</span>(<span class="str">/^\*?\s+/</span>, <span class="str">''</span>).<span class="fn">replace</span>(<span class="str">/^remotes\/origin\//</span>, <span class="str">''</span>).<span class="fn">trim</span>())
+      .<span class="fn">filter</span>((line) =&gt; line &amp;&amp; !line.<span class="fn">startsWith</span>(<span class="str">'HEAD ->'</span>))
+      .<span class="fn">filter</span>((line, idx, arr) =&gt; arr.<span class="fn">indexOf</span>(line) === idx);
+    <span class="kw">return</span> c.<span class="fn">json</span>({ branches });
+  } <span class="kw">catch</span> {
+    <span class="kw">return</span> c.<span class="fn">json</span>({ branches: [] });
+  }
+});</pre>
+            </div>
+          </div>
+        </div>
+
+        <div class="step">
+          <input type="checkbox" class="step-checkbox" onchange="updateProgress()">
+          <div class="step-content">
+            <div class="step-label">Step 4: テストが通ることを確認</div>
+            <div class="code-block">
+              <div class="code-header"><span class="code-lang">bash</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+              <pre>pnpm vitest run tests/board/boardRoutes.test.ts -t <span class="str">"GET /api/git/branches"</span></pre>
+            </div>
+            <div class="expected"><span class="dot"></span>Expected: PASS</div>
+          </div>
+        </div>
+
+        <div class="step">
+          <input type="checkbox" class="step-checkbox" onchange="updateProgress()">
+          <div class="step-content">
+            <div class="step-label">Step 5: コミット</div>
+            <div class="code-block">
+              <div class="code-header"><span class="code-lang">bash</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+              <pre>git add src/board/boardRoutes.ts tests/board/boardRoutes.test.ts
+git commit -m <span class="str">"feat: add GET /api/git/branches endpoint"</span></pre>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Task 5 -->
+    <div class="task-card" id="task5">
+      <div class="task-header" onclick="toggleTask(this)">
+        <div class="task-num-badge">5</div>
+        <div class="task-title-text">POST /api/tasks と PATCH /api/tasks/:id に branch 対応</div>
+        <div class="task-files-pills">
+          <span class="file-pill">boardRoutes.ts</span>
+        </div>
+        <span class="collapse-icon">▼</span>
+      </div>
+      <div class="task-body">
+
+        <div class="step">
+          <input type="checkbox" class="step-checkbox" onchange="updateProgress()">
+          <div class="step-content">
+            <div class="step-label">Step 1: テストを追加（TDD）</div>
+            <div class="code-block">
+              <div class="code-header"><span class="code-lang">TypeScript</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+              <pre><span class="fn">it</span>(<span class="str">'creates task with branch field'</span>, <span class="kw">async</span> () =&gt; {
+  <span class="kw">const</span> res = <span class="kw">await</span> app.<span class="fn">request</span>(<span class="str">'/api/tasks'</span>, {
+    method: <span class="str">'POST'</span>, headers: { <span class="str">'Content-Type'</span>: <span class="str">'application/json'</span> },
+    body: <span class="type">JSON</span>.<span class="fn">stringify</span>({ title: <span class="str">'Test'</span>, branch: <span class="str">'task/1-test'</span> }),
+  });
+  <span class="fn">expect</span>(res.status).<span class="fn">toBe</span>(<span class="num">201</span>);
+  <span class="fn">expect</span>((<span class="kw">await</span> res.<span class="fn">json</span>() <span class="kw">as any</span>).branch).<span class="fn">toBe</span>(<span class="str">'task/1-test'</span>);
+});
+
+<span class="fn">it</span>(<span class="str">'updates task branch field'</span>, <span class="kw">async</span> () =&gt; {
+  <span class="cm">// create task first, then PATCH with branch</span>
+  <span class="kw">const</span> task = <span class="kw">await</span> (...).<span class="fn">json</span>();
+  <span class="kw">const</span> res = <span class="kw">await</span> app.<span class="fn">request</span>(<span class="str">`/api/tasks/${task.id}`</span>, {
+    method: <span class="str">'PATCH'</span>, headers: { <span class="str">'Content-Type'</span>: <span class="str">'application/json'</span> },
+    body: <span class="type">JSON</span>.<span class="fn">stringify</span>({ branch: <span class="str">'task/42-my-feature'</span> }),
+  });
+  <span class="fn">expect</span>((<span class="kw">await</span> res.<span class="fn">json</span>() <span class="kw">as any</span>).branch).<span class="fn">toBe</span>(<span class="str">'task/42-my-feature'</span>);
+});</pre>
+            </div>
+          </div>
+        </div>
+
+        <div class="step">
+          <input type="checkbox" class="step-checkbox" onchange="updateProgress()">
+          <div class="step-content">
+            <div class="step-label">Step 2: TaskPatchBody と buildTaskUpdateInput を更新</div>
+            <div class="code-block">
+              <div class="code-header"><span class="code-lang">TypeScript</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+              <pre><span class="kw">type</span> <span class="type">TaskPatchBody</span> = {
+  title?: <span class="type">string</span>;
+  body?: <span class="type">string</span> | <span class="kw">null</span>;
+  status?: <span class="type">BoardTaskStatus</span>;
+  priority?: <span class="type">string</span> | <span class="kw">null</span>;
+  branch?: <span class="type">string</span> | <span class="kw">null</span>;   <span class="cm">// ← 追加</span>
+};
+
+<span class="cm">// buildTaskUpdateInput内、priorityの処理の後：</span>
+<span class="kw">if</span> (body.branch !== <span class="kw">undefined</span>) {
+  input.branch = body.branch || <span class="kw">null</span>;
+}</pre>
+            </div>
+          </div>
+        </div>
+
+        <div class="step">
+          <input type="checkbox" class="step-checkbox" onchange="updateProgress()">
+          <div class="step-content">
+            <div class="step-label">Step 3: POST /api/tasks のbody型と createTask 呼び出しを更新</div>
+            <div class="code-block">
+              <div class="code-header"><span class="code-lang">TypeScript</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+              <pre><span class="kw">const</span> task = ts.<span class="fn">createTask</span>({
+  title: body.title.<span class="fn">trim</span>(),
+  body: body.body || <span class="kw">undefined</span>,
+  status, priority, tagIds,
+  branch: body.branch || <span class="kw">undefined</span>,   <span class="cm">// ← 追加</span>
+});</pre>
+            </div>
+          </div>
+        </div>
+
+        <div class="step">
+          <input type="checkbox" class="step-checkbox" onchange="updateProgress()">
+          <div class="step-content">
+            <div class="step-label">Step 4: テストが通ることを確認 → コミット</div>
+            <div class="code-block">
+              <div class="code-header"><span class="code-lang">bash</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+              <pre>pnpm vitest run tests/board/boardRoutes.test.ts -t <span class="str">"with branch"</span>
+git add src/board/boardRoutes.ts tests/board/boardRoutes.test.ts
+git commit -m <span class="str">"feat: accept branch field in POST /api/tasks and PATCH /api/tasks/:id"</span></pre>
+            </div>
+            <div class="expected"><span class="dot"></span>Expected: PASS</div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Task 6 -->
+    <div class="task-card" id="task6">
+      <div class="task-header" onclick="toggleTask(this)">
+        <div class="task-num-badge">6</div>
+        <div class="task-title-text">タスク実行時のブランチ処理（run エンドポイント）</div>
+        <div class="task-files-pills">
+          <span class="file-pill">boardRoutes.ts</span>
+          <span class="file-pill">claudeRoutes.test.ts</span>
+        </div>
+        <span class="collapse-icon">▼</span>
+      </div>
+      <div class="task-body">
+
+        <div class="step">
+          <input type="checkbox" class="step-checkbox" onchange="updateProgress()">
+          <div class="step-content">
+            <div class="step-label">Step 1 & 2: テスト追加 → 失敗確認</div>
+            <div class="code-block">
+              <div class="code-header"><span class="code-lang">bash</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+              <pre>pnpm vitest run tests/board/claudeRoutes.test.ts -t <span class="str">"branch handling"</span></pre>
+            </div>
+            <div class="expected"><span class="dot" style="background:var(--red)"></span>Expected: FAIL</div>
+          </div>
+        </div>
+
+        <div class="step">
+          <input type="checkbox" class="step-checkbox" onchange="updateProgress()">
+          <div class="step-content">
+            <div class="step-label">Step 3: run エンドポイントにブランチ処理を追加</div>
+            <div class="code-block">
+              <div class="code-header"><span class="code-lang">TypeScript — POST /api/claude/tasks/:taskId/run</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+              <pre><span class="cm">// Branch handling — promptの前に追加</span>
+<span class="kw">if</span> (task.branch) {
+  <span class="kw">try</span> {
+    <span class="kw">const</span> branchExists = <span class="fn">execSync</span>(<span class="str">`git branch --list ${task.branch}`</span>, { cwd: process.<span class="fn">cwd</span>() })
+      .<span class="fn">toString</span>().<span class="fn">trim</span>();
+    <span class="kw">if</span> (branchExists) {
+      <span class="fn">execSync</span>(<span class="str">`git checkout ${task.branch}`</span>, { cwd: process.<span class="fn">cwd</span>() });
+    } <span class="kw">else</span> {
+      <span class="fn">execSync</span>(<span class="str">`git checkout -b ${task.branch}`</span>, { cwd: process.<span class="fn">cwd</span>() });
+    }
+  } <span class="kw">catch</span> (e) {
+    <span class="kw">return</span> c.<span class="fn">json</span>({ error: <span class="str">`Failed to checkout branch: ${task.branch}`</span> }, <span class="num">500</span>);
+  }
+}
+
+<span class="kw">const</span> branchInstruction = !task.branch
+  ? <span class="str">`\n\nブランチ指定なし: このタスクのtitleとbodyを読み、作業内容に適したgitブランチ名を生成してください。
+形式: task/${taskId}-&lt;kebab-case&gt;（英数字とハイフンのみ、最大60文字）。
+生成したブランチ名で git checkout -b を実行してから作業を開始し、
+作業開始後に PATCH /api/tasks/${taskId} でbranchフィールドを保存してください。`</span>
+  : <span class="str">''</span>;
+
+<span class="kw">const</span> prompt = command === <span class="str">'planning'</span>
+  ? <span class="str">`Task ID: ${taskId}\n/agkan-planning-subtask${branchInstruction}`</span>
+  : command === <span class="str">'pr'</span>
+    ? <span class="str">`Task ID: ${taskId}\n/agkan-subtask${branchInstruction}`</span>
+    : <span class="str">`Task ID: ${taskId}\n/agkan-subtask-direct${branchInstruction}`</span>;</pre>
+            </div>
+          </div>
+        </div>
+
+        <div class="step">
+          <input type="checkbox" class="step-checkbox" onchange="updateProgress()">
+          <div class="step-content">
+            <div class="step-label">Step 4: テストが通ることを確認 → コミット</div>
+            <div class="code-block">
+              <div class="code-header"><span class="code-lang">bash</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+              <pre>pnpm vitest run tests/board/claudeRoutes.test.ts -t <span class="str">"branch handling"</span>
+git add src/board/boardRoutes.ts tests/board/claudeRoutes.test.ts
+git commit -m <span class="str">"feat: handle git branch checkout on task run"</span></pre>
+            </div>
+            <div class="expected"><span class="dot"></span>Expected: PASS</div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Task 7 -->
+    <div class="task-card" id="task7">
+      <div class="task-header" onclick="toggleTask(this)">
+        <div class="task-num-badge">7</div>
+        <div class="task-title-text">addTaskModal に branch フィールドを追加</div>
+        <div class="task-files-pills">
+          <span class="file-pill">boardRenderer.ts</span>
+          <span class="file-pill">addTaskModal.ts</span>
+        </div>
+        <span class="collapse-icon">▼</span>
+      </div>
+      <div class="task-body">
+
+        <div class="step">
+          <input type="checkbox" class="step-checkbox" onchange="updateProgress()">
+          <div class="step-content">
+            <div class="step-label">Step 1: boardRenderer.ts のモーダル HTML に branch 入力を追加</div>
+            <div class="step-desc">priorityセレクトの後、Tagsラベルの前に追加</div>
+            <div class="code-block">
+              <div class="code-header"><span class="code-lang">HTML (template string)</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+              <pre>&lt;label for="add-branch"&gt;Branch&lt;/label&gt;
+&lt;div class="branch-select-wrapper" id="add-branch-wrapper"&gt;
+  &lt;div class="branch-input-row"&gt;
+    &lt;input type="text" id="add-branch" placeholder="Branch name (e.g. task/fix-bug)" autocomplete="off"&gt;
+    &lt;button type="button" id="add-branch-auto-btn" class="branch-auto-btn" title="Auto-generate"&gt;Auto&lt;/button&gt;
+  &lt;/div&gt;
+  &lt;div class="branch-select-dropdown" id="add-branch-dropdown" style="display:none;"&gt;&lt;/div&gt;
+&lt;/div&gt;</pre>
+            </div>
+          </div>
+        </div>
+
+        <div class="step">
+          <input type="checkbox" class="step-checkbox" onchange="updateProgress()">
+          <div class="step-content">
+            <div class="step-label">Step 2: addTaskModal.ts に branch ロジックを追加</div>
+            <div class="code-block">
+              <div class="code-header"><span class="code-lang">TypeScript</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+              <pre><span class="kw">let</span> branchSuggestions: <span class="type">string</span>[] = [];
+<span class="kw">let</span> branchSuggestionsLoaded = <span class="kw">false</span>;
+
+<span class="kw">async function</span> <span class="fn">loadBranchSuggestions</span>(): Promise&lt;<span class="type">void</span>&gt; {
+  <span class="kw">if</span> (branchSuggestionsLoaded) <span class="kw">return</span>;
+  <span class="kw">try</span> {
+    <span class="kw">const</span> res = <span class="kw">await</span> <span class="fn">fetch</span>(<span class="str">'/api/git/branches'</span>);
+    <span class="kw">if</span> (res.ok) {
+      <span class="kw">const</span> data = <span class="kw">await</span> res.<span class="fn">json</span>() <span class="kw">as</span> { branches: <span class="type">string</span>[] };
+      branchSuggestions = data.branches;
+      branchSuggestionsLoaded = <span class="kw">true</span>;
+    }
+  } <span class="kw">catch</span> { <span class="cm">/* サジェストなしでも入力は可能 */</span> }
+}
+
+<span class="kw">function</span> <span class="fn">generateBranchSlug</span>(title: <span class="type">string</span>): <span class="type">string</span> {
+  <span class="kw">return</span> <span class="str">'task/'</span> + title
+    .<span class="fn">toLowerCase</span>().<span class="fn">replace</span>(<span class="str">/[^a-z0-9\s-]/g</span>, <span class="str">''</span>).<span class="fn">trim</span>()
+    .<span class="fn">replace</span>(<span class="str">/\s+/g</span>, <span class="str">'-'</span>).<span class="fn">replace</span>(<span class="str">/-+/g</span>, <span class="str">'-'</span>).<span class="fn">slice</span>(<span class="num">0</span>, <span class="num">50</span>);
+}</pre>
+            </div>
+          </div>
+        </div>
+
+        <div class="step">
+          <input type="checkbox" class="step-checkbox" onchange="updateProgress()">
+          <div class="step-content">
+            <div class="step-label">Step 3〜5: ワイヤリング・リセット・送信に branch を組み込む</div>
+            <div class="code-block">
+              <div class="code-header"><span class="code-lang">TypeScript — initAddTaskModal()</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+              <pre><span class="cm">// フォーカス時にサジェスト取得</span>
+branchInput.<span class="fn">addEventListener</span>(<span class="str">'focus'</span>, <span class="kw">async</span> () =&gt; {
+  <span class="kw">await</span> <span class="fn">loadBranchSuggestions</span>();
+  <span class="fn">renderBranchDropdown</span>(branchDropdown, branchInput.value);
+});
+branchInput.<span class="fn">addEventListener</span>(<span class="str">'input'</span>, () =&gt; <span class="fn">renderBranchDropdown</span>(branchDropdown, branchInput.value));
+branchInput.<span class="fn">addEventListener</span>(<span class="str">'blur'</span>, () =&gt; <span class="fn">setTimeout</span>(() =&gt; { branchDropdown.style.display = <span class="str">'none'</span>; }, <span class="num">150</span>));
+
+<span class="cm">// 自動生成ボタン</span>
+branchAutoBtn.<span class="fn">addEventListener</span>(<span class="str">'click'</span>, () =&gt; {
+  <span class="kw">const</span> title = elements.addTitle.value.<span class="fn">trim</span>();
+  <span class="kw">if</span> (title) branchInput.value = <span class="fn">generateBranchSlug</span>(title);
+});
+
+<span class="cm">// submit時に branch を送信</span>
+body: <span class="type">JSON</span>.<span class="fn">stringify</span>({
+  <span class="cm">/* ...既存フィールド... */</span>
+  branch: branchInput?.value.<span class="fn">trim</span>() || <span class="kw">undefined</span>,
+})</pre>
+            </div>
+          </div>
+        </div>
+
+        <div class="step">
+          <input type="checkbox" class="step-checkbox" onchange="updateProgress()">
+          <div class="step-content">
+            <div class="step-label">Step 6 & 7: 型チェック → コミット</div>
+            <div class="code-block">
+              <div class="code-header"><span class="code-lang">bash</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+              <pre>pnpm run type-check
+git add src/board/boardRenderer.ts src/board/client/addTaskModal.ts
+git commit -m <span class="str">"feat: add branch input with suggestions and auto-generate to add task modal"</span></pre>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Task 8 -->
+    <div class="task-card" id="task8">
+      <div class="task-header" onclick="toggleTask(this)">
+        <div class="task-num-badge">8</div>
+        <div class="task-title-text">detailパネルに branch フィールドを追加</div>
+        <div class="task-files-pills">
+          <span class="file-pill">detailPanelHtml.ts</span>
+          <span class="file-pill">detailPanel.ts</span>
+        </div>
+        <span class="collapse-icon">▼</span>
+      </div>
+      <div class="task-body">
+
+        <div class="step">
+          <input type="checkbox" class="step-checkbox" onchange="updateProgress()">
+          <div class="step-content">
+            <div class="step-label">Step 1: renderBranchField() を追加</div>
+            <div class="code-block">
+              <div class="code-header"><span class="code-lang">TypeScript — detailPanelHtml.ts</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+              <pre><span class="kw">export function</span> <span class="fn">renderBranchField</span>(currentBranch: <span class="type">string</span> | <span class="kw">null</span> | <span class="kw">undefined</span>): <span class="type">string</span> {
+  <span class="kw">const</span> val = currentBranch ? <span class="fn">escapeHtmlClient</span>(currentBranch) : <span class="str">''</span>;
+  <span class="kw">let</span> html = <span class="str">'&lt;div class="detail-field"&gt;'</span>;
+  html += <span class="str">'&lt;div class="detail-field-label"&gt;Branch&lt;/div&gt;'</span>;
+  html += <span class="str">'&lt;div class="branch-input-row"&gt;'</span>;
+  html += <span class="str">'&lt;input id="detail-edit-branch" class="detail-edit-input" type="text" value="'</span> + val + <span class="str">'" placeholder="Branch name" autocomplete="off"&gt;'</span>;
+  html += <span class="str">'&lt;button type="button" id="detail-branch-auto-btn" class="branch-auto-btn"&gt;Auto&lt;/button&gt;'</span>;
+  html += <span class="str">'&lt;/div&gt;'</span>;
+  html += <span class="str">'&lt;div class="branch-select-dropdown" id="detail-branch-dropdown" style="display:none;"&gt;&lt;/div&gt;'</span>;
+  html += <span class="str">'&lt;/div&gt;'</span>;
+  <span class="kw">return</span> html;
+}</pre>
+            </div>
+          </div>
+        </div>
+
+        <div class="step">
+          <input type="checkbox" class="step-checkbox" onchange="updateProgress()">
+          <div class="step-content">
+            <div class="step-label">Step 2: renderDetailPanelHtml に組み込む</div>
+            <div class="code-block">
+              <div class="code-header"><span class="code-lang">TypeScript</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+              <pre>html += <span class="fn">renderStatusField</span>(task.status, allStatuses, statusLabels);
+html += <span class="fn">renderPriorityField</span>(task.priority, allPriorities);
+html += <span class="fn">renderBranchField</span>(task.branch);   <span class="cm">// ← 追加</span></pre>
+            </div>
+          </div>
+        </div>
+
+        <div class="step">
+          <input type="checkbox" class="step-checkbox" onchange="updateProgress()">
+          <div class="step-content">
+            <div class="step-label">Step 3: wireBranchField() を detailPanel.ts に追加</div>
+            <div class="code-block">
+              <div class="code-header"><span class="code-lang">TypeScript — detailPanel.ts</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+              <pre><span class="kw">function</span> <span class="fn">wireBranchField</span>(taskId: <span class="type">number</span>, taskTitle: <span class="type">string</span>): <span class="type">void</span> {
+  <span class="kw">const</span> branchInput = document.<span class="fn">getElementById</span>(<span class="str">'detail-edit-branch'</span>) <span class="kw">as</span> HTMLInputElement | <span class="kw">null</span>;
+  <span class="kw">const</span> branchDropdown = document.<span class="fn">getElementById</span>(<span class="str">'detail-branch-dropdown'</span>) <span class="kw">as</span> HTMLElement | <span class="kw">null</span>;
+  <span class="kw">const</span> autoBtn = document.<span class="fn">getElementById</span>(<span class="str">'detail-branch-auto-btn'</span>) <span class="kw">as</span> HTMLButtonElement | <span class="kw">null</span>;
+  <span class="kw">if</span> (!branchInput || !branchDropdown || !autoBtn) <span class="kw">return</span>;
+
+  <span class="kw">let</span> suggestions: <span class="type">string</span>[] = [], loaded = <span class="kw">false</span>;
+
+  <span class="kw">async function</span> <span class="fn">loadSuggestions</span>(): Promise&lt;<span class="type">void</span>&gt; {
+    <span class="kw">if</span> (loaded) <span class="kw">return</span>;
+    <span class="kw">try</span> {
+      <span class="kw">const</span> res = <span class="kw">await</span> <span class="fn">fetch</span>(<span class="str">'/api/git/branches'</span>);
+      <span class="kw">if</span> (res.ok) { ({ branches: suggestions } = <span class="kw">await</span> res.<span class="fn">json</span>()); loaded = <span class="kw">true</span>; }
+    } <span class="kw">catch</span> { <span class="cm">/* サジェストなし */</span> }
+  }
+
+  branchInput.<span class="fn">addEventListener</span>(<span class="str">'focus'</span>, <span class="kw">async</span> () =&gt; { <span class="kw">await</span> <span class="fn">loadSuggestions</span>(); <span class="fn">renderDropdown</span>(branchInput.value); });
+  branchInput.<span class="fn">addEventListener</span>(<span class="str">'input'</span>, () =&gt; <span class="fn">renderDropdown</span>(branchInput.value));
+  branchInput.<span class="fn">addEventListener</span>(<span class="str">'blur'</span>, () =&gt; <span class="fn">setTimeout</span>(() =&gt; { branchDropdown.style.display = <span class="str">'none'</span>; }, <span class="num">150</span>));
+
+  autoBtn.<span class="fn">addEventListener</span>(<span class="str">'click'</span>, () =&gt; {
+    <span class="kw">const</span> slug = taskTitle.<span class="fn">toLowerCase</span>().<span class="fn">replace</span>(<span class="str">/[^a-z0-9\s-]/g</span>, <span class="str">''</span>).<span class="fn">trim</span>()
+      .<span class="fn">replace</span>(<span class="str">/\s+/g</span>, <span class="str">'-'</span>).<span class="fn">replace</span>(<span class="str">/-+/g</span>, <span class="str">'-'</span>).<span class="fn">slice</span>(<span class="num">0</span>, <span class="num">50</span>);
+    branchInput.value = <span class="str">`task/${taskId}-${slug}`</span>;
+  });
+}</pre>
+            </div>
+          </div>
+        </div>
+
+        <div class="step">
+          <input type="checkbox" class="step-checkbox" onchange="updateProgress()">
+          <div class="step-content">
+            <div class="step-label">Step 4: renderDetailPanel 後に wireBranchField を呼ぶ</div>
+            <div class="code-block">
+              <div class="code-header"><span class="code-lang">TypeScript</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+              <pre><span class="cm">// autoResizeTextarea呼び出しの近くに追加:</span>
+<span class="fn">wireBranchField</span>(data.task.id, data.task.title);</pre>
+            </div>
+          </div>
+        </div>
+
+        <div class="step">
+          <input type="checkbox" class="step-checkbox" onchange="updateProgress()">
+          <div class="step-content">
+            <div class="step-label">Step 5: collectEditedTaskFields に branch を追加</div>
+            <div class="code-block">
+              <div class="code-header"><span class="code-lang">TypeScript</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+              <pre><span class="kw">const</span> branchEl = document.<span class="fn">getElementById</span>(<span class="str">'detail-edit-branch'</span>) <span class="kw">as</span> HTMLInputElement;
+<span class="kw">return</span> {
+  title, body, status, priority,
+  branch: branchEl ? branchEl.value.<span class="fn">trim</span>() || <span class="kw">null</span> : <span class="kw">null</span>,   <span class="cm">// ← 追加</span>
+};</pre>
+            </div>
+          </div>
+        </div>
+
+        <div class="step">
+          <input type="checkbox" class="step-checkbox" onchange="updateProgress()">
+          <div class="step-content">
+            <div class="step-label">Step 6 & 7: 型チェック → コミット</div>
+            <div class="code-block">
+              <div class="code-header"><span class="code-lang">bash</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+              <pre>pnpm run type-check
+git add src/board/client/detailPanelHtml.ts src/board/client/detailPanel.ts
+git commit -m <span class="str">"feat: add branch field with suggestions and auto-generate to detail panel"</span></pre>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Task 9 -->
+    <div class="task-card" id="task9">
+      <div class="task-header" onclick="toggleTask(this)">
+        <div class="task-num-badge">9</div>
+        <div class="task-title-text">CSSスタイルを追加</div>
+        <div class="task-files-pills">
+          <span class="file-pill">boardStyles.ts</span>
+        </div>
+        <span class="collapse-icon">▼</span>
+      </div>
+      <div class="task-body">
+
+        <div class="step">
+          <input type="checkbox" class="step-checkbox" onchange="updateProgress()">
+          <div class="step-content">
+            <div class="step-label">Step 1: branch 関連スタイルを追加（.tag-select-wrapper の近く）</div>
+            <div class="code-block">
+              <div class="code-header"><span class="code-lang">CSS</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+              <pre>.branch-input-row { display: flex; gap: 6px; align-items: center; }
+.branch-input-row input { flex: 1; }
+.branch-auto-btn {
+  padding: 4px 10px; font-size: 12px;
+  background: var(--btn-bg, #f1f5f9);
+  border: 1px solid var(--border-color, #e2e8f0);
+  border-radius: 4px; cursor: pointer; white-space: nowrap;
+}
+.branch-auto-btn:hover { background: var(--btn-hover-bg, #e2e8f0); }
+.branch-select-wrapper { position: relative; }
+.branch-select-dropdown {
+  position: absolute; z-index: 100;
+  background: var(--modal-bg, #fff);
+  border: 1px solid var(--border-color, #e2e8f0);
+  border-radius: 4px; max-height: 180px; overflow-y: auto;
+  width: 100%; box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+.branch-select-option { padding: 6px 10px; cursor: pointer; font-size: 13px; }
+.branch-select-option:hover { background: var(--hover-bg, #f1f5f9); }
+
+[data-theme="dark"] .branch-auto-btn { background: #334155; border-color: #475569; color: #e2e8f0; }
+[data-theme="dark"] .branch-select-dropdown { background: #1e293b; border-color: #334155; }
+[data-theme="dark"] .branch-select-option:hover { background: #334155; }</pre>
+            </div>
+          </div>
+        </div>
+
+        <div class="step">
+          <input type="checkbox" class="step-checkbox" onchange="updateProgress()">
+          <div class="step-content">
+            <div class="step-label">Step 2〜5: 型チェック・ビルド → コミット</div>
+            <div class="code-block">
+              <div class="code-header"><span class="code-lang">bash</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+              <pre>pnpm run type-check &amp;&amp; pnpm run build
+git add src/board/boardStyles.ts src/board/boardRenderer.ts
+git commit -m <span class="str">"feat: add CSS styles for branch input field"</span></pre>
+            </div>
+            <div class="expected"><span class="dot"></span>Expected: エラーなし</div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Task 10 -->
+    <div class="task-card" id="task10">
+      <div class="task-header" onclick="toggleTask(this)">
+        <div class="task-num-badge">10</div>
+        <div class="task-title-text">全テスト実行と最終確認</div>
+        <div class="task-files-pills">
+          <span class="file-pill">全ファイル</span>
+        </div>
+        <span class="collapse-icon">▼</span>
+      </div>
+      <div class="task-body">
+
+        <div class="step">
+          <input type="checkbox" class="step-checkbox" onchange="updateProgress()">
+          <div class="step-content">
+            <div class="step-label">Step 1: 全テスト実行</div>
+            <div class="code-block">
+              <div class="code-header"><span class="code-lang">bash</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+              <pre>pnpm vitest run</pre>
+            </div>
+            <div class="expected"><span class="dot"></span>Expected: 全テスト PASS</div>
+          </div>
+        </div>
+
+        <div class="step">
+          <input type="checkbox" class="step-checkbox" onchange="updateProgress()">
+          <div class="step-content">
+            <div class="step-label">Step 2: 型チェック & lint</div>
+            <div class="code-block">
+              <div class="code-header"><span class="code-lang">bash</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+              <pre>pnpm run check</pre>
+            </div>
+            <div class="expected"><span class="dot"></span>Expected: エラーなし</div>
+          </div>
+        </div>
+
+        <div class="step">
+          <input type="checkbox" class="step-checkbox" onchange="updateProgress()">
+          <div class="step-content">
+            <div class="step-label">Step 3: ビルド確認</div>
+            <div class="code-block">
+              <div class="code-header"><span class="code-lang">bash</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+              <pre>pnpm run build</pre>
+            </div>
+            <div class="expected"><span class="dot"></span>Expected: エラーなし</div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<script>
+  // Progress tracking
+  function updateProgress() {
+    const checkboxes = document.querySelectorAll('.step-checkbox');
+    const checked = document.querySelectorAll('.step-checkbox:checked');
+    const total = checkboxes.length;
+    const done = checked.length;
+    const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+
+    document.getElementById('progress-fill').style.width = pct + '%';
+    document.getElementById('progress-text').textContent = done + ' / ' + total;
+    document.getElementById('done-count').textContent = done;
+
+    // Save to localStorage
+    const state = {};
+    checkboxes.forEach((cb, i) => { state[i] = cb.checked; });
+    localStorage.setItem('branch-plan-progress', JSON.stringify(state));
+  }
+
+  // Restore state
+  function restoreProgress() {
+    try {
+      const state = JSON.parse(localStorage.getItem('branch-plan-progress') || '{}');
+      const checkboxes = document.querySelectorAll('.step-checkbox');
+      checkboxes.forEach((cb, i) => {
+        if (state[i]) cb.checked = true;
+      });
+    } catch {}
+    updateProgress();
+  }
+
+  // Toggle task collapse
+  function toggleTask(header) {
+    const body = header.nextElementSibling;
+    const icon = header.querySelector('.collapse-icon');
+    const isCollapsed = body.classList.contains('collapsed');
+    if (isCollapsed) {
+      body.classList.remove('collapsed');
+      header.classList.remove('collapsed-header');
+    } else {
+      body.classList.add('collapsed');
+      header.classList.add('collapsed-header');
+    }
+  }
+
+  // Copy code
+  function copyCode(btn) {
+    const pre = btn.closest('.code-block').querySelector('pre');
+    navigator.clipboard.writeText(pre.innerText).then(() => {
+      btn.textContent = 'Copied!';
+      setTimeout(() => { btn.textContent = 'Copy'; }, 1500);
+    });
+  }
+
+  // Smooth scroll for nav
+  document.querySelectorAll('.nav-item[href]').forEach(link => {
+    link.addEventListener('click', e => {
+      e.preventDefault();
+      const target = document.querySelector(link.getAttribute('href'));
+      if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  });
+
+  restoreProgress();
+</script>
+</body>
+</html>
