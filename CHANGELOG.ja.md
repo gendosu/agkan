@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.12.0] - 2026-05-19
+
+### 追加
+- コンテキスト出力に agkan タスク管理の必須指示を追加
+
+### 修正
+- planning コマンド時はブランチ作成手順をスキップするよう修正
+
 ## [3.11.1] - 2026-05-17
 
 ### 追加
