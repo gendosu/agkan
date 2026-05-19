@@ -105,6 +105,8 @@ export class TaskService {
     const sortOrder: SortOrder = order === 'asc' ? 'asc' : 'desc';
     const { status, author, assignees, tagIds, priority, search, includeArchived } = filters ?? {};
 
+    const searchId = search && /^\d+$/.test(search) ? parseInt(search, 10) : undefined;
+
     return this.backend.tasks.findAll(
       {
         status,
@@ -114,6 +116,7 @@ export class TaskService {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         priority: priority as any,
         search,
+        searchId,
         includeArchived,
       },
       { field: sortField, order: sortOrder }
