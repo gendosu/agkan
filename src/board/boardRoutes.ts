@@ -29,6 +29,7 @@ import {
 import { BulkRunService, BulkRunCommand } from './BulkRunService';
 import { verifyHookToken, getHookToken } from '../utils/hookToken';
 import { AttentionStateService } from '../services/AttentionStateService';
+import { BoardEventService } from '../services/BoardEventService';
 import { isTestMode } from '../db/config';
 
 export type BoardServices = {
@@ -42,6 +43,8 @@ export type BoardServices = {
   boardTitle?: string;
   configDir: string;
   ptySessionService?: PtySessionService;
+  boardEventService?: BoardEventService;
+  attentionStateService?: AttentionStateService;
 };
 
 type TaskPatchBody = {
@@ -274,7 +277,13 @@ function registerCommentRoutes(app: Hono, cs: CommentService, ts: TaskService): 
   registerCommentIdRoutes(app, cs);
 }
 
-function registerTagRoutes(app: Hono, tts: TaskTagService, tags: TagService, ts: TaskService): void {
+function registerTagRoutes(
+  app: Hono,
+  tts: TaskTagService,
+  tags: TagService,
+  ts: TaskService,
+  boardEventService?: BoardEventService
+): void {
   app.post('/api/tasks/:id/tags', async (c) => {
     const id = Number(c.req.param('id'));
     if (isNaN(id)) return c.json({ error: 'Invalid task id' }, 400);
@@ -284,6 +293,7 @@ function registerTagRoutes(app: Hono, tts: TaskTagService, tags: TagService, ts:
     if (!ts.getTask(id)) return c.json({ error: 'Task not found' }, 404);
     if (!tags.getTag(tagId)) return c.json({ error: 'Tag not found' }, 404);
     tts.addTagToTask({ task_id: id, tag_id: tagId });
+    boardEventService?.notify();
     return c.json({ success: true }, 201);
   });
   app.delete('/api/tasks/:id/tags/:tagId', (c) => {
@@ -293,6 +303,7 @@ function registerTagRoutes(app: Hono, tts: TaskTagService, tags: TagService, ts:
     if (isNaN(tagId)) return c.json({ error: 'Invalid tag id' }, 400);
     const removed = tts.removeTagFromTask(id, tagId);
     if (!removed) return c.json({ error: 'Tag not attached to task' }, 404);
+    boardEventService?.notify();
     return c.json({ success: true });
   });
   app.get('/api/tags', (c) => {
@@ -427,10 +438,10 @@ function registerExportImportRoutes(app: Hono, services: BoardServices): void {
 }
 
 export function registerTaskApiRoutes(app: Hono, services: BoardServices): void {
-  const { ts, tts, tags, ms, cs, tbs } = services;
+  const { ts, tts, tags, ms, cs, tbs, boardEventService } = services;
   registerTaskCrudRoutes(app, ts, tts, tbs, ms, tags);
   registerCommentRoutes(app, cs, ts);
-  registerTagRoutes(app, tts, tags, ts);
+  registerTagRoutes(app, tts, tags, ts, boardEventService);
   registerUtilityRoutes(app, ts);
   registerExportImportRoutes(app, services);
 }
@@ -612,63 +623,6 @@ function registerClaudeRoutes(app: Hono, claudeProcess: PtySessionService, ts: T
     return c.json({ tasks });
   });
 
-  app.get('/api/running-tasks/stream', (c) => {
-    const stream = new ReadableStream({
-      start(controller) {
-        let finalized = false;
-        let unsubscribeConfirm: (() => void) | undefined;
-
-        const encode = (event: string, data: unknown): Uint8Array => {
-          const payload = `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
-          return new TextEncoder().encode(payload);
-        };
-
-        const safeClose = () => {
-          if (finalized) return;
-          finalized = true;
-          unsubscribe();
-          unsubscribeConfirm?.();
-          controller.close();
-        };
-
-        const sendUpdate = () => {
-          if (finalized) return;
-          try {
-            controller.enqueue(encode('update', { tasks: claudeProcess.listRunningTasks() }));
-          } catch {
-            safeClose();
-          }
-        };
-
-        const sendConfirmComplete = (taskId: number, targetStatus: string) => {
-          if (finalized) return;
-          try {
-            controller.enqueue(encode('confirm-complete', { taskId, targetStatus }));
-          } catch {
-            safeClose();
-          }
-        };
-
-        const unsubscribe = claudeProcess.subscribeRunningTasksChange(sendUpdate);
-        unsubscribeConfirm = claudeProcess.subscribeCompletionConfirm(sendConfirmComplete);
-
-        sendUpdate();
-
-        c.req.raw.signal?.addEventListener('abort', () => {
-          safeClose();
-        });
-      },
-    });
-
-    return new Response(stream, {
-      headers: {
-        'Content-Type': 'text/event-stream',
-        'Cache-Control': 'no-cache',
-        Connection: 'keep-alive',
-      },
-    });
-  });
-
   app.get('/api/claude/tasks/:taskId/run-logs/stream', (c) => {
     const taskId = Number(c.req.param('taskId'));
     if (isNaN(taskId)) return c.json({ error: 'Invalid taskId' }, 400);
@@ -754,10 +708,6 @@ export interface HookRouteDeps {
   ptySessionService: { stopProcess: (taskId: number) => boolean };
 }
 
-export interface AttentionStreamDeps {
-  attentionStateService: AttentionStateService;
-}
-
 export function registerHookRoutes(app: Hono, deps: HookRouteDeps): void {
   app.post('/api/internal/hooks/attention', async (c) => {
     const token = c.req.header('x-hook-token');
@@ -790,61 +740,17 @@ export function registerHookRoutes(app: Hono, deps: HookRouteDeps): void {
   });
 }
 
+export function registerBoardNotifyRoute(app: Hono, boardEventService?: BoardEventService): void {
+  app.post('/api/board/notify', (c) => {
+    boardEventService?.notify();
+    return c.json({ ok: true });
+  });
+}
+
 export function registerTestHookTokenRoute(app: Hono): void {
   if (!isTestMode()) return;
   app.get('/api/internal/test/hook-token', (c) => {
     return c.json({ token: getHookToken() });
-  });
-}
-
-export function registerAttentionStreamRoute(app: Hono, deps: AttentionStreamDeps): void {
-  app.get('/api/attention/stream', (c) => {
-    const stream = new ReadableStream({
-      start(controller) {
-        let finalized = false;
-
-        const encode = (data: unknown): Uint8Array => {
-          const payload = `data: ${JSON.stringify(data)}\n\n`;
-          return new TextEncoder().encode(payload);
-        };
-
-        const safeClose = () => {
-          if (finalized) return;
-          finalized = true;
-          unsub();
-          controller.close();
-        };
-
-        const initial = deps.attentionStateService.listAttentionTasks();
-        try {
-          controller.enqueue(encode({ type: 'snapshot', taskIds: initial }));
-        } catch {
-          safeClose();
-          return;
-        }
-
-        const unsub = deps.attentionStateService.subscribe((update) => {
-          if (finalized) return;
-          try {
-            controller.enqueue(encode({ type: 'update', ...update }));
-          } catch {
-            safeClose();
-          }
-        });
-
-        c.req.raw.signal?.addEventListener('abort', () => {
-          safeClose();
-        });
-      },
-    });
-
-    return new Response(stream, {
-      headers: {
-        'Content-Type': 'text/event-stream',
-        'Cache-Control': 'no-cache',
-        Connection: 'keep-alive',
-      },
-    });
   });
 }
 
@@ -916,7 +822,7 @@ function registerBulkRunRoutes(app: Hono, bulkRunService: BulkRunService): void 
 }
 
 export function registerBoardRoutes(app: Hono, services: BoardServices): void {
-  const { ts, tts, tbs, database, boardTitle, configDir } = services;
+  const { ts, tts, tbs, database, boardTitle, configDir, boardEventService, attentionStateService } = services;
 
   app.use('*', async (c, next) => {
     verboseLog(`[boardRoutes] ${c.req.method} ${c.req.path}`);
@@ -965,11 +871,11 @@ export function registerBoardRoutes(app: Hono, services: BoardServices): void {
     return c.html(renderBoard(tasksByStatus, tts.getAllTaskTags(), boardTitle, boardConfig.theme, blockMap));
   });
   app.get('/api/board/stream', (c) => {
+    const ptyService = services.ptySessionService;
     const stream = new ReadableStream({
       start(controller) {
         let finalized = false;
-        let lastKnownTs: string | null | undefined = undefined;
-        let intervalId: ReturnType<typeof setInterval>;
+        const unsubscribers: (() => void)[] = [];
 
         const encode = (event: string, data: unknown): Uint8Array => {
           const payload = `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
@@ -979,25 +885,66 @@ export function registerBoardRoutes(app: Hono, services: BoardServices): void {
         const safeClose = () => {
           if (finalized) return;
           finalized = true;
-          clearInterval(intervalId);
+          unsubscribers.forEach((fn) => fn());
           controller.close();
         };
 
-        const sendUpdate = () => {
+        const send = (event: string, data: unknown) => {
           if (finalized) return;
-          const ts = getBoardUpdatedAt(database);
-          if (ts !== lastKnownTs) {
-            lastKnownTs = ts;
-            try {
-              controller.enqueue(encode('update', { updatedAt: ts }));
-            } catch {
-              safeClose();
-            }
+          try {
+            controller.enqueue(encode(event, data));
+          } catch {
+            safeClose();
           }
         };
 
-        sendUpdate();
-        intervalId = setInterval(sendUpdate, 2000);
+        // board-update: triggered by BoardEventService or fallback polling
+        if (boardEventService) {
+          // Send initial snapshot so client can sync on connect
+          send('board-update', { updatedAt: getBoardUpdatedAt(database) });
+          const unsub = boardEventService.subscribe(() => {
+            send('board-update', { updatedAt: new Date().toISOString() });
+          });
+          unsubscribers.push(unsub);
+        } else {
+          let lastKnownTs: string | null | undefined = undefined;
+          const intervalId = setInterval(() => {
+            if (finalized) return;
+            const ts = getBoardUpdatedAt(database);
+            if (ts !== lastKnownTs) {
+              lastKnownTs = ts;
+              send('board-update', { updatedAt: ts });
+            }
+          }, 2000);
+          unsubscribers.push(() => clearInterval(intervalId));
+          // initial send
+          const ts = getBoardUpdatedAt(database);
+          lastKnownTs = ts;
+          send('board-update', { updatedAt: ts });
+        }
+
+        // attention: snapshot + updates
+        if (attentionStateService) {
+          const initial = attentionStateService.listAttentionTasks();
+          send('attention', { type: 'snapshot', taskIds: initial });
+          const unsub = attentionStateService.subscribe((update) => {
+            send('attention', { type: 'update', ...update });
+          });
+          unsubscribers.push(unsub);
+        }
+
+        // running-tasks + confirm-complete
+        if (ptyService) {
+          send('running-tasks', { tasks: ptyService.listRunningTasks() });
+          const unsubRunning = ptyService.subscribeRunningTasksChange(() => {
+            send('running-tasks', { tasks: ptyService.listRunningTasks() });
+          });
+          unsubscribers.push(unsubRunning);
+          const unsubConfirm = ptyService.subscribeCompletionConfirm((taskId, targetStatus) => {
+            send('confirm-complete', { taskId, targetStatus });
+          });
+          unsubscribers.push(unsubConfirm);
+        }
 
         c.req.raw.signal?.addEventListener('abort', () => {
           safeClose();
@@ -1027,6 +974,7 @@ export function registerBoardRoutes(app: Hono, services: BoardServices): void {
   });
   registerTaskApiRoutes(app, services);
   registerConfigApiRoutes(app, configDir);
+  registerBoardNotifyRoute(app, boardEventService);
   if (services.ptySessionService) {
     registerClaudeRoutes(app, services.ptySessionService, ts);
     const bulkRunService = new BulkRunService(ts, tbs, services.ptySessionService);

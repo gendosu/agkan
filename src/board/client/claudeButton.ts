@@ -1,7 +1,7 @@
-// Client-side Claude button management: SSE /api/running-tasks/stream
-// and updating button states on task cards.
+// Client-side Claude button management and updating button states on task cards.
 
 import { attachTerminalToTab, detachTerminal, getCurrentTerminalTaskId } from './claudeTerminalModal';
+import { addBoardStreamListener } from './boardStream';
 
 let _runningTaskIds: Set<number> = new Set();
 let _planningTaskIds: Set<number> = new Set();
@@ -332,13 +332,13 @@ export function initClaudeButton(): void {
     });
   });
 
-  const es = new EventSource('/api/running-tasks/stream');
-  es.addEventListener('update', (event: MessageEvent) => {
-    const data = JSON.parse(event.data) as { tasks: { taskId: number; command: string }[] };
+  addBoardStreamListener('running-tasks', (raw) => {
+    const data = raw as { tasks: { taskId: number; command: string }[] };
     handleRunningTasksUpdate(data.tasks);
   });
-  es.addEventListener('confirm-complete', (event: MessageEvent) => {
-    const data = JSON.parse(event.data) as { taskId: number; targetStatus: string };
+
+  addBoardStreamListener('confirm-complete', (raw) => {
+    const data = raw as { taskId: number; targetStatus: string };
     const label = data.targetStatus === 'done' ? 'Done' : data.targetStatus === 'review' ? 'Review' : data.targetStatus;
     const confirmed = window.confirm(`Task #${data.taskId} completed successfully.\nMove task to "${label}"?`);
     if (confirmed) {

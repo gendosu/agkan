@@ -1,13 +1,12 @@
 // Aggregates connection state across all SSE streams
 
-type StreamKey = 'board' | 'attention' | 'run-logs';
+type StreamKey = 'board' | 'run-logs';
 type ConnectionState = 'connected' | 'connecting' | 'disconnected';
 
 type Listener = (state: ConnectionState) => void;
 
 const streamStates: Record<StreamKey, ConnectionState> = {
   board: 'connecting',
-  attention: 'connecting',
   'run-logs': 'connected', // Not always active; treated as connected when not in use
 };
 
@@ -15,7 +14,7 @@ let activeRunLogs = false;
 const listeners: Listener[] = [];
 
 function computeOverallState(): ConnectionState {
-  const monitored: StreamKey[] = activeRunLogs ? ['board', 'attention', 'run-logs'] : ['board', 'attention'];
+  const monitored: StreamKey[] = activeRunLogs ? ['board', 'run-logs'] : ['board'];
   if (monitored.some((k) => streamStates[k] === 'disconnected')) return 'disconnected';
   if (monitored.some((k) => streamStates[k] === 'connecting')) return 'connecting';
   return 'connected';

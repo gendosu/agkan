@@ -14,6 +14,7 @@ import {
   initBoardPolling,
 } from '../../../src/board/client/boardPolling';
 import { updateButtonStates } from '../../../src/board/client/claudeButton';
+import * as boardStream from '../../../src/board/client/boardStream';
 
 // --- MockEventSource for SSE tests ---
 
@@ -458,37 +459,23 @@ describe('initBoardPolling (SSE connection)', () => {
     });
   }
 
-  it('connects to /api/board/stream via EventSource', () => {
+  it('registers a board-update listener via addBoardStreamListener', () => {
+    const spy = vi.spyOn(boardStream, 'addBoardStreamListener').mockReturnValue(() => {});
     initBoardPolling();
-    expect(MockEventSource._instances).toHaveLength(1);
-    expect(MockEventSource._instances[0].url).toBe('/api/board/stream');
+    expect(spy).toHaveBeenCalledWith('board-update', expect.any(Function));
+    spy.mockRestore();
   });
 
-  it('calls refreshBoardCards when update event fires', async () => {
+  it('calls refreshBoardCards when board-update listener is invoked', async () => {
     global.fetch = mockFetchCards();
+    let capturedFn: ((data: unknown) => void) | null = null;
+    vi.spyOn(boardStream, 'addBoardStreamListener').mockImplementation((type, fn) => {
+      if (type === 'board-update') capturedFn = fn;
+      return () => {};
+    });
     initBoardPolling();
-    const es = MockEventSource._instances[0];
-
-    es.dispatchEvent('update', { updatedAt: '2026-01-01T00:00:00.000Z' });
+    capturedFn?.({ updatedAt: '2026-01-01T00:00:00.000Z' });
     await vi.waitFor(() => expect(global.fetch).toHaveBeenCalledWith('/api/board/cards'));
-  });
-
-  it('does not accumulate requests during disconnection — only one fetch per reconnect', async () => {
-    global.fetch = mockFetchCards();
-    initBoardPolling();
-    const es = MockEventSource._instances[0];
-
-    // Simulate server disconnect (no events fired during offline period)
-    es.simulateError();
-
-    // Browser auto-reconnects EventSource; simulate by creating a new instance
-    initBoardPolling();
-    const es2 = MockEventSource._instances[1];
-
-    // Server sends exactly ONE initial update event on reconnect
-    es2.dispatchEvent('update', { updatedAt: '2026-01-01T00:00:01.000Z' });
-
-    await vi.waitFor(() => expect(global.fetch).toHaveBeenCalledTimes(1));
-    expect(global.fetch).toHaveBeenCalledWith('/api/board/cards');
+    vi.restoreAllMocks();
   });
 });

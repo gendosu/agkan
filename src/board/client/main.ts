@@ -10,9 +10,11 @@ import { initFilters } from './filters';
 import { initBurgerMenu } from './burgerMenu';
 import { initDependencyVisualization } from './dependencyVisualization';
 import { initClaudeButton, registerClaudeButtonDetailHooks } from './claudeButton';
-import { startAttentionStream } from './attentionIndicator';
+import { initAttentionStream } from './attentionIndicator';
 import { initBulkRunButton } from './bulkRunButton';
+import { initBoardStream } from './boardStream';
 
+initBoardStream();
 initDragDrop();
 initAutoScroll();
 initAddTaskModal();
@@ -29,4 +31,4 @@ registerClaudeButtonDetailHooks({
 });
 initClaudeButton();
 initBulkRunButton();
-startAttentionStream();
+initAttentionStream();
