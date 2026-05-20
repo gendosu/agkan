@@ -4,7 +4,7 @@ import { draggedCard, isPendingStatusUpdate, attachDragListeners } from './dragD
 import { attachAutoScrollToBody } from './autoScroll';
 import { attachClaudeButtonListeners, getRunningTaskIds, updateButtonStates } from './claudeButton';
 import type { ActiveFilters, TaskDetail } from './types';
-import { setStreamState, registerReconnect } from './connectionStatus';
+import { addBoardStreamListener } from './boardStream';
 
 export const activeFilters: ActiveFilters = { tagIds: [], priorities: [], assignee: '', searchText: '' };
 
@@ -199,47 +199,8 @@ export async function refreshBoardCards(): Promise<void> {
 }
 
 export function initBoardPolling(): void {
-  let backoffMs = 1000;
-  let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
-  let es: EventSource;
-  let stopped = false;
-
-  function connect(): void {
-    es = new EventSource('/api/board/stream');
-    setStreamState('board', 'connecting');
-
-    es.addEventListener('open', () => {
-      setStreamState('board', 'connected');
-      backoffMs = 1000;
-    });
-
-    es.addEventListener('update', () => {
-      if (draggedCard !== null || isPendingStatusUpdate) return;
-      refreshBoardCards();
-    });
-
-    es.onerror = () => {
-      if (stopped) return;
-      setStreamState('board', 'disconnected');
-      es.close();
-      reconnectTimer = setTimeout(() => {
-        backoffMs = Math.min(backoffMs * 2, 30000);
-        connect();
-      }, backoffMs);
-    };
-  }
-
-  function reconnectNow(): void {
-    if (stopped) return;
-    if (reconnectTimer !== null) {
-      clearTimeout(reconnectTimer);
-      reconnectTimer = null;
-    }
-    es.close();
-    backoffMs = 1000;
-    connect();
-  }
-
-  connect();
-  registerReconnect(reconnectNow);
+  addBoardStreamListener('board-update', () => {
+    if (draggedCard !== null || isPendingStatusUpdate) return;
+    refreshBoardCards();
+  });
 }

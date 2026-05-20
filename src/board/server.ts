@@ -12,17 +12,12 @@ import { CommentService } from '../services/CommentService';
 import { TaskBlockService } from '../services/TaskBlockService';
 import { PtySessionService } from '../terminal/PtySessionService';
 import { AttentionStateService } from '../services/AttentionStateService';
+import { BoardEventService } from '../services/BoardEventService';
 import { createTerminalWsServer } from '../terminal/wsTerminalServer';
 import { getStorageBackend } from '../db/connection';
 import { StorageBackend } from '../db/types/repository';
 import { getDefaultDirName } from '../db/config';
-import {
-  registerBoardRoutes,
-  registerHookRoutes,
-  registerAttentionStreamRoute,
-  registerTestHookTokenRoute,
-  BoardServices,
-} from './boardRoutes';
+import { registerBoardRoutes, registerHookRoutes, registerTestHookTokenRoute, BoardServices } from './boardRoutes';
 
 export function createBoardApp(
   taskService?: TaskService,
@@ -59,6 +54,7 @@ export function startBoardServer(port: number, boardTitle?: string): void {
   const resolvedDb = getStorageBackend();
 
   const attentionStateService = new AttentionStateService();
+  const boardEventService = new BoardEventService();
   const hookSettingsDataDir = process.env.AGKAN_DATA_DIR
     ? join(process.env.AGKAN_DATA_DIR, 'board-hooks')
     : join(homedir(), '.agkan', 'board-hooks');
@@ -71,7 +67,7 @@ export function startBoardServer(port: number, boardTitle?: string): void {
     hookSettingsDataDir,
   });
   const services: BoardServices = {
-    ts: new TaskService(resolvedDb),
+    ts: new TaskService(resolvedDb, boardEventService),
     tts: new TaskTagService(resolvedDb),
     tags: new TagService(resolvedDb),
     ms: new MetadataService(resolvedDb),
@@ -81,10 +77,11 @@ export function startBoardServer(port: number, boardTitle?: string): void {
     boardTitle,
     configDir: resolvedConfigDir,
     ptySessionService: ptyService,
+    boardEventService,
+    attentionStateService,
   };
 
   registerBoardRoutes(app, services);
-  registerAttentionStreamRoute(app, { attentionStateService });
   registerHookRoutes(app, { attentionStateService, ptySessionService: ptyService });
   registerTestHookTokenRoute(app);
 

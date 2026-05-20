@@ -319,18 +319,7 @@ describe('attachClaudeButtonListeners', () => {
 });
 
 describe('initClaudeButton', () => {
-  it('connects via EventSource without throwing', () => {
-    let capturedUrl = '';
-    class MockEventSource {
-      constructor(url: string) {
-        capturedUrl = url;
-      }
-      addEventListener = vi.fn();
-      close = vi.fn();
-      readyState = 0;
-    }
-    (global as unknown as Record<string, unknown>)['EventSource'] = MockEventSource;
+  it('registers listeners without throwing', () => {
     expect(() => initClaudeButton()).not.toThrow();
-    expect(capturedUrl).toBe('/api/running-tasks/stream');
   });
 });

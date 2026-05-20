@@ -4,8 +4,6 @@
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-// We use the same import throughout and rely on beforeEach to reset state via
-// explicit setter calls (since the module holds mutable top-level state).
 import {
   setStreamState,
   setRunLogsActive,
@@ -14,50 +12,29 @@ import {
   triggerReconnectAll,
 } from '../../../src/board/client/connectionStatus';
 
-// Helper: clear all listeners and reset stream states to known defaults
-// by using the exported functions themselves.
 beforeEach(() => {
-  // Reset run-logs active flag and stream states via the public API.
-  // setRunLogsActive(false) resets run-logs to 'connected' and clears the flag.
   setRunLogsActive(false);
-  // Reset board and attention to 'connecting' (initial defaults).
   setStreamState('board', 'connecting');
-  setStreamState('attention', 'connecting');
 });
 
 describe('setStreamState', () => {
   it('updates board stream state and notifies listeners when overall state changes', () => {
-    // Start with board=connecting, attention=connecting → overall=connecting
-    // Set attention=connected → still overall=connecting (no change)
-    // Set board=connected → overall=connected (change → listener fires)
-    setStreamState('attention', 'connected');
+    setStreamState('board', 'connecting');
 
     const listener = vi.fn();
     const unsub = onConnectionStateChange(listener);
-    // immediate call: board=connecting, attention=connected → 'connecting'
     expect(listener).toHaveBeenCalledWith('connecting');
     listener.mockClear();
 
     setStreamState('board', 'connected');
-    // now board=connected, attention=connected → 'connected'
     expect(listener).toHaveBeenCalledWith('connected');
-
-    unsub();
-  });
-
-  it('updates attention stream state and notifies listeners', () => {
-    const listener = vi.fn();
-    const unsub = onConnectionStateChange(listener);
-    listener.mockClear();
-
-    setStreamState('attention', 'disconnected');
-    expect(listener).toHaveBeenCalledWith('disconnected');
 
     unsub();
   });
 
   it('updates run-logs stream state and notifies listeners', () => {
     setRunLogsActive(true);
+    setStreamState('board', 'connected');
     const listener = vi.fn();
     const unsub = onConnectionStateChange(listener);
     listener.mockClear();
@@ -69,15 +46,12 @@ describe('setStreamState', () => {
   });
 
   it('does not notify listeners when state has not changed', () => {
-    // Set to a known state first and wait for notification
     setStreamState('board', 'connected');
-    setStreamState('attention', 'connected');
 
     const listener = vi.fn();
     const unsub = onConnectionStateChange(listener);
     listener.mockClear();
 
-    // Set same state again — overall state unchanged → no notification
     setStreamState('board', 'connected');
     expect(listener).not.toHaveBeenCalled();
 
@@ -86,9 +60,8 @@ describe('setStreamState', () => {
 });
 
 describe('computeOverallState (via onConnectionStateChange)', () => {
-  it('returns connecting when any monitored stream is connecting', () => {
+  it('returns connecting when board is connecting', () => {
     setStreamState('board', 'connecting');
-    setStreamState('attention', 'connected');
 
     const listener = vi.fn();
     const unsub = onConnectionStateChange(listener);
@@ -96,9 +69,8 @@ describe('computeOverallState (via onConnectionStateChange)', () => {
     unsub();
   });
 
-  it('returns disconnected when any monitored stream is disconnected', () => {
+  it('returns disconnected when board is disconnected', () => {
     setStreamState('board', 'disconnected');
-    setStreamState('attention', 'connected');
 
     const listener = vi.fn();
     const unsub = onConnectionStateChange(listener);
@@ -106,9 +78,8 @@ describe('computeOverallState (via onConnectionStateChange)', () => {
     unsub();
   });
 
-  it('returns connected when all monitored streams are connected', () => {
+  it('returns connected when board is connected', () => {
     setStreamState('board', 'connected');
-    setStreamState('attention', 'connected');
 
     const listener = vi.fn();
     const unsub = onConnectionStateChange(listener);
@@ -116,26 +87,13 @@ describe('computeOverallState (via onConnectionStateChange)', () => {
     unsub();
   });
 
-  it('returns disconnected takes priority over connecting', () => {
-    setStreamState('board', 'disconnected');
-    setStreamState('attention', 'connecting');
-
-    const listener = vi.fn();
-    const unsub = onConnectionStateChange(listener);
-    expect(listener).toHaveBeenCalledWith('disconnected');
-    unsub();
-  });
-
   it('ignores run-logs state when run-logs is not active', () => {
     setRunLogsActive(false);
     setStreamState('board', 'connected');
-    setStreamState('attention', 'connected');
-    // Even if run-logs were disconnected it doesn't matter when inactive
     setStreamState('run-logs', 'disconnected');
 
     const listener = vi.fn();
     const unsub = onConnectionStateChange(listener);
-    // run-logs is ignored → overall is connected
     expect(listener).toHaveBeenCalledWith('connected');
     unsub();
   });
@@ -143,7 +101,6 @@ describe('computeOverallState (via onConnectionStateChange)', () => {
   it('includes run-logs in computation when run-logs is active', () => {
     setRunLogsActive(true);
     setStreamState('board', 'connected');
-    setStreamState('attention', 'connected');
     setStreamState('run-logs', 'disconnected');
 
     const listener = vi.fn();
@@ -152,10 +109,9 @@ describe('computeOverallState (via onConnectionStateChange)', () => {
     unsub();
   });
 
-  it('returns connected when all three streams connected and run-logs active', () => {
+  it('returns connected when board and run-logs are connected and run-logs active', () => {
     setRunLogsActive(true);
     setStreamState('board', 'connected');
-    setStreamState('attention', 'connected');
     setStreamState('run-logs', 'connected');
 
     const listener = vi.fn();
@@ -170,40 +126,29 @@ describe('setRunLogsActive', () => {
     setRunLogsActive(true);
     setStreamState('run-logs', 'disconnected');
     setStreamState('board', 'connected');
-    setStreamState('attention', 'connected');
 
-    // Deactivate — run-logs is reset and ignored
     setRunLogsActive(false);
 
     const listener = vi.fn();
     const unsub = onConnectionStateChange(listener);
-    // After deactivation board+attention=connected → overall connected
     expect(listener).toHaveBeenCalledWith('connected');
     unsub();
   });
 
   it('notifies listeners when run-logs active state changes', () => {
     setStreamState('board', 'connected');
-    setStreamState('attention', 'connected');
 
     const listener = vi.fn();
     const unsub = onConnectionStateChange(listener);
     listener.mockClear();
 
     setRunLogsActive(true);
-    // run-logs is now monitored and defaults to 'connected' (from reset)
-    // Calling setRunLogsActive(false) resets run-logs to connected
-    // so toggling active doesn't change overall state if run-logs is already connected.
-    // But we still test the notify path.
     setRunLogsActive(false);
-    // notifications may or may not fire depending on whether state changed
-    // (this ensures the code path runs without error)
     unsub();
   });
 
   it('activates run-logs monitoring', () => {
     setStreamState('board', 'connected');
-    setStreamState('attention', 'connected');
     setRunLogsActive(true);
     setStreamState('run-logs', 'connecting');
 
@@ -217,7 +162,6 @@ describe('setRunLogsActive', () => {
 describe('onConnectionStateChange', () => {
   it('calls listener immediately with current state upon subscription', () => {
     setStreamState('board', 'connected');
-    setStreamState('attention', 'connected');
 
     const listener = vi.fn();
     const unsub = onConnectionStateChange(listener);
@@ -228,7 +172,6 @@ describe('onConnectionStateChange', () => {
 
   it('calls multiple listeners when state changes', () => {
     setStreamState('board', 'connected');
-    setStreamState('attention', 'connected');
 
     const listener1 = vi.fn();
     const listener2 = vi.fn();
@@ -247,7 +190,6 @@ describe('onConnectionStateChange', () => {
 
   it('returns an unsubscribe function that removes the listener', () => {
     setStreamState('board', 'connected');
-    setStreamState('attention', 'connected');
 
     const listener = vi.fn();
     const unsub = onConnectionStateChange(listener);
@@ -255,7 +197,6 @@ describe('onConnectionStateChange', () => {
 
     unsub();
 
-    // After unsubscribe, listener should not be called
     setStreamState('board', 'disconnected');
     expect(listener).not.toHaveBeenCalled();
   });

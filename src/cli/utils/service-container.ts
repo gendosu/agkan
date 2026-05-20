@@ -14,6 +14,14 @@ import {
   TagService,
   MetadataService,
 } from '../../services';
+import { BoardEventService } from '../../services/BoardEventService';
+import { notifyBoard } from './boardNotify';
+
+class HttpBoardEventService extends BoardEventService {
+  notify(): void {
+    void notifyBoard();
+  }
+}
 
 /**
  * Container holding all service instances needed by CLI commands
@@ -33,7 +41,7 @@ export interface ServiceContainer {
  */
 export function getServiceContainer(): ServiceContainer {
   return {
-    taskService: new TaskService(),
+    taskService: new TaskService(undefined, new HttpBoardEventService()),
     taskBlockService: new TaskBlockService(),
     taskTagService: new TaskTagService(),
     commentService: new CommentService(),

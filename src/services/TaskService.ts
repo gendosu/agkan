@@ -4,6 +4,7 @@ import { validateTaskInput, validateTaskUpdateInput } from '../utils/input-valid
 import { wouldCreateCycle } from '../utils/cycle-detector';
 import { StorageBackend } from '../db/types/repository';
 import { ValidationError, NotFoundError, ConflictError } from '../errors';
+import { BoardEventService } from './BoardEventService';
 
 /** Allowed sort fields for task listing */
 export const ALLOWED_SORT_FIELDS = ['id', 'title', 'status', 'created_at', 'updated_at', 'priority'] as const;
@@ -17,9 +18,11 @@ export type SortOrder = 'asc' | 'desc';
  */
 export class TaskService {
   private backend: StorageBackend;
+  private boardEventService?: BoardEventService;
 
-  constructor(backend?: StorageBackend) {
+  constructor(backend?: StorageBackend, boardEventService?: BoardEventService) {
     this.backend = backend ?? getStorageBackend();
+    this.boardEventService = boardEventService;
   }
 
   /**
@@ -49,27 +52,30 @@ export class TaskService {
 
     const { tagIds, ...taskInput } = input;
 
+    let task: Task;
     if (!tagIds || tagIds.length === 0) {
-      return this.backend.tasks.create({
+      task = this.backend.tasks.create({
         ...taskInput,
         status,
         created_at: now,
         updated_at: now,
+      });
+    } else {
+      task = this.backend.transaction(() => {
+        const t = this.backend.tasks.create({
+          ...taskInput,
+          status,
+          created_at: now,
+          updated_at: now,
+        });
+        for (const tagId of tagIds) {
+          this.backend.taskTags.create({ task_id: t.id, tag_id: tagId, created_at: now });
+        }
+        return t;
       });
     }
-
-    return this.backend.transaction(() => {
-      const task = this.backend.tasks.create({
-        ...taskInput,
-        status,
-        created_at: now,
-        updated_at: now,
-      });
-      for (const tagId of tagIds) {
-        this.backend.taskTags.create({ task_id: task.id, tag_id: tagId, created_at: now });
-      }
-      return task;
-    });
+    this.boardEventService?.notify();
+    return task;
   }
 
   /**
@@ -154,7 +160,9 @@ export class TaskService {
     }
 
     const now = new Date().toISOString();
-    return this.backend.tasks.update(id, { ...input, updated_at: now });
+    const updated = this.backend.tasks.update(id, { ...input, updated_at: now });
+    this.boardEventService?.notify();
+    return updated;
   }
 
   /**
@@ -167,7 +175,9 @@ export class TaskService {
     if (!task) {
       return false;
     }
-    return this.backend.tasks.delete(id);
+    const deleted = this.backend.tasks.delete(id);
+    if (deleted) this.boardEventService?.notify();
+    return deleted;
   }
 
   /**
