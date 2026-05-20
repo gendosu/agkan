@@ -12,6 +12,7 @@ import { handleError, validateNumberInput } from '../../utils/error-handler';
 import { getStatusColor, formatDate } from '../../../utils/format';
 import { createFormatter } from '../../utils/output-formatter';
 import { isFlagMode, buildFlagModeInput, buildPositionalModeInput, UpdateOptions } from './update-helpers';
+import { notifyBoard } from '../../utils/boardNotify';
 
 function applyTaskUpdate(
   taskService: TaskService,
@@ -57,6 +58,7 @@ async function handleUpdateAction(id: string, field: string, value: string, opti
       });
       process.exit(1);
     }
+    await notifyBoard();
     renderSuccess(taskService, task, formatter);
   } catch (error) {
     if (error instanceof Error) {

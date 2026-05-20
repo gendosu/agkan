@@ -7,6 +7,7 @@ import chalk from 'chalk';
 import { getServiceContainer } from '../../utils/service-container';
 import { validateIdInput } from '../../utils/error-handler';
 import { createFormatter } from '../../utils/output-formatter';
+import { notifyBoard } from '../../utils/boardNotify';
 
 export function setupMetaDeleteCommand(program: Command): void {
   // Find or create task command
@@ -53,6 +54,13 @@ export function setupMetaDeleteCommand(program: Command): void {
           });
           process.exit(1);
         }
+
+        // Sync priority removal to tasks table
+        if (key === 'priority') {
+          taskService.updateTask(parsedTaskId, { priority: null });
+        }
+
+        await notifyBoard();
 
         formatter.output(
           () => ({ success: true, message: 'Metadata deleted' }),

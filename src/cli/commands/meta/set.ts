@@ -7,6 +7,8 @@ import chalk from 'chalk';
 import { getServiceContainer } from '../../utils/service-container';
 import { validateIdInput } from '../../utils/error-handler';
 import { createFormatter } from '../../utils/output-formatter';
+import { notifyBoard } from '../../utils/boardNotify';
+import { isPriority, Priority } from '../../../models/Priority';
 
 export function setupMetaSetCommand(program: Command): void {
   // Find or create task command
@@ -69,6 +71,13 @@ export function setupMetaSetCommand(program: Command): void {
           key,
           value,
         });
+
+        // Sync priority to tasks table so the board card reflects it
+        if (key === 'priority' && isPriority(value)) {
+          taskService.updateTask(parsedTaskId, { priority: value as Priority });
+        }
+
+        await notifyBoard();
 
         formatter.output(
           () => ({ success: true, data: metadata }),
