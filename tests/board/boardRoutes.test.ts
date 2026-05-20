@@ -24,6 +24,7 @@ import { CommentService } from '../../src/services/CommentService';
 import { TaskBlockService } from '../../src/services/TaskBlockService';
 import { getStorageBackend } from '../../src/db/connection';
 import { registerBoardRoutes, registerHookRoutes, BoardServices } from '../../src/board/boardRoutes';
+import { getBoardUpdatedAt } from '../../src/board/boardRenderer';
 import { PtySessionService } from '../../src/terminal/PtySessionService';
 import { AttentionStateService } from '../../src/services/AttentionStateService';
 import { getHookToken } from '../../src/utils/hookToken';
@@ -1016,6 +1017,43 @@ describe('GET /api/board/stream', () => {
     const text = new TextDecoder().decode(value);
     expect(text).toContain('event: board-update');
     expect(text).toContain('updatedAt');
+    controller.abort();
+    reader.cancel();
+  });
+
+  it('board-update triggered by boardEventService.notify() contains DB updatedAt, not current time', async () => {
+    const boardEventService = new BoardEventService();
+    const database = getStorageBackend();
+    const services = { ...buildServices(), boardEventService, database };
+    const app = buildApp(services);
+    const controller = new AbortController();
+    const res = await app.fetch(new Request('http://localhost/api/board/stream', { signal: controller.signal }));
+    const reader = res.body!.getReader();
+    const decoder = new TextDecoder();
+
+    // Consume the initial board-update snapshot
+    await reader.read();
+
+    // Create a task so DB has a known updated_at
+    services.ts.createTask({ title: 'test', status: 'backlog' });
+    const dbTs = getBoardUpdatedAt(database);
+
+    // Trigger notify and read the resulting event
+    boardEventService.notify();
+    let notifyEvent: { updatedAt: string } | null = null;
+    for (let i = 0; i < 10 && !notifyEvent; i++) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      const text = decoder.decode(value);
+      const match = text.match(/event: board-update\ndata: (.+)\n/);
+      if (match) {
+        notifyEvent = JSON.parse(match[1]) as { updatedAt: string };
+      }
+    }
+
+    expect(notifyEvent).not.toBeNull();
+    expect(notifyEvent!.updatedAt).toBe(dbTs);
+
     controller.abort();
     reader.cancel();
   });
