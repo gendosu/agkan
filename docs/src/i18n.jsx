@@ -1,7 +1,7 @@
 // i18n.jsx — EN/JA translations
 const I18N = {
   en: {
-    nav: { features: "Features", demo: "Demo", board: "Board", workflow: "Workflow", install: "Install", docs: "Docs" },
+    nav: { features: "Features", demo: "Demo", board: "Board", install: "Install", docs: "Docs" },
     heroTag: "v3.5.0",
     heroPill: "AI-native CLI · built for Claude Code",
     heroTitle1: "Task management",
@@ -65,15 +65,6 @@ const I18N = {
       { id: 15, title: "Weekly digest email template", status: "in_progress", prio: "med", tag: "email" },
       { id: 11, title: "Invoice PDF generator refactor", status: "review", prio: "med", tag: "billing" },
     ],
-
-    flowKicker: "How it fits",
-    flowTitle: "You plan. agkan tracks. Claude executes.",
-    flowSub: "A three-actor loop that replaces the Jira-Slack-IDE tab-dance with a single terminal.",
-    flowNodes: {
-      you: { tag: "YOU", t: "Plan in plain English", d: "`agkan task add` — or dictate a rough brief into a markdown file and attach it." },
-      agkan: { tag: "AGKAN", t: "Stores, orders, dispatches", d: "Local SQLite keeps state. The board and CLI share it. One source of truth." },
-      claude: { tag: "CLAUDE CODE", t: "Picks up, codes, reports", d: "Launched in isolation with your task as context. Progress lands back on the card." },
-    },
 
     installKicker: "Quick start",
     installTitle: "Three commands. No signup.",
@@ -421,7 +412,7 @@ const I18N = {
   },
 
   ja: {
-    nav: { features: "特徴", demo: "デモ", board: "ボード", workflow: "ワークフロー", install: "導入", docs: "ドキュメント" },
+    nav: { features: "特徴", demo: "デモ", board: "ボード", install: "導入", docs: "ドキュメント" },
     heroTag: "v3.5.0",
     heroPill: "AIネイティブCLI · Claude Code連携",
     heroTitle1: "タスク管理を、",
@@ -484,15 +475,6 @@ const I18N = {
       { id: 15, title: "週次ダイジェストのメールテンプレ", status: "in_progress", prio: "med", tag: "email" },
       { id: 11, title: "請求書PDF生成のリファクタ", status: "review", prio: "med", tag: "billing" },
     ],
-
-    flowKicker: "全体像",
-    flowTitle: "あなたが計画し、agkanが管理し、Claudeが実装する。",
-    flowSub: "Jira・Slack・IDE間のタブ移動を、1つのターミナルに置き換える3者ループ。",
-    flowNodes: {
-      you: { tag: "あなた", t: "プレーンな言葉で計画", d: "`agkan task add` か、ラフな仕様をMarkdownに書いて添付するだけ。" },
-      agkan: { tag: "AGKAN", t: "保存・順序付け・受け渡し", d: "ローカルSQLiteが状態を保持。ボードとCLIが同じ真実を共有。" },
-      claude: { tag: "CLAUDE CODE", t: "受け取り、実装し、報告", d: "タスクをコンテキストに隔離環境で起動。進捗はカードに返る。" },
-    },
 
     installKicker: "クイックスタート",
     installTitle: "3コマンド。サインアップ不要。",

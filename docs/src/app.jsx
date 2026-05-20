@@ -74,7 +74,6 @@ function App() {
       <Features t={t} />
       <BigTerminal t={t} />
       <Board t={t} />
-      <Workflow t={t} />
       <Install t={t} />
       <Reference t={t} />
       <CTA t={t} />
