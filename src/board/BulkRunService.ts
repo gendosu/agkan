@@ -142,7 +142,7 @@ export class BulkRunService {
   } {
     const command = this.command!;
     const ptyCommand: 'pr' | 'run' = command === 'pr' ? 'pr' : 'run';
-    const exitInstruction = '\n\nWhen you have completed this task, execute /exit to end this session.';
+    const exitInstruction = '\n\nWhen you have completed this task, execute exit to end this session.';
     const prompt =
       command === 'pr'
         ? `Task ID: ${taskId}\n/agkan-subtask${exitInstruction}`
