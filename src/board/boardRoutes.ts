@@ -903,7 +903,7 @@ export function registerBoardRoutes(app: Hono, services: BoardServices): void {
           // Send initial snapshot so client can sync on connect
           send('board-update', { updatedAt: getBoardUpdatedAt(database) });
           const unsub = boardEventService.subscribe(() => {
-            send('board-update', { updatedAt: new Date().toISOString() });
+            send('board-update', { updatedAt: getBoardUpdatedAt(database) });
           });
           unsubscribers.push(unsub);
         } else {
