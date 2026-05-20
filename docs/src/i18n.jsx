@@ -74,6 +74,7 @@ const I18N = {
       { n: "02", label: "Initialize in your repo", code: [ ["p", "$"], [" ", " cd your-project\n"], ["p", "$"], [" ", " agkan init\n"], ["c", "✓ created .agkan/tasks.db"] ] },
       { n: "03", label: "Add your first task", code: [ ["p", "$"], [" ", " agkan task add "], ["s", "\"Ship v1\""], [" ", " \\\n    "], ["f", "--status"], [" ", " ready"] ] },
       { n: "04", label: "Open the board (optional)", code: [ ["p", "$"], [" ", " agkan board\n"], ["c", "→ http://localhost:8080"] ] },
+      { n: "05", label: "Install Claude Code skills (optional)", code: [ ["c", "# In Claude Code\n"], [" ", "/plugin marketplace add "], ["s", "gendosu/gendosu-claude-plugins\n"], [" ", "/plugin install "], ["s", "agkan-skills"] ] },
     ],
 
     refKicker: "Reference",
@@ -484,6 +485,7 @@ const I18N = {
       { n: "02", label: "リポジトリで初期化", code: [ ["p", "$"], [" ", " cd your-project\n"], ["p", "$"], [" ", " agkan init\n"], ["c", "✓ .agkan/tasks.db を作成しました"] ] },
       { n: "03", label: "最初のタスク", code: [ ["p", "$"], [" ", " agkan task add "], ["s", "\"v1リリース\""], [" ", " \\\n    "], ["f", "--status"], [" ", " ready"] ] },
       { n: "04", label: "ボードを開く（任意）", code: [ ["p", "$"], [" ", " agkan board\n"], ["c", "→ http://localhost:8080"] ] },
+      { n: "05", label: "Claude Codeスキルをインストール（任意）", code: [ ["c", "# Claude Code内で実行\n"], [" ", "/plugin marketplace add "], ["s", "gendosu/gendosu-claude-plugins\n"], [" ", "/plugin install "], ["s", "agkan-skills"] ] },
     ],
 
     refKicker: "リファレンス",
