@@ -512,8 +512,16 @@ function wireBranchField(currentBranch: string | null | undefined): void {
     renderDetailBranchDropdown(branchDropdown, branchInput.value);
   });
 
+  branchInput.addEventListener('keydown', (e: KeyboardEvent) => {
+    if (branchInput.readOnly && e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
+      branchInput.readOnly = false;
+      branchInput.classList.remove('branch-auto-mode');
+      branchInternalValue = '';
+      branchInput.value = '';
+    }
+  });
+
   branchInput.addEventListener('input', () => {
-    // If user starts typing while in auto-generate mode, switch to manual mode
     if (branchInternalValue === BRANCH_AUTO_GENERATE) {
       branchInput.readOnly = false;
       branchInput.classList.remove('branch-auto-mode');
