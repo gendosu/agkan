@@ -18,7 +18,6 @@ function Nav({ lang, setLang, theme, setTheme, t }) {
           <a href="#features" onClick={handleLinkClick}>{t.nav.features}</a>
           <a href="#demo" onClick={handleLinkClick}>{t.nav.demo}</a>
           <a href="#board" onClick={handleLinkClick}>{t.nav.board}</a>
-          <a href="#workflow" onClick={handleLinkClick}>{t.nav.workflow}</a>
           <a href="#install" onClick={handleLinkClick}>{t.nav.install}</a>
           <a href="#reference" onClick={handleLinkClick}>{t.nav.docs}</a>
         </div>
