@@ -8,6 +8,7 @@ import { getServiceContainer } from '../../utils/service-container';
 import { Tag } from '../../../models';
 import { createFormatter } from '../../utils/output-formatter';
 import { validateIdInput, validateNumberInput } from '../../utils/error-handler';
+import { notifyBoard } from '../../utils/boardNotify';
 
 export function setupTagDetachCommand(program: Command): void {
   // Find the tag command group
@@ -70,6 +71,8 @@ export function setupTagDetachCommand(program: Command): void {
             });
             process.exit(1);
           }
+
+          await notifyBoard();
 
           formatter.output(
             () => ({
