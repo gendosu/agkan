@@ -1384,6 +1384,47 @@ describe('Escape key closes detail panel', () => {
     expect(panel.classList.contains('open')).toBe(false);
   });
 
+  it('pressing Escape closes add task modal first when it is open, not the detail panel', async () => {
+    global.fetch = vi.fn().mockImplementation((url: string) => {
+      if (String(url).includes('/api/config')) {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve({}) });
+      }
+      return Promise.resolve({ ok: true, json: () => Promise.resolve({ comments: [] }) });
+    });
+
+    const { renderDetailPanel, initDetailPanel } = await import('../../../src/board/client/detailPanel');
+
+    initDetailPanel();
+    renderDetailPanel(makeTaskDetail());
+    await new Promise((resolve) => setTimeout(resolve, 50));
+
+    const panel = document.getElementById('detail-panel')!;
+    panel.classList.add('open');
+
+    // Add a fake add-modal and add-cancel button to the DOM
+    const addModal = document.createElement('div');
+    addModal.id = 'add-modal';
+    addModal.classList.add('show');
+    document.body.appendChild(addModal);
+
+    const addCancel = document.createElement('button');
+    addCancel.id = 'add-cancel';
+    const cancelClicked = vi.fn(() => addModal.classList.remove('show'));
+    addCancel.addEventListener('click', cancelClicked);
+    document.body.appendChild(addCancel);
+
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+
+    // Add Task modal should be closed
+    expect(cancelClicked).toHaveBeenCalledOnce();
+    // Detail panel should still be open
+    expect(panel.classList.contains('open')).toBe(true);
+
+    // Now pressing Escape again should close the detail panel
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    expect(panel.classList.contains('open')).toBe(false);
+  });
+
   it('pressing other keys does not close the panel', async () => {
     global.fetch = vi.fn().mockImplementation((url: string) => {
       if (String(url).includes('/api/config')) {
