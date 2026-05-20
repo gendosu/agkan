@@ -2,21 +2,21 @@
 
 const TERM_STEPS = [
   { type: "prompt" },
-  { type: "typed", tokens: [["cmd", "agkan task add "], ["str", "\"Implement passkey login\""], [" ", " "], ["flag", "--status"], [" ", " ready "], ["flag", "--tag"], [" ", " auth"]], speed: 22 },
+  { type: "typed", tokens: [["cmd", "agkan task add "], ["str", "\"Implement passkey login\""], [" ", " "], ["flag", "--status"], [" ", " ready"]], speed: 22 },
   { type: "out", lines: [
-    ["ok", "✓ created task "], ["id", "#14"], ["dim", " · ready · auth"],
+    ["ok", "✓ created task "], ["id", "#14"], ["dim", " · ready"],
   ]},
   { type: "gap" },
 
   { type: "prompt" },
   { type: "typed", tokens: [["cmd", "agkan task list "], ["flag", "--status"], [" ", " ready"]], speed: 22 },
   { type: "out", lines: [
-    ["head", " ID   TITLE                           STATUS    TAGS"],
-    ["dim",  " ──   ─────────────────────────────   ──────    ────"],
+    ["head", " ID   TITLE                           STATUS"],
+    ["dim",  " ──   ─────────────────────────────   ──────"],
     [],
-    [" ",   " "], ["id", "14"], [" ", "   Implement passkey login flow   "], ["status-ip", "ready"], ["dim", "     auth"],
-    [" ",   " "], ["id", "18"], [" ", "   Retry logic for email queue    "], ["status-ip", "ready"], ["dim", "     backend"],
-    [" ",   " "], ["id", "19"], [" ", "   Migrate Postgres 14 → 16       "], ["status-ip", "ready"], ["dim", "     infra"],
+    [" ",   " "], ["id", "14"], [" ", "   Implement passkey login flow   "], ["status-ip", "ready"],
+    [" ",   " "], ["id", "18"], [" ", "   Retry logic for email queue    "], ["status-ip", "ready"],
+    [" ",   " "], ["id", "19"], [" ", "   Migrate Postgres 14 → 16       "], ["status-ip", "ready"],
   ]},
   { type: "gap" },
 

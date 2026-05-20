@@ -66,10 +66,6 @@ function HeroTerminal({ t }) {
           <span className="term-line"> <span className="term-id">14</span>   Implement passkey login flow       <span className="term-status-ip">in_progress</span></span>
           <span className="term-line"> <span className="term-id">15</span>   Weekly digest email template       <span className="term-status-ip">in_progress</span></span>
           <span className="term-line term-dim">──────────────────────────────────────────────</span>
-          <span className="term-line"><span className="term-prompt">➜</span> <span className="term-dim">~/my-saas</span> <span className="term-cmd">agkan run</span> <span className="term-id">14</span> <span className="term-flag">--agent</span> claude</span>
-          <span className="term-line"><span className="term-ok">▸</span> <span className="term-dim">launching claude-code with task context...</span></span>
-          <span className="term-line"><span className="term-ok">▸</span> <span className="term-dim">reading .agkan/tasks/14.md</span></span>
-          <span className="term-line"><span className="term-ok">✓</span> agent attached <span className="term-dim">(pid 48201, session 1f3a)</span></span>
           <span className="term-line"><span className="term-prompt">➜</span> <span className="term-dim">~/my-saas</span> <span className="term-caret" /></span>
         </div>
       </div>
