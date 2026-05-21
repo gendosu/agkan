@@ -984,7 +984,7 @@ describe('createBoardApp', () => {
       const { value } = await reader.read();
       const text = new TextDecoder().decode(value);
 
-      expect(text).toContain('event: update');
+      expect(text).toContain('event: board-update');
       expect(text).toContain('"updatedAt":null');
       controller.abort();
       reader.cancel();
@@ -1001,7 +1001,7 @@ describe('createBoardApp', () => {
       const { value } = await reader.read();
       const text = new TextDecoder().decode(value);
 
-      expect(text).toContain('event: update');
+      expect(text).toContain('event: board-update');
       expect(text).not.toContain('"updatedAt":null');
       controller.abort();
       reader.cancel();

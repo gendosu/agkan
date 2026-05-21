@@ -9,6 +9,7 @@ import { Tag } from '../../../models';
 import { createFormatter } from '../../utils/output-formatter';
 import { validateIdInput, validateNumberInput } from '../../utils/error-handler';
 import { ConflictError } from '../../../errors';
+import { notifyBoard } from '../../utils/boardNotify';
 
 export function setupTagAttachCommand(program: Command): void {
   // Find the tag command group
@@ -64,6 +65,7 @@ export function setupTagAttachCommand(program: Command): void {
         // Add tag to task
         try {
           taskTagService.addTagToTask({ task_id: parsedTaskId, tag_id: tag!.id });
+          await notifyBoard();
 
           formatter.output(
             () => ({

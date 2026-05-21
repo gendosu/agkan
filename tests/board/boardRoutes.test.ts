@@ -23,12 +23,8 @@ import { MetadataService } from '../../src/services/MetadataService';
 import { CommentService } from '../../src/services/CommentService';
 import { TaskBlockService } from '../../src/services/TaskBlockService';
 import { getStorageBackend } from '../../src/db/connection';
-import {
-  registerBoardRoutes,
-  registerHookRoutes,
-  registerAttentionStreamRoute,
-  BoardServices,
-} from '../../src/board/boardRoutes';
+import { registerBoardRoutes, registerHookRoutes, BoardServices } from '../../src/board/boardRoutes';
+import { getBoardUpdatedAt } from '../../src/board/boardRenderer';
 import { PtySessionService } from '../../src/terminal/PtySessionService';
 import { AttentionStateService } from '../../src/services/AttentionStateService';
 import { getHookToken } from '../../src/utils/hookToken';
@@ -1011,7 +1007,7 @@ describe('GET /api/board/stream', () => {
     controller.abort();
   });
 
-  it('sends initial update event on connect', async () => {
+  it('sends initial board-update event on connect', async () => {
     const services = buildServices();
     const app = buildApp(services);
     const controller = new AbortController();
@@ -1019,41 +1015,65 @@ describe('GET /api/board/stream', () => {
     const reader = res.body!.getReader();
     const { value } = await reader.read();
     const text = new TextDecoder().decode(value);
-    expect(text).toContain('event: update');
+    expect(text).toContain('event: board-update');
     expect(text).toContain('updatedAt');
     controller.abort();
     reader.cancel();
   });
-});
 
-describe('GET /api/running-tasks/stream', () => {
-  function buildServicesWithClaude(): BoardServices {
-    return { ...buildServices(), ptySessionService: new PtySessionService() };
-  }
-
-  it('returns SSE response with correct headers', async () => {
-    const app = buildApp(buildServicesWithClaude());
+  it('board-update triggered by boardEventService.notify() contains DB updatedAt, not current time', async () => {
+    const boardEventService = new BoardEventService();
+    const database = getStorageBackend();
+    const services = { ...buildServices(), boardEventService, database };
+    const app = buildApp(services);
     const controller = new AbortController();
-    const res = await app.fetch(
-      new Request('http://localhost/api/running-tasks/stream', { signal: controller.signal })
-    );
-    expect(res.status).toBe(200);
-    expect(res.headers.get('Content-Type')).toBe('text/event-stream');
-    expect(res.headers.get('Cache-Control')).toBe('no-cache');
+    const res = await app.fetch(new Request('http://localhost/api/board/stream', { signal: controller.signal }));
+    const reader = res.body!.getReader();
+    const decoder = new TextDecoder();
+
+    // Consume the initial board-update snapshot
+    await reader.read();
+
+    // Create a task so DB has a known updated_at
+    services.ts.createTask({ title: 'test', status: 'backlog' });
+    const dbTs = getBoardUpdatedAt(database);
+
+    // Trigger notify and read the resulting event
+    boardEventService.notify();
+    let notifyEvent: { updatedAt: string } | null = null;
+    for (let i = 0; i < 10 && !notifyEvent; i++) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      const text = decoder.decode(value);
+      const match = text.match(/event: board-update\ndata: (.+)\n/);
+      if (match) {
+        notifyEvent = JSON.parse(match[1]) as { updatedAt: string };
+      }
+    }
+
+    expect(notifyEvent).not.toBeNull();
+    expect(notifyEvent!.updatedAt).toBe(dbTs);
+
     controller.abort();
+    reader.cancel();
   });
 
-  it('sends initial update event with current running tasks', async () => {
-    const app = buildApp(buildServicesWithClaude());
+  it('sends running-tasks event when ptySessionService is provided', async () => {
+    const services = { ...buildServices(), ptySessionService: new PtySessionService() };
+    const app = buildApp(services);
     const controller = new AbortController();
-    const res = await app.fetch(
-      new Request('http://localhost/api/running-tasks/stream', { signal: controller.signal })
-    );
+    const res = await app.fetch(new Request('http://localhost/api/board/stream', { signal: controller.signal }));
     const reader = res.body!.getReader();
-    const { value } = await reader.read();
-    const text = new TextDecoder().decode(value);
-    expect(text).toContain('event: update');
-    expect(text).toContain('tasks');
+    const decoder = new TextDecoder();
+    let allText = '';
+    // Read a few chunks to collect all initial events
+    for (let i = 0; i < 5; i++) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      allText += decoder.decode(value);
+      if (allText.includes('event: running-tasks')) break;
+    }
+    expect(allText).toContain('event: running-tasks');
     controller.abort();
     reader.cancel();
   });
@@ -1225,8 +1245,8 @@ describe('hook receiver routes', () => {
     const app = new Hono();
     const attention = opts?.attentionStateService ?? new AttentionStateService();
     const ptySessionService = { stopProcess: opts?.ptyStopProcess ?? vi.fn().mockReturnValue(true) };
+    registerBoardRoutes(app, { ...buildServices(), attentionStateService: attention });
     registerHookRoutes(app, { attentionStateService: attention, ptySessionService });
-    registerAttentionStreamRoute(app, { attentionStateService: attention });
     return app;
   }
 
@@ -1342,24 +1362,33 @@ describe('hook receiver routes', () => {
     expect(ptyStop).toHaveBeenCalledWith(55);
   });
 
-  it('GET /api/attention/stream sends snapshot then updates via SSE', async () => {
+  it('GET /api/board/stream sends attention snapshot via SSE', async () => {
     const attention = new AttentionStateService();
     attention.setAttention(1, true);
     attention.setAttention(3, true);
     const app = buildHookApp({ attentionStateService: attention });
     const controller = new AbortController();
-    const res = await app.fetch(new Request('http://localhost/api/attention/stream', { signal: controller.signal }));
+    const res = await app.fetch(new Request('http://localhost/api/board/stream', { signal: controller.signal }));
     expect(res.status).toBe(200);
     expect(res.headers.get('Content-Type')).toContain('text/event-stream');
     expect(res.headers.get('Cache-Control')).toBe('no-cache');
 
     const reader = res.body!.getReader();
-    const { value } = await reader.read();
-    const text = new TextDecoder().decode(value);
-    const jsonLine = text.replace(/^data: /, '').trim();
-    const parsed = JSON.parse(jsonLine) as { type: string; taskIds: number[] };
-    expect(parsed.type).toBe('snapshot');
-    expect(parsed.taskIds.sort()).toEqual([1, 3]);
+    const decoder = new TextDecoder();
+    let attentionEvent: { type: string; taskIds: number[] } | null = null;
+    for (let i = 0; i < 10 && !attentionEvent; i++) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      const text = decoder.decode(value);
+      // Find the attention event chunk
+      const match = text.match(/event: attention\ndata: (.+)\n/);
+      if (match) {
+        attentionEvent = JSON.parse(match[1]) as { type: string; taskIds: number[] };
+      }
+    }
+    expect(attentionEvent).not.toBeNull();
+    expect(attentionEvent!.type).toBe('snapshot');
+    expect(attentionEvent!.taskIds.sort()).toEqual([1, 3]);
 
     controller.abort();
     reader.cancel();
@@ -1399,5 +1428,31 @@ describe('GET /api/git/branches', () => {
     expect(res.status).toBe(200);
     const data = (await res.json()) as { branches: string[] };
     expect(data.branches).toEqual([]);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// POST /api/board/notify
+// ─────────────────────────────────────────────────────────────────────────────
+import { BoardEventService } from '../../src/services/BoardEventService';
+
+describe('POST /api/board/notify', () => {
+  it('calls boardEventService.notify() and returns { ok: true }', async () => {
+    const boardEventService = new BoardEventService();
+    const notifySpy = vi.spyOn(boardEventService, 'notify');
+    const services = { ...buildServices(), boardEventService };
+    const app = buildApp(services);
+
+    const res = await app.fetch(new Request('http://localhost/api/board/notify', { method: 'POST' }));
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ ok: true });
+    expect(notifySpy).toHaveBeenCalledOnce();
+  });
+
+  it('returns { ok: true } even without boardEventService', async () => {
+    const app = buildApp(buildServices());
+    const res = await app.fetch(new Request('http://localhost/api/board/notify', { method: 'POST' }));
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ ok: true });
   });
 });

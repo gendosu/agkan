@@ -52,11 +52,16 @@ vi.mock('../../../src/board/client/claudeButton', () => ({
 }));
 
 vi.mock('../../../src/board/client/attentionIndicator', () => ({
-  startAttentionStream: vi.fn(),
+  initAttentionStream: vi.fn(),
 }));
 
 vi.mock('../../../src/board/client/bulkRunButton', () => ({
   initBulkRunButton: vi.fn(),
+}));
+
+vi.mock('../../../src/board/client/boardStream', () => ({
+  initBoardStream: vi.fn(),
+  addBoardStreamListener: vi.fn(),
 }));
 
 // Import main.ts — this executes the module-level init calls
@@ -72,7 +77,7 @@ import { initFilters } from '../../../src/board/client/filters';
 import { initBurgerMenu } from '../../../src/board/client/burgerMenu';
 import { initDependencyVisualization } from '../../../src/board/client/dependencyVisualization';
 import { initClaudeButton, registerClaudeButtonDetailHooks } from '../../../src/board/client/claudeButton';
-import { startAttentionStream } from '../../../src/board/client/attentionIndicator';
+import { initAttentionStream } from '../../../src/board/client/attentionIndicator';
 import { initBulkRunButton } from '../../../src/board/client/bulkRunButton';
 
 describe('main.ts entry point smoke test', () => {
@@ -120,8 +125,8 @@ describe('main.ts entry point smoke test', () => {
     expect(initBulkRunButton).toHaveBeenCalledOnce();
   });
 
-  it('calls startAttentionStream on load', () => {
-    expect(startAttentionStream).toHaveBeenCalledOnce();
+  it('calls initAttentionStream on load', () => {
+    expect(initAttentionStream).toHaveBeenCalledOnce();
   });
 
   it('calls registerClaudeButtonDetailHooks with detail panel hooks', () => {
