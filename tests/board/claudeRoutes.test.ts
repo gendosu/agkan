@@ -110,7 +110,7 @@ describe('POST /api/claude/tasks/:taskId/run', () => {
     expect(data.started).toBe(true);
     expect(mock.startProcess).toHaveBeenCalledWith(
       task.id,
-      `Task ID: ${task.id}\n/agkan-subtask-direct\n\nWhen you have completed this task, execute /exit to end this session.`,
+      `Task ID: ${task.id}\n/agkan-subtask-direct\n\nWhen you have completed this task, execute exit to end this session.`,
       'run',
       undefined,
       undefined
@@ -134,7 +134,7 @@ describe('POST /api/claude/tasks/:taskId/run', () => {
     expect(res.status).toBe(201);
     expect(mock.startProcess).toHaveBeenCalledWith(
       task.id,
-      `Task ID: ${task.id}\n/agkan-planning-subtask\n\nWhen you have completed this task, execute /exit to end this session.`,
+      `Task ID: ${task.id}\n/agkan-planning-subtask\n\nWhen you have completed this task, execute exit to end this session.`,
       'planning',
       undefined,
       undefined
@@ -158,7 +158,7 @@ describe('POST /api/claude/tasks/:taskId/run', () => {
     expect(res.status).toBe(201);
     expect(mock.startProcess).toHaveBeenCalledWith(
       task.id,
-      `Task ID: ${task.id}\n/agkan-subtask-direct\n\nWhen you have completed this task, execute /exit to end this session.`,
+      `Task ID: ${task.id}\n/agkan-subtask-direct\n\nWhen you have completed this task, execute exit to end this session.`,
       'run',
       undefined,
       undefined
@@ -239,7 +239,7 @@ describe('POST /api/claude/tasks/:taskId/run', () => {
     expect(res.status).toBe(201);
     expect(mock.startProcess).toHaveBeenCalledWith(
       task.id,
-      `Task ID: ${task.id}\n/agkan-subtask-direct\n\nWhen you have completed this task, execute /exit to end this session.`,
+      `Task ID: ${task.id}\n/agkan-subtask-direct\n\nWhen you have completed this task, execute exit to end this session.`,
       'run',
       'claude-sonnet-4-6',
       'high'
@@ -264,7 +264,7 @@ describe('POST /api/claude/tasks/:taskId/run', () => {
     expect(res.status).toBe(201);
     expect(mock.startProcess).toHaveBeenCalledWith(
       task.id,
-      `Task ID: ${task.id}\n/agkan-subtask-direct\n\nWhen you have completed this task, execute /exit to end this session.`,
+      `Task ID: ${task.id}\n/agkan-subtask-direct\n\nWhen you have completed this task, execute exit to end this session.`,
       'run',
       undefined,
       'max'
