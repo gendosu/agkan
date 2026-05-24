@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- Board Planning/Run buttons now send `exit` as a prompt (user input) instead of executing it as a bash command when the session ends
+
 ## [3.13.0] - 2026-05-19
 
 ### Added
