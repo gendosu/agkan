@@ -796,7 +796,12 @@ export function initDetailPanel(): void {
 
   document.addEventListener('keydown', (e: KeyboardEvent) => {
     if (e.key === 'Escape' && detailPanel.classList.contains('open')) {
-      closeDetailPanel();
+      const addModal = document.getElementById('add-modal');
+      if (addModal?.classList.contains('show')) {
+        document.getElementById('add-cancel')?.click();
+      } else {
+        closeDetailPanel();
+      }
     }
   });
 
