@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### 変更
+- Board の Planning/Run ボタンのセッション終了時に `exit` を bash コマンドとして実行するのではなく、プロンプト（ユーザー入力）として送信するよう変更
+
 ## [3.13.0] - 2026-05-19
 
 ### 追加

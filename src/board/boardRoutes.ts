@@ -550,7 +550,8 @@ function registerClaudeRoutes(app: Hono, claudeProcess: PtySessionService, ts: T
           ? `\n\nNo branch specified: Read this task's title and body, and generate an appropriate git branch name for the work. Format: task/${taskId}-<kebab-case> (alphanumeric characters and hyphens only, maximum 60 characters). Run git checkout -b with the generated branch name before starting work, then save the branch field via PATCH /api/tasks/${taskId} (body: { "branch": "<generated-branch-name>" }) after starting work.`
           : '';
 
-    const exitInstruction = '\n\nWhen you have completed this task, execute exit to end this session.';
+    const exitInstruction =
+      "\n\nWhen you have completed this task, send 'exit' as a prompt (not as a bash command) to end this session.";
 
     const prompt =
       command === 'planning'
