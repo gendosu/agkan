@@ -1,5 +1,5 @@
 import { loadConfig } from '../../db/config';
-import { DEFAULT_BOARD_PORT } from '../commands/config/get';
+import { DEFAULT_BOARD_PORT } from './constants';
 
 export async function notifyBoard(): Promise<void> {
   try {

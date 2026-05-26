@@ -2,8 +2,9 @@ import { Command } from 'commander';
 import chalk from 'chalk';
 import { loadConfig, resolveDatabasePath } from '../../../db/config';
 import { createFormatter } from '../../utils/output-formatter';
+import { DEFAULT_BOARD_PORT } from '../../utils/constants';
 
-export const DEFAULT_BOARD_PORT = 8080;
+export { DEFAULT_BOARD_PORT };
 
 type ResolvedConfig = {
   path: string;
