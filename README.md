@@ -592,6 +592,24 @@ agkan ps --json
 }
 ```
 
+### Config
+
+Get resolved configuration values from `.agkan.yml` (defaults applied):
+
+```bash
+agkan config get              # Show full resolved config
+agkan config get board.port   # Show specific key (dot notation)
+agkan config get --json       # JSON output
+```
+
+Example output:
+```
+✓ Resolved config
+
+path: /workspace/.agkan/data.db
+board.port: 8080
+```
+
 ### Display Help
 
 Show command list:

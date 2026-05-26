@@ -62,6 +62,9 @@ import { setupContextCommand } from './commands/context';
 import { setupExportCommand } from './commands/export';
 import { setupImportCommand } from './commands/import';
 
+// Config command handler
+import { setupConfigGetCommand } from './commands/config/get';
+
 const program = new Command();
 
 // Load version from package.json
@@ -133,6 +136,9 @@ setupContextCommand(program);
 // Register export/import commands
 setupExportCommand(program);
 setupImportCommand(program);
+
+// Register config commands
+setupConfigGetCommand(program);
 
 // Execute program
 program.parse(process.argv);
