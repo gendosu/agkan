@@ -404,7 +404,6 @@ function initRunningIndicatorDropdown(): void {
 
     const wrapper = indicator.parentElement;
     if (wrapper) {
-      wrapper.style.position = 'relative';
       wrapper.appendChild(dropdown);
     }
   });

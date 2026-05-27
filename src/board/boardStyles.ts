@@ -257,7 +257,7 @@ export const BOARD_STYLES = `
     #header-running-indicator { width: 16px; height: 16px; border: 2px solid rgba(255,255,255,0.3); border-top-color: white; border-radius: 50%; animation: header-spin 0.8s linear infinite; flex-shrink: 0; cursor: pointer; }
     .running-indicator-dropdown { position: absolute; right: 0; top: calc(100% + 8px); background: var(--burger-dropdown-bg); border: 1px solid var(--border-color); border-radius: 6px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); padding: 4px 0; z-index: 1100; min-width: 200px; max-width: 320px; }
     .running-indicator-item { padding: 8px 14px; font-size: 13px; cursor: pointer; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: flex; align-items: center; gap: 8px; }
-    .running-indicator-item::before { content: ''; display: inline-block; width: 8px; height: 8px; border: 1.5px solid rgba(255,255,255,0.4); border-top-color: #3b82f6; border-radius: 50%; animation: header-spin 0.8s linear infinite; flex-shrink: 0; }
+    .running-indicator-item::before { content: ''; display: inline-block; width: 8px; height: 8px; border: 1.5px solid var(--border-color); border-top-color: #3b82f6; border-radius: 50%; animation: header-spin 0.8s linear infinite; flex-shrink: 0; }
     .running-indicator-item:hover { background: var(--bg-surface-hover); }
     .burger-menu-wrapper { position: relative; display: flex; align-items: center; gap: 6px; justify-content: flex-end; grid-column: 3; }
     .burger-menu-btn { background: none; border: none; color: white; cursor: pointer; padding: 4px 6px; border-radius: 4px; display: flex; flex-direction: column; gap: 4px; align-items: center; justify-content: center; opacity: 0.8; }
