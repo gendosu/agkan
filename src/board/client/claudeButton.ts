@@ -33,6 +33,9 @@ export function updateButtonStates(runningTaskIds: Set<number>, planningTaskIds:
   const indicator = document.getElementById('header-running-indicator');
   if (indicator) {
     indicator.style.display = runningTaskIds.size > 0 ? '' : 'none';
+    if (runningTaskIds.size === 0) {
+      closeRunningIndicatorDropdown();
+    }
   }
 
   // If the task currently attached to the xterm.js terminal just stopped
@@ -325,11 +328,14 @@ export function initClaudeButton(): void {
     attachClaudeButtonListeners(body);
   });
 
+  initRunningIndicatorDropdown();
+
   // Close open run menus when clicking outside
   document.addEventListener('click', () => {
     document.querySelectorAll<HTMLElement>('.claude-run-split.open').forEach((el) => {
       el.classList.remove('open');
     });
+    closeRunningIndicatorDropdown();
   });
 
   addBoardStreamListener('running-tasks', (raw) => {
@@ -347,6 +353,59 @@ export function initClaudeButton(): void {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: data.targetStatus }),
       });
+    }
+  });
+}
+
+function getTaskTitleById(taskId: number): string {
+  const card = document.querySelector<HTMLElement>(`.card[data-task-id="${taskId}"]`);
+  if (card) {
+    const titleEl = card.querySelector<HTMLElement>('.card-title');
+    if (titleEl?.textContent) return titleEl.textContent.trim();
+  }
+  return `Task #${taskId}`;
+}
+
+function closeRunningIndicatorDropdown(): void {
+  const dropdown = document.getElementById('running-indicator-dropdown');
+  if (dropdown) dropdown.remove();
+}
+
+function initRunningIndicatorDropdown(): void {
+  const indicator = document.getElementById('header-running-indicator');
+  if (!indicator) return;
+
+  indicator.style.cursor = 'pointer';
+
+  indicator.addEventListener('click', (e: MouseEvent) => {
+    e.stopPropagation();
+
+    const existing = document.getElementById('running-indicator-dropdown');
+    if (existing) {
+      existing.remove();
+      return;
+    }
+
+    const dropdown = document.createElement('div');
+    dropdown.id = 'running-indicator-dropdown';
+    dropdown.className = 'running-indicator-dropdown';
+
+    for (const taskId of _runningTaskIds) {
+      const item = document.createElement('div');
+      item.className = 'running-indicator-item';
+      item.textContent = getTaskTitleById(taskId);
+      item.addEventListener('click', async (ev: MouseEvent) => {
+        ev.stopPropagation();
+        closeRunningIndicatorDropdown();
+        await openTerminalTab(taskId);
+      });
+      dropdown.appendChild(item);
+    }
+
+    const wrapper = indicator.parentElement;
+    if (wrapper) {
+      wrapper.style.position = 'relative';
+      wrapper.appendChild(dropdown);
     }
   });
 }
