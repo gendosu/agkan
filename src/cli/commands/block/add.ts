@@ -8,6 +8,7 @@ import { TaskService, TaskBlockService } from '../../../services';
 import { getServiceContainer } from '../../utils/service-container';
 import { validateNumberInput } from '../../utils/error-handler';
 import { createFormatter } from '../../utils/output-formatter';
+import { notifyBoard } from '../../utils/boardNotify';
 import type { Task } from '../../../models/Task';
 
 /**
@@ -184,6 +185,7 @@ async function handleBlockAdd(blockerId: string, blockedId: string, options: { j
     // Add blocking relationship
     addBlockRelationship(taskBlockService, blockerTaskId, blockedTaskId, formatter);
     outputBlockSuccess(formatter, blockerTask, blockedTask);
+    await notifyBoard();
   } catch (error) {
     const msg = error instanceof Error ? error.message : 'An unknown error occurred';
     formatter.error(msg, () => {

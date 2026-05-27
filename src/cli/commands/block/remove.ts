@@ -7,6 +7,7 @@ import chalk from 'chalk';
 import { getServiceContainer } from '../../utils/service-container';
 import { validateNumberInput } from '../../utils/error-handler';
 import { createFormatter } from '../../utils/output-formatter';
+import { notifyBoard } from '../../utils/boardNotify';
 
 export function setupBlockRemoveCommand(program: Command): void {
   const taskCommand = program.commands.find((cmd) => cmd.name() === 'task');
@@ -106,6 +107,7 @@ export function setupBlockRemoveCommand(program: Command): void {
             console.log();
           }
         );
+        await notifyBoard();
       } catch (error) {
         formatter.error(error instanceof Error ? error.message : 'An unknown error occurred', () => {
           if (error instanceof Error) {
