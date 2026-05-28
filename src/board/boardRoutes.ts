@@ -589,6 +589,11 @@ function registerClaudeRoutes(app: Hono, claudeProcess: PtySessionService, ts: T
     if (command === 'pr' || command === 'run') {
       const targetStatus = command === 'pr' ? 'review' : 'done';
       const unsubscribe = claudeProcess.subscribeOutput(taskId, (evt) => {
+        if (evt.kind === 'done' || evt.kind === 'error') {
+          console.error(
+            `[diag][boardRoutes.subscribe] taskId=${taskId} command=${command} evt=${JSON.stringify(evt)} userStopped=${claudeProcess.isUserStopped(taskId)} at=${new Date().toISOString()}`
+          );
+        }
         if (evt.kind === 'done' && evt.exitCode === 0) {
           if (claudeProcess.isUserStopped(taskId)) {
             // User explicitly stopped the process — do not auto-advance status
