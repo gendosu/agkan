@@ -493,6 +493,10 @@ export class PtySessionService {
       throw e;
     }
 
+    console.error(
+      `[diag][spawn] taskId=${taskId} pid=${ptyProcess.pid} command=${command} bin=${CLAUDE_BIN} args=${JSON.stringify(args)} at=${new Date().toISOString()}`
+    );
+
     const info: SessionInfo = {
       taskId,
       command,
@@ -585,8 +589,12 @@ export class PtySessionService {
       }
     });
 
-    ptyProcess.onExit(({ exitCode }) => {
+    ptyProcess.onExit(({ exitCode, signal }) => {
       const code = exitCode ?? 0;
+
+      console.error(
+        `[diag][onExit] taskId=${taskId} pid=${ptyProcess.pid} rawExitCode=${String(exitCode)} signal=${String(signal)} normalized=${code} exitSubscribers=${info.exitSubscribers.size} at=${new Date().toISOString()}`
+      );
 
       if (info.promptTimer !== null) {
         clearTimeout(info.promptTimer);
@@ -623,6 +631,9 @@ export class PtySessionService {
       info.outputUpdateSubscribers.clear();
 
       const doneEvent: OutputEvent = { kind: 'done', exitCode: code };
+      console.error(
+        `[diag][done-emit] taskId=${taskId} exitCode=${code} exitSubscribers=${info.exitSubscribers.size} at=${new Date().toISOString()}`
+      );
       info.exitSubscribers.forEach((cb) => cb(doneEvent));
 
       this.attentionStateService?.clearTask(taskId);
