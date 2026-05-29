@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### 追加
+- `.agkan.yml` の設定値（デフォルト適用後の解決済み値）を取得する `agkan config get [key]` コマンドを追加
+
 ### 変更
 - Board の Planning/Run ボタンのセッション終了時に `exit` を bash コマンドとして実行するのではなく、プロンプト（ユーザー入力）として送信するよう変更
 

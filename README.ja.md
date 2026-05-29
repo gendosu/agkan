@@ -351,6 +351,24 @@ agkan ps --json
 }
 ```
 
+### 設定確認
+
+`.agkan.yml` の設定値（デフォルト適用後の解決済み値）を取得します:
+
+```bash
+agkan config get              # 全設定を表示
+agkan config get board.port   # 特定キーを取得（ドット記法）
+agkan config get --json       # JSON出力
+```
+
+出力例:
+```
+✓ Resolved config
+
+path: /workspace/.agkan/data.db
+board.port: 8080
+```
+
 ### ヘルプの表示
 
 コマンド一覧:

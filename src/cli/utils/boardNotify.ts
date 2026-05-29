@@ -1,6 +1,5 @@
 import { loadConfig } from '../../db/config';
-
-const DEFAULT_BOARD_PORT = 8080;
+import { DEFAULT_BOARD_PORT } from './constants';
 
 export async function notifyBoard(): Promise<void> {
   try {
