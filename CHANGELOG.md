@@ -7,11 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.14.0] - 2026-05-30
+
 ### Added
 - Add `agkan config get [key]` command to retrieve resolved configuration values from `.agkan.yml`
+- Add running indicator dropdown to the board to navigate to currently running tasks
+- Enable manual branch name input by typing on the board
+- Notify board on task and tag mutations via CLI commands
 
 ### Changed
 - Board Planning/Run buttons now send `exit` as a prompt (user input) instead of executing it as a bash command when the session ends
+- Unify SSE streaming into single `/api/board/stream` endpoint
+
+### Fixed
+- Use CSS variable for running indicator dropdown spinner border color on board
+- Add `notifyBoard()` to block add/remove commands
+- Remove slash prefix from exit instruction in board prompts
+- Prioritize add task modal close over detail panel when pressing Escape on board
 
 ## [3.13.0] - 2026-05-19
 
