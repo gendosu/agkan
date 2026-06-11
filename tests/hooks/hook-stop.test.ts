@@ -312,4 +312,151 @@ describe('hook-stop.mjs', () => {
     );
     expect(code).toBe(0);
   });
+
+  it('posts complete when AskUserQuestion was answered and last turn has no tool_use', async () => {
+    const transcript = join(tmp, 't.jsonl');
+    writeFileSync(
+      transcript,
+      [
+        JSON.stringify({
+          type: 'assistant',
+          message: {
+            content: [{ type: 'tool_use', id: 'ask-1', name: 'AskUserQuestion', input: { question: 'Proceed?' } }],
+          },
+        }),
+        JSON.stringify({
+          type: 'user',
+          message: { content: [{ type: 'tool_result', tool_use_id: 'ask-1', content: 'yes' }] },
+        }),
+        JSON.stringify({
+          type: 'assistant',
+          message: { content: [{ type: 'text', text: 'Got it. Task complete.' }] },
+        }),
+      ].join('\n') + '\n'
+    );
+    const code = await runHook(
+      { transcript_path: transcript, hook_event_name: 'Stop', stop_hook_active: false },
+      {
+        BOARD_TASK_ID: '20',
+        BOARD_API_URL: `http://127.0.0.1:${svr.port}`,
+        BOARD_HOOK_TOKEN: 'tk',
+      }
+    );
+    expect(code).toBe(0);
+    const last = svr.captured.at(-1);
+    expect(last?.url).toBe('/api/internal/hooks/stop');
+    expect(last?.body).toEqual({ taskId: 20, reason: 'complete' });
+  });
+
+  it('posts complete when background Bash finished and last turn has no tool_use', async () => {
+    const transcript = join(tmp, 't.jsonl');
+    writeFileSync(
+      transcript,
+      [
+        JSON.stringify({
+          type: 'assistant',
+          message: {
+            content: [
+              { type: 'tool_use', id: 'bash-1', name: 'Bash', input: { command: 'npm test', run_in_background: true } },
+            ],
+          },
+        }),
+        JSON.stringify({
+          type: 'user',
+          message: { content: [{ type: 'tool_result', tool_use_id: 'bash-1', content: 'Tests passed.' }] },
+        }),
+        JSON.stringify({
+          type: 'assistant',
+          message: { content: [{ type: 'text', text: 'All tests passed.' }] },
+        }),
+      ].join('\n') + '\n'
+    );
+    const code = await runHook(
+      { transcript_path: transcript, hook_event_name: 'Stop', stop_hook_active: false },
+      {
+        BOARD_TASK_ID: '21',
+        BOARD_API_URL: `http://127.0.0.1:${svr.port}`,
+        BOARD_HOOK_TOKEN: 'tk',
+      }
+    );
+    expect(code).toBe(0);
+    const last = svr.captured.at(-1);
+    expect(last?.url).toBe('/api/internal/hooks/stop');
+    expect(last?.body).toEqual({ taskId: 21, reason: 'complete' });
+  });
+
+  it('does NOT post when last turn ends with AskUserQuestion awaiting answer', async () => {
+    const before = svr.captured.length;
+    const transcript = join(tmp, 't.jsonl');
+    writeFileSync(
+      transcript,
+      [
+        JSON.stringify({
+          type: 'assistant',
+          message: { content: [{ type: 'tool_use', id: 'r-1', name: 'Read', input: {} }] },
+        }),
+        JSON.stringify({
+          type: 'user',
+          message: { content: [{ type: 'tool_result', tool_use_id: 'r-1', content: 'file content' }] },
+        }),
+        JSON.stringify({
+          type: 'assistant',
+          message: {
+            content: [{ type: 'tool_use', id: 'ask-2', name: 'AskUserQuestion', input: { question: 'Continue?' } }],
+          },
+        }),
+      ].join('\n') + '\n'
+    );
+    const code = await runHook(
+      { transcript_path: transcript, hook_event_name: 'Stop', stop_hook_active: false },
+      {
+        BOARD_TASK_ID: '22',
+        BOARD_API_URL: `http://127.0.0.1:${svr.port}`,
+        BOARD_HOOK_TOKEN: 'tk',
+      }
+    );
+    expect(code).toBe(0);
+    expect(svr.captured.length).toBe(before);
+  });
+
+  it('does NOT post when last turn starts background Bash with no completion yet', async () => {
+    const before = svr.captured.length;
+    const transcript = join(tmp, 't.jsonl');
+    writeFileSync(
+      transcript,
+      [
+        JSON.stringify({
+          type: 'assistant',
+          message: { content: [{ type: 'tool_use', id: 'r-2', name: 'Read', input: {} }] },
+        }),
+        JSON.stringify({
+          type: 'user',
+          message: { content: [{ type: 'tool_result', tool_use_id: 'r-2', content: 'content' }] },
+        }),
+        JSON.stringify({
+          type: 'assistant',
+          message: {
+            content: [
+              {
+                type: 'tool_use',
+                id: 'bash-2',
+                name: 'Bash',
+                input: { command: 'npm run build', run_in_background: true },
+              },
+            ],
+          },
+        }),
+      ].join('\n') + '\n'
+    );
+    const code = await runHook(
+      { transcript_path: transcript, hook_event_name: 'Stop', stop_hook_active: false },
+      {
+        BOARD_TASK_ID: '23',
+        BOARD_API_URL: `http://127.0.0.1:${svr.port}`,
+        BOARD_HOOK_TOKEN: 'tk',
+      }
+    );
+    expect(code).toBe(0);
+    expect(svr.captured.length).toBe(before);
+  });
 });

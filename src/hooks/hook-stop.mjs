@@ -7,25 +7,53 @@ async function readStdin() {
   return Buffer.concat(chunks).toString('utf-8');
 }
 
-function findLastToolUse(jsonl) {
-  const lines = jsonl.split('\n').filter((l) => l.trim().length > 0);
-  for (let i = lines.length - 1; i >= 0; i--) {
-    let entry;
-    try {
-      entry = JSON.parse(lines[i]);
-    } catch {
-      continue;
-    }
+function parseTranscript(jsonl) {
+  return jsonl
+    .split('\n')
+    .filter((l) => l.trim().length > 0)
+    .map((l) => {
+      try {
+        return JSON.parse(l);
+      } catch {
+        return null;
+      }
+    })
+    .filter(Boolean);
+}
+
+// Returns the last tool_use from the last assistant turn only.
+// Scanning the full transcript would find tool_uses from previous turns (e.g., an
+// AskUserQuestion that was already answered, or a background job that already finished),
+// causing guards to fire incorrectly and leaving the terminal alive after completion.
+function findLastToolUse(entries) {
+  for (let i = entries.length - 1; i >= 0; i--) {
+    const entry = entries[i];
+    if (entry?.type !== 'assistant') continue;
     const content = entry?.message?.content;
     if (!Array.isArray(content)) continue;
     for (let j = content.length - 1; j >= 0; j--) {
       const item = content[j];
       if (item && item.type === 'tool_use' && typeof item.name === 'string') {
-        return { name: item.name, input: item.input ?? {} };
+        return { name: item.name, input: item.input ?? {}, id: item.id ?? null, entryIndex: i };
       }
     }
+    // Last assistant turn has no tool_use — safe to terminate.
+    return null;
   }
   return null;
+}
+
+// Returns true if a tool_result for toolUseId exists in any entry after afterIndex.
+function isToolResultPresent(entries, toolUseId, afterIndex) {
+  if (!toolUseId) return false;
+  for (let i = afterIndex + 1; i < entries.length; i++) {
+    const content = entries[i]?.message?.content;
+    if (!Array.isArray(content)) continue;
+    if (content.some((item) => item?.type === 'tool_result' && item?.tool_use_id === toolUseId)) {
+      return true;
+    }
+  }
+  return false;
 }
 
 async function main() {
@@ -57,7 +85,8 @@ async function main() {
     return;
   }
 
-  const lastTool = findLastToolUse(jsonl);
+  const entries = parseTranscript(jsonl);
+  const lastTool = findLastToolUse(entries);
   if (lastTool?.name === 'AskUserQuestion') return;
   // When Claude ends a turn with a backgrounded Bash still running,
   // do not signal "complete" to the server: that would kill the PTY
@@ -66,7 +95,8 @@ async function main() {
     lastTool?.name === 'Bash' &&
     lastTool.input &&
     typeof lastTool.input === 'object' &&
-    lastTool.input.run_in_background === true
+    lastTool.input.run_in_background === true &&
+    !isToolResultPresent(entries, lastTool.id, lastTool.entryIndex)
   ) {
     return;
   }
@@ -76,7 +106,8 @@ async function main() {
     lastTool?.name === 'Task' &&
     lastTool.input &&
     typeof lastTool.input === 'object' &&
-    lastTool.input.run_in_background === true
+    lastTool.input.run_in_background === true &&
+    !isToolResultPresent(entries, lastTool.id, lastTool.entryIndex)
   ) {
     return;
   }

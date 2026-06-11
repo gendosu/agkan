@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- Fix terminal session not exiting after Board Planning/Run when the last assistant turn contains only text (e.g., after answering AskUserQuestion or after a background job completes)
+
 ## [3.14.0] - 2026-05-30
 
 ### Added
