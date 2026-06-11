@@ -14,6 +14,18 @@ vi.mock('child_process', () => {
   };
 });
 
+// ---- Mock config ----
+
+vi.mock('../../src/db/config', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../src/db/config')>();
+  return {
+    ...actual,
+    loadConfig: vi.fn(() => ({})),
+  };
+});
+
+import * as configModule from '../../src/db/config';
+
 import * as childProcess from 'child_process';
 
 // Helper to create a fake ChildProcess
@@ -65,7 +77,7 @@ describe('ClaudeProcessService', () => {
 
       expect(spawnMock).toHaveBeenCalledWith(
         'claude',
-        ['--output-format', 'stream-json', '--verbose', '--dangerously-skip-permissions', '-p', 'Hello world'],
+        ['--output-format', 'stream-json', '--verbose', '--permission-mode', 'auto', '-p', 'Hello world'],
         expect.objectContaining({ cwd: process.cwd() })
       );
     });
@@ -102,7 +114,8 @@ describe('ClaudeProcessService', () => {
           '--output-format',
           'stream-json',
           '--verbose',
-          '--dangerously-skip-permissions',
+          '--permission-mode',
+          'auto',
           '-p',
           'Hello world',
         ],
@@ -134,7 +147,8 @@ describe('ClaudeProcessService', () => {
           '--output-format',
           'stream-json',
           '--verbose',
-          '--dangerously-skip-permissions',
+          '--permission-mode',
+          'auto',
           '-p',
           'Hello world',
         ],
@@ -158,7 +172,8 @@ describe('ClaudeProcessService', () => {
           '--output-format',
           'stream-json',
           '--verbose',
-          '--dangerously-skip-permissions',
+          '--permission-mode',
+          'auto',
           '-p',
           'Hello world',
         ],
@@ -174,6 +189,42 @@ describe('ClaudeProcessService', () => {
 
       const callArgs = spawnMock.mock.calls[0];
       expect(callArgs[1]).not.toContain('--effort');
+    });
+
+    it('should use --dangerously-skip-permissions when permissionMode is skipPermissions', () => {
+      vi.mocked(configModule.loadConfig).mockReturnValue({ permissionMode: 'skipPermissions' });
+      const { proc } = makeFakeProcess();
+      spawnMock.mockReturnValue(proc);
+
+      service.startProcess(1, 'Hello world');
+
+      const callArgs = spawnMock.mock.calls[0];
+      expect(callArgs[1]).toContain('--dangerously-skip-permissions');
+      expect(callArgs[1]).not.toContain('--permission-mode');
+    });
+
+    it('should use --permission-mode bypassPermissions when permissionMode is bypassPermissions', () => {
+      vi.mocked(configModule.loadConfig).mockReturnValue({ permissionMode: 'bypassPermissions' });
+      const { proc } = makeFakeProcess();
+      spawnMock.mockReturnValue(proc);
+
+      service.startProcess(1, 'Hello world');
+
+      const callArgs = spawnMock.mock.calls[0];
+      expect(callArgs[1]).toContain('--permission-mode');
+      expect(callArgs[1][callArgs[1].indexOf('--permission-mode') + 1]).toBe('bypassPermissions');
+    });
+
+    it('should default to --permission-mode auto when permissionMode is not set', () => {
+      vi.mocked(configModule.loadConfig).mockReturnValue({});
+      const { proc } = makeFakeProcess();
+      spawnMock.mockReturnValue(proc);
+
+      service.startProcess(1, 'Hello world');
+
+      const callArgs = spawnMock.mock.calls[0];
+      expect(callArgs[1]).toContain('--permission-mode');
+      expect(callArgs[1][callArgs[1].indexOf('--permission-mode') + 1]).toBe('auto');
     });
   });
 

@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### 追加
+- `.agkan.yml` に `permissionMode` 設定キーを追加し、ボードのタスク実行時の Claude CLI パーミッションモードを制御できるようにした
+
+### 変更
+- Claude CLI のデフォルトパーミッションモードを `--dangerously-skip-permissions` から `--permission-mode auto` に変更。従来の動作を維持するには `.agkan.yml` に `permissionMode: skipPermissions` を設定すること
+
 ### 修正
 - Board の「Run all」実行中に、プロセスが出力購読登録前に終了した場合・ユーザーが実行中タスクを手動停止した場合・セッションや実行ログが存在しない場合に、ループが途中で停止するバグを修正
 

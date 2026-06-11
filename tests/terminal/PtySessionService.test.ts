@@ -71,6 +71,16 @@ vi.mock('child_process', () => ({
   execSync: vi.fn(() => '/usr/local/bin/claude'),
 }));
 
+vi.mock('../../src/db/config', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../src/db/config')>();
+  return {
+    ...actual,
+    loadConfig: vi.fn(() => ({})),
+  };
+});
+
+import * as configModule from '../../src/db/config';
+
 describe('PtySessionService', () => {
   let service: PtySessionService;
 
@@ -311,6 +321,34 @@ describe('PtySessionService - model/effort/boardApiUrl args', () => {
     await svc.startProcess(1, 'prompt', 'run');
     const args = spawnMock.mock.calls[0][1] as string[];
     expect(args).not.toContain('--settings');
+  });
+
+  it('defaults to --permission-mode auto when permissionMode is not configured', async () => {
+    vi.mocked(configModule.loadConfig).mockReturnValue({});
+    const svc = new PtySessionService();
+    await svc.startProcess(1, 'prompt', 'run');
+    const args = spawnMock.mock.calls[0][1] as string[];
+    expect(args).toContain('--permission-mode');
+    expect(args[args.indexOf('--permission-mode') + 1]).toBe('auto');
+    expect(args).not.toContain('--dangerously-skip-permissions');
+  });
+
+  it('uses --dangerously-skip-permissions when permissionMode is skipPermissions', async () => {
+    vi.mocked(configModule.loadConfig).mockReturnValue({ permissionMode: 'skipPermissions' });
+    const svc = new PtySessionService();
+    await svc.startProcess(1, 'prompt', 'run');
+    const args = spawnMock.mock.calls[0][1] as string[];
+    expect(args).toContain('--dangerously-skip-permissions');
+    expect(args).not.toContain('--permission-mode');
+  });
+
+  it('uses --permission-mode bypassPermissions when permissionMode is bypassPermissions', async () => {
+    vi.mocked(configModule.loadConfig).mockReturnValue({ permissionMode: 'bypassPermissions' });
+    const svc = new PtySessionService();
+    await svc.startProcess(1, 'prompt', 'run');
+    const args = spawnMock.mock.calls[0][1] as string[];
+    expect(args).toContain('--permission-mode');
+    expect(args[args.indexOf('--permission-mode') + 1]).toBe('bypassPermissions');
   });
 });
 

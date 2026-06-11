@@ -3,6 +3,7 @@ import type { StorageBackend } from '../db/types/repository';
 import type { RunLogRow } from '../db/types/repository';
 import { verboseLog } from '../utils/logger';
 import { ConflictError } from '../errors';
+import { loadConfig, buildPermissionArgs } from '../db/config';
 
 function resolveClaudePath(): string {
   try {
@@ -135,7 +136,8 @@ export class ClaudeProcessService {
 
     verboseLog(`[ClaudeProcessService] startProcess taskId=${taskId} command=${command}`);
 
-    const baseArgs = ['--output-format', 'stream-json', '--verbose', '--dangerously-skip-permissions', '-p', prompt];
+    const permissionArgs = buildPermissionArgs(loadConfig());
+    const baseArgs = ['--output-format', 'stream-json', '--verbose', ...permissionArgs, '-p', prompt];
     const effortArgs = effort ? ['--effort', effort] : [];
     const modelArgs = model ? ['--model', model] : [];
     const args = [...modelArgs, ...effortArgs, ...baseArgs];

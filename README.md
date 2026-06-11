@@ -1067,6 +1067,35 @@ Supported aliases: `opus`, `sonnet`, `haiku` (resolved by the Claude CLI)
       effort: low
   ```
 
+### Permission Mode Settings
+
+The `permissionMode` field in `.agkan.yml` controls how Claude CLI permission checks are handled when executing tasks from the board.
+
+#### Available Values
+
+| Value | Claude CLI flag | Description |
+|-------|----------------|-------------|
+| (not set) | `--permission-mode auto` | Default. Claude uses auto permission mode |
+| `auto` | `--permission-mode auto` | Claude uses auto permission mode |
+| `bypassPermissions` | `--permission-mode bypassPermissions` | Bypass all permission checks |
+| `acceptEdits` | `--permission-mode acceptEdits` | Automatically accept file edits |
+| `dontAsk` | `--permission-mode dontAsk` | Do not ask for permissions |
+| `plan` | `--permission-mode plan` | Plan-only mode |
+| `default` | `--permission-mode default` | Claude default permission mode |
+| `skipPermissions` | `--dangerously-skip-permissions` | Legacy flag (same as bypassing all checks) |
+
+#### Configuration Example
+
+```yaml
+# Use auto permission mode (default)
+permissionMode: auto
+
+# Use legacy --dangerously-skip-permissions flag
+permissionMode: skipPermissions
+```
+
+> **Breaking Change**: Prior to this feature, `--dangerously-skip-permissions` was always passed. The new default is `--permission-mode auto`. To restore the previous behavior, set `permissionMode: skipPermissions` in your `.agkan.yml`.
+
 ## Planned Features
 
 ### Task Attachments
