@@ -35,7 +35,7 @@ function resolveClaudePath(): string {
 
 const CLAUDE_BIN = resolveClaudePath();
 const PROMPT_FALLBACK_DELAY_MS = 10000;
-const PROMPT_ENTER_DELAY_MS = 100;
+const PROMPT_ENTER_DELAY_MS = 200;
 const MAX_SNAPSHOT_BYTES = 500_000;
 const MAX_COMPLETED_SNAPSHOTS = 10;
 
