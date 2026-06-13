@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### 修正
+- Board の Planning/Run 実行後、最終アシスタントターンがテキストのみで終わる場合（AskUserQuestion 回答後・バックグラウンドジョブ完了後など）にターミナルセッションが終了しない問題を修正
+
 ## [3.14.0] - 2026-05-30
 
 ### 追加
