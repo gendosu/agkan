@@ -159,16 +159,32 @@ export class BulkRunService {
 
   private async launchTask(taskId: number): Promise<void> {
     const { prompt, ptyCommand, model, effort } = this.buildLaunchParams(taskId);
+
+    // Track whether runNext has already been called to prevent duplicate invocations.
+    let advanced = false;
+    const advance = (): void => {
+      if (!advanced) {
+        advanced = true;
+        void this.runNext();
+      }
+    };
+
     try {
       await this.claudeProcess.startProcess(taskId, prompt, ptyCommand, model, effort);
     } catch {
-      void this.runNext();
+      advance();
       return;
     }
-    const unsubscribe = this.claudeProcess.subscribeOutput(taskId, (evt) => {
+
+    // subscribeOutput always fires the callback (done or error) even when the session
+    // has already exited (fixed in PtySessionService), so the loop is guaranteed to proceed.
+    // Use let so the callback can safely reference unsubscribe even when the callback fires
+    // synchronously before the assignment completes (fast-exit / no-session path).
+    let unsubscribe: (() => void) | undefined;
+    unsubscribe = this.claudeProcess.subscribeOutput(taskId, (evt) => {
       if (evt.kind === 'done' || evt.kind === 'error') {
-        unsubscribe();
-        void this.runNext();
+        unsubscribe?.();
+        advance();
       }
     });
   }

@@ -290,6 +290,9 @@ export class PtySessionService {
       info.promptTimer = null;
     }
     info.pendingPrompt = null;
+    // Notify subscribers before clearing so they can advance (e.g. BulkRunService.runNext()).
+    const doneEvent: OutputEvent = { kind: 'done', exitCode: 0 };
+    info.exitSubscribers.forEach((cb) => cb(doneEvent));
     info.exitSubscribers.clear();
     this.userStoppedTasks.add(taskId);
     info.ptyProcess.kill();
@@ -317,6 +320,9 @@ export class PtySessionService {
           return () => {};
         }
       }
+      // Session not found and no run log: process may have exited before subscription.
+      // Notify caller immediately so the caller can advance to the next action.
+      callback({ kind: 'error', message: `No session or run log found for taskId ${taskId}` });
       return () => {};
     }
     info.exitSubscribers.add(callback);

@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- Fix Board "Run all" loop stopping early when a process exits before the output subscription is registered, when the user manually stops a running task, or when no session or run log exists for a task
+
 ## [3.14.1] - 2026-06-13
 
 ### Fixed
