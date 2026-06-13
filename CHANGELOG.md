@@ -7,8 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.14.1] - 2026-06-13
+
 ### Fixed
 - Fix terminal session not exiting after Board Planning/Run when the last assistant turn contains only text (e.g., after answering AskUserQuestion or after a background job completes)
+- Increase `PROMPT_ENTER_DELAY_MS` from 100ms to 200ms to fix prompt enter timing issues
 
 ## [3.14.0] - 2026-05-30
 
