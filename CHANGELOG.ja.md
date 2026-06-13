@@ -7,8 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.14.1] - 2026-06-13
+
 ### 修正
 - Board の Planning/Run 実行後、最終アシスタントターンがテキストのみで終わる場合（AskUserQuestion 回答後・バックグラウンドジョブ完了後など）にターミナルセッションが終了しない問題を修正
+- プロンプト入力タイミングの問題を修正するため `PROMPT_ENTER_DELAY_MS` を 100ms から 200ms に増加
 
 ## [3.14.0] - 2026-05-30
 
