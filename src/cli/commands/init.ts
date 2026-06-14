@@ -43,6 +43,15 @@ const DEFAULT_CONFIG_CONTENT = `# agkan configuration file
 #   run:
 #     model: sonnet
 #     effort: low
+
+# Permission mode configuration
+# Controls how Claude CLI handles permission prompts when running agents.
+# Default: auto
+# Valid values: auto | acceptEdits | bypassPermissions | default | dontAsk | plan | skipPermissions
+# Note: skipPermissions maps to --dangerously-skip-permissions (legacy behavior).
+#       All other values use --permission-mode <value>.
+# Example: permissionMode: auto
+# permissionMode: auto
 `;
 
 const DEFAULT_TAGS = ['bug', 'security', 'improvement', 'test', 'performance', 'refactor', 'docs'];
