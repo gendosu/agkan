@@ -204,7 +204,7 @@ describe('PtySessionService', () => {
     expect(mockResize).toHaveBeenCalledWith(100, 30);
   });
 
-  it('does not notify exitSubscribers when process is stopped by user', () => {
+  it('notifies exitSubscribers with done event when process is stopped by user', () => {
     service.startProcess(1, 'prompt', 'run');
     const exitCallback = vi.fn();
     service.subscribeOutput(1, exitCallback);
@@ -212,10 +212,14 @@ describe('PtySessionService', () => {
     // User stops the process manually
     service.stopProcess(1);
 
+    // stopProcess must notify subscribers with done before clearing so callers can advance.
+    expect(exitCallback).toHaveBeenCalledWith({ kind: 'done', exitCode: 0 });
+    exitCallback.mockClear();
+
     // Simulate PTY onExit firing after kill (exitCode is null for killed processes)
     mockOnExitHandler?.({ exitCode: null as unknown as number });
 
-    // exitSubscribers should NOT have been called because stopProcess cleared them
+    // After stopProcess already cleared subscribers, the natural exit must NOT call them again
     expect(exitCallback).not.toHaveBeenCalled();
   });
 });
@@ -393,11 +397,12 @@ describe('PtySessionService - subscribe methods for non-running tasks', () => {
     vi.useRealTimers();
   });
 
-  it('subscribeOutput with no DB and no session returns no-op unsubscribe immediately', () => {
+  it('subscribeOutput with no DB and no session calls callback with error immediately', () => {
     const svc = new PtySessionService();
     const cb = vi.fn();
     const unsub = svc.subscribeOutput(99, cb);
-    expect(cb).not.toHaveBeenCalled();
+    // No session and no DB: callback must fire with error so callers can advance
+    expect(cb).toHaveBeenCalledWith({ kind: 'error', message: expect.any(String) });
     expect(typeof unsub).toBe('function');
     unsub(); // should not throw
   });
@@ -419,11 +424,12 @@ describe('PtySessionService - subscribe methods for non-running tasks', () => {
     expect(typeof unsub).toBe('function');
   });
 
-  it('subscribeOutput with DB returns no-op when no run log found', () => {
+  it('subscribeOutput with DB calls callback with error when no run log found', () => {
     const svc = new PtySessionService(mockDb as never);
     const cb = vi.fn();
     svc.subscribeOutput(99, cb);
-    expect(cb).not.toHaveBeenCalled();
+    // No session and DB has no run log: callback must fire with error so callers can advance
+    expect(cb).toHaveBeenCalledWith({ kind: 'error', message: expect.any(String) });
   });
 
   it('subscribeOutputUpdate with non-running finished task calls callback immediately', () => {
@@ -667,6 +673,76 @@ describe('PtySessionService - uncovered methods', () => {
     expect(cb).toHaveBeenCalledWith(42, 'done');
     unsub();
     svc.notifyCompletionConfirm(42, 'done');
+    expect(cb).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('PtySessionService - notification guarantees (bug fix: Run-all loop)', () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    mockWrite.mockClear();
+    mockKill.mockClear();
+    mockOnDataHandler = null;
+    mockOnExitHandler = null;
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('subscribeOutput fires error callback immediately when no session and no DB', () => {
+    const svc = new PtySessionService();
+    const cb = vi.fn();
+    svc.subscribeOutput(42, cb);
+    expect(cb).toHaveBeenCalledWith({ kind: 'error', message: expect.stringContaining('42') });
+  });
+
+  it('subscribeOutput fires error callback immediately when DB has no run log for task', () => {
+    const mockDb = {
+      runLogs: {
+        create: vi.fn(),
+        updateFinished: vi.fn(),
+        updateEvents: vi.fn(),
+        findLatestByTaskId: vi.fn().mockReturnValue(null),
+        findByTaskId: vi.fn().mockReturnValue([]),
+        findIdsByTaskId: vi.fn().mockReturnValue([]),
+        deleteMany: vi.fn(),
+        updateSessionId: vi.fn(),
+      },
+    };
+    const svc = new PtySessionService(mockDb as never);
+    const cb = vi.fn();
+    svc.subscribeOutput(42, cb);
+    expect(cb).toHaveBeenCalledWith({ kind: 'error', message: expect.any(String) });
+  });
+
+  it('stopProcess fires done to all exitSubscribers before clearing them', async () => {
+    const svc = new PtySessionService();
+    await svc.startProcess(1, 'prompt', 'run');
+
+    const cb1 = vi.fn();
+    const cb2 = vi.fn();
+    svc.subscribeOutput(1, cb1);
+    svc.subscribeOutput(1, cb2);
+
+    svc.stopProcess(1);
+
+    expect(cb1).toHaveBeenCalledWith({ kind: 'done', exitCode: 0 });
+    expect(cb2).toHaveBeenCalledWith({ kind: 'done', exitCode: 0 });
+  });
+
+  it('stopProcess done notification is not duplicated by natural PTY exit', async () => {
+    const svc = new PtySessionService();
+    await svc.startProcess(1, 'prompt', 'run');
+
+    const cb = vi.fn();
+    svc.subscribeOutput(1, cb);
+
+    svc.stopProcess(1);
+    expect(cb).toHaveBeenCalledTimes(1);
+
+    // PTY onExit fires after kill — session is already removed, so no second notification
+    mockOnExitHandler?.({ exitCode: null as unknown as number });
     expect(cb).toHaveBeenCalledTimes(1);
   });
 });

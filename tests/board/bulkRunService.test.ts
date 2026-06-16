@@ -262,6 +262,156 @@ describe('BulkRunService task selection', () => {
   });
 });
 
+describe('BulkRunService - Run all loop continuity regression', () => {
+  /**
+   * These tests verify that the Run-all loop always advances to the next task
+   * regardless of how the current process terminates.
+   *
+   * Each scenario uses a subscribeOutput mock that can fire callbacks imperatively,
+   * mirroring the fixed PtySessionService behaviour where the callback is always invoked.
+   */
+
+  it('runs all ready tasks sequentially (normal completion)', async () => {
+    const db = getStorageBackend();
+    const ts = new TaskService(db);
+    const tbs = new TaskBlockService(db);
+
+    const task1 = ts.createTask({ title: 'task 1', status: 'ready', priority: 'high' });
+    const task2 = ts.createTask({ title: 'task 2', status: 'ready', priority: 'medium' });
+    const task3 = ts.createTask({ title: 'task 3', status: 'ready', priority: 'low' });
+
+    // Simulate tasks moving out of ready when startProcess is called
+    const startProcess = vi.fn().mockImplementation(async (taskId: number) => {
+      ts.updateTask(taskId, { status: 'in_progress' });
+    });
+
+    const outputCallbacks: Map<number, OutputCallback> = new Map();
+    const subscribeOutput = vi.fn().mockImplementation((taskId: number, cb: OutputCallback) => {
+      outputCallbacks.set(taskId, cb);
+      return () => outputCallbacks.delete(taskId);
+    });
+
+    const listRunningTasks = vi.fn().mockReturnValue([]);
+
+    const pty = buildMockPty({ startProcess, subscribeOutput, listRunningTasks });
+    const service = new BulkRunService(ts, tbs, pty);
+
+    await service.start('direct');
+
+    // task1 should have started
+    expect(startProcess).toHaveBeenCalledWith(task1.id, expect.any(String), 'run', undefined, undefined);
+
+    // Simulate task1 completing
+    outputCallbacks.get(task1.id)?.({ kind: 'done', exitCode: 0 });
+    await Promise.resolve(); // flush micro-tasks
+
+    // task2 should have started
+    expect(startProcess).toHaveBeenCalledWith(task2.id, expect.any(String), 'run', undefined, undefined);
+
+    // Simulate task2 completing
+    outputCallbacks.get(task2.id)?.({ kind: 'done', exitCode: 0 });
+    await Promise.resolve();
+
+    // task3 should have started
+    expect(startProcess).toHaveBeenCalledWith(task3.id, expect.any(String), 'run', undefined, undefined);
+
+    // Simulate task3 completing
+    outputCallbacks.get(task3.id)?.({ kind: 'done', exitCode: 0 });
+    await Promise.resolve();
+
+    expect(startProcess).toHaveBeenCalledTimes(3);
+    service.stop();
+  });
+
+  it('advances loop when subscribeOutput fires error (fast-exit / no session)', async () => {
+    const db = getStorageBackend();
+    const ts = new TaskService(db);
+    const tbs = new TaskBlockService(db);
+
+    const task1 = ts.createTask({ title: 'task 1', status: 'ready', priority: 'high' });
+    const task2 = ts.createTask({ title: 'task 2', status: 'ready', priority: 'low' });
+
+    const startProcess = vi.fn().mockImplementation(async (taskId: number) => {
+      ts.updateTask(taskId, { status: 'in_progress' });
+    });
+
+    // Simulates PtySessionService fixed behaviour: immediately fires error when session
+    // is not found (process exited before subscription).
+    const subscribeOutput = vi.fn().mockImplementation((_taskId: number, cb: OutputCallback) => {
+      cb({ kind: 'error', message: 'No session found' });
+      return () => {};
+    });
+
+    const pty = buildMockPty({ startProcess, subscribeOutput });
+    const service = new BulkRunService(ts, tbs, pty);
+
+    await service.start('direct');
+    // Flush multiple micro-task rounds: subscribeOutput fires synchronously inside
+    // launchTask which schedules runNext → launchTask chain asynchronously.
+    await Promise.resolve();
+    await Promise.resolve();
+    await Promise.resolve();
+
+    // Both tasks must have been launched despite the immediate error
+    expect(startProcess).toHaveBeenCalledWith(task1.id, expect.any(String), 'run', undefined, undefined);
+    expect(startProcess).toHaveBeenCalledWith(task2.id, expect.any(String), 'run', undefined, undefined);
+
+    service.stop();
+  });
+
+  it('advances loop when user stops a running task (stopProcess fires done before clear)', async () => {
+    const db = getStorageBackend();
+    const ts = new TaskService(db);
+    const tbs = new TaskBlockService(db);
+
+    const task1 = ts.createTask({ title: 'task 1', status: 'ready', priority: 'high' });
+    const task2 = ts.createTask({ title: 'task 2', status: 'ready', priority: 'low' });
+
+    const startProcess = vi.fn().mockImplementation(async (taskId: number) => {
+      ts.updateTask(taskId, { status: 'in_progress' });
+    });
+
+    const outputCallbacks: Map<number, OutputCallback> = new Map();
+    const subscribeOutput = vi.fn().mockImplementation((taskId: number, cb: OutputCallback) => {
+      outputCallbacks.set(taskId, cb);
+      return () => outputCallbacks.delete(taskId);
+    });
+
+    // Simulates stopProcess notifying subscribers before clearing (fixed behaviour)
+    const stopProcess = vi.fn().mockImplementation((taskId: number) => {
+      const cb = outputCallbacks.get(taskId);
+      if (cb) {
+        cb({ kind: 'done', exitCode: 0 });
+        outputCallbacks.delete(taskId);
+      }
+      return true;
+    });
+
+    const pty = buildMockPty({ startProcess, subscribeOutput, stopProcess });
+    const service = new BulkRunService(ts, tbs, pty);
+
+    await service.start('direct');
+
+    // task1 should have started
+    expect(startProcess).toHaveBeenCalledWith(task1.id, expect.any(String), 'run', undefined, undefined);
+    expect(outputCallbacks.has(task1.id)).toBe(true);
+
+    // User stops task1 — this must fire the done callback and allow the loop to advance
+    stopProcess(task1.id);
+    await Promise.resolve();
+
+    // task2 should now have started
+    expect(startProcess).toHaveBeenCalledWith(task2.id, expect.any(String), 'run', undefined, undefined);
+
+    // Simulate task2 completing normally
+    outputCallbacks.get(task2.id)?.({ kind: 'done', exitCode: 0 });
+    await Promise.resolve();
+
+    expect(startProcess).toHaveBeenCalledTimes(2);
+    service.stop();
+  });
+});
+
 describe('BulkRunService API routes', () => {
   it('POST /api/claude/bulk-run starts bulk run', async () => {
     const { Hono } = await import('hono');
