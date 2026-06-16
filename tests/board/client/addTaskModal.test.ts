@@ -490,6 +490,25 @@ describe('initAddTaskModal - branch input', () => {
     expect(branchInput.value).toBe('f');
   });
 
+  it('calls preventDefault on first keydown to prevent browser default insertion doubling the character', () => {
+    // Regression test for real-browser bug: removing readOnly during keydown causes
+    // the browser to both insert the character via default behavior AND our manual value set,
+    // resulting in duplicate first character (e.g. 'ff' instead of 'f').
+    setupAddModalDOM();
+    initAddTaskModal();
+
+    const branchInput = document.getElementById('add-branch') as HTMLInputElement;
+    expect(branchInput.readOnly).toBe(true);
+
+    const event = new KeyboardEvent('keydown', { key: 'f', bubbles: true, cancelable: true });
+    const preventDefaultSpy = vi.spyOn(event, 'preventDefault');
+
+    branchInput.dispatchEvent(event);
+
+    expect(preventDefaultSpy).toHaveBeenCalledOnce();
+    expect(branchInput.value).toBe('f');
+  });
+
   it('does not switch to manual mode for control keys (Ctrl, Meta, Alt)', () => {
     setupAddModalDOM();
     initAddTaskModal();
