@@ -308,10 +308,17 @@ agkan task list --tree
 
 ## Configuration
 
-Place \`.agkan.yml\` in the project root to customize the DB path:
+Place \`.agkan.yml\` in the project root to customize agkan behavior:
 
 \`\`\`yaml
+# Database path
 path: ./.agkan/data.db
+
+# Permission mode for Claude CLI (default: auto)
+# Valid values: auto | acceptEdits | bypassPermissions | default | dontAsk | plan | skipPermissions
+# Note: skipPermissions maps to --dangerously-skip-permissions (legacy behavior).
+#       All other values use --permission-mode <value>.
+permissionMode: auto
 \`\`\`
 
 Or use the environment variable: \`AGENT_KANBAN_DB_PATH=/custom/path/data.db\`

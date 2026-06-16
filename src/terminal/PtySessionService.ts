@@ -10,6 +10,7 @@ import { ConflictError } from '../errors';
 import { ensureBoardHookSettings } from '../hooks/claudeHookSettings';
 import { getHookToken } from '../utils/hookToken';
 import { AttentionStateService } from '../services/AttentionStateService';
+import { loadConfig, buildPermissionArgs } from '../db/config';
 
 export function stripAnsi(text: string): string {
   return (
@@ -134,7 +135,8 @@ export class PtySessionService {
     const modelArgs = model ? ['--model', model] : [];
     const effortArgs = effort ? ['--effort', effort] : [];
     const settingsArgs = this.hookSettingsPath ? ['--settings', this.hookSettingsPath] : [];
-    const args = [...settingsArgs, ...modelArgs, ...effortArgs, '--dangerously-skip-permissions'];
+    const permissionArgs = buildPermissionArgs(loadConfig());
+    const args = [...settingsArgs, ...modelArgs, ...effortArgs, ...permissionArgs];
 
     const hookEnv: Record<string, string> = {};
     if (this.boardApiUrl !== null && this.boardApiUrl !== '') {

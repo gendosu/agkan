@@ -15,6 +15,21 @@ export interface Config {
     planning?: { model?: string; effort?: string };
     run?: { model?: string; effort?: string };
   };
+  permissionMode?: string;
+}
+
+/**
+ * Build claude CLI permission arguments from config.
+ * - "skipPermissions" → --dangerously-skip-permissions (legacy behavior)
+ * - any other value → --permission-mode <value>
+ * - undefined → --permission-mode auto (default)
+ */
+export function buildPermissionArgs(config: Config): string[] {
+  const mode = config.permissionMode;
+  if (mode === 'skipPermissions') {
+    return ['--dangerously-skip-permissions'];
+  }
+  return ['--permission-mode', mode ?? 'auto'];
 }
 
 /**

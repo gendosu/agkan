@@ -1053,6 +1053,35 @@ models:
       effort: low
   ```
 
+### パーミッションモード設定
+
+`.agkan.yml` の `permissionMode` フィールドで、ボードからタスクを実行する際のClaude CLIのパーミッションチェック方法を制御できます。
+
+#### 利用可能な値
+
+| 値 | Claude CLI フラグ | 説明 |
+|-------|----------------|-------------|
+| (未設定) | `--permission-mode auto` | デフォルト。Claudeがautoパーミッションモードを使用 |
+| `auto` | `--permission-mode auto` | Claudeがautoパーミッションモードを使用 |
+| `bypassPermissions` | `--permission-mode bypassPermissions` | すべてのパーミッションチェックをバイパス |
+| `acceptEdits` | `--permission-mode acceptEdits` | ファイル編集を自動的に承認 |
+| `dontAsk` | `--permission-mode dontAsk` | パーミッションを確認しない |
+| `plan` | `--permission-mode plan` | プランのみモード |
+| `default` | `--permission-mode default` | Claudeのデフォルトパーミッションモード |
+| `skipPermissions` | `--dangerously-skip-permissions` | レガシーフラグ（すべてのチェックをバイパスする旧来の動作） |
+
+#### 設定例
+
+```yaml
+# autoパーミッションモードを使用（デフォルト）
+permissionMode: auto
+
+# レガシーの --dangerously-skip-permissions フラグを使用
+permissionMode: skipPermissions
+```
+
+> **破壊的変更**: この機能導入以前は常に `--dangerously-skip-permissions` が渡されていました。新しいデフォルトは `--permission-mode auto` です。従来の動作を維持するには `.agkan.yml` に `permissionMode: skipPermissions` を設定してください。
+
 ## 実装予定機能
 
 ### タスクの添付ファイル
