@@ -516,8 +516,9 @@ function wireBranchField(currentBranch: string | null | undefined): void {
     if (branchInput.readOnly && e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
       branchInput.readOnly = false;
       branchInput.classList.remove('branch-auto-mode');
-      branchInternalValue = '';
-      branchInput.value = '';
+      branchInternalValue = e.key;
+      branchInput.value = e.key;
+      renderDetailBranchDropdown(branchDropdown, e.key);
     }
   });
 

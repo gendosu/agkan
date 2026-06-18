@@ -400,8 +400,9 @@ export function initAddTaskModal(): void {
       if (branchInput.readOnly && e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
         branchInput.readOnly = false;
         branchInput.classList.remove('branch-auto-mode');
-        branchInternalValue = '';
-        branchInput.value = '';
+        branchInternalValue = e.key;
+        branchInput.value = e.key;
+        renderBranchDropdown(branchDropdown, e.key);
       }
     });
 

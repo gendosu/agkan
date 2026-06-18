@@ -23,6 +23,10 @@ function setupAddModalDOM(): void {
           <option value="">None</option>
           <option value="high">high</option>
         </select>
+        <div class="branch-select-wrapper" id="add-branch-wrapper">
+          <input type="text" id="add-branch" name="branch" placeholder="✨ Auto-generate on run" readonly>
+          <div class="branch-select-dropdown" id="add-branch-dropdown" style="display:none;"></div>
+        </div>
         <div class="tag-select-wrapper" id="add-tags-wrapper">
           <div class="tag-select-control" id="add-tag-select-control"></div>
           <div class="tag-select-dropdown" id="add-tag-select-dropdown"></div>
@@ -456,6 +460,134 @@ describe('initAddTaskModal - task submission with tags and metadata', () => {
     const body = capturedBody as Record<string, unknown>;
     // metadata should be undefined since no valid entries
     expect(body.metadata).toBeUndefined();
+  });
+});
+
+describe('initAddTaskModal - branch input', () => {
+  it('branch input is initially readonly with auto-generate mode after modal open', () => {
+    setupAddModalDOM();
+    initAddTaskModal();
+
+    // Open the modal to trigger resetAddModal which calls setBranchAutoMode
+    document.querySelector<HTMLButtonElement>('.add-btn')!.click();
+
+    const branchInput = document.getElementById('add-branch') as HTMLInputElement;
+    expect(branchInput.readOnly).toBe(true);
+    expect(branchInput.classList.contains('branch-auto-mode')).toBe(true);
+  });
+
+  it('switches to manual mode and captures first character on keydown', () => {
+    setupAddModalDOM();
+    initAddTaskModal();
+
+    const branchInput = document.getElementById('add-branch') as HTMLInputElement;
+    expect(branchInput.readOnly).toBe(true);
+
+    branchInput.dispatchEvent(new KeyboardEvent('keydown', { key: 'f', bubbles: true }));
+
+    expect(branchInput.readOnly).toBe(false);
+    expect(branchInput.classList.contains('branch-auto-mode')).toBe(false);
+    expect(branchInput.value).toBe('f');
+  });
+
+  it('does not switch to manual mode for control keys (Ctrl, Meta, Alt)', () => {
+    setupAddModalDOM();
+    initAddTaskModal();
+
+    const branchInput = document.getElementById('add-branch') as HTMLInputElement;
+
+    branchInput.dispatchEvent(new KeyboardEvent('keydown', { key: 'c', ctrlKey: true, bubbles: true }));
+    expect(branchInput.readOnly).toBe(true);
+
+    branchInput.dispatchEvent(new KeyboardEvent('keydown', { key: 'c', metaKey: true, bubbles: true }));
+    expect(branchInput.readOnly).toBe(true);
+  });
+
+  it('does not switch to manual mode for special keys like Enter or Backspace', () => {
+    setupAddModalDOM();
+    initAddTaskModal();
+
+    const branchInput = document.getElementById('add-branch') as HTMLInputElement;
+
+    branchInput.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+    expect(branchInput.readOnly).toBe(true);
+
+    branchInput.dispatchEvent(new KeyboardEvent('keydown', { key: 'Backspace', bubbles: true }));
+    expect(branchInput.readOnly).toBe(true);
+  });
+
+  it('resets branch to auto-generate mode when modal is reopened', () => {
+    setupAddModalDOM();
+    initAddTaskModal();
+
+    const branchInput = document.getElementById('add-branch') as HTMLInputElement;
+    // Switch to manual mode
+    branchInput.dispatchEvent(new KeyboardEvent('keydown', { key: 'f', bubbles: true }));
+    expect(branchInput.readOnly).toBe(false);
+
+    // Reopen modal to reset state
+    document.getElementById('add-cancel')!.click();
+    document.querySelector<HTMLButtonElement>('.add-btn')!.click();
+
+    expect(branchInput.readOnly).toBe(true);
+    expect(branchInput.classList.contains('branch-auto-mode')).toBe(true);
+  });
+
+  it('submits manual branch name when provided', async () => {
+    setupAddModalDOM();
+    vi.spyOn(tagsModule, 'allAvailableTags', 'get').mockReturnValue([]);
+    initAddTaskModal();
+
+    document.querySelector<HTMLButtonElement>('.add-btn')!.click();
+
+    const title = document.getElementById('add-title') as HTMLInputElement;
+    title.value = 'Task with branch';
+
+    const branchInput = document.getElementById('add-branch') as HTMLInputElement;
+    branchInput.dispatchEvent(new KeyboardEvent('keydown', { key: 'm', bubbles: true }));
+    branchInput.value = 'my-feature-branch';
+    branchInput.dispatchEvent(new Event('input'));
+
+    let capturedBody: unknown = null;
+    global.fetch = vi.fn().mockImplementation((url: string, opts: RequestInit) => {
+      if (url === '/api/tasks' && opts.method === 'POST') {
+        capturedBody = JSON.parse(opts.body as string);
+      }
+      return Promise.resolve({ ok: true });
+    });
+
+    document.getElementById('add-submit')!.click();
+    await Promise.resolve();
+    await Promise.resolve();
+
+    const body = capturedBody as Record<string, unknown>;
+    expect(body.branch).toBe('my-feature-branch');
+  });
+
+  it('submits auto-generate branch value when not manually changed', async () => {
+    setupAddModalDOM();
+    vi.spyOn(tagsModule, 'allAvailableTags', 'get').mockReturnValue([]);
+    initAddTaskModal();
+
+    document.querySelector<HTMLButtonElement>('.add-btn')!.click();
+
+    const title = document.getElementById('add-title') as HTMLInputElement;
+    title.value = 'Task with auto branch';
+
+    let capturedBody: unknown = null;
+    global.fetch = vi.fn().mockImplementation((url: string, opts: RequestInit) => {
+      if (url === '/api/tasks' && opts.method === 'POST') {
+        capturedBody = JSON.parse(opts.body as string);
+      }
+      return Promise.resolve({ ok: true });
+    });
+
+    document.getElementById('add-submit')!.click();
+    await Promise.resolve();
+    await Promise.resolve();
+
+    const body = capturedBody as Record<string, unknown>;
+    expect(body.branch).toBe('<auto-generate>');
   });
 });
 
