@@ -113,6 +113,21 @@ export function attachTerminalToTab(taskId: number, container: HTMLElement): voi
 }
 
 /**
+ * A new PTY session has started for the task currently shown in the terminal
+ * (e.g. Run all picked up a task whose terminal still shows its planning log).
+ * Tear down the stale connection, clear the previous output, and reconnect so
+ * only the new session's log is displayed. No-op if this task is not the one
+ * currently displayed.
+ */
+export function reattachTerminalForNewSession(taskId: number): void {
+  if (_currentTaskId !== taskId || !_terminal) return;
+  const container = _terminal.element?.parentElement;
+  if (!(container instanceof HTMLElement)) return;
+  detachTerminal();
+  attachTerminalToTab(taskId, container);
+}
+
+/**
  * Refit the terminal to its current container size. Safe to call when the
  * Terminal tab becomes visible (e.g. after a tab switch).
  */
