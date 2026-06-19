@@ -123,6 +123,10 @@ export function reattachTerminalForNewSession(taskId: number): void {
   if (_currentTaskId !== taskId || !_terminal) return;
   const container = _terminal.element?.parentElement;
   if (!(container instanceof HTMLElement)) return;
+  // Explicitly detach first so that attachTerminalToTab's internal detach call
+  // finds everything already null (idempotent). The explicit call here also
+  // nulls _ioWs, which is required to bypass attachTerminalToTab's reuse guard
+  // (the guard early-returns when _currentTaskId === taskId AND _ioWs is open).
   detachTerminal();
   attachTerminalToTab(taskId, container);
 }

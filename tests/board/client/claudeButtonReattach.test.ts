@@ -6,7 +6,7 @@
  * currently displayed and assert on the reattach call.
  */
 
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 const { terminalModule } = vi.hoisted(() => {
   const terminalModule = {
@@ -28,6 +28,10 @@ beforeEach(() => {
   terminalModule.getCurrentTerminalTaskId.mockReturnValue(null);
   // Reset the module-level running set to empty.
   updateButtonStates(new Set());
+});
+
+afterEach(() => {
+  vi.restoreAllMocks();
 });
 
 describe('reattach on new session', () => {
@@ -63,5 +67,14 @@ describe('reattach on new session', () => {
     terminalModule.detachTerminal.mockClear();
     updateButtonStates(new Set()); // task 5 stopped
     expect(terminalModule.detachTerminal).toHaveBeenCalled();
+  });
+
+  it('reattaches again when the displayed task stops and then starts a new session', () => {
+    terminalModule.getCurrentTerminalTaskId.mockReturnValue(5);
+    updateButtonStates(new Set([5])); // first start → reattach fires
+    updateButtonStates(new Set()); // task 5 stopped
+    terminalModule.reattachTerminalForNewSession.mockClear();
+    updateButtonStates(new Set([5])); // second start → reattach must fire again
+    expect(terminalModule.reattachTerminalForNewSession).toHaveBeenCalledWith(5);
   });
 });
