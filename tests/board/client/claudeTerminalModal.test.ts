@@ -503,3 +503,52 @@ describe('stopTerminal', () => {
     expect(await stopTerminal(7)).toBe(false);
   });
 });
+
+// ─── reattachTerminalForNewSession ───────────────────────────────────────────
+
+describe('reattachTerminalForNewSession', () => {
+  it('tears down the old connection, clears the terminal, and reconnects when the task is displayed', async () => {
+    const { attachTerminalToTab, reattachTerminalForNewSession } = await importFresh();
+    const container = document.createElement('div');
+    document.body.appendChild(container);
+    attachTerminalToTab(5, container);
+
+    // Simulate the xterm element being mounted inside the container.
+    const el = document.createElement('div');
+    container.appendChild(el);
+    terminalState.element = el;
+
+    // The previous io WS was closed when the prior session completed.
+    const firstIo = wsInstances[0];
+    firstIo.readyState = 3; // CLOSED
+    terminalState.reset.mockClear();
+
+    reattachTerminalForNewSession(5);
+
+    expect(firstIo.close).toHaveBeenCalled();
+    expect(terminalState.reset).toHaveBeenCalled();
+    expect(wsInstances).toHaveLength(4); // 2 original + 2 new (io + control)
+  });
+
+  it('is a no-op when a different task is displayed', async () => {
+    const { attachTerminalToTab, reattachTerminalForNewSession } = await importFresh();
+    const container = document.createElement('div');
+    document.body.appendChild(container);
+    attachTerminalToTab(5, container);
+    const el = document.createElement('div');
+    container.appendChild(el);
+    terminalState.element = el;
+    terminalState.reset.mockClear();
+
+    reattachTerminalForNewSession(99);
+
+    expect(terminalState.reset).not.toHaveBeenCalled();
+    expect(wsInstances).toHaveLength(2); // unchanged
+  });
+
+  it('is a no-op when no terminal has been attached', async () => {
+    const { reattachTerminalForNewSession } = await importFresh();
+    expect(() => reattachTerminalForNewSession(1)).not.toThrow();
+    expect(wsInstances).toHaveLength(0);
+  });
+});

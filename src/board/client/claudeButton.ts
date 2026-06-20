@@ -1,6 +1,11 @@
 // Client-side Claude button management and updating button states on task cards.
 
-import { attachTerminalToTab, detachTerminal, getCurrentTerminalTaskId } from './claudeTerminalModal';
+import {
+  attachTerminalToTab,
+  detachTerminal,
+  getCurrentTerminalTaskId,
+  reattachTerminalForNewSession,
+} from './claudeTerminalModal';
 import { addBoardStreamListener } from './boardStream';
 
 let _runningTaskIds: Set<number> = new Set();
@@ -43,6 +48,13 @@ export function updateButtonStates(runningTaskIds: Set<number>, planningTaskIds:
   const terminalTaskId = getCurrentTerminalTaskId();
   if (terminalTaskId !== null && previousRunning.has(terminalTaskId) && !runningTaskIds.has(terminalTaskId)) {
     detachTerminal();
+  }
+
+  // If a NEW session just started for the task currently shown in the terminal
+  // (e.g. Run all picked up a task whose terminal still shows its planning log),
+  // clear the stale output and reconnect so the new session's log is displayed.
+  if (terminalTaskId !== null && !previousRunning.has(terminalTaskId) && runningTaskIds.has(terminalTaskId)) {
+    reattachTerminalForNewSession(terminalTaskId);
   }
 
   // Update all run split containers
