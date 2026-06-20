@@ -1765,3 +1765,62 @@ describe('copy task ID button', () => {
     expect(writeTextMock).not.toHaveBeenCalled();
   });
 });
+
+describe('branch input keydown - prevent duplicate first character', () => {
+  beforeEach(() => {
+    vi.resetModules();
+    setupMinimalBoardDOM();
+    Object.defineProperty(window, 'matchMedia', {
+      writable: true,
+      value: vi.fn().mockImplementation((query: string) => ({
+        matches: false,
+        media: query,
+        onchange: null,
+        addListener: vi.fn(),
+        removeListener: vi.fn(),
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+        dispatchEvent: vi.fn(),
+      })),
+    });
+    (window as unknown as Record<string, unknown>).allStatuses = ['pending'];
+    (window as unknown as Record<string, unknown>).statusLabels = { pending: 'Pending' };
+    (window as unknown as Record<string, unknown>).allPriorities = ['low', 'medium', 'high'];
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('calls preventDefault on first keydown when switching from auto-generate to manual mode', async () => {
+    // Regression test for real-browser bug: removing readOnly during keydown causes
+    // the browser to both insert the character via default behavior AND our manual value set,
+    // resulting in duplicate first character (e.g. 'ff' instead of 'f').
+    global.fetch = vi.fn().mockImplementation((url: string) => {
+      if (String(url).includes('/api/config')) {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve({}) });
+      }
+      return Promise.resolve({ ok: true, json: () => Promise.resolve({ comments: [] }) });
+    });
+
+    const { initDetailPanel, renderDetailPanel } = await import('../../../src/board/client/detailPanel');
+    initDetailPanel();
+    // Render with no branch so the input starts in readOnly/auto-generate mode
+    renderDetailPanel(makeTaskDetail());
+
+    await new Promise((resolve) => setTimeout(resolve, 50));
+
+    const branchInput = document.getElementById('detail-edit-branch') as HTMLInputElement;
+    expect(branchInput).not.toBeNull();
+    expect(branchInput.readOnly).toBe(true);
+
+    const event = new KeyboardEvent('keydown', { key: 'f', bubbles: true, cancelable: true });
+    const preventDefaultSpy = vi.spyOn(event, 'preventDefault');
+
+    branchInput.dispatchEvent(event);
+
+    expect(preventDefaultSpy).toHaveBeenCalledOnce();
+    expect(branchInput.readOnly).toBe(false);
+    expect(branchInput.value).toBe('f');
+  });
+});

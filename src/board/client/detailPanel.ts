@@ -514,6 +514,7 @@ function wireBranchField(currentBranch: string | null | undefined): void {
 
   branchInput.addEventListener('keydown', (e: KeyboardEvent) => {
     if (branchInput.readOnly && e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
+      e.preventDefault();
       branchInput.readOnly = false;
       branchInput.classList.remove('branch-auto-mode');
       branchInternalValue = e.key;
