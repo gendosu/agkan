@@ -59,6 +59,33 @@ describe('setupConfigGetCommand', () => {
     const output = consoleLogSpy.mock.calls.map((c) => c[0]).join('');
     const parsed = JSON.parse(output);
     expect(parsed.config.board.port).toBe(DEFAULT_BOARD_PORT);
+    expect(parsed.config.agent).toBe('claude');
+  });
+
+  it('outputs codex when configured as the agent', async () => {
+    vi.spyOn(configModule, 'loadConfig').mockReturnValue({ agent: 'codex' });
+    vi.spyOn(configModule, 'resolveDatabasePath').mockReturnValue('/default/path/data.db');
+
+    await program.parseAsync(['node', 'agkan', 'config', 'get', 'agent', '--json']);
+
+    const output = consoleLogSpy.mock.calls.map((c) => c[0]).join('');
+    expect(JSON.parse(output).value).toBe('codex');
+  });
+
+  it('outputs agent-specific model settings by dot notation', async () => {
+    vi.spyOn(configModule, 'loadConfig').mockReturnValue({
+      agent: 'codex',
+      models: {
+        claude: { run: { model: 'claude-sonnet' } },
+        codex: { run: { model: 'gpt-codex' } },
+      },
+    });
+    vi.spyOn(configModule, 'resolveDatabasePath').mockReturnValue('/fake/data.db');
+
+    await program.parseAsync(['node', 'agkan', 'config', 'get', 'models.codex.run.model', '--json']);
+
+    const output = consoleLogSpy.mock.calls.map((c) => c[0]).join('');
+    expect(JSON.parse(output).value).toBe('gpt-codex');
   });
 
   it('should output specific key value', async () => {
