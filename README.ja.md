@@ -989,20 +989,55 @@ board:
     title: "マイプロジェクトボード"
   ```
 
+### AIエージェント設定
+
+`agent` フィールドで、ボードから起動するAIコーディングエージェントを選択します。省略時のデフォルトは `claude` です。
+
+```yaml
+# デフォルト
+agent: claude
+
+# OpenAI Codex CLIを使用
+agent: codex
+```
+
+利用するエージェントは別途インストールと認証が必要です。`models.claude` と `models.codex` の両方を定義でき、`agent` で選択した側の設定が使用されます。Codexの場合、`effort` は `model_reasoning_effort` として渡されます。
+
+```yaml
+agent: codex
+models:
+  claude:
+    planning:
+      model: claude-opus-4-7
+      effort: high
+    run:
+      model: claude-sonnet-4-6
+      effort: high
+  codex:
+    planning:
+      model: gpt-5.1-codex
+      effort: high
+    run:
+      model: gpt-5.1-codex
+      effort: high
+```
+
 ### モデル設定
 
-`.agkan.yml` の `models` セクションでは、ボード経由でplanningおよびrunコマンドを実行する際に使用するClaudeモデルとeffortレベルを指定できます。
+`.agkan.yml` の `models` セクションでは、ボード経由でplanningおよびrunコマンドを実行する際に、選択したエージェントが使用するモデルとeffortレベルを指定できます。
 
 #### 利用可能なフィールド
 
 | フィールド | 型 | デフォルト値 | 説明 |
 |----------|-----|------------|------|
-| `models.planning.model` | string | (Claude CLIのデフォルト) | planningコマンド実行時に使用するモデル |
-| `models.planning.effort` | string | (Claude CLIのデフォルト) | planningコマンドのeffortレベル（`low`, `medium`, `high`, `xhigh`, `max`） |
-| `models.run.model` | string | (Claude CLIのデフォルト) | run/prコマンド実行時に使用するモデル |
-| `models.run.effort` | string | (Claude CLIのデフォルト) | run/prコマンドのeffortレベル（`low`, `medium`, `high`, `xhigh`, `max`） |
+| `models.<agent>.planning.model` | string | (選択したCLIのデフォルト) | planningコマンド実行時に使用するモデル |
+| `models.<agent>.planning.effort` | string | (選択したCLIのデフォルト) | planningコマンドのeffortレベル（`low`, `medium`, `high`, `xhigh`, `max`） |
+| `models.<agent>.run.model` | string | (選択したCLIのデフォルト) | run/prコマンド実行時に使用するモデル |
+| `models.<agent>.run.effort` | string | (選択したCLIのデフォルト) | run/prコマンドのeffortレベル（`low`, `medium`, `high`, `xhigh`, `max`） |
 
-フルモデル名とClaude CLIのエイリアスの両方が使用できます。`model` と `effort` はいずれも省略可能です。
+後方互換のため、従来の `models.planning` と `models.run` 形式も使用できます。
+
+モデル名は選択したエージェントCLIが解釈します。`agent: claude` の場合は、`opus`、`sonnet`、`haiku` などClaude CLIのエイリアスも引き続き使用できます。`model` と `effort` はいずれも省略可能です。
 
 #### 設定例
 
@@ -1012,12 +1047,13 @@ path: ./.agkan/data.db
 
 # モデル設定
 models:
-  planning:
-    model: claude-opus-4-7
-    effort: high
-  run:
-    model: claude-sonnet-4-6
-    effort: low
+  claude:
+    planning:
+      model: claude-opus-4-7
+      effort: high
+    run:
+      model: claude-sonnet-4-6
+      effort: low
 ```
 
 #### エイリアスの使用
@@ -1026,31 +1062,34 @@ models:
 
 ```yaml
 models:
-  planning:
-    model: opus
-    effort: high
-  run:
-    model: sonnet
+  claude:
+    planning:
+      model: opus
+      effort: high
+    run:
+      model: sonnet
 ```
 
 使用可能なエイリアス: `opus`、`sonnet`、`haiku`（Claude CLIが解決します）
 
 #### フィールドの詳細
 
-- **`models.planning`**: ボードがplanningタスクを実行する際に使用するClaudeモデルとeffortレベルを指定します。`opus` や `claude-opus-4-7` など高性能なモデルと高いeffortレベルの使用を推奨します。
+- **`models.<agent>.planning`**: ボードがplanningタスクを実行する際に、対象エージェントが使用するモデルとeffortレベルを指定します。
   ```yaml
   models:
-    planning:
-      model: opus
-      effort: high
+    claude:
+      planning:
+        model: opus
+        effort: high
   ```
 
-- **`models.run`**: ボードがrunまたはprコマンドを実行する際に使用するClaudeモデルとeffortレベルを指定します。`pr` コマンドもこの値を使用します。
+- **`models.<agent>.run`**: ボードがrunまたはprコマンドを実行する際に、対象エージェントが使用するモデルとeffortレベルを指定します。`pr` コマンドもこの値を使用します。
   ```yaml
   models:
-    run:
-      model: sonnet
-      effort: low
+    claude:
+      run:
+        model: sonnet
+        effort: low
   ```
 
 ### パーミッションモード設定
