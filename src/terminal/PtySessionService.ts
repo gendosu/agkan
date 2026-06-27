@@ -494,7 +494,20 @@ export class PtySessionService {
     }
 
     console.error(
-      `[diag][spawn] taskId=${taskId} pid=${ptyProcess.pid} command=${command} bin=${CLAUDE_BIN} args=${JSON.stringify(args)} at=${new Date().toISOString()}`
+      '[diag][spawn] taskId=' +
+        taskId +
+        ' pid=' +
+        ptyProcess.pid +
+        ' command=' +
+        command +
+        ' agent=' +
+        agent +
+        ' bin=' +
+        agentBin +
+        ' args=' +
+        JSON.stringify(args) +
+        ' at=' +
+        new Date().toISOString()
     );
 
     const info: SessionInfo = {
