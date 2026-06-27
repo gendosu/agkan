@@ -10,7 +10,13 @@ import { ConflictError } from '../errors';
 import { ensureBoardHookSettings } from '../hooks/claudeHookSettings';
 import { getHookToken } from '../utils/hookToken';
 import { AttentionStateService } from '../services/AttentionStateService';
-import { loadConfig, buildPermissionArgs } from '../db/config';
+import {
+  loadConfig,
+  buildPermissionArgs,
+  buildCodexPermissionArgs,
+  resolveAgentTool,
+  type AgentTool,
+} from '../db/config';
 
 export function stripAnsi(text: string): string {
   return (
@@ -35,6 +41,7 @@ function resolveClaudePath(): string {
 }
 
 const CLAUDE_BIN = resolveClaudePath();
+const CODEX_BIN = 'codex';
 const PROMPT_FALLBACK_DELAY_MS = 10000;
 const PROMPT_ENTER_DELAY_MS = 200;
 const MAX_SNAPSHOT_BYTES = 500_000;
@@ -65,6 +72,26 @@ function hasWorkspaceTrustPrompt(text: string): boolean {
 
 function hasClaudeReadySignal(text: string): boolean {
   return text.includes('bypass permissions');
+}
+
+function buildAgentArgs(
+  agent: AgentTool,
+  config: ReturnType<typeof loadConfig>,
+  prompt: string,
+  model?: string,
+  effort?: string,
+  hookSettingsPath?: string | null
+): string[] {
+  if (agent === 'codex') {
+    const modelArgs = model ? ['--model', model] : [];
+    const effortArgs = effort ? ['--config', 'model_reasoning_effort=' + JSON.stringify(effort)] : [];
+    return [...modelArgs, ...effortArgs, ...buildCodexPermissionArgs(config), prompt];
+  }
+
+  const modelArgs = model ? ['--model', model] : [];
+  const effortArgs = effort ? ['--effort', effort] : [];
+  const settingsArgs = hookSettingsPath ? ['--settings', hookSettingsPath] : [];
+  return [...settingsArgs, ...modelArgs, ...effortArgs, ...buildPermissionArgs(config)];
 }
 
 export interface PtySessionServiceOptions {
@@ -127,16 +154,15 @@ export class PtySessionService {
       throw new ConflictError(`Process for taskId ${taskId} is already running`);
     }
 
-    // Ensure hook settings file exists if hook integration is configured
-    if (this.hookSettingsDataDir !== null && this.hookSettingsPath === null) {
+    const config = loadConfig();
+    const agent = resolveAgentTool(config);
+
+    // Board hooks use Claude Code's settings format and are not passed to Codex.
+    if (agent === 'claude' && this.hookSettingsDataDir !== null && this.hookSettingsPath === null) {
       this.hookSettingsPath = await ensureBoardHookSettings(this.hookSettingsDataDir);
     }
 
-    const modelArgs = model ? ['--model', model] : [];
-    const effortArgs = effort ? ['--effort', effort] : [];
-    const settingsArgs = this.hookSettingsPath ? ['--settings', this.hookSettingsPath] : [];
-    const permissionArgs = buildPermissionArgs(loadConfig());
-    const args = [...settingsArgs, ...modelArgs, ...effortArgs, ...permissionArgs];
+    const args = buildAgentArgs(agent, config, prompt, model, effort, this.hookSettingsPath);
 
     const hookEnv: Record<string, string> = {};
     if (this.boardApiUrl !== null && this.boardApiUrl !== '') {
@@ -145,7 +171,8 @@ export class PtySessionService {
       hookEnv.BOARD_HOOK_TOKEN = getHookToken();
     }
 
-    const ptyProcess = pty.spawn(CLAUDE_BIN, args, {
+    const agentBin = agent === 'codex' ? CODEX_BIN : CLAUDE_BIN;
+    const ptyProcess = pty.spawn(agentBin, args, {
       name: 'xterm-256color',
       cols: 220,
       rows: 50,
@@ -159,7 +186,20 @@ export class PtySessionService {
     });
 
     console.error(
-      `[diag][spawn] taskId=${taskId} pid=${ptyProcess.pid} command=${command} bin=${CLAUDE_BIN} args=${JSON.stringify(args)} at=${new Date().toISOString()}`
+      '[diag][spawn] taskId=' +
+        taskId +
+        ' pid=' +
+        ptyProcess.pid +
+        ' command=' +
+        command +
+        ' agent=' +
+        agent +
+        ' bin=' +
+        agentBin +
+        ' args=' +
+        JSON.stringify(args) +
+        ' at=' +
+        new Date().toISOString()
     );
 
     const info: SessionInfo = {
@@ -172,7 +212,7 @@ export class PtySessionService {
       rawOutputSubscribers: new Set(),
       outputUpdateSubscribers: new Set(),
       runLogId: null,
-      pendingPrompt: prompt,
+      pendingPrompt: agent === 'claude' ? prompt : null,
       promptTimer: null,
       workspaceTrustHandled: false,
       lastEventsUpdate: 0,
@@ -185,20 +225,23 @@ export class PtySessionService {
       info.runLogId = this.db.runLogs.create(taskId, info.startedAt.toISOString());
     }
 
-    // Fallback: send prompt if ready signal never detected within timeout
-    info.promptTimer = setTimeout(() => {
-      info.promptTimer = null;
-      if (info.pendingPrompt !== null && this.sessions.has(taskId)) {
-        const fallbackPrompt = info.pendingPrompt;
-        info.pendingPrompt = null;
-        ptyProcess.write(fallbackPrompt);
-        setTimeout(() => {
-          if (this.sessions.has(taskId)) {
-            ptyProcess.write('\r');
-          }
-        }, PROMPT_ENTER_DELAY_MS);
-      }
-    }, PROMPT_FALLBACK_DELAY_MS);
+    // Claude starts without a positional prompt, so inject it once the TUI is
+    // ready. Codex receives the prompt as its final CLI argument.
+    if (agent === 'claude') {
+      info.promptTimer = setTimeout(() => {
+        info.promptTimer = null;
+        if (info.pendingPrompt !== null && this.sessions.has(taskId)) {
+          const fallbackPrompt = info.pendingPrompt;
+          info.pendingPrompt = null;
+          ptyProcess.write(fallbackPrompt);
+          setTimeout(() => {
+            if (this.sessions.has(taskId)) {
+              ptyProcess.write('\r');
+            }
+          }, PROMPT_ENTER_DELAY_MS);
+        }
+      }, PROMPT_FALLBACK_DELAY_MS);
+    }
 
     ptyProcess.onData((data: string) => {
       info.outputBuffer += data;

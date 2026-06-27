@@ -278,6 +278,40 @@ describe('PtySessionService - model/effort/boardApiUrl args', () => {
     expect(args[args.indexOf('--effort') + 1]).toBe('high');
   });
 
+  it('starts Codex with model, reasoning effort, permissions, and positional prompt', async () => {
+    vi.mocked(configModule.loadConfig).mockReturnValue({ agent: 'codex' });
+    const svc = new PtySessionService();
+    await svc.startProcess(1, 'Task ID: 1', 'run', 'gpt-5.1-codex', 'high');
+
+    expect(spawnMock.mock.calls[0][0]).toBe('codex');
+    const args = spawnMock.mock.calls[0][1] as string[];
+    expect(args).toEqual([
+      '--model',
+      'gpt-5.1-codex',
+      '--config',
+      'model_reasoning_effort="high"',
+      '--ask-for-approval',
+      'on-request',
+      '--sandbox',
+      'workspace-write',
+      'Task ID: 1',
+    ]);
+    expect(mockWrite).not.toHaveBeenCalled();
+  });
+
+  it('maps Codex bypass permission mode to its unsafe bypass flag', async () => {
+    vi.mocked(configModule.loadConfig).mockReturnValue({
+      agent: 'codex',
+      permissionMode: 'skipPermissions',
+    });
+    const svc = new PtySessionService();
+    await svc.startProcess(1, 'prompt', 'run');
+
+    const args = spawnMock.mock.calls[0][1] as string[];
+    expect(args).toContain('--dangerously-bypass-approvals-and-sandbox');
+    expect(args).not.toContain('--permission-mode');
+  });
+
   it('does not pass --model or --effort when not provided', async () => {
     const svc = new PtySessionService();
     await svc.startProcess(1, 'prompt', 'run');
