@@ -1,7 +1,7 @@
 import { TaskService } from '../services/TaskService';
 import { TaskBlockService } from '../services/TaskBlockService';
 import { PtySessionService } from '../terminal/PtySessionService';
-import { loadConfig } from '../db/config';
+import { loadConfig, resolveModelSettings } from '../db/config';
 import { PRIORITY_ORDER } from '../models';
 
 export type BulkRunCommand = 'direct' | 'pr';
@@ -148,7 +148,7 @@ export class BulkRunService {
       command === 'pr'
         ? `Task ID: ${taskId}\n/agkan-subtask${exitInstruction}`
         : `Task ID: ${taskId}\n/agkan-subtask-direct${exitInstruction}`;
-    const rawConfig = loadConfig().models?.run;
+    const rawConfig = resolveModelSettings(loadConfig(), 'run');
     return {
       prompt,
       ptyCommand,

@@ -246,6 +246,33 @@ describe('POST /api/claude/tasks/:taskId/run', () => {
     );
   });
 
+  it('selects model settings for the configured agent', async () => {
+    fs.writeFileSync(
+      TEST_AGKAN_CONFIG,
+      yaml.dump({
+        agent: 'codex',
+        models: {
+          claude: { run: { model: 'claude-sonnet', effort: 'low' } },
+          codex: { run: { model: 'gpt-codex', effort: 'high' } },
+        },
+      })
+    );
+    const mock = buildMockClaudeProcessService();
+    const services = buildServices(mock);
+    const task = services.ts.createTask({ title: 'Agent-specific model task', status: 'ready' });
+    const app = buildApp(services);
+
+    await app.fetch(
+      new Request('http://localhost/api/claude/tasks/' + task.id + '/run', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ command: 'run' }),
+      })
+    );
+
+    expect(mock.startProcess).toHaveBeenCalledWith(task.id, expect.any(String), 'run', 'gpt-codex', 'high');
+  });
+
   it('passes effort only (no model) from config to startProcess', async () => {
     fs.writeFileSync(TEST_AGKAN_CONFIG, yaml.dump({ models: { run: { effort: 'max' } } }));
     const mock = buildMockClaudeProcessService();

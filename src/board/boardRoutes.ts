@@ -16,7 +16,7 @@ import { BRANCH_AUTO_GENERATE } from '../models/Task';
 import { ConflictError } from '../errors';
 import { StorageBackend } from '../db/types/repository';
 import { readBoardConfig, writeBoardConfig, DETAIL_PANE_MAX_WIDTH, VALID_THEMES, ThemePreference } from './boardConfig';
-import { loadConfig } from '../db/config';
+import { loadConfig, resolveModelSettings } from '../db/config';
 import { daysAgoIso } from '../utils/date';
 import {
   buildTasksByStatus,
@@ -562,7 +562,7 @@ function registerClaudeRoutes(app: Hono, claudeProcess: PtySessionService, ts: T
 
     const config = loadConfig();
     // 'pr' and 'run' commands both use the run model configuration
-    const rawConfig = command === 'planning' ? config.models?.planning : config.models?.run;
+    const rawConfig = resolveModelSettings(config, command === 'planning' ? 'planning' : 'run');
     const model = rawConfig?.model?.trim() || undefined;
     const effort = rawConfig?.effort?.trim() || undefined;
 
