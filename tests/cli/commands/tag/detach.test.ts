@@ -254,6 +254,44 @@ describe('setupTagDetachCommand', () => {
     expect(remainingTags).toHaveLength(0);
   });
 
+  it('should detach a tag with a digit-leading name by name, not a truncated numeric ID', async () => {
+    const taskService = new TaskService();
+    const tagService = new TagService();
+    const taskTagService = new TaskTagService();
+
+    taskService.createTask({
+      title: 'Digit-leading detach task',
+      body: null,
+      author: null,
+      status: 'ready',
+      parent_id: null,
+    });
+    tagService.createTag({ name: '12abc' });
+    const task = taskService.listTasks()[0];
+    const tag = tagService.listTags()[0];
+    taskTagService.addTagToTask({ task_id: task.id, tag_id: tag.id });
+
+    const consoleLogs: string[] = [];
+    const originalLog = console.log;
+    console.log = (...args: unknown[]) => consoleLogs.push(args.join(' '));
+
+    const originalExit = process.exit;
+    process.exit = (() => {}) as never;
+
+    try {
+      await program.parseAsync(['node', 'test', 'tag', 'detach', String(task.id), '12abc']);
+    } finally {
+      console.log = originalLog;
+      process.exit = originalExit;
+    }
+
+    const output = consoleLogs.join('\n');
+    expect(output).toContain('✓');
+
+    const remainingTags = taskTagService.getTagsForTask(task.id);
+    expect(remainingTags).toHaveLength(0);
+  });
+
   it('should throw when tag command is not registered', () => {
     const programWithoutTag = new Command();
     expect(() => setupTagDetachCommand(programWithoutTag)).toThrow('Tag command not found');

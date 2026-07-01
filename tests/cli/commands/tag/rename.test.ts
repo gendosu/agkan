@@ -268,6 +268,32 @@ describe('setupTagRenameCommand', () => {
     expect(exitCode).toBe(1);
   });
 
+  it('should rename a tag with a digit-leading name by name, not a truncated numeric ID', async () => {
+    const tagService = new TagService();
+    tagService.createTag({ name: '2024release' });
+
+    const consoleLogs: string[] = [];
+    const originalLog = console.log;
+    console.log = (...args: unknown[]) => consoleLogs.push(args.join(' '));
+
+    const originalExit = process.exit;
+    process.exit = (() => {}) as never;
+
+    try {
+      await program.parseAsync(['node', 'test', 'tag', 'rename', '2024release', 'renamed-release']);
+    } finally {
+      console.log = originalLog;
+      process.exit = originalExit;
+    }
+
+    const output = consoleLogs.join('\n');
+    expect(output).toContain('✓');
+
+    const tags = tagService.listTags();
+    expect(tags).toHaveLength(1);
+    expect(tags[0].name).toBe('renamed-release');
+  });
+
   it('should throw when tag command is not registered', () => {
     const programWithoutTag = new Command();
     expect(() => setupTagRenameCommand(programWithoutTag)).toThrow('Tag command not found');
