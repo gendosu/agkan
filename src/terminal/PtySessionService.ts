@@ -292,11 +292,13 @@ export class PtySessionService {
       info.promptTimer = null;
     }
     info.pendingPrompt = null;
+    // Mark as user-stopped before emitting so synchronous subscribers (e.g. boardRoutes.ts)
+    // observe isUserStopped() === true and skip auto-advancing status on this done event.
+    this.userStoppedTasks.add(taskId);
     // Notify subscribers before clearing so they can advance (e.g. BulkRunService.runNext()).
     const doneEvent: OutputEvent = { kind: 'done', exitCode: 0 };
     info.exitSubscribers.forEach((cb) => cb(doneEvent));
     info.exitSubscribers.clear();
-    this.userStoppedTasks.add(taskId);
     info.ptyProcess.kill();
     this.sessions.delete(taskId);
     this.attentionStateService?.clearTask(taskId);
