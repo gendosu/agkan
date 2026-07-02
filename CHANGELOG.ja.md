@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.15.0] - 2026-07-02
+
 ### 追加
 - `.agkan.yml` に `permissionMode` 設定キーを追加し、ボードのタスク実行時の Claude CLI パーミッションモードを制御できるようにした
 
@@ -15,6 +17,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### 修正
 - Board の「Run all」実行中に、プロセスが出力購読登録前に終了した場合・ユーザーが実行中タスクを手動停止した場合・セッションや実行ログが存在しない場合に、ループが途中で停止するバグを修正
+- ボードでブランチ入力を自動生成から手動入力モードに切り替えた際、先頭文字が重複する問題を修正
+- Run all が表示中タスクの新しいセッションを開始した際のターミナル再接続を修正
+- BulkRun 成功時にタスクステータスを自動的に done に更新するよう修正
+- stopProcess で done を発行する前に userStoppedTasks をマークするよう修正し、停止順序を正しく保持
+- タグ ID/名前解決を統一し、数字始まりの名前の誤解決を防止
+- stop hook でトランスクリプト全体の task-notification スキャンによりバックグラウンドジョブの実行検知を修正
 
 ## [3.14.1] - 2026-06-13
 
