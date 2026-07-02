@@ -1241,12 +1241,18 @@ describe('hook receiver routes', () => {
   function buildHookApp(opts?: {
     attentionStateService?: AttentionStateService;
     ptyStopProcess?: (taskId: number) => boolean;
+    taskService?: BoardServices['ts'];
   }): Hono {
     const app = new Hono();
     const attention = opts?.attentionStateService ?? new AttentionStateService();
     const ptySessionService = { stopProcess: opts?.ptyStopProcess ?? vi.fn().mockReturnValue(true) };
-    registerBoardRoutes(app, { ...buildServices(), attentionStateService: attention });
-    registerHookRoutes(app, { attentionStateService: attention, ptySessionService });
+    const services = buildServices();
+    registerBoardRoutes(app, { ...services, attentionStateService: attention });
+    registerHookRoutes(app, {
+      attentionStateService: attention,
+      ptySessionService,
+      taskService: opts?.taskService ?? services.ts,
+    });
     return app;
   }
 
@@ -1344,7 +1350,7 @@ describe('hook receiver routes', () => {
 
     // Register routes in the same order as startBoardServer: board, then hooks
     registerBoardRoutes(app, { ...services, ptySessionService: undefined });
-    registerHookRoutes(app, { attentionStateService: attention, ptySessionService });
+    registerHookRoutes(app, { attentionStateService: attention, ptySessionService, taskService: services.ts });
 
     // Trigger Hono route compilation by making a board request first (simulates browser loading the board)
     const boardRes = await app.fetch(new Request('http://localhost/'));
@@ -1360,6 +1366,52 @@ describe('hook receiver routes', () => {
     );
     expect(hookRes.status).toBe(200);
     expect(ptyStop).toHaveBeenCalledWith(55);
+  });
+
+  it('GET /api/internal/tasks/:id/status returns status with valid token', async () => {
+    const services = buildServices();
+    const task = services.ts.createTask({ title: 'Status Task', status: 'review' });
+    const app = buildHookApp({ taskService: services.ts });
+    const res = await app.fetch(
+      new Request(`http://localhost/api/internal/tasks/${task.id}/status`, {
+        method: 'GET',
+        headers: { 'x-hook-token': getHookToken() },
+      })
+    );
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ status: 'review' });
+  });
+
+  it('GET /api/internal/tasks/:id/status returns 401 without token', async () => {
+    const services = buildServices();
+    const task = services.ts.createTask({ title: 'Status Task', status: 'review' });
+    const app = buildHookApp({ taskService: services.ts });
+    const res = await app.fetch(
+      new Request(`http://localhost/api/internal/tasks/${task.id}/status`, { method: 'GET' })
+    );
+    expect(res.status).toBe(401);
+  });
+
+  it('GET /api/internal/tasks/:id/status returns 400 for invalid id', async () => {
+    const app = buildHookApp();
+    const res = await app.fetch(
+      new Request('http://localhost/api/internal/tasks/notanumber/status', {
+        method: 'GET',
+        headers: { 'x-hook-token': getHookToken() },
+      })
+    );
+    expect(res.status).toBe(400);
+  });
+
+  it('GET /api/internal/tasks/:id/status returns 404 when task not found', async () => {
+    const app = buildHookApp();
+    const res = await app.fetch(
+      new Request('http://localhost/api/internal/tasks/999999/status', {
+        method: 'GET',
+        headers: { 'x-hook-token': getHookToken() },
+      })
+    );
+    expect(res.status).toBe(404);
   });
 
   it('GET /api/board/stream sends attention snapshot via SSE', async () => {

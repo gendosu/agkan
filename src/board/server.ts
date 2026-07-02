@@ -82,7 +82,7 @@ export function startBoardServer(port: number, boardTitle?: string): void {
   };
 
   registerBoardRoutes(app, services);
-  registerHookRoutes(app, { attentionStateService, ptySessionService: ptyService });
+  registerHookRoutes(app, { attentionStateService, ptySessionService: ptyService, taskService: services.ts });
   registerTestHookTokenRoute(app);
 
   const server = serve({ fetch: app.fetch, port }, (info) => {
