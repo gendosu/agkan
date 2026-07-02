@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.15.0] - 2026-07-02
+
 ### Added
 - Add `permissionMode` configuration key in `.agkan.yml` to control Claude CLI permission mode for board task execution
 
@@ -15,6 +17,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 - Fix Board "Run all" loop stopping early when a process exits before the output subscription is registered, when the user manually stops a running task, or when no session or run log exists for a task
+- Fix duplicate first character when switching branch input from auto-generate to manual mode on the board
+- Fix terminal reconnect when Run all starts a displayed task's new session
+- Auto-update task status to done on BulkRun success
+- Mark userStoppedTasks before emitting done in stopProcess to preserve correct stop ordering
+- Unify tag ID/name resolution to prevent digit-leading name misresolution
+- Detect running background jobs via transcript-wide task-notification scan in the stop hook
 
 ## [3.14.1] - 2026-06-13
 
