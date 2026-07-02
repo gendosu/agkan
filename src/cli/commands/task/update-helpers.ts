@@ -124,7 +124,7 @@ function validateFieldName(field: string | undefined, formatter: OutputFormatter
     formatter.error(
       'No fields specified. Use --title, --status, --body, --author, --assignees, --branch flags or positional arguments: <field> <value>',
       () => {
-        console.log(
+        console.error(
           chalk.red(
             '\nError: No fields specified. Use --title, --status, --body, --author, --assignees, --branch flags or positional arguments: <field> <value>\n'
           )
@@ -160,7 +160,7 @@ function resolvePositionalValue(
   }
   if (value === undefined) {
     formatter.error(`Missing value for field '${field}'. Provide a value argument or use --file for body.`, () => {
-      console.log(
+      console.error(
         chalk.red(`\nError: Missing value for field '${field}'. Provide a value argument or use --file for body.\n`)
       );
     });

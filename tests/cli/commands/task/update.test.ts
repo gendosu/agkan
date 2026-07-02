@@ -581,9 +581,9 @@ describe('setupTaskUpdateCommand', () => {
       taskService.createTask({ title: 'Test task', status: 'backlog' });
       const task = taskService.listTasks()[0];
 
-      const { exitCode, logs } = await runCommand(program, ['task', 'update', String(task.id), 'body']);
+      const { exitCode, errors } = await runCommand(program, ['task', 'update', String(task.id), 'body']);
       expect(exitCode).toBe(1);
-      expect(logs.join('\n')).toContain('value');
+      expect(errors.join('\n')).toContain('value');
     });
 
     it('should exit with error when --file is used with non-body field', async () => {
@@ -727,9 +727,19 @@ describe('setupTaskUpdateCommand', () => {
       taskService.createTask({ title: 'Test', status: 'backlog' });
       const task = taskService.listTasks()[0];
 
-      const { exitCode, logs } = await runCommand(program, ['task', 'update', String(task.id)]);
+      const { exitCode, errors } = await runCommand(program, ['task', 'update', String(task.id)]);
       expect(exitCode).toBe(1);
-      expect(logs.join('\n')).toContain('No fields specified');
+      expect(errors.join('\n')).toContain('No fields specified');
+    });
+
+    it('should show error when positional field is given without a value', async () => {
+      const taskService = new TaskService();
+      taskService.createTask({ title: 'Test', status: 'backlog' });
+      const task = taskService.listTasks()[0];
+
+      const { exitCode, errors } = await runCommand(program, ['task', 'update', String(task.id), 'title']);
+      expect(exitCode).toBe(1);
+      expect(errors.join('\n')).toContain("Missing value for field 'title'");
     });
 
     it('should use --file with flag mode for body', async () => {
