@@ -185,6 +185,63 @@ describe('setupTagDeleteCommand', () => {
     expect(remaining).toHaveLength(0);
   });
 
+  it('should delete a tag named "12abc" by name, not truncate to numeric ID 12', async () => {
+    const tagService = new TagService();
+    // Create 11 filler tags so a real tag with id=12 exists, distinct from "12abc".
+    for (let i = 1; i <= 11; i++) {
+      tagService.createTag({ name: `filler-${i}` });
+    }
+    const idTwelveTag = tagService.createTag({ name: 'id-twelve' });
+    expect(idTwelveTag.id).toBe(12);
+    const digitLeadingTag = tagService.createTag({ name: '12abc' });
+
+    const consoleLogs: string[] = [];
+    const originalLog = console.log;
+    console.log = (...args: unknown[]) => consoleLogs.push(args.join(' '));
+
+    const originalExit = process.exit;
+    process.exit = (() => {}) as never;
+
+    try {
+      await program.parseAsync(['node', 'test', 'tag', 'delete', '12abc']);
+    } finally {
+      console.log = originalLog;
+      process.exit = originalExit;
+    }
+
+    const output = consoleLogs.join('\n');
+    expect(output).toContain('✓');
+
+    expect(tagService.getTag(idTwelveTag.id)).not.toBeNull();
+    expect(tagService.getTag(digitLeadingTag.id)).toBeNull();
+  });
+
+  it('should show error when a numeric-ID-looking tag does not exist (not resolved by name)', async () => {
+    const tagService = new TagService();
+    tagService.createTag({ name: 'unrelated-tag' });
+
+    const consoleLogs: string[] = [];
+    const originalLog = console.log;
+    console.log = (...args: unknown[]) => consoleLogs.push(args.join(' '));
+
+    let exitCode: number | undefined;
+    const originalExit = process.exit;
+    process.exit = ((code?: number) => {
+      exitCode = code;
+    }) as never;
+
+    try {
+      await program.parseAsync(['node', 'test', 'tag', 'delete', '424242']);
+    } finally {
+      console.log = originalLog;
+      process.exit = originalExit;
+    }
+
+    expect(exitCode).toBe(1);
+    const output = consoleLogs.join('\n');
+    expect(output).toContain('Tag with ID 424242 not found');
+  });
+
   it('should throw when tag command is not registered', () => {
     const programWithoutTag = new Command();
     expect(() => setupTagDeleteCommand(programWithoutTag)).toThrow('Tag command not found');

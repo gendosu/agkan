@@ -282,6 +282,43 @@ describe('setupTagAttachCommand', () => {
     expect(output).toContain('nonexistent-tag');
   });
 
+  it('should attach a tag with a digit-leading name by name, not a truncated numeric ID', async () => {
+    const taskService = new TaskService();
+    const tagService = new TagService();
+    const taskTagService = new TaskTagService();
+
+    taskService.createTask({
+      title: 'Digit-leading tag task',
+      body: null,
+      author: null,
+      status: 'ready',
+      parent_id: null,
+    });
+    tagService.createTag({ name: '2024release' });
+    const task = taskService.listTasks()[0];
+
+    const consoleLogs: string[] = [];
+    const originalLog = console.log;
+    console.log = (...args: unknown[]) => consoleLogs.push(args.join(' '));
+
+    const originalExit = process.exit;
+    process.exit = (() => {}) as never;
+
+    try {
+      await program.parseAsync(['node', 'test', 'tag', 'attach', String(task.id), '2024release']);
+    } finally {
+      console.log = originalLog;
+      process.exit = originalExit;
+    }
+
+    const output = consoleLogs.join('\n');
+    expect(output).toContain('✓');
+
+    const attachedTags = taskTagService.getTagsForTask(task.id);
+    expect(attachedTags).toHaveLength(1);
+    expect(attachedTags[0].name).toBe('2024release');
+  });
+
   it('should throw when tag command is not registered', () => {
     const programWithoutTag = new Command();
     expect(() => setupTagAttachCommand(programWithoutTag)).toThrow('Tag command not found');

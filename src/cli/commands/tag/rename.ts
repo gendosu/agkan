@@ -5,9 +5,8 @@
 import { Command } from 'commander';
 import chalk from 'chalk';
 import { getServiceContainer } from '../../utils/service-container';
-import { Tag } from '../../../models';
 import { createFormatter } from '../../utils/output-formatter';
-import { validateNumberInput } from '../../utils/error-handler';
+import { resolveTag } from '../../utils/tag-resolver';
 import { validateTagInput } from '../../../utils/input-validators';
 import { ConflictError } from '../../../errors';
 
@@ -41,24 +40,13 @@ export function setupTagRenameCommand(program: Command): void {
         }
 
         // Resolve tag by ID or name
-        const parsedTagId = validateNumberInput(id);
-        let tag: Tag | null = null;
-        if (parsedTagId !== null) {
-          tag = tagService.getTag(parsedTagId);
-          if (!tag) {
-            formatter.error(`Tag with ID ${id} not found`, () => {
-              console.log(chalk.red(`\nError: Tag with ID ${id} not found\n`));
-            });
-            process.exit(1);
-          }
-        } else {
-          tag = tagService.getTagByName(id);
-          if (!tag) {
-            formatter.error(`Tag with name "${id}" not found`, () => {
-              console.log(chalk.red(`\nError: Tag with name "${id}" not found\n`));
-            });
-            process.exit(1);
-          }
+        const { tag, byId } = resolveTag(tagService, id);
+        if (!tag) {
+          const message = byId ? `Tag with ID ${id} not found` : `Tag with name "${id}" not found`;
+          formatter.error(message, () => {
+            console.log(chalk.red(`\nError: ${message}\n`));
+          });
+          process.exit(1);
         }
 
         // Rename tag

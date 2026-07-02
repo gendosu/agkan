@@ -6,7 +6,7 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { Command } from 'commander';
 import { setupTaskListCommand } from '../../../../src/cli/commands/task/list';
 import { getDatabase } from '../../../../src/db/connection';
-import { TaskService, MetadataService, TaskBlockService } from '../../../../src/services';
+import { TaskService, MetadataService, TaskBlockService, TagService, TaskTagService } from '../../../../src/services';
 
 function resetDatabase() {
   const db = getDatabase();
@@ -14,7 +14,9 @@ function resetDatabase() {
   db.exec('DELETE FROM task_tags');
   db.exec('DELETE FROM task_blocks');
   db.exec('DELETE FROM tasks');
+  db.exec('DELETE FROM tags');
   db.exec("DELETE FROM sqlite_sequence WHERE name='tasks'");
+  db.exec("DELETE FROM sqlite_sequence WHERE name='tags'");
 }
 
 describe('setupTaskListCommand', () => {
@@ -1380,5 +1382,135 @@ describe('setupTaskListCommand', () => {
     const titles = parsed.tasks.map((t: { title: string }) => t.title);
     expect(titles).toContain('Active Task');
     expect(titles).toContain('Done Task For Archive');
+  });
+
+  it('should filter tasks by an existing numeric tag ID', async () => {
+    const taskService = new TaskService();
+    const tagService = new TagService();
+    const taskTagService = new TaskTagService();
+
+    const tagged = taskService.createTask({ title: 'Tagged Task', status: 'ready' });
+    taskService.createTask({ title: 'Untagged Task', status: 'ready' });
+    const tag = tagService.createTag({ name: 'bug' });
+    taskTagService.addTagToTask({ task_id: tagged.id, tag_id: tag.id });
+
+    const consoleLogs: string[] = [];
+    const originalLog = console.log;
+    console.log = (...args: unknown[]) => consoleLogs.push(args.join(' '));
+    const originalExit = process.exit;
+    process.exit = (() => {}) as never;
+
+    try {
+      await program.parseAsync(['node', 'test', 'task', 'list', '--tag', String(tag.id)]);
+    } finally {
+      console.log = originalLog;
+      process.exit = originalExit;
+    }
+
+    const output = consoleLogs.join('\n');
+    expect(output).toContain('Tagged Task');
+    expect(output).not.toContain('Untagged Task');
+  });
+
+  it('should filter tasks by an existing tag name', async () => {
+    const taskService = new TaskService();
+    const tagService = new TagService();
+    const taskTagService = new TaskTagService();
+
+    const tagged = taskService.createTask({ title: 'Feature Task', status: 'ready' });
+    taskService.createTask({ title: 'Other Task', status: 'ready' });
+    const tag = tagService.createTag({ name: 'feature' });
+    taskTagService.addTagToTask({ task_id: tagged.id, tag_id: tag.id });
+
+    const consoleLogs: string[] = [];
+    const originalLog = console.log;
+    console.log = (...args: unknown[]) => consoleLogs.push(args.join(' '));
+    const originalExit = process.exit;
+    process.exit = (() => {}) as never;
+
+    try {
+      await program.parseAsync(['node', 'test', 'task', 'list', '--tag', 'feature']);
+    } finally {
+      console.log = originalLog;
+      process.exit = originalExit;
+    }
+
+    const output = consoleLogs.join('\n');
+    expect(output).toContain('Feature Task');
+    expect(output).not.toContain('Other Task');
+  });
+
+  it('should show error when filtering by a non-existent numeric tag ID', async () => {
+    const consoleLogs: string[] = [];
+    const originalLog = console.log;
+    console.log = (...args: unknown[]) => consoleLogs.push(args.join(' '));
+
+    let exitCode: number | undefined;
+    const originalExit = process.exit;
+    process.exit = ((code?: number) => {
+      exitCode = code;
+    }) as never;
+
+    try {
+      await program.parseAsync(['node', 'test', 'task', 'list', '--tag', '999999']);
+    } finally {
+      console.log = originalLog;
+      process.exit = originalExit;
+    }
+
+    expect(exitCode).toBe(1);
+    const output = consoleLogs.join('\n');
+    expect(output).toContain('Tag with ID "999999" not found');
+  });
+
+  it('should show error when filtering by a non-existent tag name', async () => {
+    const consoleLogs: string[] = [];
+    const originalLog = console.log;
+    console.log = (...args: unknown[]) => consoleLogs.push(args.join(' '));
+
+    let exitCode: number | undefined;
+    const originalExit = process.exit;
+    process.exit = ((code?: number) => {
+      exitCode = code;
+    }) as never;
+
+    try {
+      await program.parseAsync(['node', 'test', 'task', 'list', '--tag', 'nonexistent-tag']);
+    } finally {
+      console.log = originalLog;
+      process.exit = originalExit;
+    }
+
+    expect(exitCode).toBe(1);
+    const output = consoleLogs.join('\n');
+    expect(output).toContain('Tag with name "nonexistent-tag" not found');
+  });
+
+  it('should resolve a digit-leading tag name by name, not a truncated numeric ID', async () => {
+    const taskService = new TaskService();
+    const tagService = new TagService();
+    const taskTagService = new TaskTagService();
+
+    const tagged = taskService.createTask({ title: 'Release Task', status: 'ready' });
+    taskService.createTask({ title: 'Non Release Task', status: 'ready' });
+    const tag = tagService.createTag({ name: '2024release' });
+    taskTagService.addTagToTask({ task_id: tagged.id, tag_id: tag.id });
+
+    const consoleLogs: string[] = [];
+    const originalLog = console.log;
+    console.log = (...args: unknown[]) => consoleLogs.push(args.join(' '));
+    const originalExit = process.exit;
+    process.exit = (() => {}) as never;
+
+    try {
+      await program.parseAsync(['node', 'test', 'task', 'list', '--tag', '2024release']);
+    } finally {
+      console.log = originalLog;
+      process.exit = originalExit;
+    }
+
+    const output = consoleLogs.join('\n');
+    expect(output).toContain('Release Task');
+    expect(output).not.toContain('Non Release Task');
   });
 });

@@ -10,6 +10,7 @@ import { ALLOWED_SORT_FIELDS, SortField, SortOrder } from '../../../services/Tas
 import { TaskStatus, PRIORITIES, isPriority } from '../../../models';
 import { handleError } from '../../utils/error-handler';
 import { validateTaskStatus } from '../../utils/validators';
+import { resolveTag } from '../../utils/tag-resolver';
 import { getStatusColor, formatDate } from '../../../utils/format';
 import { createFormatter } from '../../utils/output-formatter';
 
@@ -690,19 +691,15 @@ function resolveTagIds(
 
   const tagIds: number[] = [];
   for (const part of parts) {
-    const numericId = parseInt(part, 10);
-    if (!isNaN(numericId)) {
-      tagIds.push(numericId);
-    } else {
-      const tag = tagService.getTagByName(part);
-      if (!tag) {
-        formatter.error(`Tag with name "${part}" not found`, () => {
-          console.log(chalk.red(`\nError: Tag with name "${part}" not found\n`));
-        });
-        process.exit(1);
-      }
-      tagIds.push(tag.id);
+    const { tag, byId } = resolveTag(tagService, part);
+    if (!tag) {
+      const message = byId ? `Tag with ID "${part}" not found` : `Tag with name "${part}" not found`;
+      formatter.error(message, () => {
+        console.log(chalk.red(`\nError: ${message}\n`));
+      });
+      process.exit(1);
     }
+    tagIds.push(tag.id);
   }
 
   return tagIds;
