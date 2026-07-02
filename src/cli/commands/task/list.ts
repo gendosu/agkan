@@ -7,7 +7,7 @@ import chalk from 'chalk';
 import { TaskService, TaskBlockService, TagService } from '../../../services';
 import { getServiceContainer } from '../../utils/service-container';
 import { ALLOWED_SORT_FIELDS, SortField, SortOrder } from '../../../services/TaskService';
-import { TaskStatus, PRIORITIES, isPriority } from '../../../models';
+import { Task, TaskStatus, PRIORITIES, isPriority } from '../../../models';
 import { handleError } from '../../utils/error-handler';
 import { validateTaskStatus } from '../../utils/validators';
 import { resolveTag } from '../../utils/tag-resolver';
@@ -17,6 +17,8 @@ import { createFormatter } from '../../utils/output-formatter';
 type TaskTagMap = Map<number, Array<{ id: number; name: string }>>;
 type MetadataMap = Map<number, Array<{ key: string; value: string }>>;
 type BlockMap = Map<number, number[]>;
+type TaskByIdMap = Map<number, Task>;
+type ChildrenMap = Map<number, Task[]>;
 
 type TreeNode = {
   id: number;
@@ -48,63 +50,29 @@ type TaskRecord = {
 };
 
 /**
- * Recursive function to display tasks in tree structure.
+ * Map the common set of task fields (shared by tree/list/dep-tree node builders)
+ * plus resolved tags and metadata for a task.
  */
-function printTreeTaskDetails(
-  task: { id: number; priority?: string | null },
-  childPrefix: string,
-  allTasksMetadata: MetadataMap
-): void {
-  if (task.priority) {
-    console.log(`${childPrefix}${formatPriority(task.priority)}`);
-  }
-  const metadata = allTasksMetadata.get(task.id);
-  if (metadata && metadata.length > 0) {
-    const metadataStrings = metadata.map(formatMetadataEntry);
-    console.log(`${childPrefix}${chalk.bold('Metadata:')} ${metadataStrings.join(', ')}`);
-  }
-}
-
-function displayTaskTree(
-  taskService: TaskService,
-  task: { id: number; title: string; status: TaskStatus; priority?: string | null },
-  prefix: string,
-  isLast: boolean,
-  allTasksMetadata: MetadataMap
-): void {
-  const statusColor = getStatusColor(task.status);
-  const connector = isLast ? '└── ' : '├── ';
-  console.log(
-    `${prefix}${connector}${chalk.bold.cyan(`[${task.id}]`)} ${chalk.bold(task.title)} ` +
-      `${chalk[statusColor](`(${task.status})`)}`
-  );
-
-  const childPrefix = prefix + (isLast ? '    ' : '│   ');
-  printTreeTaskDetails(task, childPrefix, allTasksMetadata);
-
-  const children = taskService.getChildTasks(task.id);
-  if (children.length > 0) {
-    const newPrefix = prefix + (isLast ? '    ' : '│   ');
-    children.forEach((child, index) => {
-      const isChildLast = index === children.length - 1;
-      displayTaskTree(taskService, child, newPrefix, isChildLast, allTasksMetadata);
-    });
-  }
-}
-
-/**
- * Build a tree node from a task, including children recursively.
- */
-function buildTreeNode(
+function mapTaskFields(
   task: TaskRecord,
-  taskService: TaskService,
   allTaskTags: TaskTagMap,
   allTasksMetadata: MetadataMap
-): TreeNode {
+): {
+  id: number;
+  title: string;
+  body: string | null;
+  author: string | null;
+  assignees: string | null;
+  status: string;
+  priority: string | null;
+  parent_id: number | null;
+  created_at: string;
+  updated_at: string;
+  tags: Array<{ id: number; name: string }>;
+  metadata: Array<{ key: string; value: string }>;
+} {
   const tags = allTaskTags.get(task.id);
   const metadata = allTasksMetadata.get(task.id);
-  const children = taskService.getChildTasks(task.id);
-
   return {
     id: task.id,
     title: task.title,
@@ -118,7 +86,106 @@ function buildTreeNode(
     updated_at: task.updated_at,
     tags: tags ? tags.map((tag) => ({ id: tag.id, name: tag.name })) : [],
     metadata: metadata ? metadata.map((m) => ({ key: m.key, value: m.value })) : [],
-    children: children.map((child) => buildTreeNode(child, taskService, allTaskTags, allTasksMetadata)),
+  };
+}
+
+/**
+ * Build a Map of task id -> task (including archived, unfiltered) and a Map of
+ * parent id -> non-archived children, both from a single bulk query. This
+ * replaces the N+1 getChildTasks()/getTask() calls previously made per node.
+ *
+ * getChildTasks()/getTask() ignore the list command's status/tag/priority filters
+ * and getChildTasks() always excludes archived tasks, so the maps here are built
+ * from the full (unfiltered) task set to preserve that exact behavior.
+ */
+function buildTaskMaps(taskService: TaskService): { taskById: TaskByIdMap; childrenByParentId: ChildrenMap } {
+  const allTasks = taskService.listTasks({ includeArchived: true }, 'created_at', 'asc');
+  const taskById: TaskByIdMap = new Map();
+  const childrenByParentId: ChildrenMap = new Map();
+
+  for (const task of allTasks) {
+    taskById.set(task.id, task);
+    if (task.is_archived || task.parent_id == null) {
+      continue;
+    }
+    const existing = childrenByParentId.get(task.parent_id);
+    if (existing) {
+      existing.push(task);
+    } else {
+      childrenByParentId.set(task.parent_id, [task]);
+    }
+  }
+
+  return { taskById, childrenByParentId };
+}
+
+/**
+ * Print a single tree/dep-tree node line (connector, id, title, status),
+ * followed by its priority and metadata lines.
+ */
+function printTreeNode(
+  task: { id: number; title: string; status: string; priority?: string | null },
+  allTasksMetadata: MetadataMap,
+  prefix: string,
+  isLast: boolean,
+  relationshipLabel?: '[blocks]'
+): void {
+  const statusColor = getStatusColor(task.status as TaskStatus);
+  const connector = isLast ? '└── ' : '├── ';
+  const labelStr = relationshipLabel ? `${chalk.gray(relationshipLabel)} ` : '';
+
+  console.log(
+    `${prefix}${connector}${labelStr}${chalk.bold.cyan(`[${task.id}]`)} ${chalk.bold(task.title)} ` +
+      `${chalk[statusColor](`(${task.status})`)}`
+  );
+
+  const childPrefix = prefix + (isLast ? '    ' : '│   ');
+  if (task.priority) {
+    console.log(`${childPrefix}${formatPriority(task.priority)}`);
+  }
+  const metadata = allTasksMetadata.get(task.id);
+  if (metadata && metadata.length > 0) {
+    const metadataStrings = metadata.map(formatMetadataEntry);
+    console.log(`${childPrefix}${chalk.bold('Metadata:')} ${metadataStrings.join(', ')}`);
+  }
+}
+
+/**
+ * Recursive function to display tasks in tree structure.
+ */
+function displayTaskTree(
+  task: { id: number; title: string; status: TaskStatus; priority?: string | null },
+  childrenByParentId: ChildrenMap,
+  prefix: string,
+  isLast: boolean,
+  allTasksMetadata: MetadataMap
+): void {
+  printTreeNode(task, allTasksMetadata, prefix, isLast);
+
+  const children = childrenByParentId.get(task.id) || [];
+  if (children.length > 0) {
+    const newPrefix = prefix + (isLast ? '    ' : '│   ');
+    children.forEach((child, index) => {
+      const isChildLast = index === children.length - 1;
+      displayTaskTree(child, childrenByParentId, newPrefix, isChildLast, allTasksMetadata);
+    });
+  }
+}
+
+/**
+ * Build a tree node from a task, including children recursively.
+ */
+function buildTreeNode(
+  task: TaskRecord,
+  childrenByParentId: ChildrenMap,
+  allTaskTags: TaskTagMap,
+  allTasksMetadata: MetadataMap
+): TreeNode {
+  const children = childrenByParentId.get(task.id) || [];
+
+  return {
+    ...mapTaskFields(task, allTaskTags, allTasksMetadata),
+    children: children.map((child) => buildTreeNode(child, childrenByParentId, allTaskTags, allTasksMetadata)),
   };
 }
 
@@ -138,7 +205,7 @@ function buildTreeJsonOutput(
     priority?: string;
   },
   tagIds: number[] | undefined,
-  taskService: TaskService,
+  childrenByParentId: ChildrenMap,
   allTaskTags: TaskTagMap,
   allTasksMetadata: MetadataMap
 ): object {
@@ -158,7 +225,7 @@ function buildTreeJsonOutput(
     },
     sort: options.sort || 'created_at',
     order: options.order || 'desc',
-    tasks: rootTasks.map((task) => buildTreeNode(task, taskService, allTaskTags, allTasksMetadata)),
+    tasks: rootTasks.map((task) => buildTreeNode(task, childrenByParentId, allTaskTags, allTasksMetadata)),
   };
 }
 
@@ -177,12 +244,12 @@ function buildListJsonOutput(
     priority?: string;
   },
   tagIds: number[] | undefined,
-  taskService: TaskService,
+  taskById: TaskByIdMap,
   allTaskTags: TaskTagMap,
   allTasksMetadata: MetadataMap
 ): object {
   const tasksWithRelations = displayTasks.map((task) =>
-    buildTaskWithRelations(task, taskService, allTaskTags, allTasksMetadata)
+    buildTaskWithRelations(task, taskById, allTaskTags, allTasksMetadata)
   );
 
   return {
@@ -206,28 +273,15 @@ function buildListJsonOutput(
  */
 function buildTaskWithRelations(
   task: TaskRecord,
-  taskService: TaskService,
+  taskById: TaskByIdMap,
   allTaskTags: TaskTagMap,
   allTasksMetadata: MetadataMap
 ): object {
-  const tags = allTaskTags.get(task.id);
-  const metadata = allTasksMetadata.get(task.id);
-  const parent = task.parent_id ? taskService.getTask(task.parent_id) : null;
+  const parent = task.parent_id ? (taskById.get(task.parent_id) ?? null) : null;
 
   return {
-    id: task.id,
-    title: task.title,
-    body: task.body,
-    author: task.author,
-    assignees: task.assignees,
-    status: task.status,
-    priority: task.priority,
-    parent_id: task.parent_id,
-    created_at: task.created_at,
-    updated_at: task.updated_at,
+    ...mapTaskFields(task, allTaskTags, allTasksMetadata),
     parent: parent ? { id: parent.id, title: parent.title, status: parent.status } : null,
-    tags: tags ? tags.map((tag) => ({ id: tag.id, name: tag.name })) : [],
-    metadata: metadata ? metadata.map((m) => ({ key: m.key, value: m.value })) : [],
   };
 }
 
@@ -275,43 +329,11 @@ function collectAllBlockedIds(blockMap: BlockMap): Set<number> {
 }
 
 /**
- * Display a single task node line with optional metadata and relationship label.
- */
-function printTreeNodeLine(
-  task: { id: number; title: string; status: string; priority?: string | null },
-  allTasksMetadata: MetadataMap,
-  prefix: string,
-  isLast: boolean,
-  relationshipLabel?: '[blocks]'
-): void {
-  const statusColor = getStatusColor(task.status as TaskStatus);
-  const connector = isLast ? '\u2514\u2500\u2500 ' : '\u251c\u2500\u2500 ';
-
-  const labelStr = relationshipLabel ? `${chalk.gray(relationshipLabel)} ` : '';
-  console.log(
-    `${prefix}${connector}${labelStr}${chalk.bold.cyan(`[${task.id}]`)} ${chalk.bold(task.title)} ` +
-      `${chalk[statusColor](`(${task.status})`)}`
-  );
-
-  const childPrefix = prefix + (isLast ? '    ' : '\u2502   ');
-
-  if (task.priority) {
-    console.log(`${childPrefix}${formatPriority(task.priority)}`);
-  }
-
-  const metadata = allTasksMetadata.get(task.id);
-  if (metadata && metadata.length > 0) {
-    const metadataStrings = metadata.map(formatMetadataEntry);
-    console.log(`${childPrefix}${chalk.bold('Metadata:')} ${metadataStrings.join(', ')}`);
-  }
-}
-
-/**
  * Recursively display dependency tree (blocker -> blocked only).
  */
 function displayDependencyTree(
   task: { id: number; title: string; status: string },
-  taskService: TaskService,
+  taskById: TaskByIdMap,
   blockMap: BlockMap,
   allTasksMetadata: MetadataMap,
   prefix: string,
@@ -319,7 +341,7 @@ function displayDependencyTree(
   visited: Set<number>,
   relationshipLabel?: '[blocks]'
 ): void {
-  printTreeNodeLine(task, allTasksMetadata, prefix, isLast, relationshipLabel);
+  printTreeNode(task, allTasksMetadata, prefix, isLast, relationshipLabel);
 
   if (visited.has(task.id)) {
     return;
@@ -328,14 +350,14 @@ function displayDependencyTree(
 
   const blockedIds = blockMap.get(task.id) || [];
 
-  const newPrefix = prefix + (isLast ? '    ' : '\u2502   ');
+  const newPrefix = prefix + (isLast ? '    ' : '│   ');
   blockedIds.forEach((blockedId, index) => {
-    const childTask = taskService.getTask(blockedId);
+    const childTask = taskById.get(blockedId);
     if (childTask && !visited.has(blockedId)) {
       const isChildLast = index === blockedIds.length - 1;
       displayDependencyTree(
         childTask,
-        taskService,
+        taskById,
         blockMap,
         allTasksMetadata,
         newPrefix,
@@ -348,27 +370,11 @@ function displayDependencyTree(
 }
 
 /**
- * Extract tags and metadata for a task.
- */
-function extractTaskRelations(
-  task: TaskRecord,
-  allTaskTags: TaskTagMap,
-  allTasksMetadata: MetadataMap
-): { tags: Array<{ id: number; name: string }>; metadata: Array<{ key: string; value: string }> } {
-  const tags = allTaskTags.get(task.id);
-  const metadata = allTasksMetadata.get(task.id);
-  return {
-    tags: tags ? tags.map((tag) => ({ id: tag.id, name: tag.name })) : [],
-    metadata: metadata ? metadata.map((m) => ({ key: m.key, value: m.value })) : [],
-  };
-}
-
-/**
  * Build blocked task nodes recursively.
  */
 function buildBlockedNodes(
   blockedIds: number[],
-  taskService: TaskService,
+  taskById: TaskByIdMap,
   blockMap: BlockMap,
   allTaskTags: TaskTagMap,
   allTasksMetadata: MetadataMap,
@@ -377,11 +383,9 @@ function buildBlockedNodes(
   const blocks: DepTreeNode[] = [];
   for (const blockedId of blockedIds) {
     if (!visited.has(blockedId)) {
-      const blockedTask = taskService.getTask(blockedId);
+      const blockedTask = taskById.get(blockedId);
       if (blockedTask) {
-        blocks.push(
-          buildDepTreeNode(blockedTask, taskService, blockMap, allTaskTags, allTasksMetadata, new Set(visited))
-        );
+        blocks.push(buildDepTreeNode(blockedTask, taskById, blockMap, allTaskTags, allTasksMetadata, new Set(visited)));
       }
     }
   }
@@ -393,7 +397,7 @@ function buildBlockedNodes(
  */
 function buildDepTreeNode(
   task: TaskRecord,
-  taskService: TaskService,
+  taskById: TaskByIdMap,
   blockMap: BlockMap,
   allTaskTags: TaskTagMap,
   allTasksMetadata: MetadataMap,
@@ -401,22 +405,10 @@ function buildDepTreeNode(
 ): DepTreeNode {
   visited.add(task.id);
   const blockedIds = blockMap.get(task.id) || [];
-  const { tags, metadata } = extractTaskRelations(task, allTaskTags, allTasksMetadata);
-  const blocks = buildBlockedNodes(blockedIds, taskService, blockMap, allTaskTags, allTasksMetadata, visited);
+  const blocks = buildBlockedNodes(blockedIds, taskById, blockMap, allTaskTags, allTasksMetadata, visited);
 
   return {
-    id: task.id,
-    title: task.title,
-    body: task.body,
-    author: task.author,
-    assignees: task.assignees,
-    status: task.status,
-    priority: task.priority,
-    parent_id: task.parent_id,
-    created_at: task.created_at,
-    updated_at: task.updated_at,
-    tags,
-    metadata,
+    ...mapTaskFields(task, allTaskTags, allTasksMetadata),
     blocks,
   };
 }
@@ -428,7 +420,7 @@ function buildDepTreeJsonOutput(
   displayTasks: TaskRecord[],
   options: { status?: string; author?: string; rootOnly?: boolean; all?: boolean; priority?: string },
   tagIds: number[] | undefined,
-  taskService: TaskService,
+  taskById: TaskByIdMap,
   blockMap: BlockMap,
   allTaskTags: TaskTagMap,
   allTasksMetadata: MetadataMap
@@ -448,7 +440,7 @@ function buildDepTreeJsonOutput(
       priority: options.priority || null,
     },
     tasks: rootTasks.map((task) =>
-      buildDepTreeNode(task, taskService, blockMap, allTaskTags, allTasksMetadata, new Set())
+      buildDepTreeNode(task, taskById, blockMap, allTaskTags, allTasksMetadata, new Set())
     ),
   };
 }
@@ -498,9 +490,9 @@ function printTaskPersonInfo(task: TaskRecord): void {
 /**
  * Print task parent reference.
  */
-function printTaskParent(task: TaskRecord, taskService: TaskService): void {
+function printTaskParent(task: TaskRecord, taskById: TaskByIdMap): void {
   if (!task.parent_id) return;
-  const parentTask = taskService.getTask(task.parent_id);
+  const parentTask = taskById.get(task.parent_id);
   if (parentTask) {
     console.log(`  ${chalk.bold('Parent:')} ${chalk.cyan(`[${parentTask.id}]`)} ${parentTask.title}`);
   }
@@ -555,14 +547,14 @@ function printTaskSeparator(isLast: boolean): void {
  */
 function printTaskRow(
   task: TaskRecord,
-  taskService: TaskService,
+  taskById: TaskByIdMap,
   allTaskTags: TaskTagMap,
   allTasksMetadata: MetadataMap,
   isLast: boolean
 ): void {
   printTaskHeader(task);
   printTaskPersonInfo(task);
-  printTaskParent(task, taskService);
+  printTaskParent(task, taskById);
   printTaskPriority(task);
   printTaskTags(task.id, allTaskTags);
   printTaskMetadata(task.id, allTasksMetadata);
@@ -712,22 +704,22 @@ function handleTreeView(
   displayTasks: TaskRecord[],
   options: Record<string, unknown>,
   tagIds: number[] | undefined,
-  taskService: TaskService,
+  childrenByParentId: ChildrenMap,
   allTaskTags: TaskTagMap,
   allTasksMetadata: MetadataMap,
   formatter: ReturnType<typeof createFormatter>
 ): void {
   const rootTasks = displayTasks.filter((task) => !task.parent_id);
   formatter.output(
-    () => buildTreeJsonOutput(displayTasks, options, tagIds, taskService, allTaskTags, allTasksMetadata),
+    () => buildTreeJsonOutput(displayTasks, options, tagIds, childrenByParentId, allTaskTags, allTasksMetadata),
     () => {
       console.log(chalk.bold(`\nFound ${displayTasks.length} task(s) in tree view:\n`));
       console.log(chalk.bold('─'.repeat(80)));
       rootTasks.forEach((task, index) => {
         const isLast = index === rootTasks.length - 1;
         displayTaskTree(
-          taskService,
           task as { id: number; title: string; status: TaskStatus },
+          childrenByParentId,
           '',
           isLast,
           allTasksMetadata
@@ -745,7 +737,7 @@ function handleDepTreeView(
   displayTasks: TaskRecord[],
   options: Record<string, unknown>,
   tagIds: number[] | undefined,
-  taskService: TaskService,
+  taskById: TaskByIdMap,
   allTaskTags: TaskTagMap,
   allTasksMetadata: MetadataMap,
   taskBlockService: TaskBlockService,
@@ -756,13 +748,13 @@ function handleDepTreeView(
   const rootTasks = displayTasks.filter((task) => !allBlockedIds.has(task.id));
 
   formatter.output(
-    () => buildDepTreeJsonOutput(displayTasks, options, tagIds, taskService, blockMap, allTaskTags, allTasksMetadata),
+    () => buildDepTreeJsonOutput(displayTasks, options, tagIds, taskById, blockMap, allTaskTags, allTasksMetadata),
     () => {
       console.log(chalk.bold(`\nFound ${displayTasks.length} task(s) in dependency tree view:\n`));
-      console.log(chalk.bold('\u2500'.repeat(80)));
+      console.log(chalk.bold('─'.repeat(80)));
       rootTasks.forEach((task, index) => {
         const isLast = index === rootTasks.length - 1;
-        displayDependencyTree(task, taskService, blockMap, allTasksMetadata, '', isLast, new Set());
+        displayDependencyTree(task, taskById, blockMap, allTasksMetadata, '', isLast, new Set());
       });
       console.log('\n');
     }
@@ -776,19 +768,19 @@ function handleListView(
   displayTasks: TaskRecord[],
   options: Record<string, unknown>,
   tagIds: number[] | undefined,
-  taskService: TaskService,
+  taskById: TaskByIdMap,
   allTaskTags: TaskTagMap,
   allTasksMetadata: MetadataMap,
   formatter: ReturnType<typeof createFormatter>
 ): void {
   formatter.output(
-    () => buildListJsonOutput(displayTasks, options, tagIds, taskService, allTaskTags, allTasksMetadata),
+    () => buildListJsonOutput(displayTasks, options, tagIds, taskById, allTaskTags, allTasksMetadata),
     () => {
       console.log(chalk.bold(`\nFound ${displayTasks.length} task(s):\n`));
       console.log(chalk.bold('─'.repeat(80)));
       displayTasks.forEach((task, index) => {
         const isLast = index === displayTasks.length - 1;
-        printTaskRow(task, taskService, allTaskTags, allTasksMetadata, isLast);
+        printTaskRow(task, taskById, allTaskTags, allTasksMetadata, isLast);
       });
       console.log('\n');
     }
@@ -890,18 +882,23 @@ function resolveFilters(
 }
 
 /**
- * Fetch task data and relations (tags, metadata, blocks).
+ * Fetch task data and relations (tags, metadata, blocks, parent/children maps).
  */
-function fetchTaskRelations(): {
+function fetchTaskRelations(taskService: TaskService): {
   allTaskTags: TaskTagMap;
   allTasksMetadata: MetadataMap;
   taskBlockService: TaskBlockService;
+  taskById: TaskByIdMap;
+  childrenByParentId: ChildrenMap;
 } {
   const { taskTagService, metadataService, taskBlockService } = getServiceContainer();
+  const { taskById, childrenByParentId } = buildTaskMaps(taskService);
   return {
     allTaskTags: taskTagService.getAllTaskTags(),
     allTasksMetadata: metadataService.getAllTasksMetadata(),
     taskBlockService,
+    taskById,
+    childrenByParentId,
   };
 }
 
@@ -949,23 +946,24 @@ async function executeListAction(
     return;
   }
 
-  const { allTaskTags, allTasksMetadata, taskBlockService } = fetchTaskRelations();
+  const { allTaskTags, allTasksMetadata, taskBlockService, taskById, childrenByParentId } =
+    fetchTaskRelations(taskService);
 
   if (options.tree) {
-    handleTreeView(displayTasks, options, tagIds, taskService, allTaskTags, allTasksMetadata, formatter);
+    handleTreeView(displayTasks, options, tagIds, childrenByParentId, allTaskTags, allTasksMetadata, formatter);
   } else if (options.depTree) {
     handleDepTreeView(
       displayTasks,
       options,
       tagIds,
-      taskService,
+      taskById,
       allTaskTags,
       allTasksMetadata,
       taskBlockService,
       formatter
     );
   } else {
-    handleListView(displayTasks, options, tagIds, taskService, allTaskTags, allTasksMetadata, formatter);
+    handleListView(displayTasks, options, tagIds, taskById, allTaskTags, allTasksMetadata, formatter);
   }
 }
 
