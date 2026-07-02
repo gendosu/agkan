@@ -85,6 +85,47 @@ function isBackgroundJobComplete(entries, toolUseId) {
   return false;
 }
 
+// Fetches the current task status from the board and checks whether it has reached the
+// run's target status. Reached = current status matches target, or has advanced to a
+// terminal status (done/closed). On fetch failure or non-200, returns false so the caller
+// falls through to the normal guard checks instead of overriding them.
+async function isTargetStatusReached(apiUrl, token, taskId, targetStatus) {
+  try {
+    const res = await fetch(`${apiUrl}/api/internal/tasks/${taskId}/status`, {
+      method: 'GET',
+      headers: { 'x-hook-token': token },
+    });
+    if (!res.ok) return false;
+    const data = await res.json();
+    const status = data && data.status;
+    return status === targetStatus || status === 'done' || status === 'closed';
+  } catch (err) {
+    process.stderr.write(`hook-stop: status check failed: ${(err && err.message) || err}\n`);
+    return false;
+  }
+}
+
+// Notifies the board of completion. Unlinks the main session's session file first, then
+// POSTs the completion — the file is only removed once completion is actually reported.
+async function notifyComplete(apiUrl, token, taskId, sessionFile) {
+  await fs.unlink(sessionFile).catch(() => {});
+  try {
+    const res = await fetch(`${apiUrl}/api/internal/hooks/stop`, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        'x-hook-token': token,
+      },
+      body: JSON.stringify({ taskId, reason: 'complete' }),
+    });
+    if (!res.ok) {
+      process.stderr.write(`hook-stop: API responded ${res.status}\n`);
+    }
+  } catch (err) {
+    process.stderr.write(`hook-stop: ${(err && err.message) || err}\n`);
+  }
+}
+
 async function main() {
   const taskIdRaw = process.env.BOARD_TASK_ID;
   const apiUrl = process.env.BOARD_API_URL;
@@ -115,55 +156,50 @@ async function main() {
   }
 
   const entries = parseTranscript(jsonl);
-  const lastTool = findLastToolUse(entries);
-  if (lastTool?.name === 'AskUserQuestion') return;
-  // Monitor is always waiting for streamed events from a background process.
-  // Signalling "complete" while Monitor is active would abort the wait.
-  if (lastTool?.name === 'Monitor') {
-    return;
-  }
-  // A backgrounded Bash/Task may have been started in an earlier turn and still be
-  // running even though the current turn ends on an unrelated tool. Scan the FULL
-  // transcript for every such background job and only proceed once each one has a
-  // matching <task-notification> completion signal — otherwise signalling "complete"
-  // would kill the PTY session and abort the still-running job.
-  const backgroundJobIds = findBackgroundJobToolUses(entries);
-  const hasUnfinishedBackgroundJob = backgroundJobIds.some((id) => !isBackgroundJobComplete(entries, id));
-  if (hasUnfinishedBackgroundJob) return;
 
   const taskId = Number(taskIdRaw);
   if (!Number.isFinite(taskId)) return;
 
-  // Check whether this is the main session or a sub-agent session.
-  // Only the main session should notify the board; sub-agent sessions must be ignored.
+  // Determine whether this is the main session or a sub-agent session (a sub-agent's
+  // Stop must not notify the board). Do not unlink the session file here yet — if an
+  // interactive guard below causes an early return, we would lose the marker needed to
+  // tell the main session apart from a sub-agent. It is only unlinked inside
+  // notifyComplete, right before the completion POST is actually sent.
   const sessionFile = `/tmp/board-main-session-${taskIdRaw}`;
   try {
     const mainSessionId = (await fs.readFile(sessionFile, 'utf-8')).trim();
     if (mainSessionId && mainSessionId !== payload?.session_id) {
-      // This is a sub-agent stop — do not notify the board.
-      return;
+      return; // Sub-agent's Stop
     }
-    // This is the main session — clean up the file before notifying.
-    await fs.unlink(sessionFile).catch(() => {});
   } catch {
-    // file may not exist (e.g. hook-session-start was not used); proceed with API call.
+    // No file means hook-session-start was not used; proceed as the main session.
   }
 
-  try {
-    const res = await fetch(`${apiUrl}/api/internal/hooks/stop`, {
-      method: 'POST',
-      headers: {
-        'content-type': 'application/json',
-        'x-hook-token': token,
-      },
-      body: JSON.stringify({ taskId, reason: 'complete' }),
-    });
-    if (!res.ok) {
-      process.stderr.write(`hook-stop: API responded ${res.status}\n`);
+  const lastTool = findLastToolUse(entries);
+  if (lastTool?.name === 'AskUserQuestion') return;
+  // Monitor is always waiting for streamed events from a background process.
+  // Signalling "complete" while Monitor is active would abort the wait.
+  if (lastTool?.name === 'Monitor') return;
+
+  // Status-based termination check: if the target status has been reached, send complete,
+  // overriding the background-job/ScheduleWakeup guards below — the agent having advanced
+  // the status itself is treated as the completion signal.
+  const targetStatus = process.env.BOARD_TARGET_STATUS;
+  if (targetStatus) {
+    const reached = await isTargetStatusReached(apiUrl, token, taskId, targetStatus);
+    if (reached) {
+      await notifyComplete(apiUrl, token, taskId, sessionFile);
+      return;
     }
-  } catch (err) {
-    process.stderr.write(`hook-stop: ${(err && err.message) || err}\n`);
   }
+
+  // If a background Bash/Task was started in an earlier turn and hasn't completed yet,
+  // keep the session alive instead of sending complete.
+  const backgroundJobIds = findBackgroundJobToolUses(entries);
+  const hasUnfinishedBackgroundJob = backgroundJobIds.some((id) => !isBackgroundJobComplete(entries, id));
+  if (hasUnfinishedBackgroundJob) return;
+
+  await notifyComplete(apiUrl, token, taskId, sessionFile);
 }
 
 await main();

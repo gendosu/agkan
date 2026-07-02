@@ -28,6 +28,7 @@ import {
 } from './boardRenderer';
 import { BulkRunService, BulkRunCommand } from './BulkRunService';
 import { verifyHookToken, getHookToken } from '../utils/hookToken';
+import { runTargetStatus } from '../utils/runTargetStatus';
 import { AttentionStateService } from '../services/AttentionStateService';
 import { BoardEventService } from '../services/BoardEventService';
 import { isTestMode } from '../db/config';
@@ -587,7 +588,7 @@ function registerClaudeRoutes(app: Hono, claudeProcess: PtySessionService, ts: T
     }
 
     if (command === 'pr' || command === 'run') {
-      const targetStatus = command === 'pr' ? 'review' : 'done';
+      const targetStatus = runTargetStatus(command) ?? 'done';
       const unsubscribe = claudeProcess.subscribeOutput(taskId, (evt) => {
         if (evt.kind === 'done' && evt.exitCode === 0) {
           if (claudeProcess.isUserStopped(taskId)) {
@@ -707,6 +708,7 @@ function registerClaudeRoutes(app: Hono, claudeProcess: PtySessionService, ts: T
 export interface HookRouteDeps {
   attentionStateService: AttentionStateService;
   ptySessionService: { stopProcess: (taskId: number) => boolean };
+  taskService: Pick<TaskService, 'getTask'>;
 }
 
 export function registerHookRoutes(app: Hono, deps: HookRouteDeps): void {
@@ -738,6 +740,22 @@ export function registerHookRoutes(app: Hono, deps: HookRouteDeps): void {
       deps.ptySessionService.stopProcess(id);
     }
     return c.json({ ok: true });
+  });
+
+  app.get('/api/internal/tasks/:id/status', (c) => {
+    const token = c.req.header('x-hook-token');
+    if (!verifyHookToken(token)) {
+      return c.body('', 401);
+    }
+    const id = Number(c.req.param('id'));
+    if (!Number.isFinite(id)) {
+      return c.json({ error: 'invalid taskId' }, 400);
+    }
+    const task = deps.taskService.getTask(id);
+    if (!task) {
+      return c.json({ error: 'task not found' }, 404);
+    }
+    return c.json({ status: task.status });
   });
 }
 
