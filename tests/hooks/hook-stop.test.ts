@@ -363,7 +363,19 @@ describe('hook-stop.mjs', () => {
         }),
         JSON.stringify({
           type: 'user',
-          message: { content: [{ type: 'tool_result', tool_use_id: 'bash-1', content: 'Tests passed.' }] },
+          message: {
+            content: [
+              { type: 'tool_result', tool_use_id: 'bash-1', content: 'Command running in background with ID: bk-1' },
+            ],
+          },
+        }),
+        JSON.stringify({
+          type: 'queue-operation',
+          operation: 'enqueue',
+          timestamp: '2026-07-02T00:00:00Z',
+          sessionId: 'sess-bash-1',
+          content:
+            '<task-notification>\n<task-id>bk-1</task-id>\n<tool-use-id>bash-1</tool-use-id>\n<output-file>/tmp/bk-1.output</output-file>\n<status>completed</status>\n<summary>Tests passed.</summary>\n</task-notification>',
         }),
         JSON.stringify({
           type: 'assistant',
@@ -383,6 +395,251 @@ describe('hook-stop.mjs', () => {
     const last = svr.captured.at(-1);
     expect(last?.url).toBe('/api/internal/hooks/stop');
     expect(last?.body).toEqual({ taskId: 21, reason: 'complete' });
+  });
+
+  it('does NOT post when background Bash only has the immediate ack tool_result (no task-notification) and last turn has no tool_use', async () => {
+    // Regression guard for defect B: the immediate background-start ack is itself a
+    // tool_result, but it must NOT be mistaken for the real completion signal.
+    const before = svr.captured.length;
+    const transcript = join(tmp, 't.jsonl');
+    writeFileSync(
+      transcript,
+      [
+        JSON.stringify({
+          type: 'assistant',
+          message: {
+            content: [
+              {
+                type: 'tool_use',
+                id: 'bash-1b',
+                name: 'Bash',
+                input: { command: 'npm test', run_in_background: true },
+              },
+            ],
+          },
+        }),
+        JSON.stringify({
+          type: 'user',
+          message: {
+            content: [
+              { type: 'tool_result', tool_use_id: 'bash-1b', content: 'Command running in background with ID: bk-1b' },
+            ],
+          },
+        }),
+        JSON.stringify({
+          type: 'assistant',
+          message: { content: [{ type: 'text', text: 'Waiting for tests to finish.' }] },
+        }),
+      ].join('\n') + '\n'
+    );
+    const code = await runHook(
+      { transcript_path: transcript, hook_event_name: 'Stop', stop_hook_active: false },
+      {
+        BOARD_TASK_ID: '21',
+        BOARD_API_URL: `http://127.0.0.1:${svr.port}`,
+        BOARD_HOOK_TOKEN: 'tk',
+      }
+    );
+    expect(code).toBe(0);
+    expect(svr.captured.length).toBe(before);
+  });
+
+  it('does NOT post when an earlier-turn background Bash has no completion notification, even if the last tool_use is a different tool (regression: full-transcript scan, not last-tool-only)', async () => {
+    const before = svr.captured.length;
+    const transcript = join(tmp, 't.jsonl');
+    writeFileSync(
+      transcript,
+      [
+        JSON.stringify({
+          type: 'assistant',
+          message: {
+            content: [
+              {
+                type: 'tool_use',
+                id: 'bg-1',
+                name: 'Bash',
+                input: { command: 'npx vitest run', run_in_background: true },
+              },
+            ],
+          },
+        }),
+        JSON.stringify({
+          type: 'user',
+          message: {
+            content: [
+              { type: 'tool_result', tool_use_id: 'bg-1', content: 'Command running in background with ID: bkc1ziu9z' },
+            ],
+          },
+        }),
+        JSON.stringify({
+          type: 'assistant',
+          message: {
+            content: [{ type: 'tool_use', id: 'wake-1', name: 'ScheduleWakeup', input: {} }],
+          },
+        }),
+      ].join('\n') + '\n'
+    );
+    const code = await runHook(
+      { transcript_path: transcript, hook_event_name: 'Stop', stop_hook_active: false },
+      {
+        BOARD_TASK_ID: '24',
+        BOARD_API_URL: `http://127.0.0.1:${svr.port}`,
+        BOARD_HOOK_TOKEN: 'tk',
+      }
+    );
+    expect(code).toBe(0);
+    expect(svr.captured.length).toBe(before);
+  });
+
+  it('posts complete when an earlier-turn background Bash has a matching task-notification, even though the last tool_use is a different tool', async () => {
+    const transcript = join(tmp, 't.jsonl');
+    writeFileSync(
+      transcript,
+      [
+        JSON.stringify({
+          type: 'assistant',
+          message: {
+            content: [
+              {
+                type: 'tool_use',
+                id: 'bg-2',
+                name: 'Bash',
+                input: { command: 'npx vitest run', run_in_background: true },
+              },
+            ],
+          },
+        }),
+        JSON.stringify({
+          type: 'user',
+          message: {
+            content: [
+              { type: 'tool_result', tool_use_id: 'bg-2', content: 'Command running in background with ID: bkc2abcd' },
+            ],
+          },
+        }),
+        JSON.stringify({
+          type: 'queue-operation',
+          operation: 'enqueue',
+          timestamp: '2026-07-02T00:01:00Z',
+          sessionId: 'sess-bg-2',
+          content:
+            '<task-notification>\n<task-id>bkc2abcd</task-id>\n<tool-use-id>bg-2</tool-use-id>\n<output-file>/tmp/bkc2abcd.output</output-file>\n<status>completed</status>\n<summary>Run full test suite finished</summary>\n</task-notification>',
+        }),
+        JSON.stringify({
+          type: 'assistant',
+          message: { content: [{ type: 'text', text: 'Tests are all green.' }] },
+        }),
+      ].join('\n') + '\n'
+    );
+    const code = await runHook(
+      { transcript_path: transcript, hook_event_name: 'Stop', stop_hook_active: false },
+      {
+        BOARD_TASK_ID: '25',
+        BOARD_API_URL: `http://127.0.0.1:${svr.port}`,
+        BOARD_HOOK_TOKEN: 'tk',
+      }
+    );
+    expect(code).toBe(0);
+    const last = svr.captured.at(-1);
+    expect(last?.url).toBe('/api/internal/hooks/stop');
+    expect(last?.body).toEqual({ taskId: 25, reason: 'complete' });
+  });
+
+  it('does NOT post when an earlier-turn background Task has no completion notification, even if the last tool_use is a different tool', async () => {
+    const before = svr.captured.length;
+    const transcript = join(tmp, 't.jsonl');
+    writeFileSync(
+      transcript,
+      [
+        JSON.stringify({
+          type: 'assistant',
+          message: {
+            content: [
+              {
+                type: 'tool_use',
+                id: 'bg-task-1',
+                name: 'Task',
+                input: { description: 'run agent', prompt: 'do something', run_in_background: true },
+              },
+            ],
+          },
+        }),
+        JSON.stringify({
+          type: 'user',
+          message: {
+            content: [{ type: 'tool_result', tool_use_id: 'bg-task-1', content: 'Task running in background.' }],
+          },
+        }),
+        JSON.stringify({
+          type: 'assistant',
+          message: {
+            content: [{ type: 'tool_use', id: 'wake-2', name: 'ScheduleWakeup', input: {} }],
+          },
+        }),
+      ].join('\n') + '\n'
+    );
+    const code = await runHook(
+      { transcript_path: transcript, hook_event_name: 'Stop', stop_hook_active: false },
+      {
+        BOARD_TASK_ID: '26',
+        BOARD_API_URL: `http://127.0.0.1:${svr.port}`,
+        BOARD_HOOK_TOKEN: 'tk',
+      }
+    );
+    expect(code).toBe(0);
+    expect(svr.captured.length).toBe(before);
+  });
+
+  it('posts complete when an earlier-turn background Task has a matching task-notification, even though the last tool_use is a different tool', async () => {
+    const transcript = join(tmp, 't.jsonl');
+    writeFileSync(
+      transcript,
+      [
+        JSON.stringify({
+          type: 'assistant',
+          message: {
+            content: [
+              {
+                type: 'tool_use',
+                id: 'bg-task-2',
+                name: 'Task',
+                input: { description: 'run agent', prompt: 'do something else', run_in_background: true },
+              },
+            ],
+          },
+        }),
+        JSON.stringify({
+          type: 'user',
+          message: {
+            content: [{ type: 'tool_result', tool_use_id: 'bg-task-2', content: 'Task running in background.' }],
+          },
+        }),
+        JSON.stringify({
+          type: 'queue-operation',
+          operation: 'enqueue',
+          timestamp: '2026-07-02T00:02:00Z',
+          sessionId: 'sess-bg-task-2',
+          content:
+            '<task-notification>\n<task-id>bktask2xyz</task-id>\n<tool-use-id>bg-task-2</tool-use-id>\n<output-file>/tmp/bktask2xyz.output</output-file>\n<status>completed</status>\n<summary>Agent finished its work</summary>\n</task-notification>',
+        }),
+        JSON.stringify({
+          type: 'assistant',
+          message: { content: [{ type: 'text', text: 'Sub-agent finished successfully.' }] },
+        }),
+      ].join('\n') + '\n'
+    );
+    const code = await runHook(
+      { transcript_path: transcript, hook_event_name: 'Stop', stop_hook_active: false },
+      {
+        BOARD_TASK_ID: '27',
+        BOARD_API_URL: `http://127.0.0.1:${svr.port}`,
+        BOARD_HOOK_TOKEN: 'tk',
+      }
+    );
+    expect(code).toBe(0);
+    const last = svr.captured.at(-1);
+    expect(last?.url).toBe('/api/internal/hooks/stop');
+    expect(last?.body).toEqual({ taskId: 27, reason: 'complete' });
   });
 
   it('does NOT post when last turn ends with AskUserQuestion awaiting answer', async () => {
