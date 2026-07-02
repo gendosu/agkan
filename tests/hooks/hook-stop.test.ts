@@ -881,7 +881,7 @@ describe('hook-stop.mjs', () => {
     expect(svr.captured.length).toBe(before);
   });
 
-  it('does NOT post when BOARD_TARGET_STATUS is set but not reached and last tool is AskUserQuestion', async () => {
+  it('does NOT post when last tool is AskUserQuestion even though the status has reached target (interactive guard has priority)', async () => {
     const before = svr.captured.length;
     svr.setStatus('review');
     const transcript = join(tmp, 't.jsonl');

@@ -14,6 +14,6 @@ export function buildHookEnv(taskId: number, boardApiUrl: string | null, command
   env.BOARD_API_URL = boardApiUrl;
   env.BOARD_HOOK_TOKEN = getHookToken();
   const targetStatus = runTargetStatus(command);
-  if (targetStatus) env.BOARD_TARGET_STATUS = targetStatus;
+  if (targetStatus !== null) env.BOARD_TARGET_STATUS = targetStatus;
   return env;
 }

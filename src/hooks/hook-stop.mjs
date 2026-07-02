@@ -85,9 +85,10 @@ function isBackgroundJobComplete(entries, toolUseId) {
   return false;
 }
 
-// Board から現在の task status を取得し、run の目標statusへ到達済みかを判定する。
-// 到達 = current が target と一致、または done/closed（terminal）に達している。
-// 取得に失敗（ネットワーク/非200）した場合は false を返し、通常のガード判定へフォールバックする。
+// Fetches the current task status from the board and checks whether it has reached the
+// run's target status. Reached = current status matches target, or has advanced to a
+// terminal status (done/closed). On fetch failure or non-200, returns false so the caller
+// falls through to the normal guard checks instead of overriding them.
 async function isTargetStatusReached(apiUrl, token, taskId, targetStatus) {
   try {
     const res = await fetch(`${apiUrl}/api/internal/tasks/${taskId}/status`, {
@@ -104,7 +105,8 @@ async function isTargetStatusReached(apiUrl, token, taskId, targetStatus) {
   }
 }
 
-// 完了を board へ通知する。メインセッションのセッションファイルを片付けてから POST する。
+// Notifies the board of completion. Unlinks the main session's session file first, then
+// POSTs the completion — the file is only removed once completion is actually reported.
 async function notifyComplete(apiUrl, token, taskId, sessionFile) {
   await fs.unlink(sessionFile).catch(() => {});
   try {
@@ -158,26 +160,30 @@ async function main() {
   const taskId = Number(taskIdRaw);
   if (!Number.isFinite(taskId)) return;
 
-  // メインセッション判定（サブエージェントの Stop は board へ通知しない）。
-  // ここではまだ unlink しない（対話ガード等で return する場合に判別情報を失わないため）。
-  // unlink は実際に complete を送る notifyComplete 内でのみ行う。
+  // Determine whether this is the main session or a sub-agent session (a sub-agent's
+  // Stop must not notify the board). Do not unlink the session file here yet — if an
+  // interactive guard below causes an early return, we would lose the marker needed to
+  // tell the main session apart from a sub-agent. It is only unlinked inside
+  // notifyComplete, right before the completion POST is actually sent.
   const sessionFile = `/tmp/board-main-session-${taskIdRaw}`;
   try {
     const mainSessionId = (await fs.readFile(sessionFile, 'utf-8')).trim();
     if (mainSessionId && mainSessionId !== payload?.session_id) {
-      return; // サブエージェントの Stop
+      return; // Sub-agent's Stop
     }
   } catch {
-    // ファイルが無い場合（hook-session-start 未使用など）はメインとして続行
+    // No file means hook-session-start was not used; proceed as the main session.
   }
 
   const lastTool = findLastToolUse(entries);
   if (lastTool?.name === 'AskUserQuestion') return;
-  // Monitor は background プロセスのイベント待ち。complete を送ると待機を中断してしまう。
+  // Monitor is always waiting for streamed events from a background process.
+  // Signalling "complete" while Monitor is active would abort the wait.
   if (lastTool?.name === 'Monitor') return;
 
-  // status 基準の終了判定: 目標statusに到達していれば、背景ジョブ/ScheduleWakeup ガードを
-  // 上書きして complete を送る（エージェント自身が status を前進させた事実を終了信号とする）。
+  // Status-based termination check: if the target status has been reached, send complete,
+  // overriding the background-job/ScheduleWakeup guards below — the agent having advanced
+  // the status itself is treated as the completion signal.
   const targetStatus = process.env.BOARD_TARGET_STATUS;
   if (targetStatus) {
     const reached = await isTargetStatusReached(apiUrl, token, taskId, targetStatus);
@@ -187,7 +193,8 @@ async function main() {
     }
   }
 
-  // 背景 Bash/Task が過去ターンで起動され未完了なら、complete を送らずセッションを維持する。
+  // If a background Bash/Task was started in an earlier turn and hasn't completed yet,
+  // keep the session alive instead of sending complete.
   const backgroundJobIds = findBackgroundJobToolUses(entries);
   const hasUnfinishedBackgroundJob = backgroundJobIds.some((id) => !isBackgroundJobComplete(entries, id));
   if (hasUnfinishedBackgroundJob) return;

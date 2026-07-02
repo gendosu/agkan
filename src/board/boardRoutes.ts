@@ -749,7 +749,7 @@ export function registerHookRoutes(app: Hono, deps: HookRouteDeps): void {
     }
     const id = Number(c.req.param('id'));
     if (!Number.isFinite(id)) {
-      return c.json({ error: 'invalid id' }, 400);
+      return c.json({ error: 'invalid taskId' }, 400);
     }
     const task = deps.taskService.getTask(id);
     if (!task) {
