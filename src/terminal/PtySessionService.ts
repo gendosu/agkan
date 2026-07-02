@@ -1,11 +1,7 @@
 import * as pty from 'node-pty';
 import { execSync } from 'child_process';
 import type { StorageBackend, RunLogRow } from '../db/types/repository';
-import type {
-  RunLog,
-  OutputEvent as ClaudeOutputEvent,
-  CompletionConfirmCallback,
-} from '../services/ClaudeProcessService';
+import type { RunLog, OutputEvent as ClaudeOutputEvent, CompletionConfirmCallback } from '../services/types';
 import { ConflictError } from '../errors';
 import { ensureBoardHookSettings } from '../hooks/claudeHookSettings';
 import { getHookToken } from '../utils/hookToken';
