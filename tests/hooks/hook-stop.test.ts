@@ -742,7 +742,8 @@ describe('hook-stop.mjs', () => {
     expect(svr.captured.length).toBe(before);
   });
 
-  it('posts complete when BOARD_TARGET_STATUS is reached even with an unfinished background job (self-wakeup regression)', async () => {
+  it('does NOT post complete when BOARD_TARGET_STATUS is reached but a background sub-agent is unfinished (orchestration regression: #666)', async () => {
+    const before = svr.captured.length;
     svr.setStatus('review');
     const transcript = join(tmp, 't.jsonl');
     writeFileSync(
@@ -781,9 +782,68 @@ describe('hook-stop.mjs', () => {
       }
     );
     expect(code).toBe(0);
-    const last = svr.captured.at(-1);
-    expect(last?.url).toBe('/api/internal/hooks/stop');
-    expect(last?.body).toEqual({ taskId: 30, reason: 'complete' });
+    // The background-job guard must take priority over the status-reached check — a
+    // still-running sub-agent must not be killed just because the status advanced.
+    expect(svr.captured.length).toBe(before);
+  });
+
+  it('does NOT post complete when BOARD_TARGET_STATUS is reached but multiple background sub-agents are unfinished (multi-agent orchestration regression: #666)', async () => {
+    const before = svr.captured.length;
+    svr.setStatus('done');
+    const transcript = join(tmp, 't.jsonl');
+    writeFileSync(
+      transcript,
+      [
+        JSON.stringify({
+          type: 'assistant',
+          message: {
+            content: [
+              {
+                type: 'tool_use',
+                id: 'bg-agent-1',
+                name: 'Task',
+                input: { description: 'sub-agent-1', prompt: 'implement part A', run_in_background: true },
+              },
+              {
+                type: 'tool_use',
+                id: 'bg-agent-2',
+                name: 'Task',
+                input: { description: 'sub-agent-2', prompt: 'implement part B', run_in_background: true },
+              },
+            ],
+          },
+        }),
+        JSON.stringify({
+          type: 'user',
+          message: {
+            content: [
+              { type: 'tool_result', tool_use_id: 'bg-agent-1', content: 'Task running in background.' },
+              { type: 'tool_result', tool_use_id: 'bg-agent-2', content: 'Task running in background.' },
+            ],
+          },
+        }),
+        // sub-agent-1 finished, but sub-agent-2 is still running.
+        JSON.stringify({
+          type: 'user',
+          message: { content: '<task-notification><tool-use-id>bg-agent-1</tool-use-id> done</task-notification>' },
+        }),
+        JSON.stringify({
+          type: 'assistant',
+          message: { content: [{ type: 'tool_use', id: 'wake-multi', name: 'ScheduleWakeup', input: {} }] },
+        }),
+      ].join('\n') + '\n'
+    );
+    const code = await runHook(
+      { transcript_path: transcript, hook_event_name: 'Stop', stop_hook_active: false },
+      {
+        BOARD_TASK_ID: '36',
+        BOARD_API_URL: `http://127.0.0.1:${svr.port}`,
+        BOARD_HOOK_TOKEN: 'tk',
+        BOARD_TARGET_STATUS: 'done',
+      }
+    );
+    expect(code).toBe(0);
+    expect(svr.captured.length).toBe(before);
   });
 
   it('posts complete when BOARD_TARGET_STATUS is reached and last tool is ScheduleWakeup with no background job', async () => {
