@@ -4,7 +4,7 @@ import type { StorageBackend, RunLogRow } from '../db/types/repository';
 import type { RunLog, OutputEvent as ClaudeOutputEvent, CompletionConfirmCallback } from '../services/types';
 import { ConflictError } from '../errors';
 import { ensureBoardHookSettings } from '../hooks/claudeHookSettings';
-import { getHookToken } from '../utils/hookToken';
+import { buildHookEnv } from './buildHookEnv';
 import { AttentionStateService } from '../services/AttentionStateService';
 import { loadConfig, buildPermissionArgs } from '../db/config';
 
@@ -134,12 +134,7 @@ export class PtySessionService {
     const permissionArgs = buildPermissionArgs(loadConfig());
     const args = [...settingsArgs, ...modelArgs, ...effortArgs, ...permissionArgs];
 
-    const hookEnv: Record<string, string> = {};
-    if (this.boardApiUrl !== null && this.boardApiUrl !== '') {
-      hookEnv.BOARD_TASK_ID = String(taskId);
-      hookEnv.BOARD_API_URL = this.boardApiUrl;
-      hookEnv.BOARD_HOOK_TOKEN = getHookToken();
-    }
+    const hookEnv = buildHookEnv(taskId, this.boardApiUrl, command);
 
     const ptyProcess = pty.spawn(CLAUDE_BIN, args, {
       name: 'xterm-256color',
