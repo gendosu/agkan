@@ -412,6 +412,86 @@ describe('BulkRunService - Run all loop continuity regression', () => {
   });
 });
 
+describe('BulkRunService - auto status update on completion', () => {
+  it('updates task status to done when the task exits with exitCode 0', async () => {
+    const db = getStorageBackend();
+    const ts = new TaskService(db);
+    const tbs = new TaskBlockService(db);
+
+    const task = ts.createTask({ title: 'task', status: 'ready', priority: 'medium' });
+    const updateTaskSpy = vi.spyOn(ts, 'updateTask');
+
+    let outputCallback: OutputCallback | null = null;
+    const subscribeOutput = vi.fn().mockImplementation((_id: number, cb: OutputCallback) => {
+      outputCallback = cb;
+      return () => {};
+    });
+    const startProcess = vi.fn().mockResolvedValue(undefined);
+    const pty = buildMockPty({ startProcess, subscribeOutput });
+    const service = new BulkRunService(ts, tbs, pty);
+
+    await service.start('direct');
+    outputCallback?.({ kind: 'done', exitCode: 0 });
+    await Promise.resolve();
+
+    expect(updateTaskSpy).toHaveBeenCalledWith(task.id, { status: 'done' });
+
+    service.stop();
+  });
+
+  it('does not update task status when the task exits with a non-zero exitCode', async () => {
+    const db = getStorageBackend();
+    const ts = new TaskService(db);
+    const tbs = new TaskBlockService(db);
+
+    ts.createTask({ title: 'task', status: 'ready', priority: 'medium' });
+    const updateTaskSpy = vi.spyOn(ts, 'updateTask');
+
+    let outputCallback: OutputCallback | null = null;
+    const subscribeOutput = vi.fn().mockImplementation((_id: number, cb: OutputCallback) => {
+      outputCallback = cb;
+      return () => {};
+    });
+    const startProcess = vi.fn().mockResolvedValue(undefined);
+    const pty = buildMockPty({ startProcess, subscribeOutput });
+    const service = new BulkRunService(ts, tbs, pty);
+
+    await service.start('direct');
+    outputCallback?.({ kind: 'done', exitCode: 129 });
+    await Promise.resolve();
+
+    expect(updateTaskSpy).not.toHaveBeenCalledWith(expect.any(Number), { status: 'done' });
+
+    service.stop();
+  });
+
+  it('does not update task status when the output event is an error', async () => {
+    const db = getStorageBackend();
+    const ts = new TaskService(db);
+    const tbs = new TaskBlockService(db);
+
+    ts.createTask({ title: 'task', status: 'ready', priority: 'medium' });
+    const updateTaskSpy = vi.spyOn(ts, 'updateTask');
+
+    let outputCallback: OutputCallback | null = null;
+    const subscribeOutput = vi.fn().mockImplementation((_id: number, cb: OutputCallback) => {
+      outputCallback = cb;
+      return () => {};
+    });
+    const startProcess = vi.fn().mockResolvedValue(undefined);
+    const pty = buildMockPty({ startProcess, subscribeOutput });
+    const service = new BulkRunService(ts, tbs, pty);
+
+    await service.start('direct');
+    outputCallback?.({ kind: 'error', message: 'boom' });
+    await Promise.resolve();
+
+    expect(updateTaskSpy).not.toHaveBeenCalledWith(expect.any(Number), { status: 'done' });
+
+    service.stop();
+  });
+});
+
 describe('BulkRunService API routes', () => {
   it('POST /api/claude/bulk-run starts bulk run', async () => {
     const { Hono } = await import('hono');
