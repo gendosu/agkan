@@ -43,13 +43,42 @@ function findLastToolUse(entries) {
   return null;
 }
 
-// Returns true if a tool_result for toolUseId exists in any entry after afterIndex.
-function isToolResultPresent(entries, toolUseId, afterIndex) {
-  if (!toolUseId) return false;
-  for (let i = afterIndex + 1; i < entries.length; i++) {
-    const content = entries[i]?.message?.content;
+// Collects every tool_use across the ENTIRE transcript (not just the last turn) whose
+// name is Bash or Task and whose input has run_in_background === true.
+// A background job may have been started several turns ago and still be running while
+// the current turn ends on an unrelated tool (e.g. ScheduleWakeup) — the last-tool-only
+// view used by findLastToolUse cannot see it, so a full scan is required here.
+function findBackgroundJobToolUses(entries) {
+  const jobs = [];
+  for (const entry of entries) {
+    if (entry?.type !== 'assistant') continue;
+    const content = entry?.message?.content;
     if (!Array.isArray(content)) continue;
-    if (content.some((item) => item?.type === 'tool_result' && item?.tool_use_id === toolUseId)) {
+    for (const item of content) {
+      if (
+        item?.type === 'tool_use' &&
+        (item.name === 'Bash' || item.name === 'Task') &&
+        item.input &&
+        typeof item.input === 'object' &&
+        item.input.run_in_background === true
+      ) {
+        // A missing id means we cannot verify completion at all — treat conservatively
+        // as unfinished rather than silently skipping the guard.
+        jobs.push(item.id ?? null);
+      }
+    }
+  }
+  return jobs;
+}
+
+// The real completion signal for a background Bash/Task is a `<task-notification>` block
+// (delivered via a queue-operation transcript entry's `content` string) whose
+// `<tool-use-id>` matches the original tool_use id. The immediate "running in background"
+// ack is a normal tool_result and must NOT be mistaken for completion.
+function isBackgroundJobComplete(entries, toolUseId) {
+  const marker = `<tool-use-id>${toolUseId}</tool-use-id>`;
+  for (const entry of entries) {
+    if (typeof entry?.content === 'string' && entry.content.includes(marker)) {
       return true;
     }
   }
@@ -88,34 +117,19 @@ async function main() {
   const entries = parseTranscript(jsonl);
   const lastTool = findLastToolUse(entries);
   if (lastTool?.name === 'AskUserQuestion') return;
-  // When Claude ends a turn with a backgrounded Bash still running,
-  // do not signal "complete" to the server: that would kill the PTY
-  // session and abort the still-running background job.
-  if (
-    lastTool?.name === 'Bash' &&
-    lastTool.input &&
-    typeof lastTool.input === 'object' &&
-    lastTool.input.run_in_background === true &&
-    !isToolResultPresent(entries, lastTool.id, lastTool.entryIndex)
-  ) {
-    return;
-  }
-  // When Claude ends a turn with a backgrounded Task (sub-agent) still running,
-  // do not signal "complete": that would kill the PTY session and abort the agent.
-  if (
-    lastTool?.name === 'Task' &&
-    lastTool.input &&
-    typeof lastTool.input === 'object' &&
-    lastTool.input.run_in_background === true &&
-    !isToolResultPresent(entries, lastTool.id, lastTool.entryIndex)
-  ) {
-    return;
-  }
   // Monitor is always waiting for streamed events from a background process.
   // Signalling "complete" while Monitor is active would abort the wait.
   if (lastTool?.name === 'Monitor') {
     return;
   }
+  // A backgrounded Bash/Task may have been started in an earlier turn and still be
+  // running even though the current turn ends on an unrelated tool. Scan the FULL
+  // transcript for every such background job and only proceed once each one has a
+  // matching <task-notification> completion signal — otherwise signalling "complete"
+  // would kill the PTY session and abort the still-running job.
+  const backgroundJobIds = findBackgroundJobToolUses(entries);
+  const hasUnfinishedBackgroundJob = backgroundJobIds.some((id) => !isBackgroundJobComplete(entries, id));
+  if (hasUnfinishedBackgroundJob) return;
 
   const taskId = Number(taskIdRaw);
   if (!Number.isFinite(taskId)) return;
