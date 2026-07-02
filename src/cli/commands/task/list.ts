@@ -13,6 +13,7 @@ import { validateTaskStatus } from '../../utils/validators';
 import { resolveTag } from '../../utils/tag-resolver';
 import { getStatusColor, formatDate } from '../../../utils/format';
 import { createFormatter } from '../../utils/output-formatter';
+import { ValidationError } from '../../../errors';
 
 type TaskTagMap = Map<number, Array<{ id: number; name: string }>>;
 type MetadataMap = Map<number, Array<{ key: string; value: string }>>;
@@ -578,7 +579,7 @@ function parseStatusFilter(statusStr: string): string[] {
  * so the action's catch (setupTaskListCommand) can reproduce identical output
  * while owning the single process.exit(1) call site.
  */
-class TaskListValidationError extends Error {
+class TaskListValidationError extends ValidationError {
   constructor(
     message: string,
     public readonly render?: () => void
@@ -674,7 +675,7 @@ function normalizePriorityFilter(priorityParts: string[]): string | string[] | u
 /**
  * Resolve tag filter from options to an array of tag IDs.
  * Returns undefined if no tag filter is specified.
- * Exits with error if tag filter is invalid.
+ * Throws TaskListValidationError if the tag filter is invalid.
  */
 function resolveTagIds(tagOption: string | undefined, tagService: TagService): number[] | undefined {
   if (!tagOption) {
