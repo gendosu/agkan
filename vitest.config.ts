@@ -14,10 +14,14 @@ export default defineConfig({
       reporter: ['text', 'json', 'html'],
       include: ['src/**/*.ts'],
       exclude: ['node_modules/**', 'dist/**', 'tests/**', '**/*.test.ts', '**/*.config.ts', '**/*.d.ts'],
-      lines: 80,
-      functions: 80,
-      branches: 80,
-      statements: 80,
+      thresholds: {
+        // 実測ベースライン (2026-07-19時点: Stmts 89.83 / Branch 82.16 / Funcs 90.56 / Lines 91.3)。
+        // 将来的にラチェットで引き上げる (agkan task #640)
+        lines: 91,
+        functions: 90,
+        branches: 82,
+        statements: 89,
+      },
     },
   },
 });
