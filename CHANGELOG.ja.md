@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### 修正
+- Board run で /loop 自己再開により実装完了後もセッションが終了しない問題を、タスクが目標statusへ到達した時点で終了するよう修正 (#665)
+
 ## [3.15.0] - 2026-07-02
 
 ### 追加

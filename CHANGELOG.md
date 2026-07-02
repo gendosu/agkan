@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- Fix Board run sessions not terminating when the agent finishes via /loop self-wakeup, by ending the session once the task reaches its target status (#665)
+
 ## [3.15.0] - 2026-07-02
 
 ### Added
