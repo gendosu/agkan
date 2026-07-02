@@ -232,6 +232,23 @@ describe('PtySessionService', () => {
     // After stopProcess already cleared subscribers, the natural exit must NOT call them again
     expect(exitCallback).not.toHaveBeenCalled();
   });
+
+  it('reports isUserStopped as true to subscribers synchronously during the stopProcess done emit', () => {
+    service.startProcess(1, 'prompt', 'run');
+    let isUserStoppedDuringEmit: boolean | null = null;
+    service.subscribeOutput(1, (evt) => {
+      if (evt.kind === 'done') {
+        // Regression guard: boardRoutes.ts reads isUserStopped() synchronously inside this
+        // callback to decide whether to auto-advance status. It must already reflect the
+        // user-initiated stop by the time the done event reaches subscribers.
+        isUserStoppedDuringEmit = service.isUserStopped(1);
+      }
+    });
+
+    service.stopProcess(1);
+
+    expect(isUserStoppedDuringEmit).toBe(true);
+  });
 });
 
 describe('PtySessionService - model/effort/boardApiUrl args', () => {
