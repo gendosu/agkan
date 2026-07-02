@@ -10,10 +10,23 @@ const SCRIPT = resolve(__dirname, '../../src/hooks/hook-stop.mjs');
 
 type Capture = { url: string | undefined; body: unknown };
 
-function makeServer(): Promise<{ server: Server; port: number; captured: Capture[] }> {
+function makeServer(): Promise<{
+  server: Server;
+  port: number;
+  captured: Capture[];
+  setStatus: (s: string | null) => void;
+  setStatusHttpCode: (code: number) => void;
+}> {
   return new Promise((resolveFn) => {
     const captured: Capture[] = [];
+    let currentStatus: string | null = null;
+    let statusHttpCode = 200;
     const server = createServer((req, res) => {
+      if (req.method === 'GET' && (req.url ?? '').includes('/status')) {
+        res.statusCode = statusHttpCode;
+        res.end(JSON.stringify(statusHttpCode === 200 ? { status: currentStatus } : { error: 'err' }));
+        return;
+      }
       let data = '';
       req.on('data', (c) => (data += c));
       req.on('end', () => {
@@ -25,7 +38,17 @@ function makeServer(): Promise<{ server: Server; port: number; captured: Capture
     server.listen(0, '127.0.0.1', () => {
       const addr = server.address();
       if (addr && typeof addr === 'object') {
-        resolveFn({ server, port: addr.port, captured });
+        resolveFn({
+          server,
+          port: addr.port,
+          captured,
+          setStatus: (s) => {
+            currentStatus = s;
+          },
+          setStatusHttpCode: (code) => {
+            statusHttpCode = code;
+          },
+        });
       }
     });
   });
@@ -54,6 +77,8 @@ describe('hook-stop.mjs', () => {
 
   beforeEach(() => {
     tmp = mkdtempSync(join(tmpdir(), 'hook-stop-'));
+    svr.setStatus(null);
+    svr.setStatusHttpCode(200);
   });
 
   it('posts complete when last tool_use is not AskUserQuestion', async () => {
@@ -715,5 +740,192 @@ describe('hook-stop.mjs', () => {
     );
     expect(code).toBe(0);
     expect(svr.captured.length).toBe(before);
+  });
+
+  it('posts complete when BOARD_TARGET_STATUS is reached even with an unfinished background job (self-wakeup regression)', async () => {
+    svr.setStatus('review');
+    const transcript = join(tmp, 't.jsonl');
+    writeFileSync(
+      transcript,
+      [
+        JSON.stringify({
+          type: 'assistant',
+          message: {
+            content: [
+              {
+                type: 'tool_use',
+                id: 'bg-sr',
+                name: 'Task',
+                input: { description: 'self-review', prompt: 'review', run_in_background: true },
+              },
+            ],
+          },
+        }),
+        JSON.stringify({
+          type: 'user',
+          message: { content: [{ type: 'tool_result', tool_use_id: 'bg-sr', content: 'Task running in background.' }] },
+        }),
+        JSON.stringify({
+          type: 'assistant',
+          message: { content: [{ type: 'tool_use', id: 'wake-sr', name: 'ScheduleWakeup', input: {} }] },
+        }),
+      ].join('\n') + '\n'
+    );
+    const code = await runHook(
+      { transcript_path: transcript, hook_event_name: 'Stop', stop_hook_active: false },
+      {
+        BOARD_TASK_ID: '30',
+        BOARD_API_URL: `http://127.0.0.1:${svr.port}`,
+        BOARD_HOOK_TOKEN: 'tk',
+        BOARD_TARGET_STATUS: 'review',
+      }
+    );
+    expect(code).toBe(0);
+    const last = svr.captured.at(-1);
+    expect(last?.url).toBe('/api/internal/hooks/stop');
+    expect(last?.body).toEqual({ taskId: 30, reason: 'complete' });
+  });
+
+  it('posts complete when BOARD_TARGET_STATUS is reached and last tool is ScheduleWakeup with no background job', async () => {
+    svr.setStatus('done');
+    const transcript = join(tmp, 't.jsonl');
+    writeFileSync(
+      transcript,
+      [
+        JSON.stringify({
+          type: 'assistant',
+          message: { content: [{ type: 'text', text: 'No further action needed.' }] },
+        }),
+        JSON.stringify({
+          type: 'assistant',
+          message: { content: [{ type: 'tool_use', id: 'wake-2', name: 'ScheduleWakeup', input: {} }] },
+        }),
+      ].join('\n') + '\n'
+    );
+    const code = await runHook(
+      { transcript_path: transcript, hook_event_name: 'Stop', stop_hook_active: false },
+      {
+        BOARD_TASK_ID: '31',
+        BOARD_API_URL: `http://127.0.0.1:${svr.port}`,
+        BOARD_HOOK_TOKEN: 'tk',
+        BOARD_TARGET_STATUS: 'done',
+      }
+    );
+    expect(code).toBe(0);
+    const last = svr.captured.at(-1);
+    expect(last?.body).toEqual({ taskId: 31, reason: 'complete' });
+  });
+
+  it('treats done/closed as reached when target is review', async () => {
+    svr.setStatus('done');
+    const transcript = join(tmp, 't.jsonl');
+    writeFileSync(
+      transcript,
+      JSON.stringify({
+        type: 'assistant',
+        message: { content: [{ type: 'tool_use', id: 'wake-3', name: 'ScheduleWakeup', input: {} }] },
+      }) + '\n'
+    );
+    const code = await runHook(
+      { transcript_path: transcript, hook_event_name: 'Stop', stop_hook_active: false },
+      {
+        BOARD_TASK_ID: '32',
+        BOARD_API_URL: `http://127.0.0.1:${svr.port}`,
+        BOARD_HOOK_TOKEN: 'tk',
+        BOARD_TARGET_STATUS: 'review',
+      }
+    );
+    expect(code).toBe(0);
+    expect(svr.captured.at(-1)?.body).toEqual({ taskId: 32, reason: 'complete' });
+  });
+
+  it('does NOT post when target is done but status is only review, and a background job is unfinished', async () => {
+    const before = svr.captured.length;
+    svr.setStatus('review');
+    const transcript = join(tmp, 't.jsonl');
+    writeFileSync(
+      transcript,
+      [
+        JSON.stringify({
+          type: 'assistant',
+          message: {
+            content: [
+              { type: 'tool_use', id: 'bg-x', name: 'Bash', input: { command: 'npm test', run_in_background: true } },
+            ],
+          },
+        }),
+        JSON.stringify({
+          type: 'user',
+          message: {
+            content: [
+              { type: 'tool_result', tool_use_id: 'bg-x', content: 'Command running in background with ID: bk-x' },
+            ],
+          },
+        }),
+        JSON.stringify({
+          type: 'assistant',
+          message: { content: [{ type: 'tool_use', id: 'wake-4', name: 'ScheduleWakeup', input: {} }] },
+        }),
+      ].join('\n') + '\n'
+    );
+    const code = await runHook(
+      { transcript_path: transcript, hook_event_name: 'Stop', stop_hook_active: false },
+      {
+        BOARD_TASK_ID: '33',
+        BOARD_API_URL: `http://127.0.0.1:${svr.port}`,
+        BOARD_HOOK_TOKEN: 'tk',
+        BOARD_TARGET_STATUS: 'done',
+      }
+    );
+    expect(code).toBe(0);
+    expect(svr.captured.length).toBe(before);
+  });
+
+  it('does NOT post when BOARD_TARGET_STATUS is set but not reached and last tool is AskUserQuestion', async () => {
+    const before = svr.captured.length;
+    svr.setStatus('review');
+    const transcript = join(tmp, 't.jsonl');
+    writeFileSync(
+      transcript,
+      JSON.stringify({
+        type: 'assistant',
+        message: { content: [{ type: 'tool_use', id: 'ask-x', name: 'AskUserQuestion', input: {} }] },
+      }) + '\n'
+    );
+    const code = await runHook(
+      { transcript_path: transcript, hook_event_name: 'Stop', stop_hook_active: false },
+      {
+        BOARD_TASK_ID: '34',
+        BOARD_API_URL: `http://127.0.0.1:${svr.port}`,
+        BOARD_HOOK_TOKEN: 'tk',
+        BOARD_TARGET_STATUS: 'review',
+      }
+    );
+    expect(code).toBe(0);
+    expect(svr.captured.length).toBe(before);
+  });
+
+  it('falls back to normal flow (no crash) when the status endpoint returns non-200', async () => {
+    svr.setStatusHttpCode(500);
+    const transcript = join(tmp, 't.jsonl');
+    writeFileSync(
+      transcript,
+      JSON.stringify({
+        type: 'assistant',
+        message: { content: [{ type: 'tool_use', name: 'Read', input: {} }] },
+      }) + '\n'
+    );
+    const code = await runHook(
+      { transcript_path: transcript, hook_event_name: 'Stop', stop_hook_active: false },
+      {
+        BOARD_TASK_ID: '35',
+        BOARD_API_URL: `http://127.0.0.1:${svr.port}`,
+        BOARD_HOOK_TOKEN: 'tk',
+        BOARD_TARGET_STATUS: 'review',
+      }
+    );
+    expect(code).toBe(0);
+    // status 判定はスキップされ、通常フロー(最後が Read・背景ジョブ無し)で complete を送る
+    expect(svr.captured.at(-1)?.body).toEqual({ taskId: 35, reason: 'complete' });
   });
 });

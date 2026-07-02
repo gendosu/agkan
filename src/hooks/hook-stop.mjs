@@ -85,6 +85,45 @@ function isBackgroundJobComplete(entries, toolUseId) {
   return false;
 }
 
+// Board から現在の task status を取得し、run の目標statusへ到達済みかを判定する。
+// 到達 = current が target と一致、または done/closed（terminal）に達している。
+// 取得に失敗（ネットワーク/非200）した場合は false を返し、通常のガード判定へフォールバックする。
+async function isTargetStatusReached(apiUrl, token, taskId, targetStatus) {
+  try {
+    const res = await fetch(`${apiUrl}/api/internal/tasks/${taskId}/status`, {
+      method: 'GET',
+      headers: { 'x-hook-token': token },
+    });
+    if (!res.ok) return false;
+    const data = await res.json();
+    const status = data && data.status;
+    return status === targetStatus || status === 'done' || status === 'closed';
+  } catch (err) {
+    process.stderr.write(`hook-stop: status check failed: ${(err && err.message) || err}\n`);
+    return false;
+  }
+}
+
+// 完了を board へ通知する。メインセッションのセッションファイルを片付けてから POST する。
+async function notifyComplete(apiUrl, token, taskId, sessionFile) {
+  await fs.unlink(sessionFile).catch(() => {});
+  try {
+    const res = await fetch(`${apiUrl}/api/internal/hooks/stop`, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        'x-hook-token': token,
+      },
+      body: JSON.stringify({ taskId, reason: 'complete' }),
+    });
+    if (!res.ok) {
+      process.stderr.write(`hook-stop: API responded ${res.status}\n`);
+    }
+  } catch (err) {
+    process.stderr.write(`hook-stop: ${(err && err.message) || err}\n`);
+  }
+}
+
 async function main() {
   const taskIdRaw = process.env.BOARD_TASK_ID;
   const apiUrl = process.env.BOARD_API_URL;
@@ -115,55 +154,45 @@ async function main() {
   }
 
   const entries = parseTranscript(jsonl);
-  const lastTool = findLastToolUse(entries);
-  if (lastTool?.name === 'AskUserQuestion') return;
-  // Monitor is always waiting for streamed events from a background process.
-  // Signalling "complete" while Monitor is active would abort the wait.
-  if (lastTool?.name === 'Monitor') {
-    return;
-  }
-  // A backgrounded Bash/Task may have been started in an earlier turn and still be
-  // running even though the current turn ends on an unrelated tool. Scan the FULL
-  // transcript for every such background job and only proceed once each one has a
-  // matching <task-notification> completion signal — otherwise signalling "complete"
-  // would kill the PTY session and abort the still-running job.
-  const backgroundJobIds = findBackgroundJobToolUses(entries);
-  const hasUnfinishedBackgroundJob = backgroundJobIds.some((id) => !isBackgroundJobComplete(entries, id));
-  if (hasUnfinishedBackgroundJob) return;
 
   const taskId = Number(taskIdRaw);
   if (!Number.isFinite(taskId)) return;
 
-  // Check whether this is the main session or a sub-agent session.
-  // Only the main session should notify the board; sub-agent sessions must be ignored.
+  // メインセッション判定（サブエージェントの Stop は board へ通知しない）。
+  // ここではまだ unlink しない（対話ガード等で return する場合に判別情報を失わないため）。
+  // unlink は実際に complete を送る notifyComplete 内でのみ行う。
   const sessionFile = `/tmp/board-main-session-${taskIdRaw}`;
   try {
     const mainSessionId = (await fs.readFile(sessionFile, 'utf-8')).trim();
     if (mainSessionId && mainSessionId !== payload?.session_id) {
-      // This is a sub-agent stop — do not notify the board.
-      return;
+      return; // サブエージェントの Stop
     }
-    // This is the main session — clean up the file before notifying.
-    await fs.unlink(sessionFile).catch(() => {});
   } catch {
-    // file may not exist (e.g. hook-session-start was not used); proceed with API call.
+    // ファイルが無い場合（hook-session-start 未使用など）はメインとして続行
   }
 
-  try {
-    const res = await fetch(`${apiUrl}/api/internal/hooks/stop`, {
-      method: 'POST',
-      headers: {
-        'content-type': 'application/json',
-        'x-hook-token': token,
-      },
-      body: JSON.stringify({ taskId, reason: 'complete' }),
-    });
-    if (!res.ok) {
-      process.stderr.write(`hook-stop: API responded ${res.status}\n`);
+  const lastTool = findLastToolUse(entries);
+  if (lastTool?.name === 'AskUserQuestion') return;
+  // Monitor は background プロセスのイベント待ち。complete を送ると待機を中断してしまう。
+  if (lastTool?.name === 'Monitor') return;
+
+  // status 基準の終了判定: 目標statusに到達していれば、背景ジョブ/ScheduleWakeup ガードを
+  // 上書きして complete を送る（エージェント自身が status を前進させた事実を終了信号とする）。
+  const targetStatus = process.env.BOARD_TARGET_STATUS;
+  if (targetStatus) {
+    const reached = await isTargetStatusReached(apiUrl, token, taskId, targetStatus);
+    if (reached) {
+      await notifyComplete(apiUrl, token, taskId, sessionFile);
+      return;
     }
-  } catch (err) {
-    process.stderr.write(`hook-stop: ${(err && err.message) || err}\n`);
   }
+
+  // 背景 Bash/Task が過去ターンで起動され未完了なら、complete を送らずセッションを維持する。
+  const backgroundJobIds = findBackgroundJobToolUses(entries);
+  const hasUnfinishedBackgroundJob = backgroundJobIds.some((id) => !isBackgroundJobComplete(entries, id));
+  if (hasUnfinishedBackgroundJob) return;
+
+  await notifyComplete(apiUrl, token, taskId, sessionFile);
 }
 
 await main();
