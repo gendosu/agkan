@@ -573,19 +573,35 @@ function parseStatusFilter(statusStr: string): string[] {
 }
 
 /**
+ * Validation error for task list command options.
+ * Carries the exact text-mode rendering previously passed to formatter.error,
+ * so the action's catch (setupTaskListCommand) can reproduce identical output
+ * while owning the single process.exit(1) call site.
+ */
+class TaskListValidationError extends Error {
+  constructor(
+    message: string,
+    public readonly render?: () => void
+  ) {
+    super(message);
+    this.name = 'TaskListValidationError';
+    Object.setPrototypeOf(this, new.target.prototype);
+  }
+}
+
+/**
  * Validate status values.
  */
-function validateStatuses(statuses: TaskStatus[], formatter: ReturnType<typeof createFormatter>): void {
+function validateStatuses(statuses: TaskStatus[]): void {
   for (const s of statuses) {
     if (!validateTaskStatus(s)) {
-      formatter.error(
+      throw new TaskListValidationError(
         `Invalid status: ${s}. Valid statuses: icebox, backlog, ready, in_progress, review, done, closed`,
         () => {
           console.log(chalk.red(`Invalid status: ${s}`));
           console.log('Valid statuses: icebox, backlog, ready, in_progress, review, done, closed');
         }
       );
-      process.exit(1);
     }
   }
 }
@@ -600,26 +616,27 @@ function normalizeStatusFilter(statusParts: TaskStatus[]): TaskStatus | TaskStat
 /**
  * Validate sort field.
  */
-function validateSortField(sortField: string, formatter: ReturnType<typeof createFormatter>): void {
+function validateSortField(sortField: string): void {
   if (!ALLOWED_SORT_FIELDS.includes(sortField as SortField)) {
-    formatter.error(`Invalid sort field: ${sortField}. Valid fields: ${ALLOWED_SORT_FIELDS.join(', ')}`, () => {
-      console.log(chalk.red(`Invalid sort field: ${sortField}`));
-      console.log(`Valid fields: ${ALLOWED_SORT_FIELDS.join(', ')}`);
-    });
-    process.exit(1);
+    throw new TaskListValidationError(
+      `Invalid sort field: ${sortField}. Valid fields: ${ALLOWED_SORT_FIELDS.join(', ')}`,
+      () => {
+        console.log(chalk.red(`Invalid sort field: ${sortField}`));
+        console.log(`Valid fields: ${ALLOWED_SORT_FIELDS.join(', ')}`);
+      }
+    );
   }
 }
 
 /**
  * Validate sort order.
  */
-function validateSortOrder(sortOrder: string, formatter: ReturnType<typeof createFormatter>): void {
+function validateSortOrder(sortOrder: string): void {
   if (!['asc', 'desc'].includes(sortOrder)) {
-    formatter.error(`Invalid sort order: ${sortOrder}. Valid orders: asc, desc`, () => {
+    throw new TaskListValidationError(`Invalid sort order: ${sortOrder}. Valid orders: asc, desc`, () => {
       console.log(chalk.red(`Invalid sort order: ${sortOrder}`));
       console.log('Valid orders: asc, desc');
     });
-    process.exit(1);
   }
 }
 
@@ -636,14 +653,13 @@ function parsePriorityFilter(priorityStr: string): string[] {
 /**
  * Validate priority values.
  */
-function validatePriorities(priorities: string[], formatter: ReturnType<typeof createFormatter>): void {
+function validatePriorities(priorities: string[]): void {
   for (const p of priorities) {
     if (!isPriority(p)) {
-      formatter.error(`Invalid priority: ${p}. Valid priorities: ${PRIORITIES.join(', ')}`, () => {
+      throw new TaskListValidationError(`Invalid priority: ${p}. Valid priorities: ${PRIORITIES.join(', ')}`, () => {
         console.log(chalk.red(`Invalid priority: ${p}`));
         console.log(`Valid priorities: ${PRIORITIES.join(', ')}`);
       });
-      process.exit(1);
     }
   }
 }
@@ -660,11 +676,7 @@ function normalizePriorityFilter(priorityParts: string[]): string | string[] | u
  * Returns undefined if no tag filter is specified.
  * Exits with error if tag filter is invalid.
  */
-function resolveTagIds(
-  tagOption: string | undefined,
-  tagService: TagService,
-  formatter: ReturnType<typeof createFormatter>
-): number[] | undefined {
+function resolveTagIds(tagOption: string | undefined, tagService: TagService): number[] | undefined {
   if (!tagOption) {
     return undefined;
   }
@@ -675,10 +687,9 @@ function resolveTagIds(
     .filter((s: string) => s !== '');
 
   if (parts.length === 0) {
-    formatter.error('Invalid tag filter. Provide tag IDs or names.', () => {
+    throw new TaskListValidationError('Invalid tag filter. Provide tag IDs or names.', () => {
       console.log(chalk.red('\nError: Invalid tag filter. Provide tag IDs or names.\n'));
     });
-    process.exit(1);
   }
 
   const tagIds: number[] = [];
@@ -686,10 +697,9 @@ function resolveTagIds(
     const { tag, byId } = resolveTag(tagService, part);
     if (!tag) {
       const message = byId ? `Tag with ID "${part}" not found` : `Tag with name "${part}" not found`;
-      formatter.error(message, () => {
+      throw new TaskListValidationError(message, () => {
         console.log(chalk.red(`\nError: ${message}\n`));
       });
-      process.exit(1);
     }
     tagIds.push(tag.id);
   }
@@ -844,8 +854,7 @@ function handleEmptyResults(
  */
 function resolveFilters(
   options: Record<string, unknown>,
-  tagService: TagService,
-  formatter: ReturnType<typeof createFormatter>
+  tagService: TagService
 ): {
   statusFilter: TaskStatus | TaskStatus[] | undefined;
   tagIds: number[] | undefined;
@@ -855,26 +864,26 @@ function resolveFilters(
   let statusFilter: TaskStatus | TaskStatus[] | undefined;
   if (options.status) {
     const statusParts = parseStatusFilter(options.status as string) as TaskStatus[];
-    validateStatuses(statusParts, formatter);
+    validateStatuses(statusParts);
     statusFilter = normalizeStatusFilter(statusParts);
   }
 
   // Validate sort field and order
   if (options.sort) {
-    validateSortField(options.sort as string, formatter);
+    validateSortField(options.sort as string);
   }
   if (options.order) {
-    validateSortOrder(options.order as string, formatter);
+    validateSortOrder(options.order as string);
   }
 
   // Parse and resolve tag filter
-  const tagIds = resolveTagIds(options.tag as string | undefined, tagService, formatter);
+  const tagIds = resolveTagIds(options.tag as string | undefined, tagService);
 
   // Validate and normalize priority filter
   let priorityFilter: string | string[] | undefined;
   if (options.priority) {
     const priorityParts = parsePriorityFilter(options.priority as string);
-    validatePriorities(priorityParts, formatter);
+    validatePriorities(priorityParts);
     priorityFilter = normalizePriorityFilter(priorityParts);
   }
 
@@ -938,7 +947,7 @@ async function executeListAction(
 ): Promise<void> {
   const { taskService, tagService } = getServiceContainer();
 
-  const { statusFilter, tagIds, priorityFilter } = resolveFilters(options, tagService, formatter);
+  const { statusFilter, tagIds, priorityFilter } = resolveFilters(options, tagService);
   const { displayTasks, allTasks } = queryAndFilterTasks(taskService, options, statusFilter, tagIds, priorityFilter);
 
   if (displayTasks.length === 0) {
@@ -997,7 +1006,9 @@ export function setupTaskListCommand(program: Command): void {
       try {
         await executeListAction(options, formatter);
       } catch (error) {
-        if (error instanceof Error) {
+        if (error instanceof TaskListValidationError) {
+          formatter.error(error.message, error.render);
+        } else if (error instanceof Error) {
           handleError(error, options);
         } else {
           formatter.error('An unknown error occurred', () => {
