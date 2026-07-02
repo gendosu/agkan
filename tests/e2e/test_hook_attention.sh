@@ -74,7 +74,7 @@ capture_sse_update() {
     local sse_output
     sse_output=$(curl -s --max-time "$timeout_sec" \
         -H "Accept: text/event-stream" \
-        "${api_url}/api/attention/stream" 2>/dev/null || true)
+        "${api_url}/api/board/stream" 2>/dev/null || true)
 
     echo "$sse_output"
 }
@@ -98,7 +98,7 @@ test_hook_attention_pre_tool_use() {
     sse_tmp=$(mktemp)
     curl -s --max-time 3 \
         -H "Accept: text/event-stream" \
-        "${api_url}/api/attention/stream" > "$sse_tmp" 2>/dev/null &
+        "${api_url}/api/board/stream" > "$sse_tmp" 2>/dev/null &
     local sse_pid=$!
 
     # Give SSE connection time to establish and receive snapshot
@@ -162,7 +162,7 @@ test_hook_attention_post_tool_use() {
     sse_tmp=$(mktemp)
     curl -s --max-time 3 \
         -H "Accept: text/event-stream" \
-        "${api_url}/api/attention/stream" > "$sse_tmp" 2>/dev/null &
+        "${api_url}/api/board/stream" > "$sse_tmp" 2>/dev/null &
     local sse_pid=$!
 
     # Give SSE connection time to establish
@@ -225,7 +225,7 @@ test_hook_attention_snapshot_contains_task() {
     sse_tmp=$(mktemp)
     curl -s --max-time 1 \
         -H "Accept: text/event-stream" \
-        "${api_url}/api/attention/stream" > "$sse_tmp" 2>/dev/null || true
+        "${api_url}/api/board/stream" > "$sse_tmp" 2>/dev/null || true
 
     local sse_output
     sse_output=$(cat "$sse_tmp")
@@ -239,9 +239,10 @@ test_hook_attention_snapshot_contains_task() {
         if echo "$has_snapshot" | jq -e ".taskIds | index($task_id) != null" > /dev/null 2>&1; then
             print_success "SSE snapshot contains taskId $task_id with needsAttention=true"
         else
-            # Try parsing the data line
+            # Try parsing the data line (the unified stream interleaves board-update,
+            # attention, and running-tasks events, so pick the one carrying taskIds)
             local snapshot_data
-            snapshot_data=$(echo "$sse_output" | grep "^data:" | head -1 | sed 's/^data: //')
+            snapshot_data=$(echo "$sse_output" | grep "^data:" | grep "taskIds" | head -1 | sed 's/^data: //')
             if echo "$snapshot_data" | jq -e ".taskIds | index($task_id) != null" > /dev/null 2>&1; then
                 print_success "SSE snapshot contains taskId $task_id with needsAttention=true"
             else
@@ -332,7 +333,7 @@ EOF
     # Capture stop API calls by checking no stop request comes through
     # We'll count stop requests before and after
     local stop_count_before
-    stop_count_before=$(curl -s "${api_url}/api/attention/stream" --max-time 0.1 2>/dev/null | wc -l || echo "0")
+    stop_count_before=$(curl -s "${api_url}/api/board/stream" --max-time 0.1 2>/dev/null | wc -l || echo "0")
 
     local hook_exit
     hook_exit=0
