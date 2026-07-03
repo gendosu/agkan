@@ -27,9 +27,10 @@ test_task_deletion() {
     fi
 
     print_test "Verifying deleted task no longer exists..."
+    local prev_opts=$-
     set +e
     output=$(run_cli task get $del_task_id 2>&1)
-    set -e
+    [[ "$prev_opts" == *e* ]] && set -e
     if echo "$output" | grep -q "not found"; then
         print_success "Task $del_task_id confirmed deleted"
     else
@@ -37,9 +38,10 @@ test_task_deletion() {
     fi
 
     print_test "Deleting non-existent task returns error..."
+    prev_opts=$-
     set +e
     output=$(run_cli task delete 99999 2>&1)
-    set -e
+    [[ "$prev_opts" == *e* ]] && set -e
     if echo "$output" | grep -q "not found"; then
         print_success "Correct error for non-existent task deletion"
     else

@@ -118,11 +118,12 @@ assert 'tags' in d
 
     # Error: non-numeric ID
     print_test "Error on non-numeric task ID..."
+    local prev_opts=$-
     set +e
     local err_output
     err_output=$(run_cli task copy abc 2>&1)
     local err_exit=$?
-    set -e
+    [[ "$prev_opts" == *e* ]] && set -e
     if [ $err_exit -eq 1 ] && echo "$err_output" | grep -qi "number"; then
         print_success "Non-numeric ID returns error"
     else
@@ -131,10 +132,11 @@ assert 'tags' in d
 
     # Error: invalid status
     print_test "Error on invalid --status value..."
+    prev_opts=$-
     set +e
     err_output=$(run_cli task copy "$src_id" --status invalid_status 2>&1)
     err_exit=$?
-    set -e
+    [[ "$prev_opts" == *e* ]] && set -e
     if [ $err_exit -eq 1 ] && echo "$err_output" | grep -qi "status\|valid"; then
         print_success "Invalid status returns error"
     else
@@ -143,10 +145,11 @@ assert 'tags' in d
 
     # Error: non-existent task ID
     print_test "Error on non-existent task ID..."
+    prev_opts=$-
     set +e
     err_output=$(run_cli task copy 99999 2>&1)
     err_exit=$?
-    set -e
+    [[ "$prev_opts" == *e* ]] && set -e
     if [ $err_exit -eq 1 ] && echo "$err_output" | grep -qi "not found"; then
         print_success "Non-existent task ID returns 'not found' error"
     else
