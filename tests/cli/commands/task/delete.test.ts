@@ -122,9 +122,9 @@ describe('setupTaskDeleteCommand', () => {
   });
 
   it('should show JSON error when task does not exist with --json option', async () => {
-    const consoleLogs: string[] = [];
-    const originalLog = console.log;
-    console.log = (...args: unknown[]) => consoleLogs.push(args.join(' '));
+    const consoleErrors: string[] = [];
+    const originalError = console.error;
+    console.error = (...args: unknown[]) => consoleErrors.push(args.join(' '));
 
     const originalExit = process.exit;
     process.exit = (() => {}) as never;
@@ -132,18 +132,18 @@ describe('setupTaskDeleteCommand', () => {
     try {
       await program.parseAsync(['node', 'test', 'task', 'delete', '999', '--json']);
     } finally {
-      console.log = originalLog;
+      console.error = originalError;
       process.exit = originalExit;
     }
 
-    const parsed = JSON.parse(consoleLogs[0]);
+    const parsed = JSON.parse(consoleErrors[0]);
     expect(parsed.success).toBe(false);
   });
 
   it('should show error when ID is not a number', async () => {
-    const consoleLogs: string[] = [];
-    const originalLog = console.log;
-    console.log = (...args: unknown[]) => consoleLogs.push(args.join(' '));
+    const consoleErrors: string[] = [];
+    const originalError = console.error;
+    console.error = (...args: unknown[]) => consoleErrors.push(args.join(' '));
 
     let exitCode: number | undefined;
     const originalExit = process.exit;
@@ -154,11 +154,11 @@ describe('setupTaskDeleteCommand', () => {
     try {
       await program.parseAsync(['node', 'test', 'task', 'delete', 'abc']);
     } finally {
-      console.log = originalLog;
+      console.error = originalError;
       process.exit = originalExit;
     }
 
-    const output = consoleLogs.join('\n');
+    const output = consoleErrors.join('\n');
     expect(output).toContain('number');
     expect(exitCode).toBe(1);
   });

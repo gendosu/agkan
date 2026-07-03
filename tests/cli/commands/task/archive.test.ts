@@ -184,9 +184,9 @@ describe('setupTaskArchiveCommand', () => {
   });
 
   it('should show error on invalid --before date', async () => {
-    const consoleLogs: string[] = [];
-    const originalLog = console.log;
-    console.log = (...args: unknown[]) => consoleLogs.push(args.join(' '));
+    const consoleErrors: string[] = [];
+    const originalError = console.error;
+    console.error = (...args: unknown[]) => consoleErrors.push(args.join(' '));
 
     let exitCode: number | undefined;
     const originalExit = process.exit;
@@ -197,19 +197,19 @@ describe('setupTaskArchiveCommand', () => {
     try {
       await program.parseAsync(['node', 'test', 'task', 'archive', '--before', 'not-a-date']);
     } finally {
-      console.log = originalLog;
+      console.error = originalError;
       process.exit = originalExit;
     }
 
     expect(exitCode).toBe(1);
-    const output = consoleLogs.join('\n');
+    const output = consoleErrors.join('\n');
     expect(output).toContain('Invalid date');
   });
 
   it('should show error on invalid --status value', async () => {
-    const consoleLogs: string[] = [];
-    const originalLog = console.log;
-    console.log = (...args: unknown[]) => consoleLogs.push(args.join(' '));
+    const consoleErrors: string[] = [];
+    const originalError = console.error;
+    console.error = (...args: unknown[]) => consoleErrors.push(args.join(' '));
 
     let exitCode: number | undefined;
     const originalExit = process.exit;
@@ -220,12 +220,12 @@ describe('setupTaskArchiveCommand', () => {
     try {
       await program.parseAsync(['node', 'test', 'task', 'archive', '--before', '2026-01-01', '--status', 'invalid']);
     } finally {
-      console.log = originalLog;
+      console.error = originalError;
       process.exit = originalExit;
     }
 
     expect(exitCode).toBe(1);
-    const output = consoleLogs.join('\n');
+    const output = consoleErrors.join('\n');
     expect(output).toContain('Invalid status');
   });
 });

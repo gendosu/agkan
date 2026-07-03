@@ -75,15 +75,15 @@ describe('setupTaskGetCommand', () => {
 
   describe('ID validation', () => {
     it('should show error when ID is not a number (non-JSON)', async () => {
-      const { exitCode, logs } = await runCommand(program, ['task', 'get', 'abc']);
+      const { exitCode, errors } = await runCommand(program, ['task', 'get', 'abc']);
       expect(exitCode).toBe(1);
-      expect(logs.join('\n')).toContain('number');
+      expect(errors.join('\n')).toContain('number');
     });
 
     it('should show JSON error when ID is not a number (--json)', async () => {
-      const { exitCode, logs } = await runCommand(program, ['task', 'get', 'abc', '--json']);
+      const { exitCode, errors } = await runCommand(program, ['task', 'get', 'abc', '--json']);
       expect(exitCode).toBe(1);
-      const parsed = JSON.parse(logs[0]);
+      const parsed = JSON.parse(errors[0]);
       expect(parsed.success).toBe(false);
       expect(parsed.error.message).toContain('Task ID must be a number');
     });
@@ -91,15 +91,15 @@ describe('setupTaskGetCommand', () => {
 
   describe('task not found', () => {
     it('should show error when task does not exist (non-JSON)', async () => {
-      const { exitCode, logs } = await runCommand(program, ['task', 'get', '999']);
+      const { exitCode, errors } = await runCommand(program, ['task', 'get', '999']);
       expect(exitCode).toBe(1);
-      expect(logs.join('\n')).toContain('999');
+      expect(errors.join('\n')).toContain('999');
     });
 
     it('should show JSON error when task does not exist (--json)', async () => {
-      const { exitCode, logs } = await runCommand(program, ['task', 'get', '999', '--json']);
+      const { exitCode, errors } = await runCommand(program, ['task', 'get', '999', '--json']);
       expect(exitCode).toBe(1);
-      const parsed = JSON.parse(logs[0]);
+      const parsed = JSON.parse(errors[0]);
       expect(parsed.success).toBe(false);
     });
   });
@@ -334,9 +334,9 @@ describe('setupTaskGetCommand', () => {
     });
 
     it('should show error for invalid ID via show alias', async () => {
-      const { exitCode, logs } = await runCommand(program, ['task', 'show', 'abc']);
+      const { exitCode, errors } = await runCommand(program, ['task', 'show', 'abc']);
       expect(exitCode).toBe(1);
-      expect(logs.join('\n')).toContain('number');
+      expect(errors.join('\n')).toContain('number');
     });
   });
 
