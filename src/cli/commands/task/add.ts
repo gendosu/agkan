@@ -90,7 +90,7 @@ export function setupTaskAddCommand(program: Command): void {
           const message = `Invalid status: ${options.status}. Valid statuses: icebox, backlog, ready, in_progress, review, done, closed`;
           formatter.error(message, () => {
             console.error(chalk.red(`Invalid status: ${options.status}`));
-            console.log('Valid statuses: icebox, backlog, ready, in_progress, review, done, closed');
+            console.error('Valid statuses: icebox, backlog, ready, in_progress, review, done, closed');
           });
           process.exit(1);
         }
@@ -99,7 +99,7 @@ export function setupTaskAddCommand(program: Command): void {
           const message = `Invalid priority: ${options.priority}. Valid priorities: critical, high, medium, low`;
           formatter.error(message, () => {
             console.error(chalk.red(`Invalid priority: ${options.priority}`));
-            console.log('Valid priorities: critical, high, medium, low');
+            console.error('Valid priorities: critical, high, medium, low');
           });
           process.exit(1);
         }

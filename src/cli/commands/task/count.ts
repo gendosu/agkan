@@ -48,7 +48,7 @@ export function setupTaskCountCommand(program: Command): void {
               `Invalid status: ${status}. Valid statuses: icebox, backlog, ready, in_progress, review, done, closed`,
               () => {
                 console.error(chalk.red(`\nInvalid status: ${status}`));
-                console.log('Valid statuses: icebox, backlog, ready, in_progress, review, done, closed\n');
+                console.error('Valid statuses: icebox, backlog, ready, in_progress, review, done, closed\n');
               }
             );
             process.exit(1);

@@ -41,7 +41,7 @@ export function setupTaskCopyCommand(program: Command): void {
           const message = `Invalid status: ${options.status}. Valid statuses: icebox, backlog, ready, in_progress, review, done, closed`;
           formatter.error(message, () => {
             console.error(chalk.red(`Invalid status: ${options.status}`));
-            console.log('Valid statuses: icebox, backlog, ready, in_progress, review, done, closed');
+            console.error('Valid statuses: icebox, backlog, ready, in_progress, review, done, closed');
           });
           process.exit(1);
           return;

@@ -600,7 +600,7 @@ function validateStatuses(statuses: TaskStatus[]): void {
         `Invalid status: ${s}. Valid statuses: icebox, backlog, ready, in_progress, review, done, closed`,
         () => {
           console.error(chalk.red(`Invalid status: ${s}`));
-          console.log('Valid statuses: icebox, backlog, ready, in_progress, review, done, closed');
+          console.error('Valid statuses: icebox, backlog, ready, in_progress, review, done, closed');
         }
       );
     }
@@ -623,7 +623,7 @@ function validateSortField(sortField: string): void {
       `Invalid sort field: ${sortField}. Valid fields: ${ALLOWED_SORT_FIELDS.join(', ')}`,
       () => {
         console.error(chalk.red(`Invalid sort field: ${sortField}`));
-        console.log(`Valid fields: ${ALLOWED_SORT_FIELDS.join(', ')}`);
+        console.error(`Valid fields: ${ALLOWED_SORT_FIELDS.join(', ')}`);
       }
     );
   }
@@ -636,7 +636,7 @@ function validateSortOrder(sortOrder: string): void {
   if (!['asc', 'desc'].includes(sortOrder)) {
     throw new TaskListValidationError(`Invalid sort order: ${sortOrder}. Valid orders: asc, desc`, () => {
       console.error(chalk.red(`Invalid sort order: ${sortOrder}`));
-      console.log('Valid orders: asc, desc');
+      console.error('Valid orders: asc, desc');
     });
   }
 }
@@ -659,7 +659,7 @@ function validatePriorities(priorities: string[]): void {
     if (!isPriority(p)) {
       throw new TaskListValidationError(`Invalid priority: ${p}. Valid priorities: ${PRIORITIES.join(', ')}`, () => {
         console.error(chalk.red(`Invalid priority: ${p}`));
-        console.log(`Valid priorities: ${PRIORITIES.join(', ')}`);
+        console.error(`Valid priorities: ${PRIORITIES.join(', ')}`);
       });
     }
   }

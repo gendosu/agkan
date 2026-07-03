@@ -45,7 +45,7 @@ export function validateStatus(val: string, formatter: OutputFormatter): boolean
     `Invalid status: ${val}. Valid statuses: icebox, backlog, ready, in_progress, review, done, closed`,
     () => {
       console.error(chalk.red(`\nInvalid status: ${val}`));
-      console.log('Valid statuses: icebox, backlog, ready, in_progress, review, done, closed\n');
+      console.error('Valid statuses: icebox, backlog, ready, in_progress, review, done, closed\n');
     }
   );
   return false;
@@ -58,7 +58,7 @@ export function validatePriority(val: string, formatter: OutputFormatter): boole
   if (val === '' || isPriority(val)) return true;
   formatter.error(`Invalid priority: ${val}. Valid priorities: critical, high, medium, low`, () => {
     console.error(chalk.red(`\nInvalid priority: ${val}`));
-    console.log('Valid priorities: critical, high, medium, low\n');
+    console.error('Valid priorities: critical, high, medium, low\n');
   });
   return false;
 }
@@ -136,7 +136,7 @@ function validateFieldName(field: string | undefined, formatter: OutputFormatter
   if (!SUPPORTED_FIELDS.includes(field as SupportedField)) {
     formatter.error(`Unsupported field: ${field}. Supported fields: ${SUPPORTED_FIELDS.join(', ')}`, () => {
       console.error(chalk.red(`\nUnsupported field: ${field}`));
-      console.log(`Supported fields: ${SUPPORTED_FIELDS.join(', ')}\n`);
+      console.error(`Supported fields: ${SUPPORTED_FIELDS.join(', ')}\n`);
     });
     return false;
   }
