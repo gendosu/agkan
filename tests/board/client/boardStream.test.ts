@@ -232,7 +232,8 @@ describe('reconnectNow (invoked via registerReconnect callback)', () => {
     const reconnectNow = vi.mocked(connectionStatus.registerReconnect).mock.calls[0][0];
 
     const first = MockEventSource.current();
-    first.simulateError(); // schedules a reconnect timer at 1000ms
+    first.simulateError(); // schedules a reconnect timer at 1000ms; onerror also calls close()
+    vi.mocked(first.close).mockClear(); // isolate the close() call made by reconnectNow() itself
 
     reconnectNow();
 
@@ -267,7 +268,8 @@ describe('initBoardStream cleanup', () => {
 
     const cleanup = boardStream.initBoardStream();
     const instance = MockEventSource.current();
-    instance.simulateError(); // schedules a pending reconnect timer
+    instance.simulateError(); // schedules a pending reconnect timer; onerror also calls close()
+    vi.mocked(instance.close).mockClear(); // isolate the close() call made by cleanup() itself
 
     cleanup();
 
