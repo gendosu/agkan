@@ -2,11 +2,12 @@
  * Tests for board server
  */
 
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import fs from 'fs';
 import path from 'path';
+import { homedir } from 'os';
 import yaml from 'js-yaml';
-import { createBoardApp } from '../../src/board/server';
+import { createBoardApp, startBoardServer } from '../../src/board/server';
 import { getDatabase } from '../../src/db/connection';
 import { TaskService } from '../../src/services/TaskService';
 import { TaskTagService } from '../../src/services/TaskTagService';
@@ -15,6 +16,31 @@ import { TagService } from '../../src/services/TagService';
 import { CommentService } from '../../src/services/CommentService';
 import { TaskBlockService } from '../../src/services/TaskBlockService';
 import { DETAIL_PANE_MAX_WIDTH } from '../../src/board/boardConfig';
+import { serve } from '@hono/node-server';
+import { createTerminalWsServer } from '../../src/terminal/wsTerminalServer';
+
+const { ptyConstructorCalls, setBoardApiUrlMock } = vi.hoisted(() => ({
+  ptyConstructorCalls: [] as Array<{ db: unknown; options: Record<string, unknown> }>,
+  setBoardApiUrlMock: vi.fn(),
+}));
+
+vi.mock('@hono/node-server', () => ({
+  serve: vi.fn(),
+}));
+
+vi.mock('../../src/terminal/wsTerminalServer', () => ({
+  createTerminalWsServer: vi.fn(),
+}));
+
+vi.mock('../../src/terminal/PtySessionService', () => ({
+  PtySessionService: class {
+    constructor(db: unknown, options: Record<string, unknown>) {
+      ptyConstructorCalls.push({ db, options });
+    }
+    setBoardApiUrl = setBoardApiUrlMock;
+    stopProcess = vi.fn();
+  },
+}));
 
 function resetDatabase(): void {
   const db = getDatabase();
@@ -2566,5 +2592,130 @@ describe('createBoardApp', () => {
       expect(typeof json.version).toBe('string');
       expect(json.version.length).toBeGreaterThan(0);
     });
+  });
+});
+
+describe('startBoardServer', () => {
+  const originalDataDir = process.env.AGKAN_DATA_DIR;
+  let fakeServerOn: ReturnType<typeof vi.fn>;
+  let handleUpgradeMock: ReturnType<typeof vi.fn>;
+  let consoleLogSpy: ReturnType<typeof vi.spyOn>;
+
+  function getRegisteredUpgradeHandler(): (req: { url?: string }, socket: unknown, head: unknown) => void {
+    const call = fakeServerOn.mock.calls.find((c) => c[0] === 'upgrade');
+    expect(call).toBeDefined();
+    return call![1] as (req: { url?: string }, socket: unknown, head: unknown) => void;
+  }
+
+  beforeEach(() => {
+    resetDatabase();
+    vi.clearAllMocks();
+    ptyConstructorCalls.length = 0;
+
+    handleUpgradeMock = vi.fn();
+    vi.mocked(createTerminalWsServer).mockReturnValue({ handleUpgrade: handleUpgradeMock });
+
+    fakeServerOn = vi.fn();
+    vi.mocked(serve).mockImplementation((_options, listeningListener) => {
+      // Real @hono/node-server invokes the listener asynchronously once the
+      // underlying http.Server emits 'listening', i.e. after `serve()` has
+      // already returned and `const server = ...` has been assigned. Defer
+      // via microtask so startBoardServer's closure over `server` isn't in
+      // the temporal dead zone when the listener runs.
+      queueMicrotask(() => listeningListener?.({ port: 4321 } as never));
+      return { on: fakeServerOn } as never;
+    });
+
+    consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined);
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+    if (originalDataDir === undefined) {
+      delete process.env.AGKAN_DATA_DIR;
+    } else {
+      process.env.AGKAN_DATA_DIR = originalDataDir;
+    }
+  });
+
+  it('should call serve with the app fetch handler and the given port', () => {
+    startBoardServer(4321);
+
+    expect(serve).toHaveBeenCalledTimes(1);
+    const [options] = vi.mocked(serve).mock.calls[0];
+    expect(options.port).toBe(4321);
+    expect(typeof options.fetch).toBe('function');
+  });
+
+  it('should log the server URL using the resolved port from the listen callback', async () => {
+    startBoardServer(4321);
+    await Promise.resolve();
+
+    expect(consoleLogSpy).toHaveBeenCalledWith('Server is running on http://localhost:4321');
+  });
+
+  it('should call ptyService.setBoardApiUrl with http://127.0.0.1:<port>', async () => {
+    startBoardServer(4321);
+    await Promise.resolve();
+
+    expect(setBoardApiUrlMock).toHaveBeenCalledWith('http://127.0.0.1:4321');
+  });
+
+  it('should register an upgrade listener on the underlying server', async () => {
+    startBoardServer(4321);
+    await Promise.resolve();
+
+    expect(fakeServerOn).toHaveBeenCalledWith('upgrade', expect.any(Function));
+  });
+
+  it('should call handleUpgrade when the request url starts with /api/terminal/', async () => {
+    startBoardServer(4321);
+    await Promise.resolve();
+    const upgradeHandler = getRegisteredUpgradeHandler();
+    const req = { url: '/api/terminal/session-1' };
+    const socket = {};
+    const head = Buffer.alloc(0);
+
+    upgradeHandler(req, socket, head);
+
+    expect(handleUpgradeMock).toHaveBeenCalledWith(req, socket, head);
+  });
+
+  it('should not call handleUpgrade when the request url does not start with /api/terminal/', async () => {
+    startBoardServer(4321);
+    await Promise.resolve();
+    const upgradeHandler = getRegisteredUpgradeHandler();
+
+    upgradeHandler({ url: '/api/tasks' }, {}, Buffer.alloc(0));
+
+    expect(handleUpgradeMock).not.toHaveBeenCalled();
+  });
+
+  it('should not call handleUpgrade when req.url is undefined', async () => {
+    startBoardServer(4321);
+    await Promise.resolve();
+    const upgradeHandler = getRegisteredUpgradeHandler();
+
+    upgradeHandler({ url: undefined }, {}, Buffer.alloc(0));
+
+    expect(handleUpgradeMock).not.toHaveBeenCalled();
+  });
+
+  it('should derive hookSettingsDataDir from AGKAN_DATA_DIR when set', () => {
+    process.env.AGKAN_DATA_DIR = '/tmp/custom-agkan-data';
+
+    startBoardServer(4321);
+
+    expect(ptyConstructorCalls).toHaveLength(1);
+    expect(ptyConstructorCalls[0].options.hookSettingsDataDir).toBe(path.join('/tmp/custom-agkan-data', 'board-hooks'));
+  });
+
+  it('should fall back to homedir()-based hookSettingsDataDir when AGKAN_DATA_DIR is unset', () => {
+    delete process.env.AGKAN_DATA_DIR;
+
+    startBoardServer(4321);
+
+    expect(ptyConstructorCalls).toHaveLength(1);
+    expect(ptyConstructorCalls[0].options.hookSettingsDataDir).toBe(path.join(homedir(), '.agkan', 'board-hooks'));
   });
 });
