@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### 修正
 - Board run で /loop 自己再開により実装完了後もセッションが終了しない問題を、タスクが目標statusへ到達した時点で終了するよう修正 (#665)
 - Stop hook で、バックグラウンドのsub agent/Bashジョブが実行中でも目標status到達時点で即座に `complete` を送信し、PTYプロセスツリー（実行中のsub agentも含む）ごとkillしてしまう問題を修正。background-jobガードをstatus到達判定より優先するよう変更 (#666)
+- sub agentが新しいツール名 `Agent` で実行された場合、または `run_in_background` フラグを明示的に指定しない場合に、Stop hookのbackground-jobガードがそれを認識できず、Board runセッションが実装途中でkillされる（SIGHUP、復旧不能）問題を修正。`BOARD_TARGET_STATUS` 設定時は、無条件complete経路を撤去し、status到達判定のみを終了信号とすることで、未認識のツール呼び出しが実行中でもセッションがkillされず残留する（手動停止で復旧可能）ようにした (#667)
 
 ## [3.15.0] - 2026-07-02
 

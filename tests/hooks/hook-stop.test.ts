@@ -965,7 +965,8 @@ describe('hook-stop.mjs', () => {
     expect(svr.captured.length).toBe(before);
   });
 
-  it('falls back to normal flow (no crash) when the status endpoint returns non-200', async () => {
+  it('does NOT post complete when BOARD_TARGET_STATUS is set and the status endpoint returns non-200 (#667: status-reached is the only termination signal when a target is configured)', async () => {
+    const before = svr.captured.length;
     svr.setStatusHttpCode(500);
     const transcript = join(tmp, 't.jsonl');
     writeFileSync(
@@ -985,7 +986,216 @@ describe('hook-stop.mjs', () => {
       }
     );
     expect(code).toBe(0);
-    // status 判定はスキップされ、通常フロー(最後が Read・背景ジョブ無し)で complete を送る
-    expect(svr.captured.at(-1)?.body).toEqual({ taskId: 35, reason: 'complete' });
+    // The status check failed (non-200), so isTargetStatusReached returns false. With
+    // BOARD_TARGET_STATUS set there is no unconditional fallback anymore (#667) — the
+    // session must stay alive (session residue, recoverable via manual stop) rather than
+    // being killed in-flight based on an unrelated last-tool/background-job guard.
+    expect(svr.captured.length).toBe(before);
+  });
+
+  it('does NOT post complete when BOARD_TARGET_STATUS is set, status has not reached target, and the last tool is Agent (not an interactive tool, not Bash/Task) — #667 core fix regression', async () => {
+    const before = svr.captured.length;
+    svr.setStatus('in_progress');
+    const transcript = join(tmp, 't.jsonl');
+    writeFileSync(
+      transcript,
+      JSON.stringify({
+        type: 'assistant',
+        message: {
+          content: [{ type: 'tool_use', id: 'agent-1', name: 'Agent', input: { description: 'batch fix sub-agent' } }],
+        },
+      }) + '\n'
+    );
+    const code = await runHook(
+      { transcript_path: transcript, hook_event_name: 'Stop', stop_hook_active: false },
+      {
+        BOARD_TASK_ID: '648',
+        BOARD_API_URL: `http://127.0.0.1:${svr.port}`,
+        BOARD_HOOK_TOKEN: 'tk',
+        BOARD_TARGET_STATUS: 'review',
+      }
+    );
+    expect(code).toBe(0);
+    // Before #667, none of the guards recognized `Agent` or matched, so the unconditional
+    // complete at the bottom of main() fired regardless of status — killing the still
+    // in-flight sub-agent (this is the exact reproduction of the reported bug on task #648).
+    expect(svr.captured.length).toBe(before);
+  });
+
+  it('does NOT post complete when BOARD_TARGET_STATUS is set, status has not reached target, and a sub-agent is running via a background Task without an explicit run_in_background flag', async () => {
+    const before = svr.captured.length;
+    svr.setStatus('in_progress');
+    const transcript = join(tmp, 't.jsonl');
+    writeFileSync(
+      transcript,
+      [
+        JSON.stringify({
+          type: 'assistant',
+          message: {
+            content: [
+              {
+                type: 'tool_use',
+                id: 'bg-noflag-1',
+                name: 'Task',
+                input: { description: 'sub-agent', prompt: 'do work' },
+              },
+            ],
+          },
+        }),
+        JSON.stringify({
+          type: 'user',
+          message: { content: [{ type: 'tool_result', tool_use_id: 'bg-noflag-1', content: 'Task running.' }] },
+        }),
+        JSON.stringify({
+          type: 'assistant',
+          message: { content: [{ type: 'tool_use', id: 'wake-noflag', name: 'ScheduleWakeup', input: {} }] },
+        }),
+      ].join('\n') + '\n'
+    );
+    const code = await runHook(
+      { transcript_path: transcript, hook_event_name: 'Stop', stop_hook_active: false },
+      {
+        BOARD_TASK_ID: '648',
+        BOARD_API_URL: `http://127.0.0.1:${svr.port}`,
+        BOARD_HOOK_TOKEN: 'tk',
+        BOARD_TARGET_STATUS: 'review',
+      }
+    );
+    expect(code).toBe(0);
+    // Task without run_in_background is not treated as a background job (matches
+    // "posts complete when last tool_use is Task without run_in_background" above), so this
+    // relies purely on the status-reached gate: status hasn't reached target, so no complete.
+    expect(svr.captured.length).toBe(before);
+  });
+
+  it('posts complete unconditionally when BOARD_TARGET_STATUS is unset, even with a non-Bash/Task/interactive last tool (backward compatibility regression: legacy/planning sessions)', async () => {
+    svr.setStatus(null);
+    const transcript = join(tmp, 't.jsonl');
+    writeFileSync(
+      transcript,
+      // 'Glob' is deliberately not Bash/Task/Agent/AskUserQuestion/Monitor, so none of the
+      // guards above can match it — this isolates the legacy unconditional-complete path.
+      JSON.stringify({
+        type: 'assistant',
+        message: { content: [{ type: 'tool_use', id: 'glob-legacy', name: 'Glob', input: {} }] },
+      }) + '\n'
+    );
+    const code = await runHook(
+      { transcript_path: transcript, hook_event_name: 'Stop', stop_hook_active: false },
+      {
+        BOARD_TASK_ID: '40',
+        BOARD_API_URL: `http://127.0.0.1:${svr.port}`,
+        BOARD_HOOK_TOKEN: 'tk',
+      }
+    );
+    expect(code).toBe(0);
+    // No BOARD_TARGET_STATUS means the legacy unconditional-complete path at the bottom of
+    // main() still fires as before, regardless of what the last tool was.
+    const last = svr.captured.at(-1);
+    expect(last?.body).toEqual({ taskId: 40, reason: 'complete' });
+  });
+
+  it('does NOT post when BOARD_TARGET_STATUS is unset and an unflagged Agent sub-agent has no completion notification yet (auxiliary fix: planning session kill-in-flight guard)', async () => {
+    const before = svr.captured.length;
+    const transcript = join(tmp, 't.jsonl');
+    writeFileSync(
+      transcript,
+      [
+        JSON.stringify({
+          type: 'assistant',
+          message: {
+            content: [{ type: 'tool_use', id: 'agent-noflag-1', name: 'Agent', input: { description: 'sub-agent' } }],
+          },
+        }),
+        JSON.stringify({
+          type: 'assistant',
+          message: { content: [{ type: 'tool_use', id: 'wake-agent-1', name: 'ScheduleWakeup', input: {} }] },
+        }),
+      ].join('\n') + '\n'
+    );
+    const code = await runHook(
+      { transcript_path: transcript, hook_event_name: 'Stop', stop_hook_active: false },
+      {
+        BOARD_TASK_ID: '41',
+        BOARD_API_URL: `http://127.0.0.1:${svr.port}`,
+        BOARD_HOOK_TOKEN: 'tk',
+      }
+    );
+    expect(code).toBe(0);
+    expect(svr.captured.length).toBe(before);
+  });
+
+  it('posts complete when BOARD_TARGET_STATUS is unset and an unflagged Agent sub-agent has a matching task-notification', async () => {
+    const transcript = join(tmp, 't.jsonl');
+    writeFileSync(
+      transcript,
+      [
+        JSON.stringify({
+          type: 'assistant',
+          message: {
+            content: [{ type: 'tool_use', id: 'agent-noflag-2', name: 'Agent', input: { description: 'sub-agent' } }],
+          },
+        }),
+        JSON.stringify({
+          type: 'queue-operation',
+          operation: 'enqueue',
+          timestamp: '2026-07-03T00:00:00Z',
+          sessionId: 'sess-agent-noflag-2',
+          content:
+            '<task-notification>\n<task-id>agtask1</task-id>\n<tool-use-id>agent-noflag-2</tool-use-id>\n<status>completed</status>\n<summary>Sub-agent finished.</summary>\n</task-notification>',
+        }),
+        JSON.stringify({
+          type: 'assistant',
+          message: { content: [{ type: 'text', text: 'Sub-agent finished.' }] },
+        }),
+      ].join('\n') + '\n'
+    );
+    const code = await runHook(
+      { transcript_path: transcript, hook_event_name: 'Stop', stop_hook_active: false },
+      {
+        BOARD_TASK_ID: '42',
+        BOARD_API_URL: `http://127.0.0.1:${svr.port}`,
+        BOARD_HOOK_TOKEN: 'tk',
+      }
+    );
+    expect(code).toBe(0);
+    const last = svr.captured.at(-1);
+    expect(last?.body).toEqual({ taskId: 42, reason: 'complete' });
+  });
+
+  it('does NOT treat an unflagged Agent as a background job when BOARD_TARGET_STATUS is set (scoping: Agent-without-flag detection must not wedge open pr/run sessions)', async () => {
+    svr.setStatus('review');
+    const transcript = join(tmp, 't.jsonl');
+    writeFileSync(
+      transcript,
+      [
+        JSON.stringify({
+          type: 'assistant',
+          message: {
+            content: [{ type: 'tool_use', id: 'agent-scoped-1', name: 'Agent', input: { description: 'sub-agent' } }],
+          },
+        }),
+        JSON.stringify({
+          type: 'assistant',
+          message: { content: [{ type: 'tool_use', id: 'wake-scoped-1', name: 'ScheduleWakeup', input: {} }] },
+        }),
+      ].join('\n') + '\n'
+    );
+    const code = await runHook(
+      { transcript_path: transcript, hook_event_name: 'Stop', stop_hook_active: false },
+      {
+        BOARD_TASK_ID: '43',
+        BOARD_API_URL: `http://127.0.0.1:${svr.port}`,
+        BOARD_HOOK_TOKEN: 'tk',
+        BOARD_TARGET_STATUS: 'review',
+      }
+    );
+    expect(code).toBe(0);
+    // No <task-notification> was ever emitted for agent-scoped-1, so if Agent-without-flag
+    // detection applied here too, this session would be wedged open forever even though the
+    // status already reached its target. Because BOARD_TARGET_STATUS is set, the guard must
+    // ignore the unflagged Agent and let the status-reached check drive completion instead.
+    const last = svr.captured.at(-1);
+    expect(last?.body).toEqual({ taskId: 43, reason: 'complete' });
   });
 });
