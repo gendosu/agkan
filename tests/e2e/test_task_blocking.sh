@@ -105,10 +105,11 @@ test_task_blocking_circular() {
     # Attempt direct circular: add task with --blocked-by A (A→new) and --blocks B (new→B)
     # Combined with B→A, this creates B→A→new→B cycle
     print_test "Rejecting direct circular block (B→A exists; adding A→new→B creates B→A→new→B cycle)..."
+    local prev_opts=$-
     set +e
     output=$(run_cli task add "循環エラータスク" --blocked-by "$task_a_id" --blocks "$task_b_id" 2>&1)
     exit_code=$?
-    set -e
+    [[ "$prev_opts" == *e* ]] && set -e
 
     if [ $exit_code -eq 1 ] && echo "$output" | grep -qiE "(circular|cycle|loop)"; then
         print_success "Direct circular block correctly rejected with exit code 1"
@@ -145,10 +146,11 @@ test_task_blocking_indirect_circular() {
     # Attempt indirect circular: add task with --blocked-by A (A→new) and --blocks C (new→C)
     # Combined with C→B→A, this creates C→B→A→new→C cycle
     print_test "Rejecting indirect circular block (C→B→A exists; adding A→new→C creates C→B→A→new→C cycle)..."
+    local prev_opts=$-
     set +e
     output=$(run_cli task add "間接循環エラータスク" --blocked-by "$task_a_id" --blocks "$task_c_id" 2>&1)
     exit_code=$?
-    set -e
+    [[ "$prev_opts" == *e* ]] && set -e
 
     if [ $exit_code -eq 1 ] && echo "$output" | grep -qiE "(circular|cycle|loop)"; then
         print_success "Indirect circular block correctly rejected with exit code 1"

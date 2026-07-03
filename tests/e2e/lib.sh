@@ -59,14 +59,14 @@ print_test() {
 
 print_success() {
     echo -e "${GREEN}✓ $1${NC}"
-    ((TESTS_PASSED++))
-    ((TESTS_RUN++))
+    TESTS_PASSED=$((TESTS_PASSED + 1))
+    TESTS_RUN=$((TESTS_RUN + 1))
 }
 
 print_error() {
     echo -e "${RED}✗ $1${NC}"
-    ((TESTS_FAILED++))
-    ((TESTS_RUN++))
+    TESTS_FAILED=$((TESTS_FAILED + 1))
+    TESTS_RUN=$((TESTS_RUN + 1))
 }
 
 print_info() {
@@ -169,10 +169,11 @@ assert_cli_error() {
     print_test "$test_name"
     local output
     local exit_code
+    local prev_opts=$-
     set +e
     output=$(run_cli "$@" 2>&1)
     exit_code=$?
-    set -e
+    [[ "$prev_opts" == *e* ]] && set -e
 
     if [ $exit_code -eq 1 ] && echo "$output" | grep -qE "$expected_error"; then
         print_success "$test_name"
