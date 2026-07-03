@@ -27,7 +27,14 @@ describe('CLI JSON Output Format', () => {
       const output = execSync(`${CLI_PATH} ${command}`, { encoding: 'utf-8' });
       return JSON.parse(output) as Record<string, unknown>;
     } catch (error: unknown) {
-      // エラーの場合でもJSONを返すコマンドがある
+      // エラーの場合でもJSONを返すコマンドがある（エラーJSONはstderrに出力される）
+      if (error && typeof error === 'object' && 'stderr' in error && typeof error.stderr === 'string') {
+        try {
+          return JSON.parse(error.stderr) as Record<string, unknown>;
+        } catch {
+          // stderrがJSONでない場合はstdoutを試す
+        }
+      }
       if (error && typeof error === 'object' && 'stdout' in error && typeof error.stdout === 'string') {
         try {
           return JSON.parse(error.stdout) as Record<string, unknown>;
