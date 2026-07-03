@@ -33,7 +33,7 @@ export function setupTagShowCommand(program: Command): void {
         const task = taskService.getTask(parsedTaskId);
         if (!task) {
           formatter.error(`Task with ID ${taskId} not found`, () => {
-            console.log(chalk.red(`\nError: Task with ID ${taskId} not found\n`));
+            console.error(chalk.red(`\nError: Task with ID ${taskId} not found\n`));
           });
           process.exit(1);
         }
@@ -78,11 +78,11 @@ export function setupTagShowCommand(program: Command): void {
       } catch (error) {
         if (error instanceof Error) {
           formatter.error(error.message, () => {
-            console.log(chalk.red(`\n✗ Error: ${error.message}\n`));
+            console.error(chalk.red(`\n✗ Error: ${error.message}\n`));
           });
         } else {
           formatter.error('An unknown error occurred', () => {
-            console.log(chalk.red('\n✗ An unknown error occurred\n'));
+            console.error(chalk.red('\n✗ An unknown error occurred\n'));
           });
         }
         process.exit(1);

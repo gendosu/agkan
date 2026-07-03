@@ -24,14 +24,14 @@ function validateTaskIds(
 
   if (blockerTaskId === null) {
     formatter.error('Blocker task ID must be a number', () => {
-      console.log(chalk.red('\nError: Blocker task ID must be a number\n'));
+      console.error(chalk.red('\nError: Blocker task ID must be a number\n'));
     });
     return null;
   }
 
   if (blockedTaskId === null) {
     formatter.error('Blocked task ID must be a number', () => {
-      console.log(chalk.red('\nError: Blocked task ID must be a number\n'));
+      console.error(chalk.red('\nError: Blocked task ID must be a number\n'));
     });
     return null;
   }
@@ -52,7 +52,7 @@ function validateTasks(
 ): { blockerTask: Task; blockedTask: Task } | null {
   if (blockerTaskId === blockedTaskId) {
     formatter.error('A task cannot block itself', () => {
-      console.log(chalk.red('\nError: A task cannot block itself\n'));
+      console.error(chalk.red('\nError: A task cannot block itself\n'));
     });
     return null;
   }
@@ -60,7 +60,7 @@ function validateTasks(
   const blockerTask = taskService.getTask(blockerTaskId);
   if (!blockerTask) {
     formatter.error(`Blocker task with ID ${blockerId} not found`, () => {
-      console.log(chalk.red(`\nError: Blocker task with ID ${blockerId} not found\n`));
+      console.error(chalk.red(`\nError: Blocker task with ID ${blockerId} not found\n`));
     });
     return null;
   }
@@ -68,7 +68,7 @@ function validateTasks(
   const blockedTask = taskService.getTask(blockedTaskId);
   if (!blockedTask) {
     formatter.error(`Blocked task with ID ${blockedId} not found`, () => {
-      console.log(chalk.red(`\nError: Blocked task with ID ${blockedId} not found\n`));
+      console.error(chalk.red(`\nError: Blocked task with ID ${blockedId} not found\n`));
     });
     return null;
   }
@@ -84,20 +84,20 @@ function handleBlockingError(error: unknown, formatter: ReturnType<typeof create
     const msg = error.message;
     if (msg.includes('cycle') || msg.includes('circular')) {
       formatter.error('This would create a circular blocking relationship', () => {
-        console.log(chalk.red('\n✗ Error: This would create a circular blocking relationship\n'));
+        console.error(chalk.red('\n✗ Error: This would create a circular blocking relationship\n'));
       });
     } else if (msg.includes('already exists') || msg.includes('UNIQUE constraint')) {
       formatter.error('This blocking relationship already exists', () => {
-        console.log(chalk.red('\n✗ Error: This blocking relationship already exists\n'));
+        console.error(chalk.red('\n✗ Error: This blocking relationship already exists\n'));
       });
     } else {
       formatter.error(msg, () => {
-        console.log(chalk.red(`\n✗ Error: ${msg}\n`));
+        console.error(chalk.red(`\n✗ Error: ${msg}\n`));
       });
     }
   } else {
     formatter.error('An unknown error occurred', () => {
-      console.log(chalk.red('\n✗ An unknown error occurred\n'));
+      console.error(chalk.red('\n✗ An unknown error occurred\n'));
     });
   }
 }
@@ -189,7 +189,7 @@ async function handleBlockAdd(blockerId: string, blockedId: string, options: { j
   } catch (error) {
     const msg = error instanceof Error ? error.message : 'An unknown error occurred';
     formatter.error(msg, () => {
-      console.log(chalk.red(`\n✗ Error: ${msg}\n`));
+      console.error(chalk.red(`\n✗ Error: ${msg}\n`));
     });
     process.exit(1);
   }

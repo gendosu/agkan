@@ -44,7 +44,7 @@ export function validateStatus(val: string, formatter: OutputFormatter): boolean
   formatter.error(
     `Invalid status: ${val}. Valid statuses: icebox, backlog, ready, in_progress, review, done, closed`,
     () => {
-      console.log(chalk.red(`\nInvalid status: ${val}`));
+      console.error(chalk.red(`\nInvalid status: ${val}`));
       console.log('Valid statuses: icebox, backlog, ready, in_progress, review, done, closed\n');
     }
   );
@@ -57,7 +57,7 @@ export function validateStatus(val: string, formatter: OutputFormatter): boolean
 export function validatePriority(val: string, formatter: OutputFormatter): boolean {
   if (val === '' || isPriority(val)) return true;
   formatter.error(`Invalid priority: ${val}. Valid priorities: critical, high, medium, low`, () => {
-    console.log(chalk.red(`\nInvalid priority: ${val}`));
+    console.error(chalk.red(`\nInvalid priority: ${val}`));
     console.log('Valid priorities: critical, high, medium, low\n');
   });
   return false;
@@ -73,7 +73,7 @@ export function readBodyOrError(filePath: string, formatter: OutputFormatter): s
   } catch (error) {
     const msg = error instanceof Error ? error.message : 'Error reading file';
     formatter.error(msg, () => {
-      console.log(chalk.red(`\n✗ Error: ${msg}\n`));
+      console.error(chalk.red(`\n✗ Error: ${msg}\n`));
     });
     return null;
   }
@@ -97,7 +97,7 @@ export function buildFlagModeInput(options: UpdateOptions, formatter: OutputForm
   if (options.file) {
     if (flagFields.body !== undefined) {
       formatter.error('Cannot specify both --body and --file', () => {
-        console.log(chalk.red(`\nError: Cannot specify both --body and --file\n`));
+        console.error(chalk.red(`\nError: Cannot specify both --body and --file\n`));
       });
       return null;
     }
@@ -135,7 +135,7 @@ function validateFieldName(field: string | undefined, formatter: OutputFormatter
   }
   if (!SUPPORTED_FIELDS.includes(field as SupportedField)) {
     formatter.error(`Unsupported field: ${field}. Supported fields: ${SUPPORTED_FIELDS.join(', ')}`, () => {
-      console.log(chalk.red(`\nUnsupported field: ${field}`));
+      console.error(chalk.red(`\nUnsupported field: ${field}`));
       console.log(`Supported fields: ${SUPPORTED_FIELDS.join(', ')}\n`);
     });
     return false;
@@ -151,7 +151,7 @@ function resolvePositionalValue(
 ): string | null {
   if (options.file && field !== 'body') {
     formatter.error('--file option is only valid for the body field', () => {
-      console.log(chalk.red(`\nError: --file option is only valid for the body field\n`));
+      console.error(chalk.red(`\nError: --file option is only valid for the body field\n`));
     });
     return null;
   }

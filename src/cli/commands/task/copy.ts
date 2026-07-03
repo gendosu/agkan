@@ -31,7 +31,7 @@ export function setupTaskCopyCommand(program: Command): void {
         const taskId = validateNumberInput(id);
         if (taskId === null) {
           formatter.error('Task ID must be a number', () => {
-            console.log(chalk.red('\nError: Task ID must be a number\n'));
+            console.error(chalk.red('\nError: Task ID must be a number\n'));
           });
           process.exit(1);
           return;
@@ -40,7 +40,7 @@ export function setupTaskCopyCommand(program: Command): void {
         if (!validateTaskStatus(options.status)) {
           const message = `Invalid status: ${options.status}. Valid statuses: icebox, backlog, ready, in_progress, review, done, closed`;
           formatter.error(message, () => {
-            console.log(chalk.red(`Invalid status: ${options.status}`));
+            console.error(chalk.red(`Invalid status: ${options.status}`));
             console.log('Valid statuses: icebox, backlog, ready, in_progress, review, done, closed');
           });
           process.exit(1);
@@ -51,7 +51,7 @@ export function setupTaskCopyCommand(program: Command): void {
         const original = taskService.getTask(taskId);
         if (!original) {
           formatter.error(`Task with ID ${id} not found`, () => {
-            console.log(chalk.red(`\nTask with ID ${id} not found\n`));
+            console.error(chalk.red(`\nTask with ID ${id} not found\n`));
           });
           process.exit(1);
           return;
@@ -116,7 +116,7 @@ export function setupTaskCopyCommand(program: Command): void {
           handleError(error, options);
         } else {
           formatter.error('An unknown error occurred', () => {
-            console.log(chalk.red('\n✗ An unknown error occurred\n'));
+            console.error(chalk.red('\n✗ An unknown error occurred\n'));
           });
         }
         process.exit(1);

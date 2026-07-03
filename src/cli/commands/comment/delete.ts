@@ -39,7 +39,7 @@ export function setupCommentDeleteCommand(program: Command): void {
 
         if (!deleted) {
           formatter.error(`Comment with ID ${commentId} not found`, () => {
-            console.log(chalk.red(`\nError: Comment with ID ${commentId} not found\n`));
+            console.error(chalk.red(`\nError: Comment with ID ${commentId} not found\n`));
           });
           process.exit(1);
         }
@@ -53,7 +53,7 @@ export function setupCommentDeleteCommand(program: Command): void {
       } catch (error) {
         const message = error instanceof Error ? error.message : 'Unknown error';
         formatter.error(message, () => {
-          console.log(chalk.red(`\nError: ${message}\n`));
+          console.error(chalk.red(`\nError: ${message}\n`));
         });
         process.exit(1);
       }

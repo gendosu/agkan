@@ -30,7 +30,7 @@ export function setupTaskUpdateParentCommand(program: Command): void {
         const taskId = validateNumberInput(id);
         if (taskId === null) {
           formatter.error('Task ID must be a number', () => {
-            console.log(chalk.red('\nError: Task ID must be a number\n'));
+            console.error(chalk.red('\nError: Task ID must be a number\n'));
           });
           process.exit(1);
         }
@@ -43,7 +43,7 @@ export function setupTaskUpdateParentCommand(program: Command): void {
           const parsed = validateNumberInput(parentId);
           if (parsed === null) {
             formatter.error('Parent ID must be a number or "null"/"none"', () => {
-              console.log(chalk.red('\nError: Parent ID must be a number or "null"/"none"\n'));
+              console.error(chalk.red('\nError: Parent ID must be a number or "null"/"none"\n'));
             });
             process.exit(1);
           }
@@ -57,15 +57,15 @@ export function setupTaskUpdateParentCommand(program: Command): void {
         } catch (error) {
           if (error instanceof ConflictError) {
             formatter.error('This would create a circular parent-child relationship', () => {
-              console.log(chalk.red('\n✗ Error: This would create a circular parent-child relationship\n'));
+              console.error(chalk.red('\n✗ Error: This would create a circular parent-child relationship\n'));
             });
           } else if (error instanceof Error) {
             formatter.error(error.message, () => {
-              console.log(chalk.red(`\n✗ Error: ${error.message}\n`));
+              console.error(chalk.red(`\n✗ Error: ${error.message}\n`));
             });
           } else {
             formatter.error('An unknown error occurred', () => {
-              console.log(chalk.red('\n✗ An unknown error occurred\n'));
+              console.error(chalk.red('\n✗ An unknown error occurred\n'));
             });
           }
           process.exit(1);
@@ -73,7 +73,7 @@ export function setupTaskUpdateParentCommand(program: Command): void {
 
         if (!task) {
           formatter.error(`Task with ID ${id} not found`, () => {
-            console.log(chalk.red(`\nTask with ID ${id} not found\n`));
+            console.error(chalk.red(`\nTask with ID ${id} not found\n`));
           });
           process.exit(1);
         }
@@ -112,9 +112,9 @@ export function setupTaskUpdateParentCommand(program: Command): void {
       } catch (error) {
         formatter.error(error instanceof Error ? error.message : 'An unknown error occurred', () => {
           if (error instanceof Error) {
-            console.log(chalk.red(`\n✗ Error: ${error.message}\n`));
+            console.error(chalk.red(`\n✗ Error: ${error.message}\n`));
           } else {
-            console.log(chalk.red('\n✗ An unknown error occurred\n'));
+            console.error(chalk.red('\n✗ An unknown error occurred\n'));
           }
         });
         process.exit(1);

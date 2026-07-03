@@ -599,7 +599,7 @@ function validateStatuses(statuses: TaskStatus[]): void {
       throw new TaskListValidationError(
         `Invalid status: ${s}. Valid statuses: icebox, backlog, ready, in_progress, review, done, closed`,
         () => {
-          console.log(chalk.red(`Invalid status: ${s}`));
+          console.error(chalk.red(`Invalid status: ${s}`));
           console.log('Valid statuses: icebox, backlog, ready, in_progress, review, done, closed');
         }
       );
@@ -622,7 +622,7 @@ function validateSortField(sortField: string): void {
     throw new TaskListValidationError(
       `Invalid sort field: ${sortField}. Valid fields: ${ALLOWED_SORT_FIELDS.join(', ')}`,
       () => {
-        console.log(chalk.red(`Invalid sort field: ${sortField}`));
+        console.error(chalk.red(`Invalid sort field: ${sortField}`));
         console.log(`Valid fields: ${ALLOWED_SORT_FIELDS.join(', ')}`);
       }
     );
@@ -635,7 +635,7 @@ function validateSortField(sortField: string): void {
 function validateSortOrder(sortOrder: string): void {
   if (!['asc', 'desc'].includes(sortOrder)) {
     throw new TaskListValidationError(`Invalid sort order: ${sortOrder}. Valid orders: asc, desc`, () => {
-      console.log(chalk.red(`Invalid sort order: ${sortOrder}`));
+      console.error(chalk.red(`Invalid sort order: ${sortOrder}`));
       console.log('Valid orders: asc, desc');
     });
   }
@@ -658,7 +658,7 @@ function validatePriorities(priorities: string[]): void {
   for (const p of priorities) {
     if (!isPriority(p)) {
       throw new TaskListValidationError(`Invalid priority: ${p}. Valid priorities: ${PRIORITIES.join(', ')}`, () => {
-        console.log(chalk.red(`Invalid priority: ${p}`));
+        console.error(chalk.red(`Invalid priority: ${p}`));
         console.log(`Valid priorities: ${PRIORITIES.join(', ')}`);
       });
     }
@@ -689,7 +689,7 @@ function resolveTagIds(tagOption: string | undefined, tagService: TagService): n
 
   if (parts.length === 0) {
     throw new TaskListValidationError('Invalid tag filter. Provide tag IDs or names.', () => {
-      console.log(chalk.red('\nError: Invalid tag filter. Provide tag IDs or names.\n'));
+      console.error(chalk.red('\nError: Invalid tag filter. Provide tag IDs or names.\n'));
     });
   }
 
@@ -699,7 +699,7 @@ function resolveTagIds(tagOption: string | undefined, tagService: TagService): n
     if (!tag) {
       const message = byId ? `Tag with ID "${part}" not found` : `Tag with name "${part}" not found`;
       throw new TaskListValidationError(message, () => {
-        console.log(chalk.red(`\nError: ${message}\n`));
+        console.error(chalk.red(`\nError: ${message}\n`));
       });
     }
     tagIds.push(tag.id);
@@ -1013,7 +1013,7 @@ export function setupTaskListCommand(program: Command): void {
           handleError(error, options);
         } else {
           formatter.error('An unknown error occurred', () => {
-            console.log(chalk.red('\n✗ An unknown error occurred\n'));
+            console.error(chalk.red('\n✗ An unknown error occurred\n'));
           });
         }
         process.exit(1);

@@ -210,7 +210,7 @@ async function handleTaskGetAction(id: string, options: { json?: boolean }): Pro
     const taskId = validateNumberInput(id);
     if (taskId === null) {
       formatter.error('Task ID must be a number', () => {
-        console.log(chalk.red('\nError: Task ID must be a number\n'));
+        console.error(chalk.red('\nError: Task ID must be a number\n'));
       });
       process.exit(1);
     }
@@ -220,7 +220,7 @@ async function handleTaskGetAction(id: string, options: { json?: boolean }): Pro
 
     if (!task) {
       formatter.error(`Task with ID ${id} not found`, () => {
-        console.log(chalk.red(`\nTask with ID ${id} not found\n`));
+        console.error(chalk.red(`\nTask with ID ${id} not found\n`));
       });
       process.exit(1);
     }
@@ -266,7 +266,7 @@ async function handleTaskGetAction(id: string, options: { json?: boolean }): Pro
     } else {
       const formatter = createFormatter(options);
       formatter.error('An unknown error occurred', () => {
-        console.log(chalk.red('\n✗ An unknown error occurred\n'));
+        console.error(chalk.red('\n✗ An unknown error occurred\n'));
       });
     }
     process.exit(1);

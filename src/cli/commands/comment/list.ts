@@ -39,7 +39,7 @@ export function setupCommentListCommand(program: Command): void {
         const task = taskService.getTask(parsedTaskId);
         if (!task) {
           formatter.error(`Task with ID ${taskId} not found`, () => {
-            console.log(chalk.red(`\nError: Task with ID ${taskId} not found\n`));
+            console.error(chalk.red(`\nError: Task with ID ${taskId} not found\n`));
           });
           process.exit(1);
         }
@@ -66,7 +66,7 @@ export function setupCommentListCommand(program: Command): void {
       } catch (error) {
         const message = error instanceof Error ? error.message : 'Unknown error';
         formatter.error(message, () => {
-          console.log(chalk.red(`\nError: ${message}\n`));
+          console.error(chalk.red(`\nError: ${message}\n`));
         });
         process.exit(1);
       }

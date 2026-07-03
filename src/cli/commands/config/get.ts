@@ -65,7 +65,7 @@ export function setupConfigGetCommand(program: Command): void {
           const value = resolveDotNotation(resolved, key);
           if (value === undefined) {
             formatter.error(`Config key "${key}" not found`, () => {
-              console.log(chalk.red(`\nError: Config key "${key}" not found\n`));
+              console.error(chalk.red(`\nError: Config key "${key}" not found\n`));
             });
             process.exit(1);
           }
@@ -102,7 +102,7 @@ export function setupConfigGetCommand(program: Command): void {
       } catch (error) {
         const message = error instanceof Error ? error.message : 'Unknown error';
         formatter.error(message, () => {
-          console.log(chalk.red(`\nError: ${message}\n`));
+          console.error(chalk.red(`\nError: ${message}\n`));
         });
         process.exit(1);
       }

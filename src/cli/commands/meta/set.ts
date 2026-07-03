@@ -42,7 +42,7 @@ export function setupMetaSetCommand(program: Command): void {
         const task = taskService.getTask(parsedTaskId);
         if (!task) {
           formatter.error(`Task with ID ${taskId} not found`, () => {
-            console.log(chalk.red(`\nError: Task with ID ${taskId} not found\n`));
+            console.error(chalk.red(`\nError: Task with ID ${taskId} not found\n`));
           });
           process.exit(1);
         }
@@ -51,7 +51,7 @@ export function setupMetaSetCommand(program: Command): void {
         if (key.length > 50) {
           const error = 'Metadata key must not exceed 50 characters';
           formatter.error(error, () => {
-            console.log(chalk.red(`\nError: ${error}\n`));
+            console.error(chalk.red(`\nError: ${error}\n`));
           });
           process.exit(1);
         }
@@ -60,7 +60,7 @@ export function setupMetaSetCommand(program: Command): void {
         if (value.length > 500) {
           const error = 'Metadata value must not exceed 500 characters';
           formatter.error(error, () => {
-            console.log(chalk.red(`\nError: ${error}\n`));
+            console.error(chalk.red(`\nError: ${error}\n`));
           });
           process.exit(1);
         }
@@ -91,7 +91,7 @@ export function setupMetaSetCommand(program: Command): void {
       } catch (error) {
         const message = error instanceof Error ? error.message : 'Unknown error';
         formatter.error(message, () => {
-          console.log(chalk.red(`\nError: ${message}\n`));
+          console.error(chalk.red(`\nError: ${message}\n`));
         });
         process.exit(1);
       }

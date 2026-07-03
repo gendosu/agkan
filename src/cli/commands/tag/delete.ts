@@ -30,7 +30,7 @@ export function setupTagDeleteCommand(program: Command): void {
         if (!tag) {
           const message = byId ? `Tag with ID ${id} not found` : `Tag with name "${id}" not found`;
           formatter.error(message, () => {
-            console.log(chalk.red(`\nError: ${message}\n`));
+            console.error(chalk.red(`\nError: ${message}\n`));
           });
           process.exit(1);
         }
@@ -55,11 +55,11 @@ export function setupTagDeleteCommand(program: Command): void {
         } catch (error) {
           if (error instanceof Error) {
             formatter.error(error.message, () => {
-              console.log(chalk.red(`\n✗ Error: ${error.message}\n`));
+              console.error(chalk.red(`\n✗ Error: ${error.message}\n`));
             });
           } else {
             formatter.error('An unknown error occurred', () => {
-              console.log(chalk.red('\n✗ An unknown error occurred\n'));
+              console.error(chalk.red('\n✗ An unknown error occurred\n'));
             });
           }
           process.exit(1);
@@ -67,11 +67,11 @@ export function setupTagDeleteCommand(program: Command): void {
       } catch (error) {
         if (error instanceof Error) {
           formatter.error(error.message, () => {
-            console.log(chalk.red(`\n✗ Error: ${error.message}\n`));
+            console.error(chalk.red(`\n✗ Error: ${error.message}\n`));
           });
         } else {
           formatter.error('An unknown error occurred', () => {
-            console.log(chalk.red('\n✗ An unknown error occurred\n'));
+            console.error(chalk.red('\n✗ An unknown error occurred\n'));
           });
         }
         process.exit(1);

@@ -103,7 +103,7 @@ export function setupTaskPurgeCommand(program: Command): void {
         const beforeResult = resolveBeforeDate(options.before);
         if ('error' in beforeResult) {
           formatter.error(beforeResult.error, () => {
-            console.log(chalk.red(`\nError: ${beforeResult.error}\n`));
+            console.error(chalk.red(`\nError: ${beforeResult.error}\n`));
           });
           process.exit(1);
           return;
@@ -113,7 +113,7 @@ export function setupTaskPurgeCommand(program: Command): void {
         const statusResult = resolveStatuses(options.status as string);
         if ('error' in statusResult) {
           formatter.error(statusResult.error, () => {
-            console.log(chalk.red(`\nError: ${statusResult.error}\n`));
+            console.error(chalk.red(`\nError: ${statusResult.error}\n`));
           });
           process.exit(1);
           return;
@@ -138,7 +138,7 @@ export function setupTaskPurgeCommand(program: Command): void {
           handleError(error, options);
         } else {
           formatter.error('An unknown error occurred', () => {
-            console.log(chalk.red('\n✗ An unknown error occurred\n'));
+            console.error(chalk.red('\n✗ An unknown error occurred\n'));
           });
         }
         process.exit(1);
