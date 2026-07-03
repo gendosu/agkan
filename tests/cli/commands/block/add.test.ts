@@ -132,6 +132,10 @@ describe('setupBlockAddCommand', () => {
     const originalLog = console.log;
     console.log = (...args: unknown[]) => consoleLogs.push(args.join(' '));
 
+    const consoleErrors: string[] = [];
+    const originalError = console.error;
+    console.error = (...args: unknown[]) => consoleErrors.push(args.join(' '));
+
     let exitCode: number | undefined;
     const originalExit = process.exit;
     process.exit = ((code?: number) => {
@@ -142,11 +146,12 @@ describe('setupBlockAddCommand', () => {
       await program.parseAsync(['node', 'test', 'task', 'block', 'add', '999', String(blocked.id)]);
     } finally {
       console.log = originalLog;
+      console.error = originalError;
       process.exit = originalExit;
     }
 
     expect(exitCode).toBe(1);
-    const output = consoleLogs.join('\n');
+    const output = consoleErrors.join('\n');
     expect(output).toContain('999');
   });
 
@@ -158,6 +163,10 @@ describe('setupBlockAddCommand', () => {
     const originalLog = console.log;
     console.log = (...args: unknown[]) => consoleLogs.push(args.join(' '));
 
+    const consoleErrors: string[] = [];
+    const originalError = console.error;
+    console.error = (...args: unknown[]) => consoleErrors.push(args.join(' '));
+
     let exitCode: number | undefined;
     const originalExit = process.exit;
     process.exit = ((code?: number) => {
@@ -168,11 +177,12 @@ describe('setupBlockAddCommand', () => {
       await program.parseAsync(['node', 'test', 'task', 'block', 'add', String(blocker.id), '999']);
     } finally {
       console.log = originalLog;
+      console.error = originalError;
       process.exit = originalExit;
     }
 
     expect(exitCode).toBe(1);
-    const output = consoleLogs.join('\n');
+    const output = consoleErrors.join('\n');
     expect(output).toContain('999');
   });
 
@@ -184,6 +194,10 @@ describe('setupBlockAddCommand', () => {
     const originalLog = console.log;
     console.log = (...args: unknown[]) => consoleLogs.push(args.join(' '));
 
+    const consoleErrors: string[] = [];
+    const originalError = console.error;
+    console.error = (...args: unknown[]) => consoleErrors.push(args.join(' '));
+
     let exitCode: number | undefined;
     const originalExit = process.exit;
     process.exit = ((code?: number) => {
@@ -194,11 +208,12 @@ describe('setupBlockAddCommand', () => {
       await program.parseAsync(['node', 'test', 'task', 'block', 'add', String(task.id), String(task.id)]);
     } finally {
       console.log = originalLog;
+      console.error = originalError;
       process.exit = originalExit;
     }
 
     expect(exitCode).toBe(1);
-    const output = consoleLogs.join('\n');
+    const output = consoleErrors.join('\n');
     expect(output).toContain('itself');
   });
 
@@ -206,6 +221,10 @@ describe('setupBlockAddCommand', () => {
     const consoleLogs: string[] = [];
     const originalLog = console.log;
     console.log = (...args: unknown[]) => consoleLogs.push(args.join(' '));
+
+    const consoleErrors: string[] = [];
+    const originalError = console.error;
+    console.error = (...args: unknown[]) => consoleErrors.push(args.join(' '));
 
     let exitCode: number | undefined;
     const originalExit = process.exit;
@@ -217,11 +236,12 @@ describe('setupBlockAddCommand', () => {
       await program.parseAsync(['node', 'test', 'task', 'block', 'add', 'abc', '1']);
     } finally {
       console.log = originalLog;
+      console.error = originalError;
       process.exit = originalExit;
     }
 
     expect(exitCode).toBe(1);
-    const output = consoleLogs.join('\n');
+    const output = consoleErrors.join('\n');
     expect(output).toContain('number');
   });
 
@@ -229,6 +249,10 @@ describe('setupBlockAddCommand', () => {
     const consoleLogs: string[] = [];
     const originalLog = console.log;
     console.log = (...args: unknown[]) => consoleLogs.push(args.join(' '));
+
+    const consoleErrors: string[] = [];
+    const originalError = console.error;
+    console.error = (...args: unknown[]) => consoleErrors.push(args.join(' '));
 
     let exitCode: number | undefined;
     const originalExit = process.exit;
@@ -240,11 +264,12 @@ describe('setupBlockAddCommand', () => {
       await program.parseAsync(['node', 'test', 'task', 'block', 'add', '1', 'abc']);
     } finally {
       console.log = originalLog;
+      console.error = originalError;
       process.exit = originalExit;
     }
 
     expect(exitCode).toBe(1);
-    const output = consoleLogs.join('\n');
+    const output = consoleErrors.join('\n');
     expect(output).toContain('number');
   });
 
@@ -260,6 +285,10 @@ describe('setupBlockAddCommand', () => {
     const originalLog = console.log;
     console.log = (...args: unknown[]) => consoleLogs.push(args.join(' '));
 
+    const consoleErrors: string[] = [];
+    const originalError = console.error;
+    console.error = (...args: unknown[]) => consoleErrors.push(args.join(' '));
+
     let exitCode: number | undefined;
     const originalExit = process.exit;
     process.exit = ((code?: number) => {
@@ -270,11 +299,12 @@ describe('setupBlockAddCommand', () => {
       await program.parseAsync(['node', 'test', 'task', 'block', 'add', String(blocker.id), String(blocked.id)]);
     } finally {
       console.log = originalLog;
+      console.error = originalError;
       process.exit = originalExit;
     }
 
     expect(exitCode).toBe(1);
-    const output = consoleLogs.join('\n');
+    const output = consoleErrors.join('\n');
     expect(output).toMatch(/already exists/i);
   });
 
@@ -296,6 +326,10 @@ describe('setupBlockAddCommand', () => {
     const originalLog = console.log;
     console.log = (...args: unknown[]) => consoleLogs.push(args.join(' '));
 
+    const consoleErrors: string[] = [];
+    const originalError = console.error;
+    console.error = (...args: unknown[]) => consoleErrors.push(args.join(' '));
+
     let exitCode: number | undefined;
     const originalExit = process.exit;
     process.exit = ((code?: number) => {
@@ -306,12 +340,13 @@ describe('setupBlockAddCommand', () => {
       await program.parseAsync(['node', 'test', 'task', 'block', 'add', String(blocker.id), String(blocked.id)]);
     } finally {
       console.log = originalLog;
+      console.error = originalError;
       process.exit = originalExit;
       vi.restoreAllMocks();
     }
 
     expect(exitCode).toBe(1);
-    const output = consoleLogs.join('\n');
+    const output = consoleErrors.join('\n');
     expect(output).toMatch(/circular/i);
   });
 
@@ -333,6 +368,10 @@ describe('setupBlockAddCommand', () => {
     const originalLog = console.log;
     console.log = (...args: unknown[]) => consoleLogs.push(args.join(' '));
 
+    const consoleErrors: string[] = [];
+    const originalError = console.error;
+    console.error = (...args: unknown[]) => consoleErrors.push(args.join(' '));
+
     let exitCode: number | undefined;
     const originalExit = process.exit;
     process.exit = ((code?: number) => {
@@ -343,12 +382,13 @@ describe('setupBlockAddCommand', () => {
       await program.parseAsync(['node', 'test', 'task', 'block', 'add', String(blocker.id), String(blocked.id)]);
     } finally {
       console.log = originalLog;
+      console.error = originalError;
       process.exit = originalExit;
       vi.restoreAllMocks();
     }
 
     expect(exitCode).toBe(1);
-    const output = consoleLogs.join('\n');
+    const output = consoleErrors.join('\n');
     expect(output).toMatch(/circular/i);
   });
 
@@ -370,6 +410,10 @@ describe('setupBlockAddCommand', () => {
     const originalLog = console.log;
     console.log = (...args: unknown[]) => consoleLogs.push(args.join(' '));
 
+    const consoleErrors: string[] = [];
+    const originalError = console.error;
+    console.error = (...args: unknown[]) => consoleErrors.push(args.join(' '));
+
     let exitCode: number | undefined;
     const originalExit = process.exit;
     process.exit = ((code?: number) => {
@@ -380,12 +424,13 @@ describe('setupBlockAddCommand', () => {
       await program.parseAsync(['node', 'test', 'task', 'block', 'add', String(blocker.id), String(blocked.id)]);
     } finally {
       console.log = originalLog;
+      console.error = originalError;
       process.exit = originalExit;
       vi.restoreAllMocks();
     }
 
     expect(exitCode).toBe(1);
-    const output = consoleLogs.join('\n');
+    const output = consoleErrors.join('\n');
     expect(output).toContain('Some other generic database error');
   });
 
@@ -407,6 +452,10 @@ describe('setupBlockAddCommand', () => {
     const originalLog = console.log;
     console.log = (...args: unknown[]) => consoleLogs.push(args.join(' '));
 
+    const consoleErrors: string[] = [];
+    const originalError = console.error;
+    console.error = (...args: unknown[]) => consoleErrors.push(args.join(' '));
+
     let exitCode: number | undefined;
     const originalExit = process.exit;
     process.exit = ((code?: number) => {
@@ -417,12 +466,13 @@ describe('setupBlockAddCommand', () => {
       await program.parseAsync(['node', 'test', 'task', 'block', 'add', String(blocker.id), String(blocked.id)]);
     } finally {
       console.log = originalLog;
+      console.error = originalError;
       process.exit = originalExit;
       vi.restoreAllMocks();
     }
 
     expect(exitCode).toBe(1);
-    const output = consoleLogs.join('\n');
+    const output = consoleErrors.join('\n');
     expect(output).toMatch(/unknown error/i);
   });
 
@@ -440,6 +490,10 @@ describe('setupBlockAddCommand', () => {
     const originalLog = console.log;
     console.log = (...args: unknown[]) => consoleLogs.push(args.join(' '));
 
+    const consoleErrors: string[] = [];
+    const originalError = console.error;
+    console.error = (...args: unknown[]) => consoleErrors.push(args.join(' '));
+
     let exitCode: number | undefined;
     const originalExit = process.exit;
     process.exit = ((code?: number) => {
@@ -450,12 +504,13 @@ describe('setupBlockAddCommand', () => {
       await program.parseAsync(['node', 'test', 'task', 'block', 'add', '1', '2']);
     } finally {
       console.log = originalLog;
+      console.error = originalError;
       process.exit = originalExit;
       vi.restoreAllMocks();
     }
 
     expect(exitCode).toBe(1);
-    const output = consoleLogs.join('\n');
+    const output = consoleErrors.join('\n');
     expect(output).toMatch(/unknown error/i);
   });
 

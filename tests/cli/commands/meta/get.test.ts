@@ -115,6 +115,10 @@ describe('setupMetaGetCommand', () => {
     const originalLog = console.log;
     console.log = (...args: unknown[]) => consoleLogs.push(args.join(' '));
 
+    const consoleErrors: string[] = [];
+    const originalError = console.error;
+    console.error = (...args: unknown[]) => consoleErrors.push(args.join(' '));
+
     let exitCode: number | undefined;
     const originalExit = process.exit;
     process.exit = ((code?: number) => {
@@ -125,11 +129,12 @@ describe('setupMetaGetCommand', () => {
       await program.parseAsync(['node', 'test', 'task', 'meta', 'get', String(task.id), 'nonexistent']);
     } finally {
       console.log = originalLog;
+      console.error = originalError;
       process.exit = originalExit;
     }
 
     expect(exitCode).toBe(1);
-    const output = consoleLogs.join('\n');
+    const output = consoleErrors.join('\n');
     expect(output).toContain('nonexistent');
   });
 
@@ -137,6 +142,10 @@ describe('setupMetaGetCommand', () => {
     const consoleLogs: string[] = [];
     const originalLog = console.log;
     console.log = (...args: unknown[]) => consoleLogs.push(args.join(' '));
+
+    const consoleErrors: string[] = [];
+    const originalError = console.error;
+    console.error = (...args: unknown[]) => consoleErrors.push(args.join(' '));
 
     let exitCode: number | undefined;
     const originalExit = process.exit;
@@ -148,11 +157,12 @@ describe('setupMetaGetCommand', () => {
       await program.parseAsync(['node', 'test', 'task', 'meta', 'get', '999', 'priority']);
     } finally {
       console.log = originalLog;
+      console.error = originalError;
       process.exit = originalExit;
     }
 
     expect(exitCode).toBe(1);
-    const output = consoleLogs.join('\n');
+    const output = consoleErrors.join('\n');
     expect(output).toContain('999');
   });
 
@@ -160,6 +170,10 @@ describe('setupMetaGetCommand', () => {
     const consoleLogs: string[] = [];
     const originalLog = console.log;
     console.log = (...args: unknown[]) => consoleLogs.push(args.join(' '));
+
+    const consoleErrors: string[] = [];
+    const originalError = console.error;
+    console.error = (...args: unknown[]) => consoleErrors.push(args.join(' '));
 
     let exitCode: number | undefined;
     const originalExit = process.exit;
@@ -171,11 +185,12 @@ describe('setupMetaGetCommand', () => {
       await program.parseAsync(['node', 'test', 'task', 'meta', 'get', 'abc', 'priority']);
     } finally {
       console.log = originalLog;
+      console.error = originalError;
       process.exit = originalExit;
     }
 
     expect(exitCode).toBe(1);
-    const output = consoleLogs.join('\n');
+    const output = consoleErrors.join('\n');
     expect(output).toContain('number');
   });
 
@@ -214,6 +229,10 @@ describe('setupMetaGetCommand', () => {
     const originalLog = console.log;
     console.log = (...args: unknown[]) => consoleLogs.push(args.join(' '));
 
+    const consoleErrors: string[] = [];
+    const originalError = console.error;
+    console.error = (...args: unknown[]) => consoleErrors.push(args.join(' '));
+
     let exitCode: number | undefined;
     const originalExit = process.exit;
     process.exit = ((code?: number) => {
@@ -224,11 +243,12 @@ describe('setupMetaGetCommand', () => {
       await program.parseAsync(['node', 'test', 'task', 'meta', 'get', '999', 'priority', '--json']);
     } finally {
       console.log = originalLog;
+      console.error = originalError;
       process.exit = originalExit;
     }
 
     expect(exitCode).toBe(1);
-    const parsed = JSON.parse(consoleLogs[0]);
+    const parsed = JSON.parse(consoleErrors[0]);
     expect(parsed.success).toBe(false);
     expect(parsed.error.message).toContain('999');
   });
@@ -241,6 +261,10 @@ describe('setupMetaGetCommand', () => {
     const originalLog = console.log;
     console.log = (...args: unknown[]) => consoleLogs.push(args.join(' '));
 
+    const consoleErrors: string[] = [];
+    const originalError = console.error;
+    console.error = (...args: unknown[]) => consoleErrors.push(args.join(' '));
+
     let exitCode: number | undefined;
     const originalExit = process.exit;
     process.exit = ((code?: number) => {
@@ -251,11 +275,12 @@ describe('setupMetaGetCommand', () => {
       await program.parseAsync(['node', 'test', 'task', 'meta', 'get', String(task.id), 'nonexistent', '--json']);
     } finally {
       console.log = originalLog;
+      console.error = originalError;
       process.exit = originalExit;
     }
 
     expect(exitCode).toBe(1);
-    const parsed = JSON.parse(consoleLogs[0]);
+    const parsed = JSON.parse(consoleErrors[0]);
     expect(parsed.success).toBe(false);
     expect(parsed.error.message).toContain('nonexistent');
   });
@@ -269,6 +294,10 @@ describe('setupMetaGetCommand', () => {
     const originalLog = console.log;
     console.log = (...args: unknown[]) => consoleLogs.push(args.join(' '));
 
+    const consoleErrors: string[] = [];
+    const originalError = console.error;
+    console.error = (...args: unknown[]) => consoleErrors.push(args.join(' '));
+
     let exitCode: number | undefined;
     const originalExit = process.exit;
     process.exit = ((code?: number) => {
@@ -279,12 +308,13 @@ describe('setupMetaGetCommand', () => {
       await program.parseAsync(['node', 'test', 'task', 'meta', 'get', '1', 'priority']);
     } finally {
       console.log = originalLog;
+      console.error = originalError;
       process.exit = originalExit;
       spy.mockRestore();
     }
 
     expect(exitCode).toBe(1);
-    const output = consoleLogs.join('\n');
+    const output = consoleErrors.join('\n');
     expect(output).toContain('Unknown error');
   });
 });
