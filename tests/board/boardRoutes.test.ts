@@ -295,6 +295,20 @@ describe('POST /api/tasks', () => {
     const created = (await res.json()) as { id: number };
     expect(services.ms.listMetadata(created.id)).toHaveLength(0);
   });
+
+  it('returns 400 (not 500) when body exceeds max length', async () => {
+    const app = buildApp(buildServices());
+    const res = await app.fetch(
+      new Request('http://localhost/api/tasks', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title: 'Too Long Body', body: 'x'.repeat(10001) }),
+      })
+    );
+    expect(res.status).toBe(400);
+    const data = (await res.json()) as { error: string };
+    expect(data.error).toContain('Body');
+  });
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -468,6 +482,22 @@ describe('PATCH /api/tasks/:id', () => {
     expect(res.status).toBe(200);
     const updated = (await res.json()) as { branch: string | null };
     expect(updated.branch).toBeNull();
+  });
+
+  it('returns 400 (not 500) when title exceeds max length', async () => {
+    const services = buildServices();
+    const task = services.ts.createTask({ title: 'Task', status: 'backlog' });
+    const app = buildApp(services);
+    const res = await app.fetch(
+      new Request(`http://localhost/api/tasks/${task.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title: 'x'.repeat(201) }),
+      })
+    );
+    expect(res.status).toBe(400);
+    const data = (await res.json()) as { error: string };
+    expect(data.error).toContain('Title');
   });
 });
 
@@ -779,6 +809,24 @@ describe('POST /api/tasks/:id/tags', () => {
       })
     );
     expect(res.status).toBe(404);
+  });
+
+  it('returns 409 (not 500) when tag is already attached to the task', async () => {
+    const services = buildServices();
+    const task = services.ts.createTask({ title: 'Task', status: 'backlog' });
+    const tag = services.tags.createTag({ name: 'mytag' });
+    services.tts.addTagToTask({ task_id: task.id, tag_id: tag.id });
+    const app = buildApp(services);
+    const res = await app.fetch(
+      new Request(`http://localhost/api/tasks/${task.id}/tags`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tagId: tag.id }),
+      })
+    );
+    expect(res.status).toBe(409);
+    const data = (await res.json()) as { error: string };
+    expect(data.error).toContain('already has tag');
   });
 });
 

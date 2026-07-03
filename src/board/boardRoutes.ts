@@ -13,7 +13,7 @@ import { ExportImportService, ExportData } from '../services/ExportImportService
 import { PtySessionService } from '../terminal/PtySessionService';
 import { TaskStatus, isPriority, Priority } from '../models';
 import { BRANCH_AUTO_GENERATE } from '../models/Task';
-import { ConflictError } from '../errors';
+import { AgkanError, ConflictError, NotFoundError, ValidationError } from '../errors';
 import { StorageBackend } from '../db/types/repository';
 import { readBoardConfig, writeBoardConfig, DETAIL_PANE_MAX_WIDTH, VALID_THEMES, ThemePreference } from './boardConfig';
 import { loadConfig } from '../db/config';
@@ -65,6 +65,13 @@ type TaskUpdateInput = {
   branch?: string | null;
 };
 const NON_ARCHIVE_STATUSES: TaskStatus[] = ['icebox', 'backlog', 'ready', 'in_progress', 'review', 'done', 'closed'];
+
+function mapAgkanErrorToStatus(err: AgkanError): 400 | 404 | 409 | 500 {
+  if (err instanceof NotFoundError) return 404;
+  if (err instanceof ValidationError) return 400;
+  if (err instanceof ConflictError) return 409;
+  return 500;
+}
 
 function applyStatusUpdate(input: TaskUpdateInput, status: BoardTaskStatus): string | undefined {
   if (!STATUSES.includes(status)) return 'Invalid status';
@@ -842,6 +849,14 @@ function registerBulkRunRoutes(app: Hono, bulkRunService: BulkRunService): void 
 
 export function registerBoardRoutes(app: Hono, services: BoardServices): void {
   const { ts, tts, tbs, database, boardTitle, configDir, boardEventService, attentionStateService } = services;
+
+  app.onError((err, c) => {
+    if (err instanceof AgkanError) {
+      return c.json({ error: err.message }, mapAgkanErrorToStatus(err));
+    }
+    console.error('[boardRoutes] Unhandled error:', err);
+    return c.json({ error: 'Internal Server Error' }, 500);
+  });
 
   app.use('*', async (c, next) => {
     verboseLog(`[boardRoutes] ${c.req.method} ${c.req.path}`);
