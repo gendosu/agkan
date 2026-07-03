@@ -43,25 +43,36 @@ function findLastToolUse(entries) {
   return null;
 }
 
-// Collects every tool_use across the ENTIRE transcript (not just the last turn) whose
-// name is Bash or Task and whose input has run_in_background === true.
+// Collects every tool_use across the ENTIRE transcript (not just the last turn) that looks
+// like a still-running background job.
 // A background job may have been started several turns ago and still be running while
 // the current turn ends on an unrelated tool (e.g. ScheduleWakeup) — the last-tool-only
 // view used by findLastToolUse cannot see it, so a full scan is required here.
-function findBackgroundJobToolUses(entries) {
+//
+// Two shapes are recognized:
+//   1. Bash or Task with input.run_in_background === true (the documented flag).
+//   2. Agent, with no flag at all, when `includeAgentWithoutFlag` is true. Newer CLI
+//      versions run sub-agents under the tool name `Agent` and default to background
+//      execution without ever setting run_in_background (see #667). This shape is only
+//      opted into by the caller for BOARD_TARGET_STATUS-less (planning) sessions: this
+//      guard runs before the status-reached check, so if an Agent's completion is never
+//      observed as a matching <task-notification>, treating it as background here would
+//      permanently block status-based termination for pr/run sessions.
+function findBackgroundJobToolUses(entries, { includeAgentWithoutFlag = false } = {}) {
   const jobs = [];
   for (const entry of entries) {
     if (entry?.type !== 'assistant') continue;
     const content = entry?.message?.content;
     if (!Array.isArray(content)) continue;
     for (const item of content) {
-      if (
-        item?.type === 'tool_use' &&
+      if (item?.type !== 'tool_use') continue;
+      const isFlaggedBashOrTask =
         (item.name === 'Bash' || item.name === 'Task') &&
         item.input &&
         typeof item.input === 'object' &&
-        item.input.run_in_background === true
-      ) {
+        item.input.run_in_background === true;
+      const isUnflaggedAgent = includeAgentWithoutFlag && item.name === 'Agent';
+      if (isFlaggedBashOrTask || isUnflaggedAgent) {
         // A missing id means we cannot verify completion at all — treat conservatively
         // as unfinished rather than silently skipping the guard.
         jobs.push(item.id ?? null);
@@ -181,29 +192,42 @@ async function main() {
   // Signalling "complete" while Monitor is active would abort the wait.
   if (lastTool?.name === 'Monitor') return;
 
+  const targetStatus = process.env.BOARD_TARGET_STATUS;
+
   // If a background Bash/Task (e.g. an orchestrated sub-agent) was started in an earlier
   // turn and hasn't completed yet, keep the session alive instead of sending complete.
   // This guard takes priority over the status-based check below: a sub-agent advancing
   // the task's status (even to a terminal one) is not a reliable completion signal while
   // other background work is still in flight — sending complete here would tear down the
   // PTY process tree and kill the still-running sub-agent along with it (see #666).
-  const backgroundJobIds = findBackgroundJobToolUses(entries);
+  //
+  // The `Agent`-without-flag shape (see findBackgroundJobToolUses) is only opted into when
+  // there is no BOARD_TARGET_STATUS, i.e. planning sessions with no other termination
+  // signal to fall back on. pr/run/direct sessions always have BOARD_TARGET_STATUS set and
+  // rely on the status-reached check below as their sole termination signal (see #667) —
+  // opting an unverified completion shape into their guard could wedge them open forever.
+  const backgroundJobIds = findBackgroundJobToolUses(entries, { includeAgentWithoutFlag: !targetStatus });
   const hasUnfinishedBackgroundJob = backgroundJobIds.some((id) => !isBackgroundJobComplete(entries, id));
   if (hasUnfinishedBackgroundJob) return;
 
-  // Status-based termination check: if the target status has been reached, send complete.
-  // This is what lets a ScheduleWakeup self-wakeup loop (#665) terminate even though there
-  // is no further tool_use to react to — safe here because the guard above has already
-  // confirmed there is no unfinished background job left to protect.
-  const targetStatus = process.env.BOARD_TARGET_STATUS;
+  // When a target status is configured (pr/run/direct), status-reached is the ONLY
+  // termination signal — there is no unconditional fallback. Sending complete on any other
+  // basis here would risk killing an in-flight run whose activity doesn't happen to match
+  // one of the guards above (see #667: the CLI's tool names and flags for background work
+  // are not a stable contract to enumerate against). If the status hasn't reached target
+  // yet — including because the status check itself failed — the safe failure mode is to
+  // leave the session running: it stays visible on the board and can be stopped manually,
+  // which is recoverable, unlike a kill-in-flight that destroys unsaved progress.
   if (targetStatus) {
     const reached = await isTargetStatusReached(apiUrl, token, taskId, targetStatus);
     if (reached) {
       await notifyComplete(apiUrl, token, taskId, sessionFile);
-      return;
     }
+    return;
   }
 
+  // No target status configured (planning session / legacy environment): preserve the
+  // original unconditional-complete behavior for backward compatibility.
   await notifyComplete(apiUrl, token, taskId, sessionFile);
 }
 
