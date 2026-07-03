@@ -162,6 +162,10 @@ describe('setupTaskUpdateParentCommand', () => {
     const originalLog = console.log;
     console.log = (...args: unknown[]) => consoleLogs.push(args.join(' '));
 
+    const consoleErrors: string[] = [];
+    const originalError = console.error;
+    console.error = (...args: unknown[]) => consoleErrors.push(args.join(' '));
+
     let exitCode: number | undefined;
     const originalExit = process.exit;
     process.exit = ((code?: number) => {
@@ -172,11 +176,12 @@ describe('setupTaskUpdateParentCommand', () => {
       await program.parseAsync(['node', 'test', 'task', 'update-parent', '999', '1']);
     } finally {
       console.log = originalLog;
+      console.error = originalError;
       process.exit = originalExit;
     }
 
     expect(exitCode).toBe(1);
-    const output = consoleLogs.join('\n');
+    const output = consoleErrors.join('\n');
     expect(output).toContain('999');
   });
 
@@ -184,6 +189,10 @@ describe('setupTaskUpdateParentCommand', () => {
     const consoleLogs: string[] = [];
     const originalLog = console.log;
     console.log = (...args: unknown[]) => consoleLogs.push(args.join(' '));
+
+    const consoleErrors: string[] = [];
+    const originalError = console.error;
+    console.error = (...args: unknown[]) => consoleErrors.push(args.join(' '));
 
     let exitCode: number | undefined;
     const originalExit = process.exit;
@@ -195,11 +204,12 @@ describe('setupTaskUpdateParentCommand', () => {
       await program.parseAsync(['node', 'test', 'task', 'update-parent', 'abc', '1']);
     } finally {
       console.log = originalLog;
+      console.error = originalError;
       process.exit = originalExit;
     }
 
     expect(exitCode).toBe(1);
-    const output = consoleLogs.join('\n');
+    const output = consoleErrors.join('\n');
     expect(output).toContain('number');
   });
 
@@ -211,6 +221,10 @@ describe('setupTaskUpdateParentCommand', () => {
     const originalLog = console.log;
     console.log = (...args: unknown[]) => consoleLogs.push(args.join(' '));
 
+    const consoleErrors: string[] = [];
+    const originalError = console.error;
+    console.error = (...args: unknown[]) => consoleErrors.push(args.join(' '));
+
     let exitCode: number | undefined;
     const originalExit = process.exit;
     process.exit = ((code?: number) => {
@@ -221,11 +235,12 @@ describe('setupTaskUpdateParentCommand', () => {
       await program.parseAsync(['node', 'test', 'task', 'update-parent', String(child.id), 'invalid_parent']);
     } finally {
       console.log = originalLog;
+      console.error = originalError;
       process.exit = originalExit;
     }
 
     expect(exitCode).toBe(1);
-    const output = consoleLogs.join('\n');
+    const output = consoleErrors.join('\n');
     expect(output).toContain('number');
   });
 });
