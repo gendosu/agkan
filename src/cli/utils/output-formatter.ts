@@ -34,7 +34,7 @@ class JsonFormatter implements OutputFormatter {
   }
 
   error(message: string): void {
-    console.log(JSON.stringify({ success: false, error: { message } }, null, 2));
+    console.error(JSON.stringify({ success: false, error: { message } }, null, 2));
   }
 }
 
@@ -47,7 +47,7 @@ class TextFormatter implements OutputFormatter {
     if (textRender) {
       textRender();
     } else {
-      console.log(chalk.red(`\n✗ Error: ${message}\n`));
+      console.error(chalk.red(`\n✗ Error: ${message}\n`));
     }
   }
 }
