@@ -125,9 +125,9 @@ describe('setupTagRenameCommand', () => {
   });
 
   it('should show error when tag does not exist by ID', async () => {
-    const consoleLogs: string[] = [];
-    const originalLog = console.log;
-    console.log = (...args: unknown[]) => consoleLogs.push(args.join(' '));
+    const consoleErrors: string[] = [];
+    const originalError = console.error;
+    console.error = (...args: unknown[]) => consoleErrors.push(args.join(' '));
 
     let exitCode: number | undefined;
     const originalExit = process.exit;
@@ -138,19 +138,19 @@ describe('setupTagRenameCommand', () => {
     try {
       await program.parseAsync(['node', 'test', 'tag', 'rename', '999', 'new-name']);
     } finally {
-      console.log = originalLog;
+      console.error = originalError;
       process.exit = originalExit;
     }
 
     expect(exitCode).toBe(1);
-    const output = consoleLogs.join('\n');
+    const output = consoleErrors.join('\n');
     expect(output).toContain('999');
   });
 
   it('should show error when tag does not exist by name', async () => {
-    const consoleLogs: string[] = [];
-    const originalLog = console.log;
-    console.log = (...args: unknown[]) => consoleLogs.push(args.join(' '));
+    const consoleErrors: string[] = [];
+    const originalError = console.error;
+    console.error = (...args: unknown[]) => consoleErrors.push(args.join(' '));
 
     let exitCode: number | undefined;
     const originalExit = process.exit;
@@ -161,12 +161,12 @@ describe('setupTagRenameCommand', () => {
     try {
       await program.parseAsync(['node', 'test', 'tag', 'rename', 'nonexistent-tag', 'new-name']);
     } finally {
-      console.log = originalLog;
+      console.error = originalError;
       process.exit = originalExit;
     }
 
     expect(exitCode).toBe(1);
-    const output = consoleLogs.join('\n');
+    const output = consoleErrors.join('\n');
     expect(output).toContain('nonexistent-tag');
   });
 
@@ -175,9 +175,9 @@ describe('setupTagRenameCommand', () => {
     tagService.createTag({ name: 'existing-tag' });
     tagService.createTag({ name: 'another-tag' });
 
-    const consoleLogs: string[] = [];
-    const originalLog = console.log;
-    console.log = (...args: unknown[]) => consoleLogs.push(args.join(' '));
+    const consoleErrors: string[] = [];
+    const originalError = console.error;
+    console.error = (...args: unknown[]) => consoleErrors.push(args.join(' '));
 
     let exitCode: number | undefined;
     const originalExit = process.exit;
@@ -188,12 +188,12 @@ describe('setupTagRenameCommand', () => {
     try {
       await program.parseAsync(['node', 'test', 'tag', 'rename', 'existing-tag', 'another-tag']);
     } finally {
-      console.log = originalLog;
+      console.error = originalError;
       process.exit = originalExit;
     }
 
     expect(exitCode).toBe(1);
-    const output = consoleLogs.join('\n');
+    const output = consoleErrors.join('\n');
     expect(output).toContain('already exists');
   });
 
@@ -202,9 +202,9 @@ describe('setupTagRenameCommand', () => {
     tagService.createTag({ name: 'tag-a' });
     tagService.createTag({ name: 'tag-b' });
 
-    const consoleLogs: string[] = [];
-    const originalLog = console.log;
-    console.log = (...args: unknown[]) => consoleLogs.push(args.join(' '));
+    const consoleErrors: string[] = [];
+    const originalError = console.error;
+    console.error = (...args: unknown[]) => consoleErrors.push(args.join(' '));
 
     const originalExit = process.exit;
     process.exit = (() => {}) as never;
@@ -212,11 +212,11 @@ describe('setupTagRenameCommand', () => {
     try {
       await program.parseAsync(['node', 'test', 'tag', 'rename', 'tag-a', 'tag-b', '--json']);
     } finally {
-      console.log = originalLog;
+      console.error = originalError;
       process.exit = originalExit;
     }
 
-    const parsed = JSON.parse(consoleLogs[0]);
+    const parsed = JSON.parse(consoleErrors[0]);
     expect(parsed.success).toBe(false);
   });
 
@@ -315,9 +315,9 @@ describe('setupTagRenameCommand', () => {
       },
     } as ReturnType<typeof serviceContainer.getServiceContainer>);
 
-    const consoleLogs: string[] = [];
-    const originalLog = console.log;
-    console.log = (...args: unknown[]) => consoleLogs.push(args.join(' '));
+    const consoleErrors: string[] = [];
+    const originalError = console.error;
+    console.error = (...args: unknown[]) => consoleErrors.push(args.join(' '));
 
     let exitCode: number | undefined;
     const originalExit = process.exit;
@@ -328,13 +328,13 @@ describe('setupTagRenameCommand', () => {
     try {
       await program.parseAsync(['node', 'test', 'tag', 'rename', String(tag.id), 'updated-name']);
     } finally {
-      console.log = originalLog;
+      console.error = originalError;
       process.exit = originalExit;
       spy.mockRestore();
     }
 
     expect(exitCode).toBe(1);
-    const output = consoleLogs.join('\n');
+    const output = consoleErrors.join('\n');
     expect(output).toContain('Failed to rename');
   });
 
@@ -356,9 +356,9 @@ describe('setupTagRenameCommand', () => {
       },
     } as ReturnType<typeof serviceContainer.getServiceContainer>);
 
-    const consoleLogs: string[] = [];
-    const originalLog = console.log;
-    console.log = (...args: unknown[]) => consoleLogs.push(args.join(' '));
+    const consoleErrors: string[] = [];
+    const originalError = console.error;
+    console.error = (...args: unknown[]) => consoleErrors.push(args.join(' '));
 
     let exitCode: number | undefined;
     const originalExit = process.exit;
@@ -369,13 +369,13 @@ describe('setupTagRenameCommand', () => {
     try {
       await program.parseAsync(['node', 'test', 'tag', 'rename', String(tag.id), 'new-name-x']);
     } finally {
-      console.log = originalLog;
+      console.error = originalError;
       process.exit = originalExit;
       spy.mockRestore();
     }
 
     expect(exitCode).toBe(1);
-    const output = consoleLogs.join('\n');
+    const output = consoleErrors.join('\n');
     expect(output).toContain('unknown error');
   });
 
@@ -384,9 +384,9 @@ describe('setupTagRenameCommand', () => {
       throw new Error('outer plain error rename');
     });
 
-    const consoleLogs: string[] = [];
-    const originalLog = console.log;
-    console.log = (...args: unknown[]) => consoleLogs.push(args.join(' '));
+    const consoleErrors: string[] = [];
+    const originalError = console.error;
+    console.error = (...args: unknown[]) => consoleErrors.push(args.join(' '));
 
     let exitCode: number | undefined;
     const originalExit = process.exit;
@@ -397,13 +397,13 @@ describe('setupTagRenameCommand', () => {
     try {
       await program.parseAsync(['node', 'test', 'tag', 'rename', '1', 'new-name-z']);
     } finally {
-      console.log = originalLog;
+      console.error = originalError;
       process.exit = originalExit;
       spy.mockRestore();
     }
 
     expect(exitCode).toBe(1);
-    const output = consoleLogs.join('\n');
+    const output = consoleErrors.join('\n');
     expect(output).toContain('outer plain error rename');
   });
 
@@ -412,9 +412,9 @@ describe('setupTagRenameCommand', () => {
       throw 'outer string error';
     });
 
-    const consoleLogs: string[] = [];
-    const originalLog = console.log;
-    console.log = (...args: unknown[]) => consoleLogs.push(args.join(' '));
+    const consoleErrors: string[] = [];
+    const originalError = console.error;
+    console.error = (...args: unknown[]) => consoleErrors.push(args.join(' '));
 
     let exitCode: number | undefined;
     const originalExit = process.exit;
@@ -425,13 +425,13 @@ describe('setupTagRenameCommand', () => {
     try {
       await program.parseAsync(['node', 'test', 'tag', 'rename', '1', 'new-name-y']);
     } finally {
-      console.log = originalLog;
+      console.error = originalError;
       process.exit = originalExit;
       spy.mockRestore();
     }
 
     expect(exitCode).toBe(1);
-    const output = consoleLogs.join('\n');
+    const output = consoleErrors.join('\n');
     expect(output).toContain('unknown error');
   });
 });

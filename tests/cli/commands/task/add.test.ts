@@ -63,24 +63,24 @@ describe('setupTaskAddCommand', () => {
 
   describe('title validation', () => {
     it('should exit with error when title is missing', async () => {
-      const { exitCode, logs } = await runCommand(program, ['task', 'add']);
+      const { exitCode, errors } = await runCommand(program, ['task', 'add']);
       expect(exitCode).toBe(1);
-      expect(logs.join('\n')).toContain('Task title is required');
+      expect(errors.join('\n')).toContain('Task title is required');
     });
 
     it('should output JSON error when title is missing with --json', async () => {
-      const { exitCode, logs } = await runCommand(program, ['task', 'add', '--json']);
+      const { exitCode, errors } = await runCommand(program, ['task', 'add', '--json']);
       expect(exitCode).toBe(1);
-      const output = JSON.parse(logs[0]);
+      const output = JSON.parse(errors[0]);
       expect(output.success).toBe(false);
       expect(output.error.message).toContain('Task title is required');
     });
 
     it('should reject title exceeding 200 characters', async () => {
       const longTitle = 'a'.repeat(201);
-      const { exitCode, logs } = await runCommand(program, ['task', 'add', longTitle]);
+      const { exitCode, errors } = await runCommand(program, ['task', 'add', longTitle]);
       expect(exitCode).toBe(1);
-      expect(logs.join('\n')).toContain('200');
+      expect(errors.join('\n')).toContain('200');
 
       const taskService = new TaskService();
       expect(taskService.listTasks()).toHaveLength(0);
@@ -88,9 +88,9 @@ describe('setupTaskAddCommand', () => {
 
     it('should reject body exceeding 10000 characters', async () => {
       const longBody = 'b'.repeat(10001);
-      const { exitCode, logs } = await runCommand(program, ['task', 'add', 'Valid Title', longBody]);
+      const { exitCode, errors } = await runCommand(program, ['task', 'add', 'Valid Title', longBody]);
       expect(exitCode).toBe(1);
-      expect(logs.join('\n')).toContain('10000');
+      expect(errors.join('\n')).toContain('10000');
 
       const taskService = new TaskService();
       expect(taskService.listTasks()).toHaveLength(0);
@@ -98,9 +98,9 @@ describe('setupTaskAddCommand', () => {
 
     it('should reject author exceeding 100 characters', async () => {
       const longAuthor = 'c'.repeat(101);
-      const { exitCode, logs } = await runCommand(program, ['task', 'add', 'Valid Title', '--author', longAuthor]);
+      const { exitCode, errors } = await runCommand(program, ['task', 'add', 'Valid Title', '--author', longAuthor]);
       expect(exitCode).toBe(1);
-      expect(logs.join('\n')).toContain('100');
+      expect(errors.join('\n')).toContain('100');
 
       const taskService = new TaskService();
       expect(taskService.listTasks()).toHaveLength(0);
@@ -108,7 +108,7 @@ describe('setupTaskAddCommand', () => {
 
     it('should reject assignees exceeding 500 characters', async () => {
       const longAssignees = 'a'.repeat(501);
-      const { exitCode, logs } = await runCommand(program, [
+      const { exitCode, errors } = await runCommand(program, [
         'task',
         'add',
         'Valid Title',
@@ -116,7 +116,7 @@ describe('setupTaskAddCommand', () => {
         longAssignees,
       ]);
       expect(exitCode).toBe(1);
-      expect(logs.join('\n')).toContain('500');
+      expect(errors.join('\n')).toContain('500');
 
       const taskService = new TaskService();
       expect(taskService.listTasks()).toHaveLength(0);
@@ -125,13 +125,13 @@ describe('setupTaskAddCommand', () => {
 
   describe('status validation', () => {
     it('should reject invalid status', async () => {
-      const { exitCode, logs } = await runCommand(program, ['task', 'add', 'Valid Title', '--status', 'invalid']);
+      const { exitCode, errors } = await runCommand(program, ['task', 'add', 'Valid Title', '--status', 'invalid']);
       expect(exitCode).toBe(1);
-      expect(logs.join('\n')).toContain('Invalid status');
+      expect(errors.join('\n')).toContain('Invalid status');
     });
 
     it('should output JSON error for invalid status with --json', async () => {
-      const { exitCode, logs } = await runCommand(program, [
+      const { exitCode, errors } = await runCommand(program, [
         'task',
         'add',
         'Valid Title',
@@ -140,7 +140,7 @@ describe('setupTaskAddCommand', () => {
         '--json',
       ]);
       expect(exitCode).toBe(1);
-      const output = JSON.parse(logs[0]);
+      const output = JSON.parse(errors[0]);
       expect(output.success).toBe(false);
       expect(output.error.message).toContain('Invalid status');
     });
@@ -148,15 +148,22 @@ describe('setupTaskAddCommand', () => {
 
   describe('parent validation', () => {
     it('should reject non-numeric parent ID', async () => {
-      const { exitCode, logs } = await runCommand(program, ['task', 'add', 'Valid Title', '--parent', 'abc']);
+      const { exitCode, errors } = await runCommand(program, ['task', 'add', 'Valid Title', '--parent', 'abc']);
       expect(exitCode).toBe(1);
-      expect(logs.join('\n')).toContain('Parent ID must be a number');
+      expect(errors.join('\n')).toContain('Parent ID must be a number');
     });
 
     it('should output JSON error for non-numeric parent ID with --json', async () => {
-      const { exitCode, logs } = await runCommand(program, ['task', 'add', 'Valid Title', '--parent', 'abc', '--json']);
+      const { exitCode, errors } = await runCommand(program, [
+        'task',
+        'add',
+        'Valid Title',
+        '--parent',
+        'abc',
+        '--json',
+      ]);
       expect(exitCode).toBe(1);
-      const output = JSON.parse(logs[0]);
+      const output = JSON.parse(errors[0]);
       expect(output.success).toBe(false);
       expect(output.error.message).toContain('Parent ID must be a number');
     });
@@ -164,13 +171,13 @@ describe('setupTaskAddCommand', () => {
 
   describe('blocked-by validation', () => {
     it('should reject non-numeric blocked-by IDs', async () => {
-      const { exitCode, logs } = await runCommand(program, ['task', 'add', 'Valid Title', '--blocked-by', 'abc']);
+      const { exitCode, errors } = await runCommand(program, ['task', 'add', 'Valid Title', '--blocked-by', 'abc']);
       expect(exitCode).toBe(1);
-      expect(logs.join('\n')).toContain('Invalid blocked-by IDs');
+      expect(errors.join('\n')).toContain('Invalid blocked-by IDs');
     });
 
     it('should output JSON error for non-numeric blocked-by IDs with --json', async () => {
-      const { exitCode, logs } = await runCommand(program, [
+      const { exitCode, errors } = await runCommand(program, [
         'task',
         'add',
         'Valid Title',
@@ -179,7 +186,7 @@ describe('setupTaskAddCommand', () => {
         '--json',
       ]);
       expect(exitCode).toBe(1);
-      const output = JSON.parse(logs[0]);
+      const output = JSON.parse(errors[0]);
       expect(output.success).toBe(false);
       expect(output.error.message).toContain('Invalid blocked-by IDs');
     });
@@ -187,15 +194,22 @@ describe('setupTaskAddCommand', () => {
 
   describe('blocks validation', () => {
     it('should reject non-numeric blocks IDs', async () => {
-      const { exitCode, logs } = await runCommand(program, ['task', 'add', 'Valid Title', '--blocks', 'abc']);
+      const { exitCode, errors } = await runCommand(program, ['task', 'add', 'Valid Title', '--blocks', 'abc']);
       expect(exitCode).toBe(1);
-      expect(logs.join('\n')).toContain('Invalid blocks IDs');
+      expect(errors.join('\n')).toContain('Invalid blocks IDs');
     });
 
     it('should output JSON error for non-numeric blocks IDs with --json', async () => {
-      const { exitCode, logs } = await runCommand(program, ['task', 'add', 'Valid Title', '--blocks', 'abc', '--json']);
+      const { exitCode, errors } = await runCommand(program, [
+        'task',
+        'add',
+        'Valid Title',
+        '--blocks',
+        'abc',
+        '--json',
+      ]);
       expect(exitCode).toBe(1);
-      const output = JSON.parse(logs[0]);
+      const output = JSON.parse(errors[0]);
       expect(output.success).toBe(false);
       expect(output.error.message).toContain('Invalid blocks IDs');
     });
@@ -225,7 +239,7 @@ describe('setupTaskAddCommand', () => {
     });
 
     it('should exit with error when file does not exist', async () => {
-      const { exitCode, logs } = await runCommand(program, [
+      const { exitCode, errors } = await runCommand(program, [
         'task',
         'add',
         'File Task',
@@ -233,11 +247,11 @@ describe('setupTaskAddCommand', () => {
         '/nonexistent/path.md',
       ]);
       expect(exitCode).toBe(1);
-      expect(logs.join('\n')).toContain('Error reading file');
+      expect(errors.join('\n')).toContain('Error reading file');
     });
 
     it('should output JSON error when file does not exist with --json', async () => {
-      const { exitCode, logs } = await runCommand(program, [
+      const { exitCode, errors } = await runCommand(program, [
         'task',
         'add',
         'File Task',
@@ -246,7 +260,7 @@ describe('setupTaskAddCommand', () => {
         '--json',
       ]);
       expect(exitCode).toBe(1);
-      const output = JSON.parse(logs[0]);
+      const output = JSON.parse(errors[0]);
       expect(output.success).toBe(false);
       expect(output.error.message).toContain('Error reading file');
     });
@@ -445,13 +459,13 @@ describe('setupTaskAddCommand', () => {
     });
 
     it('should exit with error when blocked-by task does not exist', async () => {
-      const { exitCode, logs } = await runCommand(program, ['task', 'add', 'New Task', '--blocked-by', '99999']);
+      const { exitCode, errors } = await runCommand(program, ['task', 'add', 'New Task', '--blocked-by', '99999']);
       expect(exitCode).toBe(1);
-      expect(logs.join('\n')).toContain('Error adding blocked-by relationship');
+      expect(errors.join('\n')).toContain('Error adding blocked-by relationship');
     });
 
     it('should exit with error (JSON) when blocked-by task does not exist', async () => {
-      const { exitCode, logs } = await runCommand(program, [
+      const { exitCode, errors } = await runCommand(program, [
         'task',
         'add',
         'New Task',
@@ -460,21 +474,28 @@ describe('setupTaskAddCommand', () => {
         '--json',
       ]);
       expect(exitCode).toBe(1);
-      const output = JSON.parse(logs[0]);
+      const output = JSON.parse(errors[0]);
       expect(output.success).toBe(false);
       expect(output.error.message).toContain('Error adding blocked-by relationship');
     });
 
     it('should exit with error when blocks task does not exist', async () => {
-      const { exitCode, logs } = await runCommand(program, ['task', 'add', 'New Task', '--blocks', '99999']);
+      const { exitCode, errors } = await runCommand(program, ['task', 'add', 'New Task', '--blocks', '99999']);
       expect(exitCode).toBe(1);
-      expect(logs.join('\n')).toContain('Error adding blocks relationship');
+      expect(errors.join('\n')).toContain('Error adding blocks relationship');
     });
 
     it('should exit with error (JSON) when blocks task does not exist', async () => {
-      const { exitCode, logs } = await runCommand(program, ['task', 'add', 'New Task', '--blocks', '99999', '--json']);
+      const { exitCode, errors } = await runCommand(program, [
+        'task',
+        'add',
+        'New Task',
+        '--blocks',
+        '99999',
+        '--json',
+      ]);
       expect(exitCode).toBe(1);
-      const output = JSON.parse(logs[0]);
+      const output = JSON.parse(errors[0]);
       expect(output.success).toBe(false);
       expect(output.error.message).toContain('Error adding blocks relationship');
     });
@@ -525,9 +546,9 @@ describe('setupTaskAddCommand', () => {
     });
 
     it('should exit with error for invalid priority', async () => {
-      const { exitCode, logs } = await runCommand(program, ['task', 'add', 'Task', '--priority', 'invalid']);
+      const { exitCode, errors } = await runCommand(program, ['task', 'add', 'Task', '--priority', 'invalid']);
       expect(exitCode).toBe(1);
-      expect(logs.join('\n')).toContain('Invalid priority');
+      expect(errors.join('\n')).toContain('Invalid priority');
     });
   });
 
