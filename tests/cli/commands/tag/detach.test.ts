@@ -115,9 +115,9 @@ describe('setupTagDetachCommand', () => {
     tagService.createTag({ name: 'some-tag' });
     const tag = tagService.listTags()[0];
 
-    const consoleLogs: string[] = [];
-    const originalLog = console.log;
-    console.log = (...args: unknown[]) => consoleLogs.push(args.join(' '));
+    const consoleErrors: string[] = [];
+    const originalError = console.error;
+    console.error = (...args: unknown[]) => consoleErrors.push(args.join(' '));
 
     let exitCode: number | undefined;
     const originalExit = process.exit;
@@ -128,12 +128,12 @@ describe('setupTagDetachCommand', () => {
     try {
       await program.parseAsync(['node', 'test', 'tag', 'detach', '999', String(tag.id)]);
     } finally {
-      console.log = originalLog;
+      console.error = originalError;
       process.exit = originalExit;
     }
 
     expect(exitCode).toBe(1);
-    const output = consoleLogs.join('\n');
+    const output = consoleErrors.join('\n');
     expect(output).toContain('999');
   });
 
@@ -142,9 +142,9 @@ describe('setupTagDetachCommand', () => {
     taskService.createTask({ title: 'No tag task', body: null, author: null, status: 'ready', parent_id: null });
     const task = taskService.listTasks()[0];
 
-    const consoleLogs: string[] = [];
-    const originalLog = console.log;
-    console.log = (...args: unknown[]) => consoleLogs.push(args.join(' '));
+    const consoleErrors: string[] = [];
+    const originalError = console.error;
+    console.error = (...args: unknown[]) => consoleErrors.push(args.join(' '));
 
     let exitCode: number | undefined;
     const originalExit = process.exit;
@@ -155,12 +155,12 @@ describe('setupTagDetachCommand', () => {
     try {
       await program.parseAsync(['node', 'test', 'tag', 'detach', String(task.id), '999']);
     } finally {
-      console.log = originalLog;
+      console.error = originalError;
       process.exit = originalExit;
     }
 
     expect(exitCode).toBe(1);
-    const output = consoleLogs.join('\n');
+    const output = consoleErrors.join('\n');
     expect(output).toContain('999');
   });
 
@@ -173,9 +173,9 @@ describe('setupTagDetachCommand', () => {
     const task = taskService.listTasks()[0];
     const tag = tagService.listTags()[0];
 
-    const consoleLogs: string[] = [];
-    const originalLog = console.log;
-    console.log = (...args: unknown[]) => consoleLogs.push(args.join(' '));
+    const consoleErrors: string[] = [];
+    const originalError = console.error;
+    console.error = (...args: unknown[]) => consoleErrors.push(args.join(' '));
 
     let exitCode: number | undefined;
     const originalExit = process.exit;
@@ -186,12 +186,12 @@ describe('setupTagDetachCommand', () => {
     try {
       await program.parseAsync(['node', 'test', 'tag', 'detach', String(task.id), String(tag.id)]);
     } finally {
-      console.log = originalLog;
+      console.error = originalError;
       process.exit = originalExit;
     }
 
     expect(exitCode).toBe(1);
-    const output = consoleLogs.join('\n');
+    const output = consoleErrors.join('\n');
     expect(output).toContain('not attached');
   });
 
@@ -200,9 +200,9 @@ describe('setupTagDetachCommand', () => {
     taskService.createTask({ title: 'No tag task', body: null, author: null, status: 'ready', parent_id: null });
     const task = taskService.listTasks()[0];
 
-    const consoleLogs: string[] = [];
-    const originalLog = console.log;
-    console.log = (...args: unknown[]) => consoleLogs.push(args.join(' '));
+    const consoleErrors: string[] = [];
+    const originalError = console.error;
+    console.error = (...args: unknown[]) => consoleErrors.push(args.join(' '));
 
     let exitCode: number | undefined;
     const originalExit = process.exit;
@@ -213,12 +213,12 @@ describe('setupTagDetachCommand', () => {
     try {
       await program.parseAsync(['node', 'test', 'tag', 'detach', String(task.id), 'nonexistent-tag']);
     } finally {
-      console.log = originalLog;
+      console.error = originalError;
       process.exit = originalExit;
     }
 
     expect(exitCode).toBe(1);
-    const output = consoleLogs.join('\n');
+    const output = consoleErrors.join('\n');
     expect(output).toContain('nonexistent-tag');
   });
 
@@ -321,9 +321,9 @@ describe('setupTagDetachCommand', () => {
       },
     } as ReturnType<typeof serviceContainer.getServiceContainer>);
 
-    const consoleLogs: string[] = [];
-    const originalLog = console.log;
-    console.log = (...args: unknown[]) => consoleLogs.push(args.join(' '));
+    const consoleErrors: string[] = [];
+    const originalError = console.error;
+    console.error = (...args: unknown[]) => consoleErrors.push(args.join(' '));
 
     let exitCode: number | undefined;
     const originalExit = process.exit;
@@ -334,13 +334,13 @@ describe('setupTagDetachCommand', () => {
     try {
       await program.parseAsync(['node', 'test', 'tag', 'detach', String(task.id), String(tag.id)]);
     } finally {
-      console.log = originalLog;
+      console.error = originalError;
       process.exit = originalExit;
       spy.mockRestore();
     }
 
     expect(exitCode).toBe(1);
-    const output = consoleLogs.join('\n');
+    const output = consoleErrors.join('\n');
     expect(output).toContain('unknown error');
   });
 
@@ -349,9 +349,9 @@ describe('setupTagDetachCommand', () => {
       throw new Error('outer plain error detach');
     });
 
-    const consoleLogs: string[] = [];
-    const originalLog = console.log;
-    console.log = (...args: unknown[]) => consoleLogs.push(args.join(' '));
+    const consoleErrors: string[] = [];
+    const originalError = console.error;
+    console.error = (...args: unknown[]) => consoleErrors.push(args.join(' '));
 
     let exitCode: number | undefined;
     const originalExit = process.exit;
@@ -362,13 +362,13 @@ describe('setupTagDetachCommand', () => {
     try {
       await program.parseAsync(['node', 'test', 'tag', 'detach', '1', '1']);
     } finally {
-      console.log = originalLog;
+      console.error = originalError;
       process.exit = originalExit;
       spy.mockRestore();
     }
 
     expect(exitCode).toBe(1);
-    const output = consoleLogs.join('\n');
+    const output = consoleErrors.join('\n');
     expect(output).toContain('outer plain error detach');
   });
 
@@ -377,9 +377,9 @@ describe('setupTagDetachCommand', () => {
       throw 'outer string error';
     });
 
-    const consoleLogs: string[] = [];
-    const originalLog = console.log;
-    console.log = (...args: unknown[]) => consoleLogs.push(args.join(' '));
+    const consoleErrors: string[] = [];
+    const originalError = console.error;
+    console.error = (...args: unknown[]) => consoleErrors.push(args.join(' '));
 
     let exitCode: number | undefined;
     const originalExit = process.exit;
@@ -390,13 +390,13 @@ describe('setupTagDetachCommand', () => {
     try {
       await program.parseAsync(['node', 'test', 'tag', 'detach', '1', '1']);
     } finally {
-      console.log = originalLog;
+      console.error = originalError;
       process.exit = originalExit;
       spy.mockRestore();
     }
 
     expect(exitCode).toBe(1);
-    const output = consoleLogs.join('\n');
+    const output = consoleErrors.join('\n');
     expect(output).toContain('unknown error');
   });
 });

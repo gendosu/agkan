@@ -50,6 +50,10 @@ describe('setupTagAddCommand', () => {
     const originalLog = console.log;
     console.log = (...args: unknown[]) => consoleLogs.push(args.join(' '));
 
+    const consoleErrors: string[] = [];
+    const originalError = console.error;
+    console.error = (...args: unknown[]) => consoleErrors.push(args.join(' '));
+
     let exitCode: number | undefined;
     const originalExit = process.exit;
     process.exit = ((code?: number) => {
@@ -60,11 +64,12 @@ describe('setupTagAddCommand', () => {
       await program.parseAsync(['node', 'test', 'tag', 'add', longName]);
     } finally {
       console.log = originalLog;
+      console.error = originalError;
       process.exit = originalExit;
     }
 
     expect(exitCode).toBe(1);
-    const output = consoleLogs.join('\n');
+    const output = consoleErrors.join('\n');
     expect(output).toContain('50');
 
     const tagService = new TagService();
@@ -141,6 +146,10 @@ describe('setupTagAddCommand', () => {
     const originalLog = console.log;
     console.log = (...args: unknown[]) => consoleLogs.push(args.join(' '));
 
+    const consoleErrors: string[] = [];
+    const originalError = console.error;
+    console.error = (...args: unknown[]) => consoleErrors.push(args.join(' '));
+
     let exitCode: number | undefined;
     const originalExit = process.exit;
     process.exit = ((code?: number) => {
@@ -151,11 +160,12 @@ describe('setupTagAddCommand', () => {
       await program.parseAsync(['node', 'test', 'tag', 'add', 'existing-tag']);
     } finally {
       console.log = originalLog;
+      console.error = originalError;
       process.exit = originalExit;
     }
 
     expect(exitCode).toBe(1);
-    const output = consoleLogs.join('\n');
+    const output = consoleErrors.join('\n');
     expect(output).toContain('existing-tag');
   });
 
@@ -167,6 +177,10 @@ describe('setupTagAddCommand', () => {
     const originalLog = console.log;
     console.log = (...args: unknown[]) => consoleLogs.push(args.join(' '));
 
+    const consoleErrors: string[] = [];
+    const originalError = console.error;
+    console.error = (...args: unknown[]) => consoleErrors.push(args.join(' '));
+
     const originalExit = process.exit;
     process.exit = (() => {}) as never;
 
@@ -174,10 +188,11 @@ describe('setupTagAddCommand', () => {
       await program.parseAsync(['node', 'test', 'tag', 'add', 'dup-tag', '--json']);
     } finally {
       console.log = originalLog;
+      console.error = originalError;
       process.exit = originalExit;
     }
 
-    const parsed = JSON.parse(consoleLogs[0]);
+    const parsed = JSON.parse(consoleErrors[0]);
     expect(parsed.success).toBe(false);
     expect(parsed.error).toBeDefined();
   });
@@ -193,6 +208,10 @@ describe('setupTagAddCommand', () => {
     const originalLog = console.log;
     console.log = (...args: unknown[]) => consoleLogs.push(args.join(' '));
 
+    const consoleErrors: string[] = [];
+    const originalError = console.error;
+    console.error = (...args: unknown[]) => consoleErrors.push(args.join(' '));
+
     let exitCode: number | undefined;
     const originalExit = process.exit;
     process.exit = ((code?: number) => {
@@ -203,11 +222,12 @@ describe('setupTagAddCommand', () => {
       await program.parseAsync(['node', 'test', 'tag', 'add', '   ']);
     } finally {
       console.log = originalLog;
+      console.error = originalError;
       process.exit = originalExit;
     }
 
     expect(exitCode).toBe(1);
-    const output = consoleLogs.join('\n');
+    const output = consoleErrors.join('\n');
     expect(output).toContain('empty');
   });
 
@@ -230,6 +250,10 @@ describe('setupTagAddCommand', () => {
     const originalLog = console.log;
     console.log = (...args: unknown[]) => consoleLogs.push(args.join(' '));
 
+    const consoleErrors: string[] = [];
+    const originalError = console.error;
+    console.error = (...args: unknown[]) => consoleErrors.push(args.join(' '));
+
     let exitCode: number | undefined;
     const originalExit = process.exit;
     process.exit = ((code?: number) => {
@@ -240,12 +264,13 @@ describe('setupTagAddCommand', () => {
       await program.parseAsync(['node', 'test', 'tag', 'add', 'test-tag']);
     } finally {
       console.log = originalLog;
+      console.error = originalError;
       process.exit = originalExit;
       spy.mockRestore();
     }
 
     expect(exitCode).toBe(1);
-    const output = consoleLogs.join('\n');
+    const output = consoleErrors.join('\n');
     expect(output).toContain('inner plain error');
   });
 
@@ -268,6 +293,10 @@ describe('setupTagAddCommand', () => {
     const originalLog = console.log;
     console.log = (...args: unknown[]) => consoleLogs.push(args.join(' '));
 
+    const consoleErrors: string[] = [];
+    const originalError = console.error;
+    console.error = (...args: unknown[]) => consoleErrors.push(args.join(' '));
+
     let exitCode: number | undefined;
     const originalExit = process.exit;
     process.exit = ((code?: number) => {
@@ -278,12 +307,13 @@ describe('setupTagAddCommand', () => {
       await program.parseAsync(['node', 'test', 'tag', 'add', 'test-tag']);
     } finally {
       console.log = originalLog;
+      console.error = originalError;
       process.exit = originalExit;
       spy.mockRestore();
     }
 
     expect(exitCode).toBe(1);
-    const output = consoleLogs.join('\n');
+    const output = consoleErrors.join('\n');
     expect(output).toContain('unknown error');
   });
 
@@ -296,6 +326,10 @@ describe('setupTagAddCommand', () => {
     const originalLog = console.log;
     console.log = (...args: unknown[]) => consoleLogs.push(args.join(' '));
 
+    const consoleErrors: string[] = [];
+    const originalError = console.error;
+    console.error = (...args: unknown[]) => consoleErrors.push(args.join(' '));
+
     let exitCode: number | undefined;
     const originalExit = process.exit;
     process.exit = ((code?: number) => {
@@ -306,12 +340,13 @@ describe('setupTagAddCommand', () => {
       await program.parseAsync(['node', 'test', 'tag', 'add', 'test-tag']);
     } finally {
       console.log = originalLog;
+      console.error = originalError;
       process.exit = originalExit;
       spy.mockRestore();
     }
 
     expect(exitCode).toBe(1);
-    const output = consoleLogs.join('\n');
+    const output = consoleErrors.join('\n');
     expect(output).toContain('outer plain error');
   });
 
@@ -324,6 +359,10 @@ describe('setupTagAddCommand', () => {
     const originalLog = console.log;
     console.log = (...args: unknown[]) => consoleLogs.push(args.join(' '));
 
+    const consoleErrors: string[] = [];
+    const originalError = console.error;
+    console.error = (...args: unknown[]) => consoleErrors.push(args.join(' '));
+
     let exitCode: number | undefined;
     const originalExit = process.exit;
     process.exit = ((code?: number) => {
@@ -334,12 +373,13 @@ describe('setupTagAddCommand', () => {
       await program.parseAsync(['node', 'test', 'tag', 'add', 'test-tag']);
     } finally {
       console.log = originalLog;
+      console.error = originalError;
       process.exit = originalExit;
       spy.mockRestore();
     }
 
     expect(exitCode).toBe(1);
-    const output = consoleLogs.join('\n');
+    const output = consoleErrors.join('\n');
     expect(output).toContain('unknown error');
   });
 });

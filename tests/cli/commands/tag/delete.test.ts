@@ -96,9 +96,9 @@ describe('setupTagDeleteCommand', () => {
   });
 
   it('should show error when tag does not exist', async () => {
-    const consoleLogs: string[] = [];
-    const originalLog = console.log;
-    console.log = (...args: unknown[]) => consoleLogs.push(args.join(' '));
+    const consoleErrors: string[] = [];
+    const originalError = console.error;
+    console.error = (...args: unknown[]) => consoleErrors.push(args.join(' '));
 
     let exitCode: number | undefined;
     const originalExit = process.exit;
@@ -109,19 +109,19 @@ describe('setupTagDeleteCommand', () => {
     try {
       await program.parseAsync(['node', 'test', 'tag', 'delete', '999']);
     } finally {
-      console.log = originalLog;
+      console.error = originalError;
       process.exit = originalExit;
     }
 
     expect(exitCode).toBe(1);
-    const output = consoleLogs.join('\n');
+    const output = consoleErrors.join('\n');
     expect(output).toContain('999');
   });
 
   it('should show JSON error when tag does not exist with --json option', async () => {
-    const consoleLogs: string[] = [];
-    const originalLog = console.log;
-    console.log = (...args: unknown[]) => consoleLogs.push(args.join(' '));
+    const consoleErrors: string[] = [];
+    const originalError = console.error;
+    console.error = (...args: unknown[]) => consoleErrors.push(args.join(' '));
 
     const originalExit = process.exit;
     process.exit = (() => {}) as never;
@@ -129,18 +129,18 @@ describe('setupTagDeleteCommand', () => {
     try {
       await program.parseAsync(['node', 'test', 'tag', 'delete', '999', '--json']);
     } finally {
-      console.log = originalLog;
+      console.error = originalError;
       process.exit = originalExit;
     }
 
-    const parsed = JSON.parse(consoleLogs[0]);
+    const parsed = JSON.parse(consoleErrors[0]);
     expect(parsed.success).toBe(false);
   });
 
   it('should show error when tag name does not exist', async () => {
-    const consoleLogs: string[] = [];
-    const originalLog = console.log;
-    console.log = (...args: unknown[]) => consoleLogs.push(args.join(' '));
+    const consoleErrors: string[] = [];
+    const originalError = console.error;
+    console.error = (...args: unknown[]) => consoleErrors.push(args.join(' '));
 
     let exitCode: number | undefined;
     const originalExit = process.exit;
@@ -151,12 +151,12 @@ describe('setupTagDeleteCommand', () => {
     try {
       await program.parseAsync(['node', 'test', 'tag', 'delete', 'nonexistent-tag']);
     } finally {
-      console.log = originalLog;
+      console.error = originalError;
       process.exit = originalExit;
     }
 
     expect(exitCode).toBe(1);
-    const output = consoleLogs.join('\n');
+    const output = consoleErrors.join('\n');
     expect(output).toContain('nonexistent-tag');
   });
 
@@ -220,9 +220,9 @@ describe('setupTagDeleteCommand', () => {
     const tagService = new TagService();
     tagService.createTag({ name: 'unrelated-tag' });
 
-    const consoleLogs: string[] = [];
-    const originalLog = console.log;
-    console.log = (...args: unknown[]) => consoleLogs.push(args.join(' '));
+    const consoleErrors: string[] = [];
+    const originalError = console.error;
+    console.error = (...args: unknown[]) => consoleErrors.push(args.join(' '));
 
     let exitCode: number | undefined;
     const originalExit = process.exit;
@@ -233,12 +233,12 @@ describe('setupTagDeleteCommand', () => {
     try {
       await program.parseAsync(['node', 'test', 'tag', 'delete', '424242']);
     } finally {
-      console.log = originalLog;
+      console.error = originalError;
       process.exit = originalExit;
     }
 
     expect(exitCode).toBe(1);
-    const output = consoleLogs.join('\n');
+    const output = consoleErrors.join('\n');
     expect(output).toContain('Tag with ID 424242 not found');
   });
 
@@ -265,9 +265,9 @@ describe('setupTagDeleteCommand', () => {
       },
     } as ReturnType<typeof serviceContainer.getServiceContainer>);
 
-    const consoleLogs: string[] = [];
-    const originalLog = console.log;
-    console.log = (...args: unknown[]) => consoleLogs.push(args.join(' '));
+    const consoleErrors: string[] = [];
+    const originalError = console.error;
+    console.error = (...args: unknown[]) => consoleErrors.push(args.join(' '));
 
     let exitCode: number | undefined;
     const originalExit = process.exit;
@@ -278,13 +278,13 @@ describe('setupTagDeleteCommand', () => {
     try {
       await program.parseAsync(['node', 'test', 'tag', 'delete', String(tag.id)]);
     } finally {
-      console.log = originalLog;
+      console.error = originalError;
       process.exit = originalExit;
       spy.mockRestore();
     }
 
     expect(exitCode).toBe(1);
-    const output = consoleLogs.join('\n');
+    const output = consoleErrors.join('\n');
     expect(output).toContain('unknown error');
   });
 
@@ -293,9 +293,9 @@ describe('setupTagDeleteCommand', () => {
       throw new Error('outer plain error delete');
     });
 
-    const consoleLogs: string[] = [];
-    const originalLog = console.log;
-    console.log = (...args: unknown[]) => consoleLogs.push(args.join(' '));
+    const consoleErrors: string[] = [];
+    const originalError = console.error;
+    console.error = (...args: unknown[]) => consoleErrors.push(args.join(' '));
 
     let exitCode: number | undefined;
     const originalExit = process.exit;
@@ -306,13 +306,13 @@ describe('setupTagDeleteCommand', () => {
     try {
       await program.parseAsync(['node', 'test', 'tag', 'delete', '1']);
     } finally {
-      console.log = originalLog;
+      console.error = originalError;
       process.exit = originalExit;
       spy.mockRestore();
     }
 
     expect(exitCode).toBe(1);
-    const output = consoleLogs.join('\n');
+    const output = consoleErrors.join('\n');
     expect(output).toContain('outer plain error delete');
   });
 
@@ -321,9 +321,9 @@ describe('setupTagDeleteCommand', () => {
       throw 'outer string error';
     });
 
-    const consoleLogs: string[] = [];
-    const originalLog = console.log;
-    console.log = (...args: unknown[]) => consoleLogs.push(args.join(' '));
+    const consoleErrors: string[] = [];
+    const originalError = console.error;
+    console.error = (...args: unknown[]) => consoleErrors.push(args.join(' '));
 
     let exitCode: number | undefined;
     const originalExit = process.exit;
@@ -334,13 +334,13 @@ describe('setupTagDeleteCommand', () => {
     try {
       await program.parseAsync(['node', 'test', 'tag', 'delete', '1']);
     } finally {
-      console.log = originalLog;
+      console.error = originalError;
       process.exit = originalExit;
       spy.mockRestore();
     }
 
     expect(exitCode).toBe(1);
-    const output = consoleLogs.join('\n');
+    const output = consoleErrors.join('\n');
     expect(output).toContain('unknown error');
   });
 });

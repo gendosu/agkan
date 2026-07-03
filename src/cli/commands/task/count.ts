@@ -34,7 +34,7 @@ export function setupTaskCountCommand(program: Command): void {
         // -q option must be used in combination with -s option
         if (options.quiet && !options.status) {
           formatter.error('-q, --quiet option requires -s, --status option', () => {
-            console.log(chalk.red('\n✗ Error: -q, --quiet option requires -s, --status option\n'));
+            console.error(chalk.red('\n✗ Error: -q, --quiet option requires -s, --status option\n'));
           });
           process.exit(1);
         }
@@ -47,8 +47,8 @@ export function setupTaskCountCommand(program: Command): void {
             formatter.error(
               `Invalid status: ${status}. Valid statuses: icebox, backlog, ready, in_progress, review, done, closed`,
               () => {
-                console.log(chalk.red(`\nInvalid status: ${status}`));
-                console.log('Valid statuses: icebox, backlog, ready, in_progress, review, done, closed\n');
+                console.error(chalk.red(`\nInvalid status: ${status}`));
+                console.error('Valid statuses: icebox, backlog, ready, in_progress, review, done, closed\n');
               }
             );
             process.exit(1);
@@ -104,7 +104,7 @@ export function setupTaskCountCommand(program: Command): void {
           handleError(error, options);
         } else {
           formatter.error('An unknown error occurred', () => {
-            console.log(chalk.red('\n✗ An unknown error occurred\n'));
+            console.error(chalk.red('\n✗ An unknown error occurred\n'));
           });
         }
         process.exit(1);

@@ -91,6 +91,10 @@ describe('setupTaskUnarchiveCommand', () => {
     const originalLog = console.log;
     console.log = (...args: unknown[]) => consoleLogs.push(args.join(' '));
 
+    const consoleErrors: string[] = [];
+    const originalError = console.error;
+    console.error = (...args: unknown[]) => consoleErrors.push(args.join(' '));
+
     let exitCode: number | undefined;
     const originalExit = process.exit;
     process.exit = ((code?: number) => {
@@ -101,11 +105,12 @@ describe('setupTaskUnarchiveCommand', () => {
       await program.parseAsync(['node', 'test', 'task', 'unarchive', 'not-a-number']);
     } finally {
       console.log = originalLog;
+      console.error = originalError;
       process.exit = originalExit;
     }
 
     expect(exitCode).toBe(1);
-    const output = consoleLogs.join('\n');
+    const output = consoleErrors.join('\n');
     expect(output).toContain('Invalid task ID');
   });
 
@@ -113,6 +118,10 @@ describe('setupTaskUnarchiveCommand', () => {
     const consoleLogs: string[] = [];
     const originalLog = console.log;
     console.log = (...args: unknown[]) => consoleLogs.push(args.join(' '));
+
+    const consoleErrors: string[] = [];
+    const originalError = console.error;
+    console.error = (...args: unknown[]) => consoleErrors.push(args.join(' '));
 
     let exitCode: number | undefined;
     const originalExit = process.exit;
@@ -124,11 +133,12 @@ describe('setupTaskUnarchiveCommand', () => {
       await program.parseAsync(['node', 'test', 'task', 'unarchive', '9999']);
     } finally {
       console.log = originalLog;
+      console.error = originalError;
       process.exit = originalExit;
     }
 
     expect(exitCode).toBe(1);
-    const output = consoleLogs.join('\n');
+    const output = consoleErrors.join('\n');
     expect(output).toContain('not found');
   });
 

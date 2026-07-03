@@ -36,7 +36,7 @@ export function setupTagAttachCommand(program: Command): void {
         const task = taskService.getTask(parsedTaskId);
         if (!task) {
           formatter.error(`Task with ID ${taskId} not found`, () => {
-            console.log(chalk.red(`\nError: Task with ID ${taskId} not found\n`));
+            console.error(chalk.red(`\nError: Task with ID ${taskId} not found\n`));
           });
           process.exit(1);
         }
@@ -46,7 +46,7 @@ export function setupTagAttachCommand(program: Command): void {
         if (!tag) {
           const message = byId ? `Tag with ID ${tagId} not found` : `Tag with name "${tagId}" not found`;
           formatter.error(message, () => {
-            console.log(chalk.red(`\nError: ${message}\n`));
+            console.error(chalk.red(`\nError: ${message}\n`));
           });
           process.exit(1);
         }
@@ -78,15 +78,15 @@ export function setupTagAttachCommand(program: Command): void {
         } catch (error) {
           if (error instanceof ConflictError) {
             formatter.error('This task already has this tag attached', () => {
-              console.log(chalk.red('\n✗ Error: This task already has this tag attached\n'));
+              console.error(chalk.red('\n✗ Error: This task already has this tag attached\n'));
             });
           } else if (error instanceof Error) {
             formatter.error(error.message, () => {
-              console.log(chalk.red(`\n✗ Error: ${error.message}\n`));
+              console.error(chalk.red(`\n✗ Error: ${error.message}\n`));
             });
           } else {
             formatter.error('An unknown error occurred', () => {
-              console.log(chalk.red('\n✗ An unknown error occurred\n'));
+              console.error(chalk.red('\n✗ An unknown error occurred\n'));
             });
           }
           process.exit(1);
@@ -94,11 +94,11 @@ export function setupTagAttachCommand(program: Command): void {
       } catch (error) {
         if (error instanceof Error) {
           formatter.error(error.message, () => {
-            console.log(chalk.red(`\n✗ Error: ${error.message}\n`));
+            console.error(chalk.red(`\n✗ Error: ${error.message}\n`));
           });
         } else {
           formatter.error('An unknown error occurred', () => {
-            console.log(chalk.red('\n✗ An unknown error occurred\n'));
+            console.error(chalk.red('\n✗ An unknown error occurred\n'));
           });
         }
         process.exit(1);

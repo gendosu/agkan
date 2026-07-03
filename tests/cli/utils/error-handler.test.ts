@@ -2,14 +2,14 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { handleError, validateNumberInput, parseNumericArray } from '../../../src/cli/utils/error-handler';
 
 describe('error-handler', () => {
-  let consoleLogSpy: ReturnType<typeof vi.spyOn>;
+  let consoleErrorSpy: ReturnType<typeof vi.spyOn>;
 
   beforeEach(() => {
-    consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+    consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
   });
 
   afterEach(() => {
-    consoleLogSpy.mockRestore();
+    consoleErrorSpy.mockRestore();
   });
 
   describe('handleError', () => {
@@ -17,8 +17,8 @@ describe('error-handler', () => {
       const error = new Error('Test error message');
       handleError(error, { json: true });
 
-      expect(consoleLogSpy).toHaveBeenCalledOnce();
-      const output = consoleLogSpy.mock.calls[0][0];
+      expect(consoleErrorSpy).toHaveBeenCalledOnce();
+      const output = consoleErrorSpy.mock.calls[0][0];
 
       expect(output).toBeDefined();
       expect(typeof output).toBe('string');
@@ -32,8 +32,8 @@ describe('error-handler', () => {
       const error = new Error('Test error message');
       handleError(error, { json: false });
 
-      expect(consoleLogSpy).toHaveBeenCalledOnce();
-      const output = consoleLogSpy.mock.calls[0][0];
+      expect(consoleErrorSpy).toHaveBeenCalledOnce();
+      const output = consoleErrorSpy.mock.calls[0][0];
 
       expect(output).toBeDefined();
       expect(typeof output).toBe('string');
@@ -44,8 +44,8 @@ describe('error-handler', () => {
       const error = new Error('Test error message');
       handleError(error, {});
 
-      expect(consoleLogSpy).toHaveBeenCalledOnce();
-      const output = consoleLogSpy.mock.calls[0][0];
+      expect(consoleErrorSpy).toHaveBeenCalledOnce();
+      const output = consoleErrorSpy.mock.calls[0][0];
 
       expect(output).toBeDefined();
       expect(output).toContain('Test error message');

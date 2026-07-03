@@ -30,7 +30,7 @@ export function setupTaskFindCommand(program: Command): void {
 
         if (!keyword || keyword.trim() === '') {
           formatter.error('Search keyword is required', () => {
-            console.log(chalk.red('\nError: Search keyword is required\n'));
+            console.error(chalk.red('\nError: Search keyword is required\n'));
           });
           process.exit(1);
         }
@@ -139,7 +139,7 @@ export function setupTaskFindCommand(program: Command): void {
           formatter.error(error.message);
         } else {
           formatter.error('An unknown error occurred', () => {
-            console.log(chalk.red('\n✗ An unknown error occurred\n'));
+            console.error(chalk.red('\n✗ An unknown error occurred\n'));
           });
         }
         process.exit(1);

@@ -37,14 +37,14 @@ export function setupBlockRemoveCommand(program: Command): void {
 
         if (blockerTaskId === null) {
           formatter.error('Blocker task ID must be a number', () => {
-            console.log(chalk.red('\nError: Blocker task ID must be a number\n'));
+            console.error(chalk.red('\nError: Blocker task ID must be a number\n'));
           });
           process.exit(1);
         }
 
         if (blockedTaskId === null) {
           formatter.error('Blocked task ID must be a number', () => {
-            console.log(chalk.red('\nError: Blocked task ID must be a number\n'));
+            console.error(chalk.red('\nError: Blocked task ID must be a number\n'));
           });
           process.exit(1);
         }
@@ -53,7 +53,7 @@ export function setupBlockRemoveCommand(program: Command): void {
         const blockerTask = taskService.getTask(blockerTaskId);
         if (!blockerTask) {
           formatter.error(`Blocker task with ID ${blockerId} not found`, () => {
-            console.log(chalk.red(`\nError: Blocker task with ID ${blockerId} not found\n`));
+            console.error(chalk.red(`\nError: Blocker task with ID ${blockerId} not found\n`));
           });
           process.exit(1);
         }
@@ -61,7 +61,7 @@ export function setupBlockRemoveCommand(program: Command): void {
         const blockedTask = taskService.getTask(blockedTaskId);
         if (!blockedTask) {
           formatter.error(`Blocked task with ID ${blockedId} not found`, () => {
-            console.log(chalk.red(`\nError: Blocked task with ID ${blockedId} not found\n`));
+            console.error(chalk.red(`\nError: Blocked task with ID ${blockedId} not found\n`));
           });
           process.exit(1);
         }
@@ -71,16 +71,16 @@ export function setupBlockRemoveCommand(program: Command): void {
           const result = taskBlockService.removeBlock(blockerTaskId, blockedTaskId);
           if (!result) {
             formatter.error('Blocking relationship does not exist', () => {
-              console.log(chalk.red('\n✗ Error: Blocking relationship does not exist\n'));
+              console.error(chalk.red('\n✗ Error: Blocking relationship does not exist\n'));
             });
             process.exit(1);
           }
         } catch (error) {
           formatter.error(error instanceof Error ? error.message : 'An unknown error occurred', () => {
             if (error instanceof Error) {
-              console.log(chalk.red(`\n✗ Error: ${error.message}\n`));
+              console.error(chalk.red(`\n✗ Error: ${error.message}\n`));
             } else {
-              console.log(chalk.red('\n✗ An unknown error occurred\n'));
+              console.error(chalk.red('\n✗ An unknown error occurred\n'));
             }
           });
           process.exit(1);
@@ -111,9 +111,9 @@ export function setupBlockRemoveCommand(program: Command): void {
       } catch (error) {
         formatter.error(error instanceof Error ? error.message : 'An unknown error occurred', () => {
           if (error instanceof Error) {
-            console.log(chalk.red(`\n✗ Error: ${error.message}\n`));
+            console.error(chalk.red(`\n✗ Error: ${error.message}\n`));
           } else {
-            console.log(chalk.red('\n✗ An unknown error occurred\n'));
+            console.error(chalk.red('\n✗ An unknown error occurred\n'));
           }
         });
         process.exit(1);

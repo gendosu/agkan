@@ -174,6 +174,10 @@ describe('setupTaskUpdateCommand', () => {
     const originalLog = console.log;
     console.log = (...args: unknown[]) => consoleLogs.push(args.join(' '));
 
+    const consoleErrors: string[] = [];
+    const originalError = console.error;
+    console.error = (...args: unknown[]) => consoleErrors.push(args.join(' '));
+
     let exitCode: number | undefined;
     const originalExit = process.exit;
     process.exit = ((code?: number) => {
@@ -186,10 +190,11 @@ describe('setupTaskUpdateCommand', () => {
       await program.parseAsync(['node', 'test', 'task', 'update', String(task.id), 'title', longTitle]);
     } finally {
       console.log = originalLog;
+      console.error = originalError;
       process.exit = originalExit;
     }
 
-    const output = consoleLogs.join('\n');
+    const output = consoleErrors.join('\n');
     expect(output).toContain('200');
     expect(exitCode).toBe(1);
   });
@@ -203,6 +208,10 @@ describe('setupTaskUpdateCommand', () => {
     const originalLog = console.log;
     console.log = (...args: unknown[]) => consoleLogs.push(args.join(' '));
 
+    const consoleErrors: string[] = [];
+    const originalError = console.error;
+    console.error = (...args: unknown[]) => consoleErrors.push(args.join(' '));
+
     let exitCode: number | undefined;
     const originalExit = process.exit;
     process.exit = ((code?: number) => {
@@ -215,10 +224,11 @@ describe('setupTaskUpdateCommand', () => {
       await program.parseAsync(['node', 'test', 'task', 'update', String(task.id), 'body', longBody]);
     } finally {
       console.log = originalLog;
+      console.error = originalError;
       process.exit = originalExit;
     }
 
-    const output = consoleLogs.join('\n');
+    const output = consoleErrors.join('\n');
     expect(output).toContain('10000');
     expect(exitCode).toBe(1);
   });
@@ -232,6 +242,10 @@ describe('setupTaskUpdateCommand', () => {
     const originalLog = console.log;
     console.log = (...args: unknown[]) => consoleLogs.push(args.join(' '));
 
+    const consoleErrors: string[] = [];
+    const originalError = console.error;
+    console.error = (...args: unknown[]) => consoleErrors.push(args.join(' '));
+
     let exitCode: number | undefined;
     const originalExit = process.exit;
     process.exit = ((code?: number) => {
@@ -244,10 +258,11 @@ describe('setupTaskUpdateCommand', () => {
       await program.parseAsync(['node', 'test', 'task', 'update', String(task.id), 'author', longAuthor]);
     } finally {
       console.log = originalLog;
+      console.error = originalError;
       process.exit = originalExit;
     }
 
-    const output = consoleLogs.join('\n');
+    const output = consoleErrors.join('\n');
     expect(output).toContain('100');
     expect(exitCode).toBe(1);
   });
@@ -261,6 +276,10 @@ describe('setupTaskUpdateCommand', () => {
     const originalLog = console.log;
     console.log = (...args: unknown[]) => consoleLogs.push(args.join(' '));
 
+    const consoleErrors: string[] = [];
+    const originalError = console.error;
+    console.error = (...args: unknown[]) => consoleErrors.push(args.join(' '));
+
     let exitCode: number | undefined;
     const originalExit = process.exit;
     process.exit = ((code?: number) => {
@@ -273,10 +292,11 @@ describe('setupTaskUpdateCommand', () => {
       await program.parseAsync(['node', 'test', 'task', 'update', String(task.id), 'assignees', longAssignees]);
     } finally {
       console.log = originalLog;
+      console.error = originalError;
       process.exit = originalExit;
     }
 
-    const output = consoleLogs.join('\n');
+    const output = consoleErrors.join('\n');
     expect(output).toContain('500');
     expect(exitCode).toBe(1);
   });
@@ -290,6 +310,10 @@ describe('setupTaskUpdateCommand', () => {
     const originalLog = console.log;
     console.log = (...args: unknown[]) => consoleLogs.push(args.join(' '));
 
+    const consoleErrors: string[] = [];
+    const originalError = console.error;
+    console.error = (...args: unknown[]) => consoleErrors.push(args.join(' '));
+
     let exitCode: number | undefined;
     const originalExit = process.exit;
     process.exit = ((code?: number) => {
@@ -300,10 +324,11 @@ describe('setupTaskUpdateCommand', () => {
       await program.parseAsync(['node', 'test', 'task', 'update', String(task.id), 'unknown_field', 'value']);
     } finally {
       console.log = originalLog;
+      console.error = originalError;
       process.exit = originalExit;
     }
 
-    const output = consoleLogs.join('\n');
+    const output = consoleErrors.join('\n');
     expect(output).toContain('unknown_field');
     expect(exitCode).toBe(1);
   });
@@ -312,6 +337,10 @@ describe('setupTaskUpdateCommand', () => {
     const consoleLogs: string[] = [];
     const originalLog = console.log;
     console.log = (...args: unknown[]) => consoleLogs.push(args.join(' '));
+
+    const consoleErrors: string[] = [];
+    const originalError = console.error;
+    console.error = (...args: unknown[]) => consoleErrors.push(args.join(' '));
 
     let exitCode: number | undefined;
     const originalExit = process.exit;
@@ -323,10 +352,11 @@ describe('setupTaskUpdateCommand', () => {
       await program.parseAsync(['node', 'test', 'task', 'update', '999', 'status', 'ready']);
     } finally {
       console.log = originalLog;
+      console.error = originalError;
       process.exit = originalExit;
     }
 
-    const output = consoleLogs.join('\n');
+    const output = consoleErrors.join('\n');
     expect(output).toContain('999');
     expect(exitCode).toBe(1);
   });
@@ -335,6 +365,10 @@ describe('setupTaskUpdateCommand', () => {
     const consoleLogs: string[] = [];
     const originalLog = console.log;
     console.log = (...args: unknown[]) => consoleLogs.push(args.join(' '));
+
+    const consoleErrors: string[] = [];
+    const originalError = console.error;
+    console.error = (...args: unknown[]) => consoleErrors.push(args.join(' '));
 
     let exitCode: number | undefined;
     const originalExit = process.exit;
@@ -346,10 +380,11 @@ describe('setupTaskUpdateCommand', () => {
       await program.parseAsync(['node', 'test', 'task', 'update', 'abc', 'status', 'ready']);
     } finally {
       console.log = originalLog;
+      console.error = originalError;
       process.exit = originalExit;
     }
 
-    const output = consoleLogs.join('\n');
+    const output = consoleErrors.join('\n');
     expect(output).toContain('number');
     expect(exitCode).toBe(1);
   });
@@ -420,10 +455,10 @@ describe('setupTaskUpdateCommand', () => {
     });
 
     it('should output JSON error when task does not exist with --json flag', async () => {
-      const { exitCode, logs } = await runCommand(program, ['task', 'update', '999', 'status', 'ready', '--json']);
+      const { exitCode, errors } = await runCommand(program, ['task', 'update', '999', 'status', 'ready', '--json']);
       expect(exitCode).toBe(1);
 
-      const parsed = JSON.parse(logs[0]);
+      const parsed = JSON.parse(errors[0]);
       expect(parsed.success).toBe(false);
       expect(parsed.error.message).toContain('999');
     });
@@ -433,7 +468,7 @@ describe('setupTaskUpdateCommand', () => {
       taskService.createTask({ title: 'Test task', status: 'backlog' });
       const task = taskService.listTasks()[0];
 
-      const { exitCode, logs } = await runCommand(program, [
+      const { exitCode, errors } = await runCommand(program, [
         'task',
         'update',
         String(task.id),
@@ -443,16 +478,16 @@ describe('setupTaskUpdateCommand', () => {
       ]);
       expect(exitCode).toBe(1);
 
-      const parsed = JSON.parse(logs[0]);
+      const parsed = JSON.parse(errors[0]);
       expect(parsed.success).toBe(false);
       expect(parsed.error.message).toContain('invalid_field');
     });
 
     it('should output JSON error when ID is not a number with --json flag', async () => {
-      const { exitCode, logs } = await runCommand(program, ['task', 'update', 'abc', 'status', 'ready', '--json']);
+      const { exitCode, errors } = await runCommand(program, ['task', 'update', 'abc', 'status', 'ready', '--json']);
       expect(exitCode).toBe(1);
 
-      const parsed = JSON.parse(logs[0]);
+      const parsed = JSON.parse(errors[0]);
       expect(parsed.success).toBe(false);
       expect(parsed.error.message).toContain('number');
     });
@@ -529,7 +564,7 @@ describe('setupTaskUpdateCommand', () => {
       taskService.createTask({ title: 'Test task', status: 'backlog' });
       const task = taskService.listTasks()[0];
 
-      const { exitCode, logs } = await runCommand(program, [
+      const { exitCode, errors } = await runCommand(program, [
         'task',
         'update',
         String(task.id),
@@ -538,7 +573,7 @@ describe('setupTaskUpdateCommand', () => {
         '/nonexistent/path.md',
       ]);
       expect(exitCode).toBe(1);
-      expect(logs.join('\n')).toContain('Error reading file');
+      expect(errors.join('\n')).toContain('Error reading file');
     });
 
     it('should exit with error when body field and --file is not specified and value is missing', async () => {
@@ -546,9 +581,9 @@ describe('setupTaskUpdateCommand', () => {
       taskService.createTask({ title: 'Test task', status: 'backlog' });
       const task = taskService.listTasks()[0];
 
-      const { exitCode, logs } = await runCommand(program, ['task', 'update', String(task.id), 'body']);
+      const { exitCode, errors } = await runCommand(program, ['task', 'update', String(task.id), 'body']);
       expect(exitCode).toBe(1);
-      expect(logs.join('\n')).toContain('value');
+      expect(errors.join('\n')).toContain('value');
     });
 
     it('should exit with error when --file is used with non-body field', async () => {
@@ -565,7 +600,7 @@ describe('setupTaskUpdateCommand', () => {
       fs.writeFileSync(filePath, 'some content');
 
       try {
-        const { exitCode, logs } = await runCommand(program, [
+        const { exitCode, errors } = await runCommand(program, [
           'task',
           'update',
           String(task.id),
@@ -574,7 +609,7 @@ describe('setupTaskUpdateCommand', () => {
           filePath,
         ]);
         expect(exitCode).toBe(1);
-        expect(logs.join('\n')).toContain('--file');
+        expect(errors.join('\n')).toContain('--file');
       } finally {
         fs.rmSync(tmpDir, { recursive: true, force: true });
       }
@@ -676,7 +711,7 @@ describe('setupTaskUpdateCommand', () => {
       taskService.createTask({ title: 'Test', status: 'backlog' });
       const task = taskService.listTasks()[0];
 
-      const { exitCode, logs } = await runCommand(program, [
+      const { exitCode, errors } = await runCommand(program, [
         'task',
         'update',
         String(task.id),
@@ -684,7 +719,7 @@ describe('setupTaskUpdateCommand', () => {
         'invalid_status',
       ]);
       expect(exitCode).toBe(1);
-      expect(logs.join('\n')).toContain('Invalid status');
+      expect(errors.join('\n')).toContain('Invalid status');
     });
 
     it('should show error when no fields specified (no flags and no positional args)', async () => {
@@ -692,9 +727,19 @@ describe('setupTaskUpdateCommand', () => {
       taskService.createTask({ title: 'Test', status: 'backlog' });
       const task = taskService.listTasks()[0];
 
-      const { exitCode, logs } = await runCommand(program, ['task', 'update', String(task.id)]);
+      const { exitCode, errors } = await runCommand(program, ['task', 'update', String(task.id)]);
       expect(exitCode).toBe(1);
-      expect(logs.join('\n')).toContain('No fields specified');
+      expect(errors.join('\n')).toContain('No fields specified');
+    });
+
+    it('should show error when positional field is given without a value', async () => {
+      const taskService = new TaskService();
+      taskService.createTask({ title: 'Test', status: 'backlog' });
+      const task = taskService.listTasks()[0];
+
+      const { exitCode, errors } = await runCommand(program, ['task', 'update', String(task.id), 'title']);
+      expect(exitCode).toBe(1);
+      expect(errors.join('\n')).toContain("Missing value for field 'title'");
     });
 
     it('should use --file with flag mode for body', async () => {
@@ -744,7 +789,7 @@ describe('setupTaskUpdateCommand', () => {
       fs.writeFileSync(filePath, 'file content');
 
       try {
-        const { exitCode, logs } = await runCommand(program, [
+        const { exitCode, errors } = await runCommand(program, [
           'task',
           'update',
           String(task.id),
@@ -754,7 +799,7 @@ describe('setupTaskUpdateCommand', () => {
           filePath,
         ]);
         expect(exitCode).toBe(1);
-        expect(logs.join('\n')).toContain('Cannot specify both --body and --file');
+        expect(errors.join('\n')).toContain('Cannot specify both --body and --file');
       } finally {
         fs.rmSync(tmpDir, { recursive: true, force: true });
       }
@@ -813,7 +858,7 @@ describe('setupTaskUpdateCommand', () => {
       const taskService = new TaskService();
       const task = taskService.createTask({ title: 'Priority test' });
 
-      const { exitCode, logs } = await runCommand(program, [
+      const { exitCode, errors } = await runCommand(program, [
         'task',
         'update',
         String(task.id),
@@ -821,7 +866,7 @@ describe('setupTaskUpdateCommand', () => {
         'invalid',
       ]);
       expect(exitCode).toBe(1);
-      expect(logs.join('\n')).toContain('Invalid priority');
+      expect(errors.join('\n')).toContain('Invalid priority');
     });
 
     it('should update priority with positional syntax', async () => {

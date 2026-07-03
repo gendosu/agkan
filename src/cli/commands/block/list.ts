@@ -35,7 +35,7 @@ export function setupBlockListCommand(program: Command): void {
         const taskId = validateNumberInput(id);
         if (taskId === null) {
           formatter.error('Task ID must be a number', () => {
-            console.log(chalk.red('\nError: Task ID must be a number\n'));
+            console.error(chalk.red('\nError: Task ID must be a number\n'));
           });
           process.exit(1);
         }
@@ -44,7 +44,7 @@ export function setupBlockListCommand(program: Command): void {
         const task = taskService.getTask(taskId);
         if (!task) {
           formatter.error(`Task with ID ${id} not found`, () => {
-            console.log(chalk.red(`\nError: Task with ID ${id} not found\n`));
+            console.error(chalk.red(`\nError: Task with ID ${id} not found\n`));
           });
           process.exit(1);
         }
@@ -119,9 +119,9 @@ export function setupBlockListCommand(program: Command): void {
       } catch (error) {
         formatter.error(error instanceof Error ? error.message : 'An unknown error occurred', () => {
           if (error instanceof Error) {
-            console.log(chalk.red(`\n✗ Error: ${error.message}\n`));
+            console.error(chalk.red(`\n✗ Error: ${error.message}\n`));
           } else {
-            console.log(chalk.red('\n✗ An unknown error occurred\n'));
+            console.error(chalk.red('\n✗ An unknown error occurred\n'));
           }
         });
         process.exit(1);

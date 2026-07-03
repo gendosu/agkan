@@ -158,9 +158,9 @@ describe('setupTagShowCommand', () => {
   });
 
   it('should show error when task does not exist', async () => {
-    const consoleLogs: string[] = [];
-    const originalLog = console.log;
-    console.log = (...args: unknown[]) => consoleLogs.push(args.join(' '));
+    const consoleErrors: string[] = [];
+    const originalError = console.error;
+    console.error = (...args: unknown[]) => consoleErrors.push(args.join(' '));
 
     let exitCode: number | undefined;
     const originalExit = process.exit;
@@ -171,19 +171,19 @@ describe('setupTagShowCommand', () => {
     try {
       await program.parseAsync(['node', 'test', 'tag', 'show', '999']);
     } finally {
-      console.log = originalLog;
+      console.error = originalError;
       process.exit = originalExit;
     }
 
     expect(exitCode).toBe(1);
-    const output = consoleLogs.join('\n');
+    const output = consoleErrors.join('\n');
     expect(output).toContain('999');
   });
 
   it('should show JSON error when task does not exist with --json option', async () => {
-    const consoleLogs: string[] = [];
-    const originalLog = console.log;
-    console.log = (...args: unknown[]) => consoleLogs.push(args.join(' '));
+    const consoleErrors: string[] = [];
+    const originalError = console.error;
+    console.error = (...args: unknown[]) => consoleErrors.push(args.join(' '));
 
     const originalExit = process.exit;
     process.exit = (() => {}) as never;
@@ -191,19 +191,19 @@ describe('setupTagShowCommand', () => {
     try {
       await program.parseAsync(['node', 'test', 'tag', 'show', '999', '--json']);
     } finally {
-      console.log = originalLog;
+      console.error = originalError;
       process.exit = originalExit;
     }
 
-    const parsed = JSON.parse(consoleLogs[0]);
+    const parsed = JSON.parse(consoleErrors[0]);
     expect(parsed.success).toBe(false);
     expect(parsed.error).toBeDefined();
   });
 
   it('should show error when task ID is not a number', async () => {
-    const consoleLogs: string[] = [];
-    const originalLog = console.log;
-    console.log = (...args: unknown[]) => consoleLogs.push(args.join(' '));
+    const consoleErrors: string[] = [];
+    const originalError = console.error;
+    console.error = (...args: unknown[]) => consoleErrors.push(args.join(' '));
 
     let exitCode: number | undefined;
     const originalExit = process.exit;
@@ -214,12 +214,12 @@ describe('setupTagShowCommand', () => {
     try {
       await program.parseAsync(['node', 'test', 'tag', 'show', 'abc']);
     } finally {
-      console.log = originalLog;
+      console.error = originalError;
       process.exit = originalExit;
     }
 
     expect(exitCode).toBe(1);
-    const output = consoleLogs.join('\n');
+    const output = consoleErrors.join('\n');
     expect(output).toContain('number');
   });
 
@@ -233,9 +233,9 @@ describe('setupTagShowCommand', () => {
       throw new Error('plain error show');
     });
 
-    const consoleLogs: string[] = [];
-    const originalLog = console.log;
-    console.log = (...args: unknown[]) => consoleLogs.push(args.join(' '));
+    const consoleErrors: string[] = [];
+    const originalError = console.error;
+    console.error = (...args: unknown[]) => consoleErrors.push(args.join(' '));
 
     let exitCode: number | undefined;
     const originalExit = process.exit;
@@ -246,13 +246,13 @@ describe('setupTagShowCommand', () => {
     try {
       await program.parseAsync(['node', 'test', 'tag', 'show', '1']);
     } finally {
-      console.log = originalLog;
+      console.error = originalError;
       process.exit = originalExit;
       spy.mockRestore();
     }
 
     expect(exitCode).toBe(1);
-    const output = consoleLogs.join('\n');
+    const output = consoleErrors.join('\n');
     expect(output).toContain('plain error show');
   });
 
@@ -261,9 +261,9 @@ describe('setupTagShowCommand', () => {
       throw 'string error';
     });
 
-    const consoleLogs: string[] = [];
-    const originalLog = console.log;
-    console.log = (...args: unknown[]) => consoleLogs.push(args.join(' '));
+    const consoleErrors: string[] = [];
+    const originalError = console.error;
+    console.error = (...args: unknown[]) => consoleErrors.push(args.join(' '));
 
     let exitCode: number | undefined;
     const originalExit = process.exit;
@@ -274,13 +274,13 @@ describe('setupTagShowCommand', () => {
     try {
       await program.parseAsync(['node', 'test', 'tag', 'show', '1']);
     } finally {
-      console.log = originalLog;
+      console.error = originalError;
       process.exit = originalExit;
       spy.mockRestore();
     }
 
     expect(exitCode).toBe(1);
-    const output = consoleLogs.join('\n');
+    const output = consoleErrors.join('\n');
     expect(output).toContain('unknown error');
   });
 });

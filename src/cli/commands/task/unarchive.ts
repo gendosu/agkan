@@ -45,7 +45,7 @@ export function setupTaskUnarchiveCommand(program: Command): void {
         const id = parseInt(idStr, 10);
         if (isNaN(id)) {
           formatter.error(`Invalid task ID: ${idStr}`, () => {
-            console.log(chalk.red(`\nError: Invalid task ID: ${idStr}\n`));
+            console.error(chalk.red(`\nError: Invalid task ID: ${idStr}\n`));
           });
           process.exit(1);
           return;
@@ -54,7 +54,7 @@ export function setupTaskUnarchiveCommand(program: Command): void {
         const task = taskService.getTask(id);
         if (!task) {
           formatter.error(`Task ${id} not found`, () => {
-            console.log(chalk.red(`\nError: Task ${id} not found\n`));
+            console.error(chalk.red(`\nError: Task ${id} not found\n`));
           });
           process.exit(1);
           return;
@@ -85,7 +85,7 @@ export function setupTaskUnarchiveCommand(program: Command): void {
           handleError(error, options);
         } else {
           formatter.error('An unknown error occurred', () => {
-            console.log(chalk.red('\n✗ An unknown error occurred\n'));
+            console.error(chalk.red('\n✗ An unknown error occurred\n'));
           });
         }
         process.exit(1);

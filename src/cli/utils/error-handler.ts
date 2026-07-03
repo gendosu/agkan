@@ -13,9 +13,9 @@ import { formatJsonError } from './output-formatter';
  */
 export function handleError(error: Error, options: { json?: boolean }): void {
   if (options.json) {
-    console.log(formatJsonError(error.message));
+    console.error(formatJsonError(error.message));
   } else {
-    console.log(chalk.red(`\n✗ Error: ${error.message}\n`));
+    console.error(chalk.red(`\n✗ Error: ${error.message}\n`));
   }
 }
 
@@ -48,9 +48,9 @@ export function validateIdInput(input: string, entityName: string, options: { js
   const parsed = parseInt(input, 10);
   if (isNaN(parsed)) {
     if (options.json) {
-      console.log(formatJsonError(`${entityName} ID must be a number`));
+      console.error(formatJsonError(`${entityName} ID must be a number`));
     } else {
-      console.log(chalk.red(`\nError: ${entityName} ID must be a number\n`));
+      console.error(chalk.red(`\nError: ${entityName} ID must be a number\n`));
     }
     process.exit(1);
   }

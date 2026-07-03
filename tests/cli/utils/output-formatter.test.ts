@@ -3,13 +3,16 @@ import { createFormatter, formatJsonSuccess, formatJsonError } from '../../../sr
 
 describe('output-formatter', () => {
   let consoleSpy: ReturnType<typeof vi.spyOn>;
+  let consoleErrorSpy: ReturnType<typeof vi.spyOn>;
 
   beforeEach(() => {
     consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+    consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
   });
 
   afterEach(() => {
     consoleSpy.mockRestore();
+    consoleErrorSpy.mockRestore();
   });
 
   describe('createFormatter', () => {
@@ -64,8 +67,8 @@ describe('output-formatter', () => {
 
       formatter.error('Something went wrong');
 
-      expect(consoleSpy).toHaveBeenCalledOnce();
-      const output = JSON.parse(consoleSpy.mock.calls[0][0] as string);
+      expect(consoleErrorSpy).toHaveBeenCalledOnce();
+      const output = JSON.parse(consoleErrorSpy.mock.calls[0][0] as string);
       expect(output.success).toBe(false);
       expect(output.error.message).toBe('Something went wrong');
     });
@@ -77,7 +80,7 @@ describe('output-formatter', () => {
       formatter.error('Error message', textRender);
 
       expect(textRender).not.toHaveBeenCalled();
-      expect(consoleSpy).toHaveBeenCalledOnce();
+      expect(consoleErrorSpy).toHaveBeenCalledOnce();
     });
 
     it('should output JSON with pretty printing (2 spaces)', () => {
@@ -136,8 +139,8 @@ describe('output-formatter', () => {
 
       formatter.error('Default error message');
 
-      expect(consoleSpy).toHaveBeenCalledOnce();
-      const output = consoleSpy.mock.calls[0][0] as string;
+      expect(consoleErrorSpy).toHaveBeenCalledOnce();
+      const output = consoleErrorSpy.mock.calls[0][0] as string;
       expect(output).toContain('Default error message');
     });
 
@@ -146,7 +149,7 @@ describe('output-formatter', () => {
 
       formatter.error('Test error');
 
-      expect(consoleSpy).toHaveBeenCalledOnce();
+      expect(consoleErrorSpy).toHaveBeenCalledOnce();
     });
   });
 

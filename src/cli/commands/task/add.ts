@@ -51,7 +51,7 @@ export function setupTaskAddCommand(program: Command): void {
       try {
         if (!title) {
           formatter.error('Task title is required', () => {
-            console.log(chalk.red('Error: Task title is required'));
+            console.error(chalk.red('Error: Task title is required'));
           });
           process.exit(1);
         }
@@ -63,7 +63,7 @@ export function setupTaskAddCommand(program: Command): void {
           } catch (error) {
             const msg = error instanceof Error ? error.message : 'Error reading file';
             formatter.error(msg, () => {
-              console.log(chalk.red(msg));
+              console.error(chalk.red(msg));
             });
             process.exit(1);
             return;
@@ -80,7 +80,7 @@ export function setupTaskAddCommand(program: Command): void {
         if (validationErrors.length > 0) {
           const errorMessage = validationErrors.map((e) => e.message).join(', ');
           formatter.error(errorMessage, () => {
-            console.log(chalk.red(`\nError: ${errorMessage}\n`));
+            console.error(chalk.red(`\nError: ${errorMessage}\n`));
           });
           process.exit(1);
           return;
@@ -89,8 +89,8 @@ export function setupTaskAddCommand(program: Command): void {
         if (!validateTaskStatus(options.status)) {
           const message = `Invalid status: ${options.status}. Valid statuses: icebox, backlog, ready, in_progress, review, done, closed`;
           formatter.error(message, () => {
-            console.log(chalk.red(`Invalid status: ${options.status}`));
-            console.log('Valid statuses: icebox, backlog, ready, in_progress, review, done, closed');
+            console.error(chalk.red(`Invalid status: ${options.status}`));
+            console.error('Valid statuses: icebox, backlog, ready, in_progress, review, done, closed');
           });
           process.exit(1);
         }
@@ -98,8 +98,8 @@ export function setupTaskAddCommand(program: Command): void {
         if (options.priority && !isPriority(options.priority)) {
           const message = `Invalid priority: ${options.priority}. Valid priorities: critical, high, medium, low`;
           formatter.error(message, () => {
-            console.log(chalk.red(`Invalid priority: ${options.priority}`));
-            console.log('Valid priorities: critical, high, medium, low');
+            console.error(chalk.red(`Invalid priority: ${options.priority}`));
+            console.error('Valid priorities: critical, high, medium, low');
           });
           process.exit(1);
         }
@@ -109,7 +109,7 @@ export function setupTaskAddCommand(program: Command): void {
           const parsed = validateNumberInput(options.parent);
           if (parsed === null) {
             formatter.error('Parent ID must be a number', () => {
-              console.log(chalk.red('\nError: Parent ID must be a number\n'));
+              console.error(chalk.red('\nError: Parent ID must be a number\n'));
             });
             process.exit(1);
             return;
@@ -125,7 +125,7 @@ export function setupTaskAddCommand(program: Command): void {
         } catch (error) {
           const msg = error instanceof Error ? error.message : 'Invalid block IDs';
           formatter.error(msg, () => {
-            console.log(chalk.red(`\nError: ${msg}\n`));
+            console.error(chalk.red(`\nError: ${msg}\n`));
           });
           process.exit(1);
           return;
@@ -148,7 +148,7 @@ export function setupTaskAddCommand(program: Command): void {
         } catch (error) {
           const msg = error instanceof Error ? error.message : 'Error adding block relationships';
           formatter.error(msg, () => {
-            console.log(chalk.red(`\n✗ ${msg}\n`));
+            console.error(chalk.red(`\n✗ ${msg}\n`));
           });
           process.exit(1);
           return;
@@ -169,7 +169,7 @@ export function setupTaskAddCommand(program: Command): void {
           handleError(error, options);
         } else {
           formatter.error('An unknown error occurred', () => {
-            console.log(chalk.red('\n✗ An unknown error occurred\n'));
+            console.error(chalk.red('\n✗ An unknown error occurred\n'));
           });
         }
         process.exit(1);

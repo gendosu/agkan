@@ -67,29 +67,29 @@ describe('setupTaskCopyCommand', () => {
 
   describe('ID validation', () => {
     it('should exit with error when ID is not a number', async () => {
-      const { exitCode, logs } = await runCommand(program, ['task', 'copy', 'abc']);
+      const { exitCode, errors } = await runCommand(program, ['task', 'copy', 'abc']);
       expect(exitCode).toBe(1);
-      expect(logs.join('\n')).toContain('Task ID must be a number');
+      expect(errors.join('\n')).toContain('Task ID must be a number');
     });
 
     it('should output JSON error when ID is not a number with --json', async () => {
-      const { exitCode, logs } = await runCommand(program, ['task', 'copy', 'abc', '--json']);
+      const { exitCode, errors } = await runCommand(program, ['task', 'copy', 'abc', '--json']);
       expect(exitCode).toBe(1);
-      const output = JSON.parse(logs[0]);
+      const output = JSON.parse(errors[0]);
       expect(output.success).toBe(false);
       expect(output.error.message).toContain('Task ID must be a number');
     });
 
     it('should exit with error when task does not exist', async () => {
-      const { exitCode, logs } = await runCommand(program, ['task', 'copy', '99999']);
+      const { exitCode, errors } = await runCommand(program, ['task', 'copy', '99999']);
       expect(exitCode).toBe(1);
-      expect(logs.join('\n')).toContain('not found');
+      expect(errors.join('\n')).toContain('not found');
     });
 
     it('should output JSON error when task does not exist with --json', async () => {
-      const { exitCode, logs } = await runCommand(program, ['task', 'copy', '99999', '--json']);
+      const { exitCode, errors } = await runCommand(program, ['task', 'copy', '99999', '--json']);
       expect(exitCode).toBe(1);
-      const output = JSON.parse(logs[0]);
+      const output = JSON.parse(errors[0]);
       expect(output.success).toBe(false);
       expect(output.error.message).toContain('not found');
     });
@@ -98,7 +98,7 @@ describe('setupTaskCopyCommand', () => {
   describe('status validation', () => {
     it('should exit with error for invalid status', async () => {
       const original = taskService.createTask({ title: 'Original Task' });
-      const { exitCode, logs } = await runCommand(program, [
+      const { exitCode, errors } = await runCommand(program, [
         'task',
         'copy',
         original.id.toString(),
@@ -106,7 +106,7 @@ describe('setupTaskCopyCommand', () => {
         'invalid',
       ]);
       expect(exitCode).toBe(1);
-      expect(logs.join('\n')).toContain('Invalid status');
+      expect(errors.join('\n')).toContain('Invalid status');
     });
   });
 
