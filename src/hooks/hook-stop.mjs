@@ -181,9 +181,20 @@ async function main() {
   // Signalling "complete" while Monitor is active would abort the wait.
   if (lastTool?.name === 'Monitor') return;
 
-  // Status-based termination check: if the target status has been reached, send complete,
-  // overriding the background-job/ScheduleWakeup guards below — the agent having advanced
-  // the status itself is treated as the completion signal.
+  // If a background Bash/Task (e.g. an orchestrated sub-agent) was started in an earlier
+  // turn and hasn't completed yet, keep the session alive instead of sending complete.
+  // This guard takes priority over the status-based check below: a sub-agent advancing
+  // the task's status (even to a terminal one) is not a reliable completion signal while
+  // other background work is still in flight — sending complete here would tear down the
+  // PTY process tree and kill the still-running sub-agent along with it (see #666).
+  const backgroundJobIds = findBackgroundJobToolUses(entries);
+  const hasUnfinishedBackgroundJob = backgroundJobIds.some((id) => !isBackgroundJobComplete(entries, id));
+  if (hasUnfinishedBackgroundJob) return;
+
+  // Status-based termination check: if the target status has been reached, send complete.
+  // This is what lets a ScheduleWakeup self-wakeup loop (#665) terminate even though there
+  // is no further tool_use to react to — safe here because the guard above has already
+  // confirmed there is no unfinished background job left to protect.
   const targetStatus = process.env.BOARD_TARGET_STATUS;
   if (targetStatus) {
     const reached = await isTargetStatusReached(apiUrl, token, taskId, targetStatus);
@@ -192,12 +203,6 @@ async function main() {
       return;
     }
   }
-
-  // If a background Bash/Task was started in an earlier turn and hasn't completed yet,
-  // keep the session alive instead of sending complete.
-  const backgroundJobIds = findBackgroundJobToolUses(entries);
-  const hasUnfinishedBackgroundJob = backgroundJobIds.some((id) => !isBackgroundJobComplete(entries, id));
-  if (hasUnfinishedBackgroundJob) return;
 
   await notifyComplete(apiUrl, token, taskId, sessionFile);
 }

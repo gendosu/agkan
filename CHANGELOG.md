@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 - Fix Board run sessions not terminating when the agent finishes via /loop self-wakeup, by ending the session once the task reaches its target status (#665)
+- Fix the Stop hook sending `complete` (killing the PTY process tree, including any still-running background sub-agents) as soon as the target status was reached, even while a background sub-agent or Bash job was still running; the background-job guard now takes priority over the status-reached check (#666)
 
 ## [3.15.0] - 2026-07-02
 
