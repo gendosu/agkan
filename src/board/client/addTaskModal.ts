@@ -4,9 +4,7 @@ import { showToast } from './utils';
 import { allAvailableTags } from './tags';
 import type { Tag } from './types';
 import { refreshBoardCards } from './boardPolling';
-
-const BRANCH_AUTO_GENERATE = '<auto-generate>';
-const BRANCH_AUTO_GENERATE_DISPLAY = '✨ Auto-generate on run';
+import { initBranchSelector, type BranchSelector } from './branchSelector';
 
 interface AddModalElements {
   addModal: HTMLElement;
@@ -24,83 +22,9 @@ let selectedTags: Tag[] = [];
 let tagInputValue = '';
 let tagFocusedIndex = -1;
 
-// State for branch suggestions
-let branchSuggestions: string[] = [];
-let branchSuggestionsLoaded = false;
-
-// State for branch internal value (sent on submit)
-let branchInternalValue: string = BRANCH_AUTO_GENERATE;
-
-async function loadBranchSuggestions(): Promise<void> {
-  if (branchSuggestionsLoaded) return;
-  try {
-    const res = await fetch('/api/git/branches');
-    if (!res.ok) throw new Error('Server error');
-    const data = (await res.json()) as { branches: string[] };
-    branchSuggestions = data.branches;
-  } catch {
-    branchSuggestions = [];
-  }
-  branchSuggestionsLoaded = true;
-}
-
-function setBranchAutoMode(input: HTMLInputElement): void {
-  branchInternalValue = BRANCH_AUTO_GENERATE;
-  input.value = BRANCH_AUTO_GENERATE_DISPLAY;
-  input.readOnly = true;
-  input.classList.add('branch-auto-mode');
-}
-
-function setBranchManualMode(input: HTMLInputElement, branch: string): void {
-  branchInternalValue = branch;
-  input.value = branch;
-  input.readOnly = false;
-  input.classList.remove('branch-auto-mode');
-}
-
-function renderBranchDropdown(dropdown: HTMLElement, inputValue: string): void {
-  const input = document.getElementById('add-branch') as HTMLInputElement;
-  // When in auto-generate mode, show all suggestions unfiltered
-  const isAutoMode = branchInternalValue === BRANCH_AUTO_GENERATE;
-  const q = isAutoMode ? '' : inputValue.trim().toLowerCase();
-  const filtered = q ? branchSuggestions.filter((b) => b.toLowerCase().includes(q)) : branchSuggestions;
-
-  dropdown.innerHTML = '';
-
-  // Fixed top item: auto-generate
-  const autoOpt = document.createElement('div');
-  autoOpt.className = 'branch-select-option branch-select-option-auto';
-  autoOpt.textContent = BRANCH_AUTO_GENERATE_DISPLAY;
-  if (branchInternalValue === BRANCH_AUTO_GENERATE) {
-    autoOpt.classList.add('selected');
-  }
-  autoOpt.addEventListener('mousedown', (e: MouseEvent) => {
-    e.preventDefault();
-    if (input) setBranchAutoMode(input);
-    dropdown.style.display = 'none';
-  });
-  dropdown.appendChild(autoOpt);
-
-  // Separator
-  const separator = document.createElement('div');
-  separator.className = 'branch-select-separator';
-  dropdown.appendChild(separator);
-
-  // Git branch list
-  filtered.forEach((branch) => {
-    const opt = document.createElement('div');
-    opt.className = 'branch-select-option';
-    opt.textContent = branch;
-    opt.addEventListener('mousedown', (e: MouseEvent) => {
-      e.preventDefault();
-      if (input) setBranchManualMode(input, branch);
-      dropdown.style.display = 'none';
-    });
-    dropdown.appendChild(opt);
-  });
-
-  dropdown.style.display = 'block';
-}
+// Branch selector instance, created once during init and reused across
+// modal opens (see resetAddModal / submitAddTask).
+let branchSelector: BranchSelector | null = null;
 
 function getFilteredAddTags(): Tag[] {
   const selectedIds = new Set(selectedTags.map((t) => t.id));
@@ -324,10 +248,7 @@ function resetAddModal(elements: AddModalElements): void {
     renderAddTagPills(control, input);
   }
   // Reset branch to auto-generate default
-  const branchInput = document.getElementById('add-branch') as HTMLInputElement;
-  if (branchInput) setBranchAutoMode(branchInput);
-  const branchDropdown = document.getElementById('add-branch-dropdown') as HTMLElement;
-  if (branchDropdown) branchDropdown.style.display = 'none';
+  branchSelector?.reset();
   // Reset metadata rows
   elements.addMetadataRows.innerHTML = '';
 }
@@ -362,7 +283,7 @@ async function submitAddTask(elements: AddModalElements): Promise<void> {
         priority: elements.addPriority.value || null,
         tags: tags.length > 0 ? tags : undefined,
         metadata: metadata.length > 0 ? metadata : undefined,
-        branch: branchInternalValue || undefined,
+        branch: branchSelector?.getValue() || undefined,
       }),
     });
     if (!res.ok) throw new Error('Server error');
@@ -387,41 +308,7 @@ export function initAddTaskModal(): void {
   initAddTagSelector();
 
   // Wire branch input events
-  const branchInput = document.getElementById('add-branch') as HTMLInputElement;
-  const branchDropdown = document.getElementById('add-branch-dropdown') as HTMLElement;
-
-  if (branchInput && branchDropdown) {
-    branchInput.addEventListener('focus', async () => {
-      await loadBranchSuggestions();
-      renderBranchDropdown(branchDropdown, branchInput.value);
-    });
-
-    branchInput.addEventListener('keydown', (e: KeyboardEvent) => {
-      if (branchInput.readOnly && e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
-        e.preventDefault();
-        branchInput.readOnly = false;
-        branchInput.classList.remove('branch-auto-mode');
-        branchInternalValue = e.key;
-        branchInput.value = e.key;
-        renderBranchDropdown(branchDropdown, e.key);
-      }
-    });
-
-    branchInput.addEventListener('input', () => {
-      if (branchInternalValue === BRANCH_AUTO_GENERATE) {
-        branchInput.readOnly = false;
-        branchInput.classList.remove('branch-auto-mode');
-      }
-      branchInternalValue = branchInput.value;
-      renderBranchDropdown(branchDropdown, branchInput.value);
-    });
-
-    branchInput.addEventListener('blur', () => {
-      setTimeout(() => {
-        branchDropdown.style.display = 'none';
-      }, 150);
-    });
-  }
+  branchSelector = initBranchSelector({ inputId: 'add-branch', dropdownId: 'add-branch-dropdown' });
 
   document.querySelectorAll<HTMLButtonElement>('.add-btn').forEach((btn) => {
     btn.addEventListener('click', (e: MouseEvent) => {
