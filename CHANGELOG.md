@@ -10,6 +10,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - Add `--tag <names-or-ids>` option to `task add` to attach tags (by name or ID) at creation time, instead of requiring a separate `tag attach` command (#650)
 
+### Fixed
+- Fix `task list` help text not documenting `-s, --status`'s comma-separated multi-value support and valid values, and `--all`'s help text omitting that it includes `icebox` (#658)
+
 ## [3.16.0] - 2026-07-04
 
 ### Added
