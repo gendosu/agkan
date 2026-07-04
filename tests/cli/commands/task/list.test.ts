@@ -397,6 +397,44 @@ describe('setupTaskListCommand', () => {
     expect(parsed.tasks[0].title).toBe('Matched Child JSON');
   });
 
+  it('should not duplicate a matched grandchild when an ancestor further up already matches the filter', async () => {
+    const taskService = new TaskService();
+    const grandparent = taskService.createTask({ title: 'Matched Grandparent', status: 'in_progress' });
+    const parent = taskService.createTask({
+      title: 'Unmatched Parent',
+      status: 'backlog',
+      parent_id: grandparent.id,
+    });
+    taskService.createTask({ title: 'Matched Grandchild', status: 'in_progress', parent_id: parent.id });
+
+    const consoleLogs: string[] = [];
+    const originalLog = console.log;
+    console.log = (...args: unknown[]) => consoleLogs.push(args.join(' '));
+
+    const originalExit = process.exit;
+    process.exit = (() => {}) as never;
+
+    try {
+      await program.parseAsync(['node', 'test', 'task', 'list', '--tree', '--json', '--status', 'in_progress']);
+    } finally {
+      console.log = originalLog;
+      process.exit = originalExit;
+    }
+
+    const parsed = JSON.parse(consoleLogs[0]);
+    // Grandparent matches the filter and is a real root, so its full (unfiltered)
+    // subtree — including the excluded Parent and the matched Grandchild — renders
+    // under it. Grandchild's immediate parent is excluded from the result set, but
+    // walking the full ancestor chain finds Grandparent already in the result set,
+    // so Grandchild must NOT also be promoted to a separate pseudo-root.
+    expect(parsed.tasks).toHaveLength(1);
+    expect(parsed.tasks[0].title).toBe('Matched Grandparent');
+    expect(parsed.tasks[0].children).toHaveLength(1);
+    expect(parsed.tasks[0].children[0].title).toBe('Unmatched Parent');
+    expect(parsed.tasks[0].children[0].children).toHaveLength(1);
+    expect(parsed.tasks[0].children[0].children[0].title).toBe('Matched Grandchild');
+  });
+
   it('should include assignees in tree JSON output', async () => {
     const taskService = new TaskService();
     const parent = taskService.createTask({ title: 'Root Assignees Task', status: 'ready', assignees: 'alice,bob' });
