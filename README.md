@@ -91,6 +91,11 @@ Create from Markdown file:
 agkan task add "Design review" --file ./design-doc.md --status backlog
 ```
 
+Create with tags (comma-separated names or IDs, attached in the same command):
+```bash
+agkan task add "Implement login feature" --tag "frontend,urgent"
+```
+
 JSON output format:
 ```bash
 agkan task add "Fix bug in login" --json
@@ -419,6 +424,11 @@ agkan tag list --json
 Attach a tag to a task:
 ```bash
 agkan tag attach 1 "frontend"
+```
+
+Or attach tags at creation time with `task add --tag`, instead of a separate `tag attach` call:
+```bash
+agkan task add "Implement login screen" --tag "frontend,urgent"
 ```
 
 Remove a tag from a task:
@@ -800,6 +810,10 @@ agkan task add "API development"
 # Output: Task created with ID: 2
 
 agkan tag attach 2 "backend"
+
+# Or attach tags in the same command with --tag
+agkan task add "Bug fix in payment flow" --tag "backend,urgent"
+# Output: Task created with ID: 3
 
 # Filter by tag
 agkan task list --tag "frontend"
