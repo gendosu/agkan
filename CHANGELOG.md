@@ -7,8 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.15.2] - 2026-07-04
+
 ### Fixed
 - Fix Board "Planning" (and Run/PR) buttons failing with `Claude起動エラー ... HTTP 500: posix_spawnp failed.` when node-pty's prebuilt `spawn-helper` lost its execute bit (pnpm on macOS clones it from the store as mode 0644, resetting +x on every install). The server now self-heals the binary's permissions on startup, a `postinstall` script re-applies +x after every install, and spawn failures are now logged server-side with task context
+- Fix `updated_at` on archive/unarchive using ambient system time instead of the app-generated ISO 8601 timestamp (#624)
+- Fix export/import losing a task's priority, branch, and archived state; these fields are now preserved (#622)
+- Fix tree view and CLI dependency-tree rendering hiding filtered-in child tasks when their ancestors were filtered out, by walking the full ancestor chain to pick pseudo-roots (#627)
+- Fix Board API returning generic error responses by mapping `AgkanError` subtypes to their proper HTTP status codes (#625)
+- Fix `test_hook_attention.sh` e2e test still referencing the removed `/api/attention/stream` endpoint instead of the unified `/api/board/stream` endpoint (#671)
 
 ## [3.15.1] - 2026-07-03
 
