@@ -247,23 +247,29 @@ describe('mainBtn click', () => {
 
   it('handles network error on startBulkRun gracefully', async () => {
     const { mainBtn } = makeBulkRunSplit();
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
     vi.mocked(fetch).mockRejectedValue(new Error('network'));
     initBulkRunButton();
 
     mainBtn.click();
-    await new Promise((r) => setTimeout(r, 10));
+    await vi.waitFor(() => {
+      expect(consoleError).toHaveBeenCalledWith('[bulkRun] Network error:', expect.any(Error));
+    });
     // should not throw
   });
 
   it('handles network error on stopBulkRun gracefully', async () => {
     const { mainBtn } = makeBulkRunSplit();
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
     vi.mocked(fetch).mockRejectedValue(new Error('network'));
     initBulkRunButton();
 
     MockEventSource.lastInstance!.dispatch('update', { mode: 'running' });
 
     mainBtn.click();
-    await new Promise((r) => setTimeout(r, 10));
+    await vi.waitFor(() => {
+      expect(consoleError).toHaveBeenCalledWith('[bulkRun] Failed to stop:', expect.any(Error));
+    });
     // should not throw
   });
 });
@@ -288,10 +294,10 @@ describe('menu item click', () => {
     initBulkRunButton();
 
     menuItem1.click();
-    await new Promise((r) => setTimeout(r, 10));
-
-    const body = JSON.parse(vi.mocked(fetch).mock.calls[0][1]!.body as string);
-    expect(body.command).toBe('direct');
+    await vi.waitFor(() => {
+      const body = JSON.parse(vi.mocked(fetch).mock.calls[0][1]!.body as string);
+      expect(body.command).toBe('direct');
+    });
   });
 
   it('calls startBulkRun with pr command', async () => {
@@ -300,10 +306,10 @@ describe('menu item click', () => {
     initBulkRunButton();
 
     menuItem2.click();
-    await new Promise((r) => setTimeout(r, 10));
-
-    const body = JSON.parse(vi.mocked(fetch).mock.calls[0][1]!.body as string);
-    expect(body.command).toBe('pr');
+    await vi.waitFor(() => {
+      const body = JSON.parse(vi.mocked(fetch).mock.calls[0][1]!.body as string);
+      expect(body.command).toBe('pr');
+    });
   });
 
   it('removes open class from split on click', async () => {
@@ -313,9 +319,9 @@ describe('menu item click', () => {
 
     split.classList.add('open');
     menuItem1.click();
-    await new Promise((r) => setTimeout(r, 10));
-
-    expect(split.classList.contains('open')).toBe(false);
+    await vi.waitFor(() => {
+      expect(split.classList.contains('open')).toBe(false);
+    });
   });
 
   it('defaults to direct command when data-command is missing', async () => {
@@ -327,10 +333,10 @@ describe('menu item click', () => {
     initBulkRunButton();
 
     noCommandItem.click();
-    await new Promise((r) => setTimeout(r, 10));
-
-    const body = JSON.parse(vi.mocked(fetch).mock.calls[0][1]!.body as string);
-    expect(body.command).toBe('direct');
+    await vi.waitFor(() => {
+      const body = JSON.parse(vi.mocked(fetch).mock.calls[0][1]!.body as string);
+      expect(body.command).toBe('direct');
+    });
   });
 });
 

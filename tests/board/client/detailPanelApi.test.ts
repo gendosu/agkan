@@ -395,12 +395,21 @@ describe('savePanelWidthToConfig', () => {
   });
 
   it('does not throw even when fetch rejects', async () => {
-    global.fetch = vi.fn().mockRejectedValue(new Error('Network error'));
+    let settled = false;
+    global.fetch = vi.fn().mockImplementation(() =>
+      Promise.reject(new Error('Network error')).finally(() => {
+        settled = true;
+      })
+    );
 
     expect(() => savePanelWidthToConfig(400)).not.toThrow();
 
-    // Allow the rejected promise to settle without causing unhandled rejection
-    await new Promise((resolve) => setTimeout(resolve, 10));
+    // savePanelWidthToConfig swallows the rejection via fetch(...).catch(() => {}).
+    // Wait for the mocked fetch promise to actually settle so we know the rejection
+    // was handled internally rather than merely asserting immediately after the call.
+    await vi.waitFor(() => {
+      expect(settled).toBe(true);
+    });
   });
 });
 

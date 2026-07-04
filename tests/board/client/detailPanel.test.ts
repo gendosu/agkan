@@ -153,8 +153,11 @@ describe('renderDetailPanel - tag loading failure', () => {
 
     expect(() => renderDetailPanel(data)).not.toThrow();
 
-    // Allow all microtasks to flush so the promise chain completes
-    await new Promise((resolve) => setTimeout(resolve, 50));
+    // Comments fetch resolves even though tags fetch failed — wait for the
+    // comments tab label to reflect the completed async chain.
+    await vi.waitFor(() => {
+      expect(document.getElementById('detail-tab-comments')?.textContent).toBe('Comments (0)');
+    });
   });
 
   it('does not throw when loadAllTags fetch returns non-ok response', async () => {
@@ -173,7 +176,11 @@ describe('renderDetailPanel - tag loading failure', () => {
 
     expect(() => renderDetailPanel(data)).not.toThrow();
 
-    await new Promise((resolve) => setTimeout(resolve, 50));
+    // Comments fetch resolves even though tags fetch failed — wait for the
+    // comments tab label to reflect the completed async chain.
+    await vi.waitFor(() => {
+      expect(document.getElementById('detail-tab-comments')?.textContent).toBe('Comments (0)');
+    });
   });
 
   it('renders panel details correctly even when tags fail to load', async () => {
@@ -191,15 +198,15 @@ describe('renderDetailPanel - tag loading failure', () => {
     const data = makeTaskDetail();
     renderDetailPanel(data);
 
-    await new Promise((resolve) => setTimeout(resolve, 50));
+    await vi.waitFor(() => {
+      // Panel title should be updated
+      const title = document.getElementById('detail-panel-title');
+      expect(title?.textContent).toBe('#1');
 
-    // Panel title should be updated
-    const title = document.getElementById('detail-panel-title');
-    expect(title?.textContent).toBe('#1');
-
-    // Details pane should contain status select
-    const detailsPane = document.getElementById('detail-tab-content-details');
-    expect(detailsPane?.innerHTML).toContain('detail-edit-status');
+      // Details pane should contain status select
+      const detailsPane = document.getElementById('detail-tab-content-details');
+      expect(detailsPane?.innerHTML).toContain('detail-edit-status');
+    });
   });
 });
 
@@ -456,10 +463,10 @@ describe('renderDetailPanel - successful tag loading', () => {
     const data = makeTaskDetail({ tags: [{ id: 1, name: 'bug' }] });
     renderDetailPanel(data);
 
-    await new Promise((resolve) => setTimeout(resolve, 50));
-
-    const tagsContainer = document.getElementById('detail-tags-container');
-    expect(tagsContainer).not.toBeNull();
+    await vi.waitFor(() => {
+      const tagsContainer = document.getElementById('detail-tags-container');
+      expect(tagsContainer).not.toBeNull();
+    });
   });
 
   it('renders with existing task tags shown as pills', async () => {
@@ -480,16 +487,16 @@ describe('renderDetailPanel - successful tag loading', () => {
     const data = makeTaskDetail({ tags: [{ id: 2, name: 'feature' }] });
     renderDetailPanel(data);
 
-    await new Promise((resolve) => setTimeout(resolve, 100));
-
-    // The tag pill for "feature" should be visible in the container
-    const pill = document.querySelector('.tag-pill');
-    if (pill) {
-      expect(pill.textContent).toContain('feature');
-    } else {
-      // The container exists and renderTagsSection was called successfully
-      expect(document.getElementById('detail-tags-container')).not.toBeNull();
-    }
+    await vi.waitFor(() => {
+      // The tag pill for "feature" should be visible in the container
+      const pill = document.querySelector('.tag-pill');
+      if (pill) {
+        expect(pill.textContent).toContain('feature');
+      } else {
+        // The container exists and renderTagsSection was called successfully
+        expect(document.getElementById('detail-tags-container')).not.toBeNull();
+      }
+    });
   });
 });
 
@@ -518,10 +525,10 @@ describe('renderDetailPanel - metadata table', () => {
     });
     renderDetailPanel(data);
 
-    await new Promise((resolve) => setTimeout(resolve, 50));
-
-    const detailsPane = document.getElementById('detail-tab-content-details');
-    expect(detailsPane?.querySelector('.detail-meta-table')).not.toBeNull();
+    await vi.waitFor(() => {
+      const detailsPane = document.getElementById('detail-tab-content-details');
+      expect(detailsPane?.querySelector('.detail-meta-table')).not.toBeNull();
+    });
   });
 
   it('renders all metadata keys and values in the table', async () => {
@@ -539,13 +546,13 @@ describe('renderDetailPanel - metadata table', () => {
     });
     renderDetailPanel(data);
 
-    await new Promise((resolve) => setTimeout(resolve, 50));
-
-    const detailsPane = document.getElementById('detail-tab-content-details');
-    expect(detailsPane?.innerHTML).toContain('branch');
-    expect(detailsPane?.innerHTML).toContain('feat/my-branch');
-    expect(detailsPane?.innerHTML).toContain('pr');
-    expect(detailsPane?.innerHTML).toContain('https://github.com/org/repo/pull/42');
+    await vi.waitFor(() => {
+      const detailsPane = document.getElementById('detail-tab-content-details');
+      expect(detailsPane?.innerHTML).toContain('branch');
+      expect(detailsPane?.innerHTML).toContain('feat/my-branch');
+      expect(detailsPane?.innerHTML).toContain('pr');
+      expect(detailsPane?.innerHTML).toContain('https://github.com/org/repo/pull/42');
+    });
   });
 
   it('does not render metadata table when metadata array is empty', async () => {
@@ -558,10 +565,10 @@ describe('renderDetailPanel - metadata table', () => {
     const data = makeTaskDetail({ metadata: [] });
     renderDetailPanel(data);
 
-    await new Promise((resolve) => setTimeout(resolve, 50));
-
-    const detailsPane = document.getElementById('detail-tab-content-details');
-    expect(detailsPane?.querySelector('.detail-meta-table')).toBeNull();
+    await vi.waitFor(() => {
+      const detailsPane = document.getElementById('detail-tab-content-details');
+      expect(detailsPane?.querySelector('.detail-meta-table')).toBeNull();
+    });
   });
 
   it('renders all metadata keys in the metadata table', async () => {
@@ -579,15 +586,15 @@ describe('renderDetailPanel - metadata table', () => {
     });
     renderDetailPanel(data);
 
-    await new Promise((resolve) => setTimeout(resolve, 50));
-
-    const table = document.querySelector('.detail-meta-table');
-    expect(table).not.toBeNull();
-    const rows = table?.querySelectorAll('tr');
-    // Both rows should be present
-    expect(rows?.length).toBe(2);
-    expect(table?.innerHTML).toContain('sprint');
-    expect(table?.innerHTML).toContain('branch');
+    await vi.waitFor(() => {
+      const table = document.querySelector('.detail-meta-table');
+      expect(table).not.toBeNull();
+      const rows = table?.querySelectorAll('tr');
+      // Both rows should be present
+      expect(rows?.length).toBe(2);
+      expect(table?.innerHTML).toContain('sprint');
+      expect(table?.innerHTML).toContain('branch');
+    });
   });
 
   it('does not render metadata table when metadata is empty', async () => {
@@ -602,10 +609,10 @@ describe('renderDetailPanel - metadata table', () => {
     });
     renderDetailPanel(data);
 
-    await new Promise((resolve) => setTimeout(resolve, 50));
-
-    const detailsPane = document.getElementById('detail-tab-content-details');
-    expect(detailsPane?.querySelector('.detail-meta-table')).toBeNull();
+    await vi.waitFor(() => {
+      const detailsPane = document.getElementById('detail-tab-content-details');
+      expect(detailsPane?.querySelector('.detail-meta-table')).toBeNull();
+    });
   });
 
   it('escapes HTML in metadata key and value to prevent XSS', async () => {
@@ -620,14 +627,14 @@ describe('renderDetailPanel - metadata table', () => {
     });
     renderDetailPanel(data);
 
-    await new Promise((resolve) => setTimeout(resolve, 50));
-
-    const detailsPane = document.getElementById('detail-tab-content-details');
-    // Raw HTML tags should not appear unescaped in the DOM
-    expect(detailsPane?.innerHTML).not.toContain('<script>');
-    expect(detailsPane?.innerHTML).not.toContain('<img src=x');
-    // The table should still render (key is not 'priority')
-    expect(detailsPane?.querySelector('.detail-meta-table')).not.toBeNull();
+    await vi.waitFor(() => {
+      const detailsPane = document.getElementById('detail-tab-content-details');
+      // Raw HTML tags should not appear unescaped in the DOM
+      expect(detailsPane?.innerHTML).not.toContain('<script>');
+      expect(detailsPane?.innerHTML).not.toContain('<img src=x');
+      // The table should still render (key is not 'priority')
+      expect(detailsPane?.querySelector('.detail-meta-table')).not.toBeNull();
+    });
   });
 
   it('renders metadata section with a "Metadata" label', async () => {
@@ -642,10 +649,10 @@ describe('renderDetailPanel - metadata table', () => {
     });
     renderDetailPanel(data);
 
-    await new Promise((resolve) => setTimeout(resolve, 50));
-
-    const detailsPane = document.getElementById('detail-tab-content-details');
-    expect(detailsPane?.innerHTML).toContain('Metadata');
+    await vi.waitFor(() => {
+      const detailsPane = document.getElementById('detail-tab-content-details');
+      expect(detailsPane?.innerHTML).toContain('Metadata');
+    });
   });
 
   it('renders pr metadata value as a clickable anchor when value is a URL', async () => {
@@ -661,16 +668,16 @@ describe('renderDetailPanel - metadata table', () => {
     });
     renderDetailPanel(data);
 
-    await new Promise((resolve) => setTimeout(resolve, 50));
-
-    const table = document.querySelector('.detail-meta-table');
-    expect(table).not.toBeNull();
-    const anchor = table?.querySelector('a');
-    expect(anchor).not.toBeNull();
-    expect(anchor?.getAttribute('href')).toBe(prUrl);
-    expect(anchor?.getAttribute('target')).toBe('_blank');
-    expect(anchor?.getAttribute('rel')).toBe('noopener noreferrer');
-    expect(anchor?.textContent).toBe(prUrl);
+    await vi.waitFor(() => {
+      const table = document.querySelector('.detail-meta-table');
+      expect(table).not.toBeNull();
+      const anchor = table?.querySelector('a');
+      expect(anchor).not.toBeNull();
+      expect(anchor?.getAttribute('href')).toBe(prUrl);
+      expect(anchor?.getAttribute('target')).toBe('_blank');
+      expect(anchor?.getAttribute('rel')).toBe('noopener noreferrer');
+      expect(anchor?.textContent).toBe(prUrl);
+    });
   });
 
   it('renders URL value as a clickable anchor for non-pr metadata keys', async () => {
@@ -686,14 +693,14 @@ describe('renderDetailPanel - metadata table', () => {
     });
     renderDetailPanel(data);
 
-    await new Promise((resolve) => setTimeout(resolve, 50));
-
-    const table = document.querySelector('.detail-meta-table');
-    expect(table).not.toBeNull();
-    const anchor = table?.querySelector('a');
-    expect(anchor).not.toBeNull();
-    expect(anchor?.getAttribute('href')).toBe(url);
-    expect(anchor?.textContent).toBe(url);
+    await vi.waitFor(() => {
+      const table = document.querySelector('.detail-meta-table');
+      expect(table).not.toBeNull();
+      const anchor = table?.querySelector('a');
+      expect(anchor).not.toBeNull();
+      expect(anchor?.getAttribute('href')).toBe(url);
+      expect(anchor?.textContent).toBe(url);
+    });
   });
 
   it('renders non-URL metadata value as plain escaped text', async () => {
@@ -708,13 +715,13 @@ describe('renderDetailPanel - metadata table', () => {
     });
     renderDetailPanel(data);
 
-    await new Promise((resolve) => setTimeout(resolve, 50));
-
-    const table = document.querySelector('.detail-meta-table');
-    expect(table).not.toBeNull();
-    const anchor = table?.querySelector('a');
-    expect(anchor).toBeNull();
-    expect(table?.textContent).toContain('3');
+    await vi.waitFor(() => {
+      const table = document.querySelector('.detail-meta-table');
+      expect(table).not.toBeNull();
+      const anchor = table?.querySelector('a');
+      expect(anchor).toBeNull();
+      expect(table?.textContent).toContain('3');
+    });
   });
 
   it('does not render unsafe protocol values as links', async () => {
@@ -729,13 +736,13 @@ describe('renderDetailPanel - metadata table', () => {
     });
     renderDetailPanel(data);
 
-    await new Promise((resolve) => setTimeout(resolve, 50));
-
-    const table = document.querySelector('.detail-meta-table');
-    expect(table).not.toBeNull();
-    const anchor = table?.querySelector('a');
-    expect(anchor).toBeNull();
-    expect(table?.textContent).toContain('javascript:alert(1)');
+    await vi.waitFor(() => {
+      const table = document.querySelector('.detail-meta-table');
+      expect(table).not.toBeNull();
+      const anchor = table?.querySelector('a');
+      expect(anchor).toBeNull();
+      expect(table?.textContent).toContain('javascript:alert(1)');
+    });
   });
 });
 
@@ -759,11 +766,11 @@ describe('renderDetailPanel - metadata and relations', () => {
     const data = makeTaskDetail({ parent: { id: 5, title: 'Parent Task' } });
     renderDetailPanel(data);
 
-    await new Promise((resolve) => setTimeout(resolve, 50));
-
-    const detailsPane = document.getElementById('detail-tab-content-details');
-    expect(detailsPane?.innerHTML).toContain('#5');
-    expect(detailsPane?.innerHTML).toContain('Parent Task');
+    await vi.waitFor(() => {
+      const detailsPane = document.getElementById('detail-tab-content-details');
+      expect(detailsPane?.innerHTML).toContain('#5');
+      expect(detailsPane?.innerHTML).toContain('Parent Task');
+    });
   });
 
   it('renders blockedBy relation when blockedBy tasks exist', async () => {
@@ -776,11 +783,11 @@ describe('renderDetailPanel - metadata and relations', () => {
     const data = makeTaskDetail({ blockedBy: [{ id: 3 }, { id: 7 }] });
     renderDetailPanel(data);
 
-    await new Promise((resolve) => setTimeout(resolve, 50));
-
-    const detailsPane = document.getElementById('detail-tab-content-details');
-    expect(detailsPane?.innerHTML).toContain('#3');
-    expect(detailsPane?.innerHTML).toContain('#7');
+    await vi.waitFor(() => {
+      const detailsPane = document.getElementById('detail-tab-content-details');
+      expect(detailsPane?.innerHTML).toContain('#3');
+      expect(detailsPane?.innerHTML).toContain('#7');
+    });
   });
 });
 
@@ -891,12 +898,12 @@ describe('comment event delegation - rendered HTML uses data-action', () => {
     const { renderDetailPanel } = await import('../../../src/board/client/detailPanel');
     renderDetailPanel(makeTaskDetail());
 
-    await new Promise((resolve) => setTimeout(resolve, 50));
-
-    const trigger = document.getElementById('add-comment-trigger');
-    expect(trigger).not.toBeNull();
-    expect(trigger?.getAttribute('onclick')).toBeNull();
-    expect(trigger?.dataset.action).toBe('open-add-comment');
+    await vi.waitFor(() => {
+      const trigger = document.getElementById('add-comment-trigger');
+      expect(trigger).not.toBeNull();
+      expect(trigger?.getAttribute('onclick')).toBeNull();
+      expect(trigger?.dataset.action).toBe('open-add-comment');
+    });
   });
 
   it('renders add-comment cancel button with data-action instead of onclick', async () => {
@@ -908,12 +915,12 @@ describe('comment event delegation - rendered HTML uses data-action', () => {
     const { renderDetailPanel } = await import('../../../src/board/client/detailPanel');
     renderDetailPanel(makeTaskDetail());
 
-    await new Promise((resolve) => setTimeout(resolve, 50));
-
-    const cancelBtn = document.querySelector('.add-comment-cancel') as HTMLButtonElement | null;
-    expect(cancelBtn).not.toBeNull();
-    expect(cancelBtn?.getAttribute('onclick')).toBeNull();
-    expect(cancelBtn?.dataset.action).toBe('close-add-comment');
+    await vi.waitFor(() => {
+      const cancelBtn = document.querySelector('.add-comment-cancel') as HTMLButtonElement | null;
+      expect(cancelBtn).not.toBeNull();
+      expect(cancelBtn?.getAttribute('onclick')).toBeNull();
+      expect(cancelBtn?.dataset.action).toBe('close-add-comment');
+    });
   });
 
   it('renders add-comment submit button with data-action instead of onclick', async () => {
@@ -925,12 +932,12 @@ describe('comment event delegation - rendered HTML uses data-action', () => {
     const { renderDetailPanel } = await import('../../../src/board/client/detailPanel');
     renderDetailPanel(makeTaskDetail());
 
-    await new Promise((resolve) => setTimeout(resolve, 50));
-
-    const submitBtn = document.querySelector('.add-comment-submit') as HTMLButtonElement | null;
-    expect(submitBtn).not.toBeNull();
-    expect(submitBtn?.getAttribute('onclick')).toBeNull();
-    expect(submitBtn?.dataset.action).toBe('submit-comment');
+    await vi.waitFor(() => {
+      const submitBtn = document.querySelector('.add-comment-submit') as HTMLButtonElement | null;
+      expect(submitBtn).not.toBeNull();
+      expect(submitBtn?.getAttribute('onclick')).toBeNull();
+      expect(submitBtn?.dataset.action).toBe('submit-comment');
+    });
   });
 
   it('renders comment edit button with data-action and data-comment-id instead of onclick', async () => {
@@ -945,12 +952,12 @@ describe('comment event delegation - rendered HTML uses data-action', () => {
     const { renderDetailPanel } = await import('../../../src/board/client/detailPanel');
     renderDetailPanel(makeTaskDetail());
 
-    await new Promise((resolve) => setTimeout(resolve, 50));
-
-    const editBtn = document.querySelector('[data-action="start-comment-edit"]') as HTMLElement | null;
-    expect(editBtn).not.toBeNull();
-    expect(editBtn?.getAttribute('onclick')).toBeNull();
-    expect(editBtn?.dataset.commentId).toBe('42');
+    await vi.waitFor(() => {
+      const editBtn = document.querySelector('[data-action="start-comment-edit"]') as HTMLElement | null;
+      expect(editBtn).not.toBeNull();
+      expect(editBtn?.getAttribute('onclick')).toBeNull();
+      expect(editBtn?.dataset.commentId).toBe('42');
+    });
   });
 
   it('renders comment delete button with data-action and data-comment-id instead of onclick', async () => {
@@ -965,12 +972,12 @@ describe('comment event delegation - rendered HTML uses data-action', () => {
     const { renderDetailPanel } = await import('../../../src/board/client/detailPanel');
     renderDetailPanel(makeTaskDetail());
 
-    await new Promise((resolve) => setTimeout(resolve, 50));
-
-    const deleteBtn = document.querySelector('[data-action="delete-comment"]') as HTMLElement | null;
-    expect(deleteBtn).not.toBeNull();
-    expect(deleteBtn?.getAttribute('onclick')).toBeNull();
-    expect(deleteBtn?.dataset.commentId).toBe('42');
+    await vi.waitFor(() => {
+      const deleteBtn = document.querySelector('[data-action="delete-comment"]') as HTMLElement | null;
+      expect(deleteBtn).not.toBeNull();
+      expect(deleteBtn?.getAttribute('onclick')).toBeNull();
+      expect(deleteBtn?.dataset.commentId).toBe('42');
+    });
   });
 
   it('renders comment save button with data-action and data-comment-id instead of onclick', async () => {
@@ -985,12 +992,12 @@ describe('comment event delegation - rendered HTML uses data-action', () => {
     const { renderDetailPanel } = await import('../../../src/board/client/detailPanel');
     renderDetailPanel(makeTaskDetail());
 
-    await new Promise((resolve) => setTimeout(resolve, 50));
-
-    const saveBtn = document.querySelector('[data-action="save-comment-edit"]') as HTMLElement | null;
-    expect(saveBtn).not.toBeNull();
-    expect(saveBtn?.getAttribute('onclick')).toBeNull();
-    expect(saveBtn?.dataset.commentId).toBe('42');
+    await vi.waitFor(() => {
+      const saveBtn = document.querySelector('[data-action="save-comment-edit"]') as HTMLElement | null;
+      expect(saveBtn).not.toBeNull();
+      expect(saveBtn?.getAttribute('onclick')).toBeNull();
+      expect(saveBtn?.dataset.commentId).toBe('42');
+    });
   });
 
   it('renders comment cancel-edit button with data-action and data-comment-id instead of onclick', async () => {
@@ -1005,12 +1012,12 @@ describe('comment event delegation - rendered HTML uses data-action', () => {
     const { renderDetailPanel } = await import('../../../src/board/client/detailPanel');
     renderDetailPanel(makeTaskDetail());
 
-    await new Promise((resolve) => setTimeout(resolve, 50));
-
-    const cancelEditBtn = document.querySelector('[data-action="cancel-comment-edit"]') as HTMLElement | null;
-    expect(cancelEditBtn).not.toBeNull();
-    expect(cancelEditBtn?.getAttribute('onclick')).toBeNull();
-    expect(cancelEditBtn?.dataset.commentId).toBe('42');
+    await vi.waitFor(() => {
+      const cancelEditBtn = document.querySelector('[data-action="cancel-comment-edit"]') as HTMLElement | null;
+      expect(cancelEditBtn).not.toBeNull();
+      expect(cancelEditBtn?.getAttribute('onclick')).toBeNull();
+      expect(cancelEditBtn?.dataset.commentId).toBe('42');
+    });
   });
 });
 
@@ -1032,18 +1039,21 @@ describe('comment event delegation - interactions via data-action', () => {
 
     const { renderDetailPanel } = await import('../../../src/board/client/detailPanel');
     renderDetailPanel(makeTaskDetail());
-    await new Promise((resolve) => setTimeout(resolve, 50));
 
-    const trigger = document.getElementById('add-comment-trigger') as HTMLElement;
-    const form = document.getElementById('add-comment-form') as HTMLElement;
+    let trigger: HTMLElement | null = null;
+    let form: HTMLElement | null = null;
+    await vi.waitFor(() => {
+      trigger = document.getElementById('add-comment-trigger') as HTMLElement;
+      form = document.getElementById('add-comment-form') as HTMLElement;
 
-    expect(trigger).not.toBeNull();
-    expect(form).not.toBeNull();
+      expect(trigger).not.toBeNull();
+      expect(form).not.toBeNull();
+    });
 
-    trigger.click();
+    trigger!.click();
 
-    expect(trigger.style.display).toBe('none');
-    expect(form.classList.contains('open')).toBe(true);
+    expect(trigger!.style.display).toBe('none');
+    expect(form!.classList.contains('open')).toBe(true);
   });
 
   it('clicking close-add-comment hides the form', async () => {
@@ -1054,20 +1064,28 @@ describe('comment event delegation - interactions via data-action', () => {
 
     const { renderDetailPanel } = await import('../../../src/board/client/detailPanel');
     renderDetailPanel(makeTaskDetail());
-    await new Promise((resolve) => setTimeout(resolve, 50));
 
-    const trigger = document.getElementById('add-comment-trigger') as HTMLElement;
-    const form = document.getElementById('add-comment-form') as HTMLElement;
-    const cancelBtn = document.querySelector('[data-action="close-add-comment"]') as HTMLElement;
+    let trigger: HTMLElement | null = null;
+    let form: HTMLElement | null = null;
+    let cancelBtn: HTMLElement | null = null;
+    await vi.waitFor(() => {
+      trigger = document.getElementById('add-comment-trigger') as HTMLElement;
+      form = document.getElementById('add-comment-form') as HTMLElement;
+      cancelBtn = document.querySelector('[data-action="close-add-comment"]') as HTMLElement;
+
+      expect(trigger).not.toBeNull();
+      expect(form).not.toBeNull();
+      expect(cancelBtn).not.toBeNull();
+    });
 
     // First open the form
-    trigger.click();
-    expect(form.classList.contains('open')).toBe(true);
+    trigger!.click();
+    expect(form!.classList.contains('open')).toBe(true);
 
     // Now close it
-    cancelBtn.click();
-    expect(form.classList.contains('open')).toBe(false);
-    expect(trigger.style.display).toBe('');
+    cancelBtn!.click();
+    expect(form!.classList.contains('open')).toBe(false);
+    expect(trigger!.style.display).toBe('');
   });
 
   it('clicking start-comment-edit shows edit area', async () => {
@@ -1081,12 +1099,14 @@ describe('comment event delegation - interactions via data-action', () => {
 
     const { renderDetailPanel } = await import('../../../src/board/client/detailPanel');
     renderDetailPanel(makeTaskDetail());
-    await new Promise((resolve) => setTimeout(resolve, 50));
 
-    const editBtn = document.querySelector('[data-action="start-comment-edit"]') as HTMLElement;
-    expect(editBtn).not.toBeNull();
+    let editBtn: HTMLElement | null = null;
+    await vi.waitFor(() => {
+      editBtn = document.querySelector('[data-action="start-comment-edit"]') as HTMLElement;
+      expect(editBtn).not.toBeNull();
+    });
 
-    editBtn.click();
+    editBtn!.click();
 
     const contentEl = document.getElementById('comment-content-99');
     const editWrapper = document.getElementById('comment-edit-99');
@@ -1106,11 +1126,15 @@ describe('comment event delegation - interactions via data-action', () => {
 
     const { renderDetailPanel } = await import('../../../src/board/client/detailPanel');
     renderDetailPanel(makeTaskDetail());
-    await new Promise((resolve) => setTimeout(resolve, 50));
+
+    let editBtn: HTMLElement | null = null;
+    await vi.waitFor(() => {
+      editBtn = document.querySelector('[data-action="start-comment-edit"]') as HTMLElement;
+      expect(editBtn).not.toBeNull();
+    });
 
     // First start editing
-    const editBtn = document.querySelector('[data-action="start-comment-edit"]') as HTMLElement;
-    editBtn.click();
+    editBtn!.click();
 
     const contentEl = document.getElementById('comment-content-99');
     const editWrapper = document.getElementById('comment-edit-99');
@@ -1145,7 +1169,10 @@ describe('closeDetailPanel', () => {
       await import('../../../src/board/client/detailPanel');
 
     renderDetailPanel(makeTaskDetail());
-    await new Promise((resolve) => setTimeout(resolve, 50));
+
+    await vi.waitFor(() => {
+      expect(getDetailTaskId()).toBe(1);
+    });
 
     const panel = document.getElementById('detail-panel')!;
     panel.classList.add('open');
@@ -1181,15 +1208,15 @@ describe('Detail panel design updates', () => {
     });
     renderDetailPanel(data);
 
-    await new Promise((resolve) => setTimeout(resolve, 50));
+    await vi.waitFor(() => {
+      const detailsPane = document.getElementById('detail-tab-content-details');
+      const metaTableIndex = detailsPane?.innerHTML.indexOf('detail-meta-table') ?? -1;
+      const titleInputIndex = detailsPane?.innerHTML.indexOf('detail-edit-title') ?? -1;
 
-    const detailsPane = document.getElementById('detail-tab-content-details');
-    const metaTableIndex = detailsPane?.innerHTML.indexOf('detail-meta-table') ?? -1;
-    const titleInputIndex = detailsPane?.innerHTML.indexOf('detail-edit-title') ?? -1;
-
-    expect(metaTableIndex).toBeGreaterThan(-1);
-    expect(titleInputIndex).toBeGreaterThan(-1);
-    expect(metaTableIndex).toBeLessThan(titleInputIndex);
+      expect(metaTableIndex).toBeGreaterThan(-1);
+      expect(titleInputIndex).toBeGreaterThan(-1);
+      expect(metaTableIndex).toBeLessThan(titleInputIndex);
+    });
   });
 
   it('displays timestamps in footer instead of detail body', async () => {
@@ -1202,18 +1229,18 @@ describe('Detail panel design updates', () => {
     const data = makeTaskDetail();
     renderDetailPanel(data);
 
-    await new Promise((resolve) => setTimeout(resolve, 50));
+    await vi.waitFor(() => {
+      const detailsPane = document.getElementById('detail-tab-content-details');
+      const footer = document.getElementById('detail-panel-footer');
 
-    const detailsPane = document.getElementById('detail-tab-content-details');
-    const footer = document.getElementById('detail-panel-footer');
+      // Timestamp should NOT be in details pane anymore
+      expect(detailsPane?.innerHTML).not.toContain('created');
+      expect(detailsPane?.innerHTML).not.toContain('updated');
 
-    // Timestamp should NOT be in details pane anymore
-    expect(detailsPane?.innerHTML).not.toContain('created');
-    expect(detailsPane?.innerHTML).not.toContain('updated');
-
-    // Timestamp should be in footer
-    expect(footer?.innerHTML).toContain('created');
-    expect(footer?.innerHTML).toContain('updated');
+      // Timestamp should be in footer
+      expect(footer?.innerHTML).toContain('created');
+      expect(footer?.innerHTML).toContain('updated');
+    });
   });
 
   it('has save button in footer', async () => {
@@ -1225,13 +1252,13 @@ describe('Detail panel design updates', () => {
     const { renderDetailPanel } = await import('../../../src/board/client/detailPanel');
     renderDetailPanel(makeTaskDetail());
 
-    await new Promise((resolve) => setTimeout(resolve, 50));
+    await vi.waitFor(() => {
+      const footer = document.getElementById('detail-panel-footer');
+      const saveBtn = footer?.querySelector('#detail-save-btn');
 
-    const footer = document.getElementById('detail-panel-footer');
-    const saveBtn = footer?.querySelector('#detail-save-btn');
-
-    expect(saveBtn).not.toBeNull();
-    expect(saveBtn?.textContent).toBe('Save');
+      expect(saveBtn).not.toBeNull();
+      expect(saveBtn?.textContent).toBe('Save');
+    });
   });
 
   it('textarea gets input event listener for auto-resize', async () => {
@@ -1255,22 +1282,23 @@ describe('Detail panel design updates', () => {
     const transitionEvent = new TransitionEvent('transitionend', { propertyName: 'width' });
     detailPanel.dispatchEvent(transitionEvent);
 
-    await new Promise((resolve) => setTimeout(resolve, 50));
+    let textarea: HTMLTextAreaElement | null = null;
+    await vi.waitFor(() => {
+      textarea = document.getElementById('detail-edit-body') as HTMLTextAreaElement;
+      expect(textarea).not.toBeNull();
 
-    const textarea = document.getElementById('detail-edit-body') as HTMLTextAreaElement;
-    expect(textarea).not.toBeNull();
-
-    // The textarea should exist and have been set up with auto-resize
-    // We verify by checking that the height style was set (autoResizeTextarea sets style.height)
-    expect(textarea.style.height).toBeTruthy();
+      // The textarea should exist and have been set up with auto-resize
+      // We verify by checking that the height style was set (autoResizeTextarea sets style.height)
+      expect(textarea.style.height).toBeTruthy();
+    });
 
     // Simulate input event which should trigger auto-resize
-    textarea.value = 'New content';
+    textarea!.value = 'New content';
     const inputEvent = new Event('input', { bubbles: true });
-    textarea.dispatchEvent(inputEvent);
+    textarea!.dispatchEvent(inputEvent);
 
     // The style.height should still exist after input event
-    expect(textarea.style.height).toBeTruthy();
+    expect(textarea!.style.height).toBeTruthy();
   });
 
   it('textarea is auto-resized after panel opens with 5+ line description', async () => {
@@ -1295,12 +1323,12 @@ describe('Detail panel design updates', () => {
     detailPanel.dispatchEvent(transitionEvent);
 
     // Allow double rAF (each resolves as setTimeout(0) in jsdom) to flush.
-    await new Promise((resolve) => setTimeout(resolve, 50));
-
-    const textarea = document.getElementById('detail-edit-body') as HTMLTextAreaElement;
-    expect(textarea).not.toBeNull();
-    // autoResizeTextarea should have set style.height after the double rAF.
-    expect(textarea.style.height).toBeTruthy();
+    await vi.waitFor(() => {
+      const textarea = document.getElementById('detail-edit-body') as HTMLTextAreaElement;
+      expect(textarea).not.toBeNull();
+      // autoResizeTextarea should have set style.height after the double rAF.
+      expect(textarea.style.height).toBeTruthy();
+    });
   });
 
   it('detail tab content div is rendered with active class', async () => {
@@ -1312,12 +1340,12 @@ describe('Detail panel design updates', () => {
     const { renderDetailPanel } = await import('../../../src/board/client/detailPanel');
     renderDetailPanel(makeTaskDetail());
 
-    await new Promise((resolve) => setTimeout(resolve, 50));
+    await vi.waitFor(() => {
+      const detailsPane = document.getElementById('detail-tab-content-details');
 
-    const detailsPane = document.getElementById('detail-tab-content-details');
-
-    // Check that the active class is present
-    expect(detailsPane?.classList.contains('active')).toBe(true);
+      // Check that the active class is present
+      expect(detailsPane?.classList.contains('active')).toBe(true);
+    });
   });
 });
 
@@ -1349,7 +1377,10 @@ describe('Escape key closes detail panel', () => {
 
     initDetailPanel();
     renderDetailPanel(makeTaskDetail());
-    await new Promise((resolve) => setTimeout(resolve, 50));
+
+    await vi.waitFor(() => {
+      expect(getDetailTaskId()).toBe(1);
+    });
 
     const panel = document.getElementById('detail-panel')!;
     panel.classList.add('open');
@@ -1392,11 +1423,15 @@ describe('Escape key closes detail panel', () => {
       return Promise.resolve({ ok: true, json: () => Promise.resolve({ comments: [] }) });
     });
 
-    const { renderDetailPanel, initDetailPanel } = await import('../../../src/board/client/detailPanel');
+    const { renderDetailPanel, initDetailPanel, getDetailTaskId } =
+      await import('../../../src/board/client/detailPanel');
 
     initDetailPanel();
     renderDetailPanel(makeTaskDetail());
-    await new Promise((resolve) => setTimeout(resolve, 50));
+
+    await vi.waitFor(() => {
+      expect(getDetailTaskId()).toBe(1);
+    });
 
     const panel = document.getElementById('detail-panel')!;
     panel.classList.add('open');
@@ -1433,11 +1468,15 @@ describe('Escape key closes detail panel', () => {
       return Promise.resolve({ ok: true, json: () => Promise.resolve({ comments: [] }) });
     });
 
-    const { renderDetailPanel, initDetailPanel } = await import('../../../src/board/client/detailPanel');
+    const { renderDetailPanel, initDetailPanel, getDetailTaskId } =
+      await import('../../../src/board/client/detailPanel');
 
     initDetailPanel();
     renderDetailPanel(makeTaskDetail());
-    await new Promise((resolve) => setTimeout(resolve, 50));
+
+    await vi.waitFor(() => {
+      expect(getDetailTaskId()).toBe(1);
+    });
 
     const panel = document.getElementById('detail-panel')!;
     panel.classList.add('open');
@@ -1509,15 +1548,16 @@ describe('copy task ID button', () => {
     initDetailPanel();
     renderDetailPanel(makeTaskDetail({ task: { ...makeTaskDetail().task, id: 42 } }));
 
-    await new Promise((resolve) => setTimeout(resolve, 50));
+    let copyBtn: HTMLButtonElement | null = null;
+    await vi.waitFor(() => {
+      copyBtn = document.getElementById('detail-panel-copy-id') as HTMLButtonElement;
+      expect(copyBtn).not.toBeNull();
+    });
+    copyBtn!.click();
 
-    const copyBtn = document.getElementById('detail-panel-copy-id') as HTMLButtonElement;
-    expect(copyBtn).not.toBeNull();
-    copyBtn.click();
-
-    await new Promise((resolve) => setTimeout(resolve, 10));
-
-    expect(writeTextMock).toHaveBeenCalledWith('42');
+    await vi.waitFor(() => {
+      expect(writeTextMock).toHaveBeenCalledWith('42');
+    });
   });
 
   it('clicking copy button does not throw when no task is loaded', async () => {
@@ -1652,22 +1692,24 @@ describe('loadComments race condition - stale task ignored', () => {
     );
 
     // Let task B's comments load (empty, resolves immediately)
-    await new Promise((resolve) => setTimeout(resolve, 50));
-
-    const tabBtn = document.getElementById('detail-tab-comments');
-    // After task B loads, tab shows "Comments (0)"
-    expect(tabBtn?.textContent).toBe('Comments (0)');
+    let tabBtn: HTMLElement | null = null;
+    await vi.waitFor(() => {
+      tabBtn = document.getElementById('detail-tab-comments');
+      // After task B loads, tab shows "Comments (0)"
+      expect(tabBtn?.textContent).toBe('Comments (0)');
+    });
 
     // Now resolve task A's delayed comments fetch
     resolveTaskAComments(undefined);
-    await new Promise((resolve) => setTimeout(resolve, 50));
 
-    // Tab should still show task B's count — task A's stale result must be ignored
-    expect(tabBtn?.textContent).toBe('Comments (0)');
+    await vi.waitFor(() => {
+      // Tab should still show task B's count — task A's stale result must be ignored
+      expect(tabBtn?.textContent).toBe('Comments (0)');
 
-    // Comments pane should not contain task A's old comment
-    const pane = document.getElementById('detail-tab-content-comments');
-    expect(pane?.innerHTML).not.toContain('Old comment');
+      // Comments pane should not contain task A's old comment
+      const pane = document.getElementById('detail-tab-content-comments');
+      expect(pane?.innerHTML).not.toContain('Old comment');
+    });
   });
 });
 
@@ -1730,15 +1772,16 @@ describe('copy task ID button', () => {
     initDetailPanel();
     renderDetailPanel(makeTaskDetail({ task: { ...makeTaskDetail().task, id: 42 } }));
 
-    await new Promise((resolve) => setTimeout(resolve, 50));
+    let copyBtn: HTMLButtonElement | null = null;
+    await vi.waitFor(() => {
+      copyBtn = document.getElementById('detail-panel-copy-id') as HTMLButtonElement;
+      expect(copyBtn).not.toBeNull();
+    });
+    copyBtn!.click();
 
-    const copyBtn = document.getElementById('detail-panel-copy-id') as HTMLButtonElement;
-    expect(copyBtn).not.toBeNull();
-    copyBtn.click();
-
-    await new Promise((resolve) => setTimeout(resolve, 10));
-
-    expect(writeTextMock).toHaveBeenCalledWith('42');
+    await vi.waitFor(() => {
+      expect(writeTextMock).toHaveBeenCalledWith('42');
+    });
   });
 
   it('clicking copy button does not throw when no task is loaded', async () => {
@@ -1808,19 +1851,20 @@ describe('branch input keydown - prevent duplicate first character', () => {
     // Render with no branch so the input starts in readOnly/auto-generate mode
     renderDetailPanel(makeTaskDetail());
 
-    await new Promise((resolve) => setTimeout(resolve, 50));
-
-    const branchInput = document.getElementById('detail-edit-branch') as HTMLInputElement;
-    expect(branchInput).not.toBeNull();
-    expect(branchInput.readOnly).toBe(true);
+    let branchInput: HTMLInputElement | null = null;
+    await vi.waitFor(() => {
+      branchInput = document.getElementById('detail-edit-branch') as HTMLInputElement;
+      expect(branchInput).not.toBeNull();
+      expect(branchInput.readOnly).toBe(true);
+    });
 
     const event = new KeyboardEvent('keydown', { key: 'f', bubbles: true, cancelable: true });
     const preventDefaultSpy = vi.spyOn(event, 'preventDefault');
 
-    branchInput.dispatchEvent(event);
+    branchInput!.dispatchEvent(event);
 
     expect(preventDefaultSpy).toHaveBeenCalledOnce();
-    expect(branchInput.readOnly).toBe(false);
-    expect(branchInput.value).toBe('f');
+    expect(branchInput!.readOnly).toBe(false);
+    expect(branchInput!.value).toBe('f');
   });
 });
