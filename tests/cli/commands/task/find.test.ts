@@ -45,6 +45,7 @@ describe('setupTaskFindCommand', () => {
     const optionNames = options.map((opt) => opt.long);
 
     expect(optionNames).toContain('--all');
+    expect(optionNames).toContain('--archived');
     expect(optionNames).toContain('--json');
   });
 
@@ -413,5 +414,82 @@ describe('setupTaskFindCommand', () => {
     expect(output).toContain('In progress task');
     expect(output).not.toContain('Ready task');
     expect(output).not.toContain('Done task');
+  });
+
+  it('should not include archived tasks by default even with --all', async () => {
+    const taskService = new TaskService();
+    taskService.createTask({ title: 'Active archive-search task', status: 'ready' });
+    taskService.createTask({ title: 'Done archive-search task', status: 'done' });
+    taskService.archiveTasksBefore(new Date(Date.now() + 1000).toISOString(), ['done']);
+
+    const consoleLogs: string[] = [];
+    const originalLog = console.log;
+    console.log = (...args: unknown[]) => consoleLogs.push(args.join(' '));
+
+    const originalExit = process.exit;
+    process.exit = (() => {}) as never;
+
+    try {
+      await program.parseAsync(['node', 'test', 'task', 'find', 'archive-search', '--all']);
+    } finally {
+      console.log = originalLog;
+      process.exit = originalExit;
+    }
+
+    const output = consoleLogs.join('\n');
+    expect(output).toContain('Active archive-search task');
+    expect(output).not.toContain('Done archive-search task');
+  });
+
+  it('should include archived tasks with --archived flag', async () => {
+    const taskService = new TaskService();
+    taskService.createTask({ title: 'Active archive-flag task', status: 'ready' });
+    taskService.createTask({ title: 'Done archive-flag task', status: 'done' });
+    taskService.archiveTasksBefore(new Date(Date.now() + 1000).toISOString(), ['done']);
+
+    const consoleLogs: string[] = [];
+    const originalLog = console.log;
+    console.log = (...args: unknown[]) => consoleLogs.push(args.join(' '));
+
+    const originalExit = process.exit;
+    process.exit = (() => {}) as never;
+
+    try {
+      await program.parseAsync(['node', 'test', 'task', 'find', 'archive-flag', '--archived', '--all', '--json']);
+    } finally {
+      console.log = originalLog;
+      process.exit = originalExit;
+    }
+
+    const parsed = JSON.parse(consoleLogs[0]);
+    const titles = parsed.tasks.map((t: { title: string }) => t.title);
+    expect(titles).toContain('Active archive-flag task');
+    expect(titles).toContain('Done archive-flag task');
+  });
+
+  it('should find a done/closed archived task with --archived alone (no --all)', async () => {
+    const taskService = new TaskService();
+    taskService.createTask({ title: 'Active archive-alone task', status: 'ready' });
+    taskService.createTask({ title: 'Done archive-alone task', status: 'done' });
+    taskService.archiveTasksBefore(new Date(Date.now() + 1000).toISOString(), ['done']);
+
+    const consoleLogs: string[] = [];
+    const originalLog = console.log;
+    console.log = (...args: unknown[]) => consoleLogs.push(args.join(' '));
+
+    const originalExit = process.exit;
+    process.exit = (() => {}) as never;
+
+    try {
+      await program.parseAsync(['node', 'test', 'task', 'find', 'archive-alone', '--archived', '--json']);
+    } finally {
+      console.log = originalLog;
+      process.exit = originalExit;
+    }
+
+    const parsed = JSON.parse(consoleLogs[0]);
+    const titles = parsed.tasks.map((t: { title: string }) => t.title);
+    expect(titles).toContain('Active archive-alone task');
+    expect(titles).toContain('Done archive-alone task');
   });
 });
