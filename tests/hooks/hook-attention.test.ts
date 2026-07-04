@@ -2,10 +2,16 @@ import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach } from
 import { spawn } from 'child_process';
 import { createServer } from 'http';
 import type { Server } from 'http';
-import { resolve } from 'path';
-import { writeFileSync, unlinkSync, existsSync } from 'fs';
+import { resolve, join } from 'path';
+import { writeFileSync, mkdtempSync, rmSync, existsSync, unlinkSync } from 'fs';
+import { tmpdir } from 'os';
+import { buildHookEnv } from './hook-test-env';
 
 const SCRIPT = resolve(__dirname, '../../src/hooks/hook-attention.mjs');
+
+// Set by beforeEach below; runHook defaults BOARD_SESSION_MARKER_FILE to a path inside this
+// dir so no test ever touches the real /tmp/board-main-session-<taskId> marker file.
+let tmp: string;
 
 type Capture = { headers: Record<string, string | string[] | undefined>; body: unknown };
 
@@ -33,7 +39,7 @@ function makeServer(): Promise<{ server: Server; port: number; captured: Capture
 function runHook(args: string[], env: Record<string, string>, stdinData?: string): Promise<number> {
   return new Promise((resolveFn) => {
     const proc = spawn('node', [SCRIPT, ...args], {
-      env: { ...process.env, ...env },
+      env: buildHookEnv({ BOARD_SESSION_MARKER_FILE: join(tmp, 'session-marker'), ...env }),
       stdio: ['pipe', 'pipe', 'pipe'],
     });
     if (stdinData !== undefined) {
@@ -53,6 +59,14 @@ describe('hook-attention.mjs', () => {
 
   afterAll(() => {
     svr.server.close();
+  });
+
+  beforeEach(() => {
+    tmp = mkdtempSync(join(tmpdir(), 'hook-attention-'));
+  });
+
+  afterEach(() => {
+    rmSync(tmp, { recursive: true, force: true });
   });
 
   it('posts state="needs" when invoked with "pre"', async () => {
@@ -96,14 +110,11 @@ describe('hook-attention.mjs', () => {
     const TASK_ID = '9901';
     const MAIN_SESSION = 'main-session-abc';
     const SUB_SESSION = 'sub-session-xyz';
-    const sessionFile = `/tmp/board-main-session-${TASK_ID}`;
+    let sessionFile: string;
 
     beforeEach(() => {
+      sessionFile = join(tmp, 'session-marker');
       writeFileSync(sessionFile, MAIN_SESSION, 'utf-8');
-    });
-
-    afterEach(() => {
-      if (existsSync(sessionFile)) unlinkSync(sessionFile);
     });
 
     it('fires API when session_id matches main session', async () => {
@@ -167,5 +178,38 @@ describe('hook-attention.mjs', () => {
       // No session_id in payload means we cannot confirm it's the main session → skip
       expect(svr.captured.length).toBe(before);
     });
+  });
+
+  it('never reads the real /tmp/board-main-session-<taskId> marker file even when the parent env has BOARD_TASK_ID set (regression: #690)', async () => {
+    // Uses a task id unique to this file (not shared with the other hook test files'
+    // regression tests) so parallel test-file execution can't race on the same real path.
+    const TASK_ID_FOR_REGRESSION = '62702';
+    const realMarker = `/tmp/board-main-session-${TASK_ID_FOR_REGRESSION}`;
+    const original = process.env.BOARD_TASK_ID;
+    // Defensive cleanup in case a prior crashed run left this behind.
+    if (existsSync(realMarker)) unlinkSync(realMarker);
+    try {
+      process.env.BOARD_TASK_ID = TASK_ID_FOR_REGRESSION;
+      writeFileSync(realMarker, 'real-session-id', 'utf-8');
+      const code = await runHook(
+        ['pre'],
+        {
+          BOARD_TASK_ID: TASK_ID_FOR_REGRESSION,
+          BOARD_API_URL: `http://127.0.0.1:${svr.port}`,
+          BOARD_HOOK_TOKEN: 'tok',
+        },
+        JSON.stringify({ session_id: 'unrelated-session' })
+      );
+      expect(code).toBe(0);
+      // The hook must consult the isolated BOARD_SESSION_MARKER_FILE, not the real marker
+      // (which holds a different session id) — so it should still fire, not skip.
+      const last = svr.captured.at(-1);
+      expect(last?.body).toEqual({ taskId: Number(TASK_ID_FOR_REGRESSION), state: 'needs' });
+      expect(existsSync(realMarker)).toBe(true);
+    } finally {
+      if (existsSync(realMarker)) unlinkSync(realMarker);
+      if (original === undefined) delete process.env.BOARD_TASK_ID;
+      else process.env.BOARD_TASK_ID = original;
+    }
   });
 });

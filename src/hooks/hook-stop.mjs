@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { promises as fs } from 'fs';
+import { getSessionMarkerPath } from './session-marker.mjs';
 
 async function readStdin() {
   const chunks = [];
@@ -176,10 +177,13 @@ async function main() {
   // interactive guard below causes an early return, we would lose the marker needed to
   // tell the main session apart from a sub-agent. It is only unlinked inside
   // notifyComplete, right before the completion POST is actually sent.
-  const sessionFile = `/tmp/board-main-session-${taskIdRaw}`;
+  const sessionFile = getSessionMarkerPath(taskIdRaw);
   try {
     const mainSessionId = (await fs.readFile(sessionFile, 'utf-8')).trim();
     if (mainSessionId && mainSessionId !== payload?.session_id) {
+      process.stderr.write(
+        `hook-stop: main session mismatch (main=${mainSessionId}, current=${payload?.session_id}); treating as sub-agent Stop\n`
+      );
       return; // Sub-agent's Stop
     }
   } catch {

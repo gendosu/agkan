@@ -2,11 +2,15 @@ import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 import { spawn } from 'child_process';
 import { createServer } from 'http';
 import type { Server } from 'http';
-import { mkdtempSync, writeFileSync } from 'fs';
+import { existsSync, mkdtempSync, unlinkSync, writeFileSync } from 'fs';
 import { tmpdir } from 'os';
 import { join, resolve } from 'path';
+import { buildHookEnv } from './hook-test-env';
 
 const SCRIPT = resolve(__dirname, '../../src/hooks/hook-stop.mjs');
+
+// Set by beforeEach below; runHook reads it to isolate BOARD_SESSION_MARKER_FILE per test.
+let tmp: string;
 
 type Capture = { url: string | undefined; body: unknown };
 
@@ -54,9 +58,15 @@ function makeServer(): Promise<{
   });
 }
 
+// Defaults BOARD_SESSION_MARKER_FILE to a path inside the per-test mkdtemp dir so no test
+// ever touches the real /tmp/board-main-session-<taskId> marker file, regardless of what
+// taskId a test happens to use. Callers that need to assert on a specific marker path (or
+// simulate no marker file at all) can still override it explicitly via `env`.
 function runHook(stdinJson: unknown, env: Record<string, string>): Promise<number> {
   return new Promise((resolveFn) => {
-    const proc = spawn('node', [SCRIPT], { env: { ...process.env, ...env } });
+    const proc = spawn('node', [SCRIPT], {
+      env: buildHookEnv({ BOARD_SESSION_MARKER_FILE: join(tmp, 'session-marker'), ...env }),
+    });
     proc.stdin.write(JSON.stringify(stdinJson));
     proc.stdin.end();
     proc.on('exit', (code) => resolveFn(code ?? 0));
@@ -65,7 +75,6 @@ function runHook(stdinJson: unknown, env: Record<string, string>): Promise<numbe
 
 describe('hook-stop.mjs', () => {
   let svr: Awaited<ReturnType<typeof makeServer>>;
-  let tmp: string;
 
   beforeAll(async () => {
     svr = await makeServer();
@@ -1197,5 +1206,74 @@ describe('hook-stop.mjs', () => {
     // ignore the unflagged Agent and let the status-reached check drive completion instead.
     const last = svr.captured.at(-1);
     expect(last?.body).toEqual({ taskId: 43, reason: 'complete' });
+  });
+
+  it('does not leak a parent-process BOARD_TARGET_STATUS into a test override that omits it (regression: #690)', async () => {
+    // Reproduces the reported bug: inside a real Board pr/run session, BOARD_TARGET_STATUS
+    // is set on the parent process. A test override that doesn't mention the key must not
+    // silently inherit it — this test simulates that parent state and asserts the hook still
+    // takes the legacy unconditional-complete path (i.e. BOARD_TARGET_STATUS was actually
+    // absent in the child, not merely absent from the override object).
+    const original = process.env.BOARD_TARGET_STATUS;
+    process.env.BOARD_TARGET_STATUS = 'review';
+    try {
+      svr.setStatus(null);
+      const transcript = join(tmp, 't.jsonl');
+      writeFileSync(
+        transcript,
+        JSON.stringify({
+          type: 'assistant',
+          message: { content: [{ type: 'tool_use', id: 'glob-leak', name: 'Glob', input: {} }] },
+        }) + '\n'
+      );
+      const code = await runHook(
+        { transcript_path: transcript, hook_event_name: 'Stop', stop_hook_active: false },
+        {
+          BOARD_TASK_ID: '999',
+          BOARD_API_URL: `http://127.0.0.1:${svr.port}`,
+          BOARD_HOOK_TOKEN: 'tk',
+        }
+      );
+      expect(code).toBe(0);
+      const last = svr.captured.at(-1);
+      expect(last?.body).toEqual({ taskId: 999, reason: 'complete' });
+    } finally {
+      if (original === undefined) delete process.env.BOARD_TARGET_STATUS;
+      else process.env.BOARD_TARGET_STATUS = original;
+    }
+  });
+
+  it('never writes to the real /tmp/board-main-session-<taskId> marker file (regression: #690)', async () => {
+    // Uses a task id unique to this file (not shared with the other hook test files'
+    // regression tests) so parallel test-file execution can't race on the same real path.
+    const TASK_ID_FOR_REGRESSION = '62703';
+    const realMarker = `/tmp/board-main-session-${TASK_ID_FOR_REGRESSION}`;
+    const original = process.env.BOARD_TASK_ID;
+    process.env.BOARD_TASK_ID = TASK_ID_FOR_REGRESSION;
+    // Defensive cleanup in case a prior crashed run left this behind.
+    if (existsSync(realMarker)) unlinkSync(realMarker);
+    try {
+      const transcript = join(tmp, 't.jsonl');
+      writeFileSync(
+        transcript,
+        JSON.stringify({
+          type: 'assistant',
+          message: { content: [{ type: 'tool_use', name: 'Read', input: {} }] },
+        }) + '\n'
+      );
+      const code = await runHook(
+        { transcript_path: transcript, hook_event_name: 'Stop', stop_hook_active: false, session_id: 'test-sess' },
+        {
+          BOARD_TASK_ID: TASK_ID_FOR_REGRESSION,
+          BOARD_API_URL: `http://127.0.0.1:${svr.port}`,
+          BOARD_HOOK_TOKEN: 'tk',
+        }
+      );
+      expect(code).toBe(0);
+      expect(existsSync(realMarker)).toBe(false);
+    } finally {
+      if (original === undefined) delete process.env.BOARD_TASK_ID;
+      else process.env.BOARD_TASK_ID = original;
+    }
   });
 });
