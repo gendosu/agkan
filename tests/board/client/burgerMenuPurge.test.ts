@@ -119,10 +119,13 @@ describe('burger menu purge tasks', () => {
     initBurgerMenu();
 
     const purgeConfirmBtn = document.getElementById('purge-confirm-btn')!;
+    const purgeResultEl = document.getElementById('purge-result')!;
     purgeConfirmBtn.click();
 
-    // Wait a tick for the async execution
-    await new Promise((resolve) => setTimeout(resolve, 10));
+    // Wait for the error branch of executePurge to finish writing the result message.
+    await vi.waitFor(() => {
+      expect(purgeResultEl.textContent).not.toBe('');
+    });
 
     expect(refreshBoardCards).not.toHaveBeenCalled();
   });
@@ -133,10 +136,13 @@ describe('burger menu purge tasks', () => {
     initBurgerMenu();
 
     const purgeConfirmBtn = document.getElementById('purge-confirm-btn')!;
+    const purgeResultEl = document.getElementById('purge-result')!;
     purgeConfirmBtn.click();
 
-    // Wait a tick for the async execution
-    await new Promise((resolve) => setTimeout(resolve, 10));
+    // Wait for the catch branch of executePurge to finish writing the result message.
+    await vi.waitFor(() => {
+      expect(purgeResultEl.textContent).not.toBe('');
+    });
 
     expect(refreshBoardCards).not.toHaveBeenCalled();
   });
