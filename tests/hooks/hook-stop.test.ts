@@ -921,14 +921,14 @@ describe('hook-stop.mjs', () => {
     const code = await runHook(
       { transcript_path: transcript, hook_event_name: 'Stop', stop_hook_active: false },
       {
-        BOARD_TASK_ID: '35',
+        BOARD_TASK_ID: '691',
         BOARD_API_URL: `http://127.0.0.1:${svr.port}`,
         BOARD_HOOK_TOKEN: 'tk',
         BOARD_TARGET_STATUS: 'done',
       }
     );
     expect(code).toBe(0);
-    expect(svr.captured.at(-1)?.body).toEqual({ taskId: 35, reason: 'complete' });
+    expect(svr.captured.at(-1)?.body).toEqual({ taskId: 691, reason: 'complete' });
   });
 
   it('does NOT post when target is done and status is review (now a reached terminal status) but a background job is still unfinished (#666 guard takes priority over the status check)', async () => {
