@@ -99,8 +99,10 @@ function isBackgroundJobComplete(entries, toolUseId) {
 
 // Fetches the current task status from the board and checks whether it has reached the
 // run's target status. Reached = current status matches target, or has advanced to a
-// terminal status (done/closed). On fetch failure or non-200, returns false so the caller
-// falls through to the normal guard checks instead of overriding them.
+// terminal status (review/done/closed) — review means a PR was created and the agent's
+// work has been handed off, which is a valid completion signal even for run/direct
+// sessions whose target is 'done'. On fetch failure or non-200, returns false so the
+// caller falls through to the normal guard checks instead of overriding them.
 async function isTargetStatusReached(apiUrl, token, taskId, targetStatus) {
   try {
     const res = await fetch(`${apiUrl}/api/internal/tasks/${taskId}/status`, {
@@ -110,7 +112,7 @@ async function isTargetStatusReached(apiUrl, token, taskId, targetStatus) {
     if (!res.ok) return false;
     const data = await res.json();
     const status = data && data.status;
-    return status === targetStatus || status === 'done' || status === 'closed';
+    return status === targetStatus || status === 'review' || status === 'done' || status === 'closed';
   } catch (err) {
     process.stderr.write(`hook-stop: status check failed: ${(err && err.message) || err}\n`);
     return false;

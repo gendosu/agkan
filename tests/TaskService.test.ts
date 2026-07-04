@@ -1622,6 +1622,40 @@ describe('TaskService', () => {
       // task1 doesn't match because ID doesn't match and title/body doesn't contain task2's ID text (normally)
       expect(results.every((t) => t.id !== task1.id || String(task1.title).includes(String(task2.id)))).toBe(true);
     });
+
+    it('Archived tasks are excluded by default even with includeAll=true', () => {
+      taskService.createTask({ title: 'Archive-search active task', status: 'in_progress' });
+      taskService.createTask({ title: 'Archive-search done task', status: 'done' });
+      taskService.archiveTasksBefore(new Date(Date.now() + 1000).toISOString(), ['done']);
+
+      const results = taskService.searchTasks('Archive-search', true);
+
+      expect(results.map((t) => t.title)).toContain('Archive-search active task');
+      expect(results.map((t) => t.title)).not.toContain('Archive-search done task');
+    });
+
+    it('Archived tasks are included when includeArchived=true', () => {
+      taskService.createTask({ title: 'Archive-flag active task', status: 'in_progress' });
+      taskService.createTask({ title: 'Archive-flag done task', status: 'done' });
+      taskService.archiveTasksBefore(new Date(Date.now() + 1000).toISOString(), ['done']);
+
+      const results = taskService.searchTasks('Archive-flag', true, undefined, true);
+
+      expect(results.map((t) => t.title)).toContain('Archive-flag active task');
+      expect(results.map((t) => t.title)).toContain('Archive-flag done task');
+    });
+
+    it('includeArchived=true alone (includeAll=false) still finds done/closed archived tasks', () => {
+      taskService.createTask({ title: 'Archive-alone active task', status: 'in_progress' });
+      taskService.createTask({ title: 'Archive-alone done task', status: 'done' });
+      taskService.archiveTasksBefore(new Date(Date.now() + 1000).toISOString(), ['done']);
+
+      // includeAll defaults to false, only includeArchived is true
+      const results = taskService.searchTasks('Archive-alone', false, undefined, true);
+
+      expect(results.map((t) => t.title)).toContain('Archive-alone active task');
+      expect(results.map((t) => t.title)).toContain('Archive-alone done task');
+    });
   });
 
   describe('Parent-Child Relationships', () => {

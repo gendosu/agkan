@@ -908,7 +908,30 @@ describe('hook-stop.mjs', () => {
     expect(svr.captured.at(-1)?.body).toEqual({ taskId: 32, reason: 'complete' });
   });
 
-  it('does NOT post when target is done but status is only review, and a background job is unfinished', async () => {
+  it('posts complete when target is done and status is review, with no unfinished background job (regression: #691 run/direct sessions must not linger when a PR was created)', async () => {
+    svr.setStatus('review');
+    const transcript = join(tmp, 't.jsonl');
+    writeFileSync(
+      transcript,
+      JSON.stringify({
+        type: 'assistant',
+        message: { content: [{ type: 'tool_use', id: 'wake-691', name: 'ScheduleWakeup', input: {} }] },
+      }) + '\n'
+    );
+    const code = await runHook(
+      { transcript_path: transcript, hook_event_name: 'Stop', stop_hook_active: false },
+      {
+        BOARD_TASK_ID: '691',
+        BOARD_API_URL: `http://127.0.0.1:${svr.port}`,
+        BOARD_HOOK_TOKEN: 'tk',
+        BOARD_TARGET_STATUS: 'done',
+      }
+    );
+    expect(code).toBe(0);
+    expect(svr.captured.at(-1)?.body).toEqual({ taskId: 691, reason: 'complete' });
+  });
+
+  it('does NOT post when target is done and status is review (now a reached terminal status) but a background job is still unfinished (#666 guard takes priority over the status check)', async () => {
     const before = svr.captured.length;
     svr.setStatus('review');
     const transcript = join(tmp, 't.jsonl');

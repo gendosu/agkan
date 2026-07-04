@@ -2,7 +2,14 @@ import { Command } from 'commander';
 import { startBoardServer } from '../../board/server';
 import { handleError } from '../utils/error-handler';
 import { loadConfig } from '../../db/config';
-import { isBoardRunning, spawnBoardDaemon, killBoardProcess, readBoardPid } from '../utils/board-daemon';
+import {
+  isBoardRunning,
+  spawnBoardDaemon,
+  killBoardProcess,
+  readBoardPid,
+  waitForBoardReady,
+  readBoardPort,
+} from '../utils/board-daemon';
 import { TaskService } from '../../services/TaskService';
 import chalk from 'chalk';
 
@@ -21,7 +28,7 @@ function buildDaemonArgs(port: number, title: string | undefined): string[] {
   return args;
 }
 
-function handleStart(options: BoardOptions): void {
+async function handleStart(options: BoardOptions): Promise<void> {
   if (isBoardRunning()) {
     console.log('Board server is already running');
     return;
@@ -33,7 +40,14 @@ function handleStart(options: BoardOptions): void {
     process.exit(1);
     return;
   }
-  const pid = spawnBoardDaemon(buildDaemonArgs(port, options.title ?? config.board?.title));
+  const pid = spawnBoardDaemon(buildDaemonArgs(port, options.title ?? config.board?.title), port);
+  const ready = await waitForBoardReady(port);
+  if (!ready) {
+    console.error(`Board server failed to start on port ${port}`);
+    killBoardProcess();
+    process.exit(1);
+    return;
+  }
   console.log(`Board server started (PID: ${pid}) on http://localhost:${port}`);
 }
 
@@ -50,7 +64,7 @@ function handleStop(): void {
   }
 }
 
-function handleRestart(options: BoardOptions): void {
+async function handleRestart(options: BoardOptions): Promise<void> {
   killBoardProcess();
   const config = loadConfig();
   const port = resolvePort(options.port, config.board?.port);
@@ -59,7 +73,14 @@ function handleRestart(options: BoardOptions): void {
     process.exit(1);
     return;
   }
-  const pid = spawnBoardDaemon(buildDaemonArgs(port, options.title ?? config.board?.title));
+  const pid = spawnBoardDaemon(buildDaemonArgs(port, options.title ?? config.board?.title), port);
+  const ready = await waitForBoardReady(port);
+  if (!ready) {
+    console.error(`Board server failed to start on port ${port}`);
+    killBoardProcess();
+    process.exit(1);
+    return;
+  }
   console.log(`Board server restarted (PID: ${pid}) on http://localhost:${port}`);
 }
 
@@ -89,8 +110,8 @@ function printTaskSummary(): void {
 
 async function handleStatus(options: BoardOptions): Promise<void> {
   const config = loadConfig();
-  const port = resolvePort(options.port, config.board?.port);
-  if (port === null) {
+  const resolvedPort = resolvePort(options.port, config.board?.port);
+  if (resolvedPort === null) {
     console.error('Invalid port number');
     process.exit(1);
     return;
@@ -102,6 +123,7 @@ async function handleStatus(options: BoardOptions): Promise<void> {
   // Check server status
   const isRunning = isBoardRunning();
   const pid = readBoardPid();
+  const port = readBoardPort() ?? resolvedPort;
 
   if (isRunning && pid) {
     console.log(chalk.green(`✓ Server: RUNNING (PID: ${pid})`));
@@ -149,10 +171,10 @@ function registerStartSubcommand(boardCommand: Command): void {
     .description('Start board server as a daemon')
     .option('-p, --port <number>', 'Port to listen on')
     .option('-t, --title <text>', 'Board title to display in the header')
-    .action((options: BoardOptions, command: Command) => {
+    .action(async (options: BoardOptions, command: Command) => {
       try {
         const mergedOptions = mergeOptions(options, command);
-        handleStart(mergedOptions);
+        await handleStart(mergedOptions);
       } catch (error) {
         handleError(error as Error, {});
       }
@@ -178,10 +200,10 @@ function registerRestartSubcommand(boardCommand: Command): void {
     .description('Restart the board server daemon')
     .option('-p, --port <number>', 'Port to listen on')
     .option('-t, --title <text>', 'Board title to display in the header')
-    .action((options: BoardOptions, command: Command) => {
+    .action(async (options: BoardOptions, command: Command) => {
       try {
         const mergedOptions = mergeOptions(options, command);
-        handleRestart(mergedOptions);
+        await handleRestart(mergedOptions);
       } catch (error) {
         handleError(error as Error, {});
       }

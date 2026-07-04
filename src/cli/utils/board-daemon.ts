@@ -15,6 +15,15 @@ export function readBoardPid(): number | null {
   return isNaN(pid) ? null : pid;
 }
 
+export function readBoardPort(): number | null {
+  const pidFile = getPidFilePath();
+  if (!fs.existsSync(pidFile)) return null;
+  const lines = fs.readFileSync(pidFile, 'utf8').trim().split('\n');
+  if (lines.length < 2) return null;
+  const port = parseInt(lines[1], 10);
+  return isNaN(port) ? null : port;
+}
+
 export function isBoardRunning(): boolean {
   const pid = readBoardPid();
   if (pid === null) return false;
@@ -26,13 +35,13 @@ export function isBoardRunning(): boolean {
   }
 }
 
-function writePidFile(pid: number): void {
+function writePidFile(pid: number, port: number): void {
   const pidFile = getPidFilePath();
   const dir = path.dirname(pidFile);
   if (!fs.existsSync(dir)) {
     fs.mkdirSync(dir, { recursive: true });
   }
-  fs.writeFileSync(pidFile, String(pid), { encoding: 'utf8', mode: 0o600 });
+  fs.writeFileSync(pidFile, `${pid}\n${port}`, { encoding: 'utf8', mode: 0o600 });
 }
 
 export function removePidFile(): void {
@@ -42,7 +51,7 @@ export function removePidFile(): void {
   }
 }
 
-export function spawnBoardDaemon(boardArgs: string[]): number {
+export function spawnBoardDaemon(boardArgs: string[], port: number): number {
   const child = spawn(process.argv[0], [process.argv[1], 'board', ...boardArgs], {
     detached: true,
     stdio: 'ignore',
@@ -52,8 +61,37 @@ export function spawnBoardDaemon(boardArgs: string[]): number {
     throw new Error('Failed to spawn board daemon: child process has no PID');
   }
   const pid = child.pid;
-  writePidFile(pid);
+  writePidFile(pid, port);
   return pid;
+}
+
+export interface WaitForBoardReadyOptions {
+  timeoutMs?: number;
+  intervalMs?: number;
+  fetchImpl?: typeof fetch;
+}
+
+export async function waitForBoardReady(port: number, options: WaitForBoardReadyOptions = {}): Promise<boolean> {
+  const timeoutMs = options.timeoutMs ?? 5000;
+  const intervalMs = options.intervalMs ?? 100;
+  const fetchImpl = options.fetchImpl ?? fetch;
+  const deadline = Date.now() + timeoutMs;
+
+  do {
+    const controller = new AbortController();
+    const attemptTimeout = setTimeout(() => controller.abort(), Math.max(deadline - Date.now(), 50));
+    try {
+      const response = await fetchImpl(`http://localhost:${port}/api/version`, { signal: controller.signal });
+      if (response.ok) return true;
+    } catch {
+      // Server not accepting connections yet, or the request stalled/was aborted; retry until the deadline.
+    } finally {
+      clearTimeout(attemptTimeout);
+    }
+    await new Promise((resolve) => setTimeout(resolve, intervalMs));
+  } while (Date.now() < deadline);
+
+  return false;
 }
 
 export function killBoardProcess(): boolean {
