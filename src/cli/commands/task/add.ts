@@ -5,13 +5,14 @@
 import { Command } from 'commander';
 import chalk from 'chalk';
 
-import { TaskStatus } from '../../../models';
+import { Task, TaskStatus } from '../../../models';
 import { Priority, isPriority } from '../../../models/Priority';
 import { handleError, validateNumberInput } from '../../utils/error-handler';
 import { validateTaskStatus } from '../../utils/validators';
 import { validateTaskInput } from '../../../utils/input-validators';
 import { createFormatter } from '../../utils/output-formatter';
 import { getServiceContainer } from '../../utils/service-container';
+import { getStorageBackend } from '../../../db/connection';
 import {
   readBodyFromFile,
   parseBlockIds,
@@ -20,6 +21,9 @@ import {
   buildTaskJsonData,
   printTaskCreated,
 } from './add-helpers';
+
+/** Marker error used to distinguish block-relationship failures from other errors thrown within the transaction */
+class BlockRelationshipError extends Error {}
 
 export function setupTaskAddCommand(program: Command): void {
   const taskCommand = program.commands.find((cmd) => cmd.name() === 'task');
@@ -132,26 +136,45 @@ export function setupTaskAddCommand(program: Command): void {
         }
 
         const { taskService, taskBlockService } = getServiceContainer();
-        const task = taskService.createTask({
-          title,
-          body: taskBody,
-          author: options.author,
-          assignees: options.assignees,
-          status: options.status as TaskStatus,
-          priority: options.priority ? (options.priority as Priority) : undefined,
-          parent_id: parentId,
-          branch: options.branch ?? null,
-        });
+        const backend = getStorageBackend();
 
+        // Wrap task creation and block relationship setup in a single transaction
+        // so a failure in addBlockRelationships rolls back the created task instead
+        // of leaving an orphaned task behind.
+        let task: Task;
         try {
-          addBlockRelationships(taskBlockService, task.id, blockedByIds, blocksIds);
-        } catch (error) {
-          const msg = error instanceof Error ? error.message : 'Error adding block relationships';
-          formatter.error(msg, () => {
-            console.error(chalk.red(`\n✗ ${msg}\n`));
+          task = backend.transaction(() => {
+            const created = taskService.createTask({
+              title,
+              body: taskBody,
+              author: options.author,
+              assignees: options.assignees,
+              status: options.status as TaskStatus,
+              priority: options.priority ? (options.priority as Priority) : undefined,
+              parent_id: parentId,
+              branch: options.branch ?? null,
+            });
+
+            try {
+              addBlockRelationships(taskBlockService, created.id, blockedByIds, blocksIds);
+            } catch (error) {
+              throw new BlockRelationshipError(
+                error instanceof Error ? error.message : 'Error adding block relationships'
+              );
+            }
+
+            return created;
           });
-          process.exit(1);
-          return;
+        } catch (error) {
+          if (error instanceof BlockRelationshipError) {
+            const msg = error.message;
+            formatter.error(msg, () => {
+              console.error(chalk.red(`\n✗ ${msg}\n`));
+            });
+            process.exit(1);
+            return;
+          }
+          throw error;
         }
 
         const { parentTask, blockerTasks, blockedTasks } = fetchRelatedTasks(
