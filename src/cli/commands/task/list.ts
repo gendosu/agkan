@@ -855,6 +855,84 @@ function filterTasks(
 }
 
 /**
+ * Build the empty-results JSON output for the normal (flat) list view.
+ * Mirrors the schema of buildListJsonOutput (no viewMode, no `all` filter).
+ */
+function buildEmptyListJsonOutput(options: Record<string, unknown>, tagIds: number[] | undefined): object {
+  return {
+    totalCount: 0,
+    filters: {
+      status: options.status || null,
+      author: options.author || null,
+      assignees: options.assignees || null,
+      tagIds: tagIds || [],
+      rootOnly: options.rootOnly || false,
+      priority: options.priority || null,
+    },
+    sort: options.sort || 'created_at',
+    order: options.order || 'desc',
+    tasks: [],
+  };
+}
+
+/**
+ * Build the empty-results JSON output for the tree view.
+ * Mirrors the schema of buildTreeJsonOutput (viewMode + sort/order).
+ */
+function buildEmptyTreeJsonOutput(options: Record<string, unknown>, tagIds: number[] | undefined): object {
+  return {
+    totalCount: 0,
+    viewMode: 'tree',
+    filters: {
+      status: options.status || null,
+      author: options.author || null,
+      assignees: options.assignees || null,
+      tagIds: tagIds || [],
+      rootOnly: options.rootOnly || false,
+      all: options.all || false,
+      priority: options.priority || null,
+    },
+    sort: options.sort || 'created_at',
+    order: options.order || 'desc',
+    tasks: [],
+  };
+}
+
+/**
+ * Build the empty-results JSON output for the dep-tree view.
+ * Mirrors the schema of buildDepTreeJsonOutput (viewMode, no assignees, no sort/order).
+ */
+function buildEmptyDepTreeJsonOutput(options: Record<string, unknown>, tagIds: number[] | undefined): object {
+  return {
+    totalCount: 0,
+    viewMode: 'dep-tree',
+    filters: {
+      status: options.status || null,
+      author: options.author || null,
+      tagIds: tagIds || [],
+      rootOnly: options.rootOnly || false,
+      all: options.all || false,
+      priority: options.priority || null,
+    },
+    tasks: [],
+  };
+}
+
+/**
+ * Build the empty-results JSON output, dispatching to the schema of the
+ * currently requested view mode (list/tree/dep-tree).
+ */
+function buildEmptyJsonOutput(options: Record<string, unknown>, tagIds: number[] | undefined): object {
+  if (options.tree) {
+    return buildEmptyTreeJsonOutput(options, tagIds);
+  }
+  if (options.depTree) {
+    return buildEmptyDepTreeJsonOutput(options, tagIds);
+  }
+  return buildEmptyListJsonOutput(options, tagIds);
+}
+
+/**
  * Handle empty results case.
  */
 function handleEmptyResults(
@@ -865,19 +943,7 @@ function handleEmptyResults(
 ): void {
   const emptyText = options.rootOnly && tasks.length > 0 ? '\nNo root tasks found\n' : '\nNo tasks found\n';
   formatter.output(
-    () => ({
-      totalCount: 0,
-      filters: {
-        status: options.status || null,
-        author: options.author || null,
-        assignees: options.assignees || null,
-        tagIds: tagIds || [],
-        rootOnly: options.rootOnly || false,
-        all: options.all || false,
-        priority: options.priority || null,
-      },
-      tasks: [],
-    }),
+    () => buildEmptyJsonOutput(options, tagIds),
     () => {
       console.log(chalk.yellow(emptyText));
     }
