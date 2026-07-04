@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { readFileSync } from 'fs';
+import { getSessionMarkerPath } from './session-marker.mjs';
 
 const argSubcmd = process.argv[2];
 const taskIdRaw = process.env.BOARD_TASK_ID;
@@ -18,7 +19,7 @@ if (!Number.isFinite(taskId)) {
 
 // Ignore events from subagents — only the main session should trigger attention.
 try {
-  const mainSessionId = readFileSync(`/tmp/board-main-session-${taskIdRaw}`, 'utf-8').trim();
+  const mainSessionId = readFileSync(getSessionMarkerPath(taskIdRaw), 'utf-8').trim();
   if (mainSessionId) {
     const chunks = [];
     for await (const chunk of process.stdin) chunks.push(chunk);
