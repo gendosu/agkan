@@ -1874,3 +1874,932 @@ describe('branch input keydown - prevent duplicate first character', () => {
     expect(branchInput!.value).toBe('f');
   });
 });
+
+describe('comment actions - save edit', () => {
+  beforeEach(() => {
+    vi.resetModules();
+    setupMinimalBoardDOM();
+    document.body.insertAdjacentHTML('beforeend', '<div id="toast"></div>');
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('save-comment-edit success: PATCHes trimmed content and reloads comments', async () => {
+    let commentsGetCount = 0;
+    const fetchMock = vi.fn().mockImplementation((url: string, init?: RequestInit) => {
+      const u = String(url);
+      if (u.includes('/api/tasks/1/comments') && (!init || !init.method)) {
+        commentsGetCount += 1;
+        const comments =
+          commentsGetCount === 1
+            ? [{ id: 42, content: 'Old content', author: 'Bob', created_at: '2026-01-01T00:00:00.000Z' }]
+            : [
+                { id: 42, content: 'Updated content', author: 'Bob', created_at: '2026-01-01T00:00:00.000Z' },
+                { id: 43, content: 'Second', author: 'Bob', created_at: '2026-01-01T00:00:00.000Z' },
+              ];
+        return Promise.resolve({ ok: true, json: () => Promise.resolve({ comments }) });
+      }
+      if (u === '/api/comments/42' && init?.method === 'PATCH') {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve({}) });
+      }
+      return Promise.resolve({ ok: true, json: () => Promise.resolve({}) });
+    });
+    global.fetch = fetchMock;
+
+    const { renderDetailPanel } = await import('../../../src/board/client/detailPanel');
+    renderDetailPanel(makeTaskDetail());
+
+    let editBtn: HTMLElement | null = null;
+    await vi.waitFor(() => {
+      editBtn = document.querySelector('[data-action="start-comment-edit"]') as HTMLElement;
+      expect(editBtn).not.toBeNull();
+    });
+    editBtn!.click();
+
+    const area = document.getElementById('comment-edit-area-42') as HTMLTextAreaElement;
+    area.value = '  Updated content  ';
+
+    const saveBtn = document.querySelector('[data-action="save-comment-edit"]') as HTMLElement;
+    saveBtn.click();
+
+    await vi.waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        '/api/comments/42',
+        expect.objectContaining({ method: 'PATCH', body: JSON.stringify({ content: 'Updated content' }) })
+      );
+    });
+
+    await vi.waitFor(() => {
+      expect(document.getElementById('detail-tab-comments')?.textContent).toBe('Comments (2)');
+    });
+  });
+
+  it('save-comment-edit failure: shows a toast when the PATCH request fails', async () => {
+    const fetchMock = vi.fn().mockImplementation((url: string, init?: RequestInit) => {
+      const u = String(url);
+      if (u.includes('/api/tasks/1/comments') && (!init || !init.method)) {
+        return Promise.resolve({
+          ok: true,
+          json: () =>
+            Promise.resolve({
+              comments: [{ id: 42, content: 'Old content', author: 'Bob', created_at: '2026-01-01T00:00:00.000Z' }],
+            }),
+        });
+      }
+      if (u === '/api/comments/42' && init?.method === 'PATCH') {
+        return Promise.resolve({ ok: false, json: () => Promise.resolve({}) });
+      }
+      return Promise.resolve({ ok: true, json: () => Promise.resolve({}) });
+    });
+    global.fetch = fetchMock;
+
+    const { renderDetailPanel } = await import('../../../src/board/client/detailPanel');
+    renderDetailPanel(makeTaskDetail());
+
+    let editBtn: HTMLElement | null = null;
+    await vi.waitFor(() => {
+      editBtn = document.querySelector('[data-action="start-comment-edit"]') as HTMLElement;
+      expect(editBtn).not.toBeNull();
+    });
+    editBtn!.click();
+
+    const area = document.getElementById('comment-edit-area-42') as HTMLTextAreaElement;
+    area.value = 'New content';
+
+    const saveBtn = document.querySelector('[data-action="save-comment-edit"]') as HTMLElement;
+    saveBtn.click();
+
+    await vi.waitFor(() => {
+      const toast = document.getElementById('toast');
+      expect(toast?.textContent).toBe('Failed to update comment');
+      expect(toast?.classList.contains('show')).toBe(true);
+    });
+  });
+
+  it('save-comment-edit with empty/whitespace content focuses the textarea and does not PATCH', async () => {
+    const fetchMock = vi.fn().mockImplementation((url: string) => {
+      const u = String(url);
+      if (u.includes('/api/tasks/1/comments')) {
+        return Promise.resolve({
+          ok: true,
+          json: () =>
+            Promise.resolve({
+              comments: [{ id: 42, content: 'Old content', author: 'Bob', created_at: '2026-01-01T00:00:00.000Z' }],
+            }),
+        });
+      }
+      return Promise.resolve({ ok: true, json: () => Promise.resolve({}) });
+    });
+    global.fetch = fetchMock;
+
+    const { renderDetailPanel } = await import('../../../src/board/client/detailPanel');
+    renderDetailPanel(makeTaskDetail());
+
+    let editBtn: HTMLElement | null = null;
+    await vi.waitFor(() => {
+      editBtn = document.querySelector('[data-action="start-comment-edit"]') as HTMLElement;
+      expect(editBtn).not.toBeNull();
+    });
+    editBtn!.click();
+
+    const area = document.getElementById('comment-edit-area-42') as HTMLTextAreaElement;
+    area.value = '   ';
+
+    const saveBtn = document.querySelector('[data-action="save-comment-edit"]') as HTMLElement;
+    saveBtn.click();
+
+    expect(document.activeElement).toBe(area);
+    expect(
+      fetchMock.mock.calls.some(
+        ([u, init]: [string, RequestInit?]) => String(u) === '/api/comments/42' && init?.method === 'PATCH'
+      )
+    ).toBe(false);
+  });
+});
+
+describe('comment actions - delete', () => {
+  beforeEach(() => {
+    vi.resetModules();
+    setupMinimalBoardDOM();
+    document.body.insertAdjacentHTML('beforeend', '<div id="toast"></div>');
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('does not DELETE when confirm() returns false', async () => {
+    vi.spyOn(window, 'confirm').mockReturnValue(false);
+    const fetchMock = vi.fn().mockImplementation((url: string) => {
+      const u = String(url);
+      if (u.includes('/api/tasks/1/comments')) {
+        return Promise.resolve({
+          ok: true,
+          json: () =>
+            Promise.resolve({
+              comments: [{ id: 42, content: 'Comment', author: 'Bob', created_at: '2026-01-01T00:00:00.000Z' }],
+            }),
+        });
+      }
+      return Promise.resolve({ ok: true, json: () => Promise.resolve({}) });
+    });
+    global.fetch = fetchMock;
+
+    const { renderDetailPanel } = await import('../../../src/board/client/detailPanel');
+    renderDetailPanel(makeTaskDetail());
+
+    let deleteBtn: HTMLElement | null = null;
+    await vi.waitFor(() => {
+      deleteBtn = document.querySelector('[data-action="delete-comment"]') as HTMLElement;
+      expect(deleteBtn).not.toBeNull();
+    });
+    deleteBtn!.click();
+
+    await Promise.resolve();
+    expect(
+      fetchMock.mock.calls.some(
+        ([u, init]: [string, RequestInit?]) => String(u) === '/api/comments/42' && init?.method === 'DELETE'
+      )
+    ).toBe(false);
+  });
+
+  it('DELETEs the comment and reloads on success when confirm() returns true', async () => {
+    vi.spyOn(window, 'confirm').mockReturnValue(true);
+    let commentsGetCount = 0;
+    const fetchMock = vi.fn().mockImplementation((url: string, init?: RequestInit) => {
+      const u = String(url);
+      if (u.includes('/api/tasks/1/comments') && (!init || !init.method)) {
+        commentsGetCount += 1;
+        const comments =
+          commentsGetCount === 1
+            ? [{ id: 42, content: 'Comment', author: 'Bob', created_at: '2026-01-01T00:00:00.000Z' }]
+            : [];
+        return Promise.resolve({ ok: true, json: () => Promise.resolve({ comments }) });
+      }
+      if (u === '/api/comments/42' && init?.method === 'DELETE') {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve({}) });
+      }
+      return Promise.resolve({ ok: true, json: () => Promise.resolve({}) });
+    });
+    global.fetch = fetchMock;
+
+    const { renderDetailPanel } = await import('../../../src/board/client/detailPanel');
+    renderDetailPanel(makeTaskDetail());
+
+    let deleteBtn: HTMLElement | null = null;
+    await vi.waitFor(() => {
+      deleteBtn = document.querySelector('[data-action="delete-comment"]') as HTMLElement;
+      expect(deleteBtn).not.toBeNull();
+    });
+    deleteBtn!.click();
+
+    await vi.waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith('/api/comments/42', expect.objectContaining({ method: 'DELETE' }));
+    });
+
+    await vi.waitFor(() => {
+      expect(document.getElementById('detail-tab-comments')?.textContent).toBe('Comments (0)');
+    });
+  });
+
+  it('shows a toast when the DELETE request fails', async () => {
+    vi.spyOn(window, 'confirm').mockReturnValue(true);
+    const fetchMock = vi.fn().mockImplementation((url: string, init?: RequestInit) => {
+      const u = String(url);
+      if (u.includes('/api/tasks/1/comments') && (!init || !init.method)) {
+        return Promise.resolve({
+          ok: true,
+          json: () =>
+            Promise.resolve({
+              comments: [{ id: 42, content: 'Comment', author: 'Bob', created_at: '2026-01-01T00:00:00.000Z' }],
+            }),
+        });
+      }
+      if (u === '/api/comments/42' && init?.method === 'DELETE') {
+        return Promise.resolve({ ok: false, json: () => Promise.resolve({}) });
+      }
+      return Promise.resolve({ ok: true, json: () => Promise.resolve({}) });
+    });
+    global.fetch = fetchMock;
+
+    const { renderDetailPanel } = await import('../../../src/board/client/detailPanel');
+    renderDetailPanel(makeTaskDetail());
+
+    let deleteBtn: HTMLElement | null = null;
+    await vi.waitFor(() => {
+      deleteBtn = document.querySelector('[data-action="delete-comment"]') as HTMLElement;
+      expect(deleteBtn).not.toBeNull();
+    });
+    deleteBtn!.click();
+
+    await vi.waitFor(() => {
+      const toast = document.getElementById('toast');
+      expect(toast?.textContent).toBe('Failed to delete comment');
+      expect(toast?.classList.contains('show')).toBe(true);
+    });
+  });
+});
+
+describe('comment actions - submit', () => {
+  beforeEach(() => {
+    vi.resetModules();
+    setupMinimalBoardDOM();
+    document.body.insertAdjacentHTML('beforeend', '<div id="toast"></div>');
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('submit-comment success: POSTs trimmed content and reloads comments', async () => {
+    let commentsGetCount = 0;
+    const fetchMock = vi.fn().mockImplementation((url: string, init?: RequestInit) => {
+      const u = String(url);
+      if (u === '/api/tasks/1/comments' && (!init || !init.method)) {
+        commentsGetCount += 1;
+        const comments =
+          commentsGetCount === 1
+            ? []
+            : [{ id: 1, content: 'Hello world', author: null, created_at: '2026-01-01T00:00:00.000Z' }];
+        return Promise.resolve({ ok: true, json: () => Promise.resolve({ comments }) });
+      }
+      if (u === '/api/tasks/1/comments' && init?.method === 'POST') {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve({}) });
+      }
+      return Promise.resolve({ ok: true, json: () => Promise.resolve({}) });
+    });
+    global.fetch = fetchMock;
+
+    const { renderDetailPanel } = await import('../../../src/board/client/detailPanel');
+    renderDetailPanel(makeTaskDetail());
+
+    let textarea: HTMLTextAreaElement | null = null;
+    await vi.waitFor(() => {
+      textarea = document.getElementById('add-comment-text') as HTMLTextAreaElement;
+      expect(textarea).not.toBeNull();
+    });
+    textarea!.value = '  Hello world  ';
+
+    const submitBtn = document.querySelector('[data-action="submit-comment"]') as HTMLElement;
+    submitBtn.click();
+
+    await vi.waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        '/api/tasks/1/comments',
+        expect.objectContaining({ method: 'POST', body: JSON.stringify({ content: 'Hello world' }) })
+      );
+    });
+
+    await vi.waitFor(() => {
+      expect(document.getElementById('detail-tab-comments')?.textContent).toBe('Comments (1)');
+    });
+  });
+
+  it('submit-comment failure: shows a toast when the POST request fails', async () => {
+    const fetchMock = vi.fn().mockImplementation((url: string, init?: RequestInit) => {
+      const u = String(url);
+      if (u === '/api/tasks/1/comments' && init?.method === 'POST') {
+        return Promise.resolve({ ok: false, json: () => Promise.resolve({}) });
+      }
+      return Promise.resolve({ ok: true, json: () => Promise.resolve({ comments: [] }) });
+    });
+    global.fetch = fetchMock;
+
+    const { renderDetailPanel } = await import('../../../src/board/client/detailPanel');
+    renderDetailPanel(makeTaskDetail());
+
+    let textarea: HTMLTextAreaElement | null = null;
+    await vi.waitFor(() => {
+      textarea = document.getElementById('add-comment-text') as HTMLTextAreaElement;
+      expect(textarea).not.toBeNull();
+    });
+    textarea!.value = 'A comment';
+
+    const submitBtn = document.querySelector('[data-action="submit-comment"]') as HTMLElement;
+    submitBtn.click();
+
+    await vi.waitFor(() => {
+      const toast = document.getElementById('toast');
+      expect(toast?.textContent).toBe('Failed to add comment');
+      expect(toast?.classList.contains('show')).toBe(true);
+    });
+  });
+
+  it('submit-comment with empty input focuses the textarea and does not POST', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: () => Promise.resolve({ comments: [] }) });
+    global.fetch = fetchMock;
+
+    const { renderDetailPanel } = await import('../../../src/board/client/detailPanel');
+    renderDetailPanel(makeTaskDetail());
+
+    let textarea: HTMLTextAreaElement | null = null;
+    await vi.waitFor(() => {
+      textarea = document.getElementById('add-comment-text') as HTMLTextAreaElement;
+      expect(textarea).not.toBeNull();
+    });
+    textarea!.value = '   ';
+
+    const submitBtn = document.querySelector('[data-action="submit-comment"]') as HTMLElement;
+    submitBtn.click();
+
+    expect(document.activeElement).toBe(textarea);
+    expect(
+      fetchMock.mock.calls.some(
+        ([u, init]: [string, RequestInit?]) => String(u) === '/api/tasks/1/comments' && init?.method === 'POST'
+      )
+    ).toBe(false);
+  });
+});
+
+describe('saveDetailTask - collectEditedTaskFields', () => {
+  beforeEach(() => {
+    vi.resetModules();
+    setupBoardContainerDOM();
+    document.body.insertAdjacentHTML('beforeend', '<div id="toast"></div>');
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  function defaultFetchMock(extra?: (u: string, init?: RequestInit) => Response | undefined) {
+    return vi.fn().mockImplementation((url: string, init?: RequestInit) => {
+      const u = String(url);
+      const extraResult = extra ? extra(u, init) : undefined;
+      if (extraResult) return Promise.resolve(extraResult);
+      if (u.includes('/api/config')) return Promise.resolve({ ok: true, json: () => Promise.resolve({}) });
+      if (u.includes('/api/tags')) return Promise.resolve({ ok: true, json: () => Promise.resolve({ tags: [] }) });
+      if (u.includes('/api/board/cards'))
+        return Promise.resolve({ ok: true, json: () => Promise.resolve({ columns: [] }) });
+      if (u.includes('/api/tasks/1/comments'))
+        return Promise.resolve({ ok: true, json: () => Promise.resolve({ comments: [] }) });
+      return Promise.resolve({ ok: true, json: () => Promise.resolve({}) });
+    });
+  }
+
+  it('does not PATCH and focuses the title input when the title is empty', async () => {
+    const fetchMock = defaultFetchMock();
+    global.fetch = fetchMock;
+
+    const { initDetailPanel, renderDetailPanel } = await import('../../../src/board/client/detailPanel');
+    initDetailPanel();
+    renderDetailPanel(makeTaskDetail());
+
+    let titleInput: HTMLInputElement | null = null;
+    await vi.waitFor(() => {
+      titleInput = document.getElementById('detail-edit-title') as HTMLInputElement;
+      expect(titleInput).not.toBeNull();
+    });
+    titleInput!.value = '   ';
+
+    const saveBtn = document.getElementById('detail-save-btn') as HTMLButtonElement;
+    saveBtn.click();
+
+    expect(document.activeElement).toBe(titleInput);
+    expect(
+      fetchMock.mock.calls.some(
+        ([u, init]: [string, RequestInit?]) => String(u) === '/api/tasks/1' && init?.method === 'PATCH'
+      )
+    ).toBe(false);
+  });
+
+  it('successful save PATCHes the collected fields, re-renders, toasts, and refreshes board cards', async () => {
+    const fetchMock = defaultFetchMock((u, init) => {
+      if (u === '/api/tasks/1' && init?.method === 'PATCH') {
+        return { ok: true, json: () => Promise.resolve({}) } as unknown as Response;
+      }
+      if (u === '/api/tasks/1' && (!init || !init.method)) {
+        return {
+          ok: true,
+          json: () => Promise.resolve(makeTaskDetail({ task: { ...makeTaskDetail().task, title: 'Updated title' } })),
+        } as unknown as Response;
+      }
+      return undefined;
+    });
+    global.fetch = fetchMock;
+
+    const { initDetailPanel, renderDetailPanel } = await import('../../../src/board/client/detailPanel');
+    initDetailPanel();
+    renderDetailPanel(makeTaskDetail());
+
+    let titleInput: HTMLInputElement | null = null;
+    await vi.waitFor(() => {
+      titleInput = document.getElementById('detail-edit-title') as HTMLInputElement;
+      expect(titleInput).not.toBeNull();
+    });
+    titleInput!.value = 'Updated title';
+
+    const saveBtn = document.getElementById('detail-save-btn') as HTMLButtonElement;
+    saveBtn.click();
+
+    await vi.waitFor(() => {
+      expect(
+        fetchMock.mock.calls.some(
+          ([u, init]: [string, RequestInit?]) => String(u) === '/api/tasks/1' && init?.method === 'PATCH'
+        )
+      ).toBe(true);
+    });
+
+    const patchCall = fetchMock.mock.calls.find(
+      ([u, init]: [string, RequestInit?]) => String(u) === '/api/tasks/1' && init?.method === 'PATCH'
+    )!;
+    const body = JSON.parse((patchCall[1] as RequestInit).body as string);
+    expect(body.title).toBe('Updated title');
+    expect(body).toHaveProperty('status');
+    expect(body).toHaveProperty('priority');
+    expect(body).toHaveProperty('branch');
+
+    await vi.waitFor(() => {
+      const reloadedTitleInput = document.getElementById('detail-edit-title') as HTMLInputElement;
+      expect(reloadedTitleInput?.value).toBe('Updated title');
+    });
+
+    await vi.waitFor(() => {
+      const toast = document.getElementById('toast');
+      expect(toast?.textContent).toBe('Task saved successfully');
+      expect(toast?.classList.contains('show')).toBe(true);
+    });
+
+    await vi.waitFor(() => {
+      expect(fetchMock.mock.calls.some(([u]: [string]) => String(u).includes('/api/board/cards'))).toBe(true);
+    });
+  });
+
+  it('shows a toast when the PATCH request fails', async () => {
+    const fetchMock = defaultFetchMock((u, init) => {
+      if (u === '/api/tasks/1' && init?.method === 'PATCH') {
+        return { ok: false, json: () => Promise.resolve({}) } as unknown as Response;
+      }
+      return undefined;
+    });
+    global.fetch = fetchMock;
+
+    const { initDetailPanel, renderDetailPanel } = await import('../../../src/board/client/detailPanel');
+    initDetailPanel();
+    renderDetailPanel(makeTaskDetail());
+
+    let titleInput: HTMLInputElement | null = null;
+    await vi.waitFor(() => {
+      titleInput = document.getElementById('detail-edit-title') as HTMLInputElement;
+      expect(titleInput).not.toBeNull();
+    });
+
+    const saveBtn = document.getElementById('detail-save-btn') as HTMLButtonElement;
+    saveBtn.click();
+
+    await vi.waitFor(() => {
+      const toast = document.getElementById('toast');
+      expect(toast?.textContent).toBe('Failed to update task');
+      expect(toast?.classList.contains('show')).toBe(true);
+    });
+  });
+});
+
+describe('showUpdateWarning - buildUpdateWarningReloadBtn', () => {
+  beforeEach(() => {
+    vi.resetModules();
+    setupMinimalBoardDOM();
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('creates a warning bar as the first child of detail-panel-body with a message and reload button', async () => {
+    global.fetch = vi.fn().mockResolvedValue({ ok: true, json: () => Promise.resolve({ comments: [] }) });
+    const { renderDetailPanel, showUpdateWarning } = await import('../../../src/board/client/detailPanel');
+    renderDetailPanel(makeTaskDetail());
+    await vi.waitFor(() => {
+      expect(document.getElementById('detail-tab-comments')?.textContent).toBe('Comments (0)');
+    });
+
+    showUpdateWarning();
+
+    const body = document.getElementById('detail-panel-body')!;
+    const warning = document.getElementById('detail-panel-update-warning');
+    expect(warning).not.toBeNull();
+    expect(body.firstElementChild).toBe(warning);
+    expect(warning?.textContent).toContain('This task has been updated in the database');
+    expect(warning?.querySelector('button')).not.toBeNull();
+  });
+
+  it('does not create a duplicate warning bar when called again while one already exists', async () => {
+    global.fetch = vi.fn().mockResolvedValue({ ok: true, json: () => Promise.resolve({ comments: [] }) });
+    const { renderDetailPanel, showUpdateWarning } = await import('../../../src/board/client/detailPanel');
+    renderDetailPanel(makeTaskDetail());
+    await vi.waitFor(() => {
+      expect(document.getElementById('detail-tab-comments')?.textContent).toBe('Comments (0)');
+    });
+
+    showUpdateWarning();
+    const first = document.getElementById('detail-panel-update-warning');
+    showUpdateWarning();
+
+    const warnings = document.querySelectorAll('#detail-panel-update-warning');
+    expect(warnings.length).toBe(1);
+    expect(document.getElementById('detail-panel-update-warning')).toBe(first);
+  });
+
+  it('clicking the reload button refetches the task and re-renders', async () => {
+    let taskFetchCount = 0;
+    global.fetch = vi.fn().mockImplementation((url: string) => {
+      const u = String(url);
+      if (u === '/api/tasks/1') {
+        taskFetchCount += 1;
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve(makeTaskDetail({ task: { ...makeTaskDetail().task, title: 'Reloaded' } })),
+        });
+      }
+      return Promise.resolve({ ok: true, json: () => Promise.resolve({ comments: [] }) });
+    });
+
+    const { renderDetailPanel, showUpdateWarning } = await import('../../../src/board/client/detailPanel');
+    renderDetailPanel(makeTaskDetail());
+    await vi.waitFor(() => {
+      expect(document.getElementById('detail-tab-comments')?.textContent).toBe('Comments (0)');
+    });
+
+    showUpdateWarning();
+    const reloadBtn = document
+      .getElementById('detail-panel-update-warning')!
+      .querySelector('button') as HTMLButtonElement;
+    reloadBtn.click();
+
+    await vi.waitFor(() => {
+      expect(taskFetchCount).toBe(1);
+      expect(document.getElementById('detail-panel-update-warning')).toBeNull();
+    });
+  });
+
+  it('silently swallows errors when the reload fetch fails', async () => {
+    global.fetch = vi.fn().mockImplementation((url: string) => {
+      const u = String(url);
+      if (u === '/api/tasks/1') return Promise.reject(new Error('network fail'));
+      return Promise.resolve({ ok: true, json: () => Promise.resolve({ comments: [] }) });
+    });
+
+    const { renderDetailPanel, showUpdateWarning } = await import('../../../src/board/client/detailPanel');
+    renderDetailPanel(makeTaskDetail());
+    await vi.waitFor(() => {
+      expect(document.getElementById('detail-tab-comments')?.textContent).toBe('Comments (0)');
+    });
+
+    showUpdateWarning();
+    const reloadBtn = document
+      .getElementById('detail-panel-update-warning')!
+      .querySelector('button') as HTMLButtonElement;
+
+    expect(() => reloadBtn.click()).not.toThrow();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    // Warning bar remains untouched since renderDetailPanel was never called again
+    expect(document.getElementById('detail-panel-update-warning')).not.toBeNull();
+  });
+});
+
+describe('panel resize - attachResizeMousedown and initPanelWidthFromConfig', () => {
+  beforeEach(() => {
+    vi.resetModules();
+    setupBoardContainerDOM();
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('sets dataset.preferredWidth from the /api/config response on init', async () => {
+    global.fetch = vi.fn().mockImplementation((url: string) => {
+      const u = String(url);
+      if (u.includes('/api/config')) {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve({ board: { detailPaneWidth: 550 } }) });
+      }
+      return Promise.resolve({ ok: true, json: () => Promise.resolve({}) });
+    });
+
+    const { initDetailPanel } = await import('../../../src/board/client/detailPanel');
+    initDetailPanel();
+
+    const detailPanel = document.getElementById('detail-panel') as HTMLElement;
+    await vi.waitFor(() => {
+      expect(detailPanel.dataset.preferredWidth).toBe('550');
+    });
+  });
+
+  it('mousedown on the resize handle while the panel is not open is a no-op', async () => {
+    global.fetch = vi.fn().mockResolvedValue({ ok: true, json: () => Promise.resolve({}) });
+    const { initDetailPanel } = await import('../../../src/board/client/detailPanel');
+    initDetailPanel();
+
+    const detailPanel = document.getElementById('detail-panel') as HTMLElement;
+    const handle = document.getElementById('detail-panel-resize-handle') as HTMLElement;
+    expect(detailPanel.classList.contains('open')).toBe(false);
+
+    handle.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, clientX: 300 }));
+    expect(handle.classList.contains('dragging')).toBe(false);
+
+    document.dispatchEvent(new MouseEvent('mousemove', { bubbles: true, clientX: 100 }));
+    document.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
+
+    expect(detailPanel.style.width).toBe('');
+    expect(handle.classList.contains('dragging')).toBe(false);
+  });
+
+  it('dragging while open clamps width between min/max, and mouseup persists the width via PUT /api/config', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: () => Promise.resolve({}) });
+    global.fetch = fetchMock;
+
+    const { initDetailPanel } = await import('../../../src/board/client/detailPanel');
+    initDetailPanel();
+
+    const detailPanel = document.getElementById('detail-panel') as HTMLElement;
+    const handle = document.getElementById('detail-panel-resize-handle') as HTMLElement;
+    detailPanel.classList.add('open');
+    Object.defineProperty(detailPanel, 'offsetWidth', { configurable: true, value: 400 });
+
+    handle.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, clientX: 500 }));
+
+    expect(handle.classList.contains('dragging')).toBe(true);
+    expect(document.body.style.cursor).toBe('col-resize');
+    expect(document.body.style.userSelect).toBe('none');
+    expect(detailPanel.style.transition).toBe('none');
+
+    // In-range delta
+    document.dispatchEvent(new MouseEvent('mousemove', { bubbles: true, clientX: 450 }));
+    expect(detailPanel.style.width).toBe('450px');
+
+    // Exceeds PANEL_MAX_WIDTH (800)
+    document.dispatchEvent(new MouseEvent('mousemove', { bubbles: true, clientX: 50 }));
+    expect(detailPanel.style.width).toBe('800px');
+
+    // Exceeds PANEL_MIN_WIDTH (280)
+    document.dispatchEvent(new MouseEvent('mousemove', { bubbles: true, clientX: 950 }));
+    expect(detailPanel.style.width).toBe('280px');
+
+    Object.defineProperty(detailPanel, 'offsetWidth', { configurable: true, value: 500 });
+    document.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
+
+    expect(handle.classList.contains('dragging')).toBe(false);
+    expect(document.body.style.cursor).toBe('');
+    expect(document.body.style.userSelect).toBe('');
+    expect(detailPanel.style.transition).toBe('');
+    expect(detailPanel.dataset.preferredWidth).toBe('500');
+
+    await vi.waitFor(() => {
+      expect(
+        fetchMock.mock.calls.some(
+          ([u, init]: [string, RequestInit?]) =>
+            String(u).includes('/api/config') &&
+            init?.method === 'PUT' &&
+            init.body === JSON.stringify({ board: { detailPaneWidth: 500 } })
+        )
+      ).toBe(true);
+    });
+  });
+});
+
+describe('handleRunLogToggle', () => {
+  let originalRequestAnimationFrame: typeof window.requestAnimationFrame;
+
+  beforeEach(() => {
+    originalRequestAnimationFrame = window.requestAnimationFrame;
+    vi.resetModules();
+    MockEventSource.lastInstance = null;
+    (globalThis as unknown as Record<string, unknown>).EventSource = MockEventSource;
+    const stubbedRequestAnimationFrame = ((cb: FrameRequestCallback) => {
+      cb(0);
+      return 0;
+    }) as typeof window.requestAnimationFrame;
+    window.requestAnimationFrame = stubbedRequestAnimationFrame;
+    (
+      globalThis as typeof globalThis & { requestAnimationFrame: typeof window.requestAnimationFrame }
+    ).requestAnimationFrame = stubbedRequestAnimationFrame;
+    setupBoardContainerDOM();
+  });
+
+  afterEach(() => {
+    window.requestAnimationFrame = originalRequestAnimationFrame;
+    (
+      globalThis as typeof globalThis & { requestAnimationFrame: typeof window.requestAnimationFrame }
+    ).requestAnimationFrame = originalRequestAnimationFrame;
+    vi.restoreAllMocks();
+  });
+
+  it('toggles the open class on a run-log-item when clicking its header', async () => {
+    global.fetch = vi.fn().mockImplementation((url: string) => {
+      const u = String(url);
+      if (u.includes('/api/config')) return Promise.resolve({ ok: true, json: () => Promise.resolve({}) });
+      if (u.includes('/api/tags')) return Promise.resolve({ ok: true, json: () => Promise.resolve({ tags: [] }) });
+      return Promise.resolve({ ok: true, json: () => Promise.resolve({ comments: [] }) });
+    });
+
+    const { initDetailPanel, renderDetailPanel } = await import('../../../src/board/client/detailPanel');
+    initDetailPanel();
+    renderDetailPanel(makeTaskDetail());
+
+    document.getElementById('detail-tab-run-logs')?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+
+    const logs = [
+      {
+        id: 1,
+        started_at: '2026-01-01T00:00:00.000Z',
+        finished_at: null,
+        exit_code: null,
+        events: [{ kind: 'text', text: 'log' }],
+      },
+    ];
+    MockEventSource.lastInstance?.dispatchUpdate(logs);
+
+    let item: HTMLElement | null = null;
+    await vi.waitFor(() => {
+      item = document.querySelector('.run-log-item');
+      expect(item).not.toBeNull();
+    });
+
+    // First log item is open by default on first render
+    expect(item!.classList.contains('open')).toBe(true);
+
+    const toggle = item!.querySelector('[data-action="toggle-run-log"]') as HTMLElement;
+    expect(toggle).not.toBeNull();
+
+    toggle.click();
+    expect(item!.classList.contains('open')).toBe(false);
+
+    toggle.click();
+    expect(item!.classList.contains('open')).toBe(true);
+  });
+});
+
+describe('openTaskDetail - additional error paths', () => {
+  beforeEach(() => {
+    vi.resetModules();
+    setupMinimalBoardDOM();
+    document.body.insertAdjacentHTML('beforeend', '<div id="toast"></div>');
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('shows a toast and logs an error on a generic fetch failure', async () => {
+    const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    global.fetch = vi.fn().mockImplementation((url: string) => {
+      if (String(url).includes('/api/tasks/99')) return Promise.reject(new Error('boom'));
+      return Promise.resolve({ ok: true, json: () => Promise.resolve({}) });
+    });
+
+    const { openTaskDetail } = await import('../../../src/board/client/detailPanel');
+    await openTaskDetail('99');
+
+    expect(consoleErrorSpy).toHaveBeenCalled();
+    const toast = document.getElementById('toast');
+    expect(toast?.textContent).toBe('Failed to load task details');
+    expect(toast?.classList.contains('show')).toBe(true);
+  });
+
+  it('silently swallows AbortError without showing a toast', async () => {
+    global.fetch = vi.fn().mockImplementation(() => Promise.reject(new DOMException('aborted', 'AbortError')));
+
+    const { openTaskDetail } = await import('../../../src/board/client/detailPanel');
+    await openTaskDetail('5');
+
+    const toast = document.getElementById('toast');
+    expect(toast?.classList.contains('show')).toBe(false);
+  });
+
+  it('aborts the previous in-flight controller when called again before it resolves', async () => {
+    let firstSignal: AbortSignal | undefined;
+    global.fetch = vi.fn().mockImplementation((url: string, opts?: RequestInit) => {
+      const u = String(url);
+      if (u.includes('/api/tasks/1')) {
+        firstSignal = opts?.signal as AbortSignal;
+        return new Promise(() => {
+          /* never resolves */
+        });
+      }
+      if (u.includes('/api/tasks/2')) {
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve(makeTaskDetail({ task: { ...makeTaskDetail().task, id: 2 } })),
+        });
+      }
+      return Promise.resolve({ ok: true, json: () => Promise.resolve({ comments: [] }) });
+    });
+
+    const { openTaskDetail, getDetailTaskId } = await import('../../../src/board/client/detailPanel');
+    void openTaskDetail('1');
+    await Promise.resolve();
+    await openTaskDetail('2');
+
+    expect(firstSignal?.aborted).toBe(true);
+    expect(getDetailTaskId()).toBe(2);
+  });
+});
+
+describe('loadRunLogs - stale subscription handling on task switch', () => {
+  let originalRequestAnimationFrame: typeof window.requestAnimationFrame;
+
+  beforeEach(() => {
+    originalRequestAnimationFrame = window.requestAnimationFrame;
+    vi.resetModules();
+    MockEventSource.lastInstance = null;
+    (globalThis as unknown as Record<string, unknown>).EventSource = MockEventSource;
+    const stubbedRequestAnimationFrame = ((cb: FrameRequestCallback) => {
+      cb(0);
+      return 0;
+    }) as typeof window.requestAnimationFrame;
+    window.requestAnimationFrame = stubbedRequestAnimationFrame;
+    (
+      globalThis as typeof globalThis & { requestAnimationFrame: typeof window.requestAnimationFrame }
+    ).requestAnimationFrame = stubbedRequestAnimationFrame;
+    setupBoardContainerDOM();
+  });
+
+  afterEach(() => {
+    window.requestAnimationFrame = originalRequestAnimationFrame;
+    (
+      globalThis as typeof globalThis & { requestAnimationFrame: typeof window.requestAnimationFrame }
+    ).requestAnimationFrame = originalRequestAnimationFrame;
+    vi.restoreAllMocks();
+  });
+
+  it('closes the previous EventSource and ignores stale updates when the displayed task changes', async () => {
+    global.fetch = vi.fn().mockImplementation((url: string) => {
+      const u = String(url);
+      if (u.includes('/api/config')) return Promise.resolve({ ok: true, json: () => Promise.resolve({}) });
+      if (u.includes('/api/tags')) return Promise.resolve({ ok: true, json: () => Promise.resolve({ tags: [] }) });
+      return Promise.resolve({ ok: true, json: () => Promise.resolve({ comments: [] }) });
+    });
+
+    const { initDetailPanel, renderDetailPanel } = await import('../../../src/board/client/detailPanel');
+    initDetailPanel();
+    renderDetailPanel(makeTaskDetail({ task: { ...makeTaskDetail().task, id: 1 } }));
+
+    document.getElementById('detail-tab-run-logs')?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+
+    const esA = MockEventSource.lastInstance;
+    expect(esA).not.toBeNull();
+    const closeSpy = vi.spyOn(esA!, 'close');
+
+    renderDetailPanel(makeTaskDetail({ task: { ...makeTaskDetail().task, id: 2 } }));
+
+    expect(closeSpy).toHaveBeenCalled();
+
+    const pane = document.getElementById('detail-tab-content-run-logs') as HTMLElement;
+    const before = pane.innerHTML;
+
+    esA!.dispatchUpdate([
+      {
+        id: 99,
+        started_at: '2026-01-01T00:00:00.000Z',
+        finished_at: null,
+        exit_code: null,
+        events: [{ kind: 'text', text: 'stale' }],
+      },
+    ]);
+
+    expect(pane.innerHTML).toBe(before);
+    expect(pane.innerHTML).not.toContain('stale');
+  });
+});
