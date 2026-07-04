@@ -19,7 +19,8 @@ export function setupTaskFindCommand(program: Command): void {
   taskCommand
     .command('find')
     .argument('<keyword>', 'Search keyword for title and body (LIKE search)')
-    .option('--all', 'Include done, closed, and archived tasks in search results')
+    .option('--all', 'Include done and closed tasks in search results')
+    .option('--archived', 'Include archived tasks (is_archived=1)')
     .option('--status <statuses>', 'Filter by status (comma-separated: e.g. ready,in_progress)')
     .option('--json', 'Output in JSON format')
     .description('Search tasks by keyword (excludes done/closed by default)')
@@ -45,7 +46,12 @@ export function setupTaskFindCommand(program: Command): void {
           statusFilter = statuses as TaskStatus[];
         }
 
-        const tasks = taskService.searchTasks(normalizedKeyword, options.all || false, statusFilter);
+        const tasks = taskService.searchTasks(
+          normalizedKeyword,
+          options.all || false,
+          statusFilter,
+          options.archived || false
+        );
 
         formatter.output(
           () => {

@@ -8,6 +8,7 @@ import {
   killBoardProcess,
   readBoardPid,
   waitForBoardReady,
+  readBoardPort,
 } from '../utils/board-daemon';
 import { TaskService } from '../../services/TaskService';
 import chalk from 'chalk';
@@ -39,7 +40,7 @@ async function handleStart(options: BoardOptions): Promise<void> {
     process.exit(1);
     return;
   }
-  const pid = spawnBoardDaemon(buildDaemonArgs(port, options.title ?? config.board?.title));
+  const pid = spawnBoardDaemon(buildDaemonArgs(port, options.title ?? config.board?.title), port);
   const ready = await waitForBoardReady(port);
   if (!ready) {
     console.error(`Board server failed to start on port ${port}`);
@@ -72,7 +73,7 @@ async function handleRestart(options: BoardOptions): Promise<void> {
     process.exit(1);
     return;
   }
-  const pid = spawnBoardDaemon(buildDaemonArgs(port, options.title ?? config.board?.title));
+  const pid = spawnBoardDaemon(buildDaemonArgs(port, options.title ?? config.board?.title), port);
   const ready = await waitForBoardReady(port);
   if (!ready) {
     console.error(`Board server failed to start on port ${port}`);
@@ -109,8 +110,8 @@ function printTaskSummary(): void {
 
 async function handleStatus(options: BoardOptions): Promise<void> {
   const config = loadConfig();
-  const port = resolvePort(options.port, config.board?.port);
-  if (port === null) {
+  const resolvedPort = resolvePort(options.port, config.board?.port);
+  if (resolvedPort === null) {
     console.error('Invalid port number');
     process.exit(1);
     return;
@@ -122,6 +123,7 @@ async function handleStatus(options: BoardOptions): Promise<void> {
   // Check server status
   const isRunning = isBoardRunning();
   const pid = readBoardPid();
+  const port = readBoardPort() ?? resolvedPort;
 
   if (isRunning && pid) {
     console.log(chalk.green(`✓ Server: RUNNING (PID: ${pid})`));

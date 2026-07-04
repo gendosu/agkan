@@ -90,6 +90,11 @@ Markdownファイルからタスク作成:
 agkan task add "設計書レビュー" --file ./design-doc.md --status backlog
 ```
 
+タグ付きでタスク作成（カンマ区切りのタグ名またはID、同じコマンドで付与）:
+```bash
+agkan task add "ログイン機能の実装" --tag "frontend,urgent"
+```
+
 ### タスク一覧の表示
 
 全タスクを表示:
@@ -235,6 +240,11 @@ agkan tag delete "frontend"
 タスクにタグを付与:
 ```bash
 agkan tag attach 1 "frontend"
+```
+
+または `task add --tag` でタスク作成と同時にタグを付与（`tag attach` を別途実行する必要がない）:
+```bash
+agkan task add "ログイン画面の実装" --tag "frontend,urgent"
 ```
 
 タスクからタグを削除:
@@ -799,6 +809,10 @@ agkan task add "API開発"
 # 出力: Task created with ID: 2
 
 agkan tag attach 2 "backend"
+
+# --tag を使えば同じコマンドでタグを付与できる
+agkan task add "決済フローのバグ修正" --tag "backend,urgent"
+# 出力: Task created with ID: 3
 
 # タグでフィルタリング
 agkan task list --tag "frontend"

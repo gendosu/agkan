@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### 追加
+- `task add` に `--tag <names-or-ids>` オプションを追加。名前・ID指定でタグを付与しつつタスクを作成できるようにし、別途 `tag attach` を実行する必要をなくした (#650)
+
 ## [3.16.0] - 2026-07-04
 
 ### 追加

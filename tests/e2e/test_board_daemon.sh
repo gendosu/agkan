@@ -124,6 +124,22 @@ test_board_daemon_start_already_running() {
     fi
 }
 
+test_board_daemon_status_shows_actual_port() {
+    print_test "board status shows the actual running port, not the default"
+
+    # DAEMON_PORT (18090) differs from the default port (8080), so a status
+    # display falling back to the default/config port instead of the
+    # persisted running port would show the wrong value here.
+    local output
+    output=$(node "$SCRIPT_DIR/bin/agkan" board status)
+
+    if echo "$output" | grep -q "Port: $DAEMON_PORT"; then
+        print_success "board status shows actual running port $DAEMON_PORT"
+    else
+        print_error "board status expected 'Port: $DAEMON_PORT', got: $output"
+    fi
+}
+
 test_board_daemon_stop() {
     print_test "board stop terminates the daemon"
 
@@ -186,7 +202,7 @@ test_board_daemon_restart() {
     done
 
     local old_pid
-    old_pid=$(cat "$(get_daemon_pid_file)" 2>/dev/null)
+    old_pid=$(head -n1 "$(get_daemon_pid_file)" 2>/dev/null)
 
     # Restart
     node "$SCRIPT_DIR/bin/agkan" board restart --port "$DAEMON_PORT"
@@ -211,7 +227,7 @@ test_board_daemon_restart() {
     done
 
     local new_pid
-    new_pid=$(cat "$(get_daemon_pid_file)" 2>/dev/null)
+    new_pid=$(head -n1 "$(get_daemon_pid_file)" 2>/dev/null)
 
     if [ "$old_pid" = "$new_pid" ]; then
         print_error "board restart: PID did not change (old=$old_pid, new=$new_pid)"
@@ -233,6 +249,7 @@ test_board_daemon() {
     test_board_daemon_start
     test_board_daemon_start_port_conflict
     test_board_daemon_start_already_running
+    test_board_daemon_status_shows_actual_port
     test_board_daemon_stop
     test_board_daemon_stop_not_running
     test_board_daemon_restart
