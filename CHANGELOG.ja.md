@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### 修正
+- `task list` のヘルプ文言を修正。`-s, --status` がカンマ区切りで複数指定できることと有効値一覧を明記し、`--all` のヘルプ文言に `icebox` を含む旨を追記 (#658)
+
 ## [3.16.0] - 2026-07-04
 
 ### 追加

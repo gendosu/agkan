@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- Fix `task list` help text not documenting `-s, --status`'s comma-separated multi-value support and valid values, and `--all`'s help text omitting that it includes `icebox` (#658)
+
 ## [3.16.0] - 2026-07-04
 
 ### Added
