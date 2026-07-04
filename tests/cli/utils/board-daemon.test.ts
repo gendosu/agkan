@@ -16,10 +16,12 @@ import { spawn } from 'child_process';
 import {
   getPidFilePath,
   readBoardPid,
+  readBoardPort,
   isBoardRunning,
   spawnBoardDaemon,
   killBoardProcess,
   removePidFile,
+  waitForBoardReady,
 } from '../../../src/cli/utils/board-daemon';
 
 const mockFs = vi.mocked(fs);
@@ -54,6 +56,37 @@ describe('board-daemon', () => {
       mockFs.existsSync = vi.fn().mockReturnValue(true);
       mockFs.readFileSync = vi.fn().mockReturnValue('not-a-pid');
       expect(readBoardPid()).toBeNull();
+    });
+
+    it('returns PID from first line when file has pid+port format', () => {
+      mockFs.existsSync = vi.fn().mockReturnValue(true);
+      mockFs.readFileSync = vi.fn().mockReturnValue('12345\n3000');
+      expect(readBoardPid()).toBe(12345);
+    });
+  });
+
+  describe('readBoardPort', () => {
+    it('returns null when PID file does not exist', () => {
+      mockFs.existsSync = vi.fn().mockReturnValue(false);
+      expect(readBoardPort()).toBeNull();
+    });
+
+    it('returns port from second line of file', () => {
+      mockFs.existsSync = vi.fn().mockReturnValue(true);
+      mockFs.readFileSync = vi.fn().mockReturnValue('12345\n3000');
+      expect(readBoardPort()).toBe(3000);
+    });
+
+    it('returns null for legacy single-line (PID only) files', () => {
+      mockFs.existsSync = vi.fn().mockReturnValue(true);
+      mockFs.readFileSync = vi.fn().mockReturnValue('12345');
+      expect(readBoardPort()).toBeNull();
+    });
+
+    it('returns null for non-numeric port', () => {
+      mockFs.existsSync = vi.fn().mockReturnValue(true);
+      mockFs.readFileSync = vi.fn().mockReturnValue('12345\nnot-a-port');
+      expect(readBoardPort()).toBeNull();
     });
   });
 
@@ -108,7 +141,7 @@ describe('board-daemon', () => {
       mockFs.writeFileSync = vi.fn();
       mockFs.mkdirSync = vi.fn();
 
-      const pid = spawnBoardDaemon(['--port', '8080']);
+      const pid = spawnBoardDaemon(['--port', '8080'], 8080);
 
       expect(pid).toBe(fakePid);
       expect(mockSpawn).toHaveBeenCalledWith(
@@ -117,7 +150,7 @@ describe('board-daemon', () => {
         expect.objectContaining({ detached: true, stdio: 'ignore' })
       );
       expect(fakeChild.unref).toHaveBeenCalled();
-      expect(mockFs.writeFileSync).toHaveBeenCalledWith(expectedPidFile, String(fakePid), {
+      expect(mockFs.writeFileSync).toHaveBeenCalledWith(expectedPidFile, `${fakePid}\n8080`, {
         encoding: 'utf8',
         mode: 0o600,
       });
@@ -127,7 +160,7 @@ describe('board-daemon', () => {
       const fakeChild = { pid: undefined, unref: vi.fn() };
       mockSpawn.mockReturnValue(fakeChild as never);
 
-      expect(() => spawnBoardDaemon(['--port', '8080'])).toThrow(
+      expect(() => spawnBoardDaemon(['--port', '8080'], 8080)).toThrow(
         'Failed to spawn board daemon: child process has no PID'
       );
     });
@@ -178,5 +211,56 @@ describe('board-daemon', () => {
       expect(mockFs.unlinkSync).not.toHaveBeenCalled();
       killSpy.mockRestore();
     });
+  });
+
+  describe('waitForBoardReady', () => {
+    it('returns true immediately when the health check succeeds on the first attempt', async () => {
+      const fetchImpl = vi.fn().mockResolvedValue({ ok: true });
+
+      const ready = await waitForBoardReady(8080, { fetchImpl: fetchImpl as never, intervalMs: 1 });
+
+      expect(ready).toBe(true);
+      expect(fetchImpl).toHaveBeenCalledWith(
+        'http://localhost:8080/api/version',
+        expect.objectContaining({ signal: expect.any(AbortSignal) })
+      );
+    });
+
+    it('retries until the health check succeeds', async () => {
+      const fetchImpl = vi
+        .fn()
+        .mockRejectedValueOnce(new Error('ECONNREFUSED'))
+        .mockResolvedValueOnce({ ok: false })
+        .mockResolvedValueOnce({ ok: true });
+
+      const ready = await waitForBoardReady(8080, { fetchImpl: fetchImpl as never, intervalMs: 1, timeoutMs: 1000 });
+
+      expect(ready).toBe(true);
+      expect(fetchImpl).toHaveBeenCalledTimes(3);
+    });
+
+    it('returns false once the timeout elapses without a successful check', async () => {
+      const fetchImpl = vi.fn().mockRejectedValue(new Error('ECONNREFUSED'));
+
+      const ready = await waitForBoardReady(8080, { fetchImpl: fetchImpl as never, intervalMs: 5, timeoutMs: 20 });
+
+      expect(ready).toBe(false);
+      expect(fetchImpl.mock.calls.length).toBeGreaterThan(0);
+    });
+
+    it('bounds the total wait even when an individual health check never settles', async () => {
+      const fetchImpl = vi.fn().mockImplementation((_url: string, init?: RequestInit) => {
+        return new Promise((_resolve, reject) => {
+          init?.signal?.addEventListener('abort', () => reject(new Error('aborted')));
+        });
+      });
+
+      const started = Date.now();
+      const ready = await waitForBoardReady(8080, { fetchImpl: fetchImpl as never, intervalMs: 5, timeoutMs: 100 });
+      const elapsed = Date.now() - started;
+
+      expect(ready).toBe(false);
+      expect(elapsed).toBeLessThan(1000);
+    }, 2000);
   });
 });

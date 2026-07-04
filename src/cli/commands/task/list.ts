@@ -1094,7 +1094,10 @@ export function setupTaskListCommand(program: Command): void {
 
   taskCommand
     .command('list')
-    .option('-s, --status <status>', 'Filter by status')
+    .option(
+      '-s, --status <status>',
+      'Filter by status (comma-separated, e.g., "backlog" or "backlog,ready"). Valid values: icebox, backlog, ready, in_progress, review, done, closed'
+    )
     .option('-a, --author <author>', 'Filter by author')
     .option('--assignees <assignees>', 'Filter by assignee (LIKE match on CSV assignees field)')
     .option('-t, --tag <tags>', 'Filter by tag IDs or names (comma-separated, e.g., "1,2,3" or "bug,feature")')
@@ -1102,7 +1105,7 @@ export function setupTaskListCommand(program: Command): void {
       '-p, --priority <priorities>',
       `Filter by priority (comma-separated, e.g., "high" or "critical,high"). Valid values: ${PRIORITIES.join(', ')}`
     )
-    .option('--all', 'Include all statuses (including done and closed)')
+    .option('--all', 'Include all statuses (including icebox, done, and closed)')
     .option('--archived', 'Include archived tasks (is_archived=1)')
     .option('--tree', 'Display tasks in tree structure')
     .option('--dep-tree', 'Display tasks in dependency (blocking) tree structure')

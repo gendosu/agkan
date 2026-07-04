@@ -251,14 +251,21 @@ export class TaskService {
    * @param keyword - Search keyword (LIKE search on title and body)
    * @param includeAll - If true, include done/closed tasks in search (default: false)
    * @param statuses - Optional array of statuses to filter by (overrides includeAll)
+   * @param includeArchived - If true, include archived tasks in search; also skips the default
+   *   done/closed status narrowing, since archived tasks are typically done/closed (default: false)
    * @returns Array of matched tasks
    */
-  searchTasks(keyword: string, includeAll: boolean = false, statuses?: TaskStatus[]): Task[] {
+  searchTasks(
+    keyword: string,
+    includeAll: boolean = false,
+    statuses?: TaskStatus[],
+    includeArchived: boolean = false
+  ): Task[] {
     let statusFilter: TaskStatus[] | undefined;
 
     if (statuses && statuses.length > 0) {
       statusFilter = statuses;
-    } else if (!includeAll) {
+    } else if (!includeAll && !includeArchived) {
       // Exclude done/closed/icebox by filtering to all other statuses
       const allStatuses: TaskStatus[] = ['backlog', 'ready', 'in_progress', 'review'];
       statusFilter = allStatuses;
@@ -267,7 +274,7 @@ export class TaskService {
     const searchId = /^\d+$/.test(keyword) ? parseInt(keyword, 10) : undefined;
 
     return this.backend.tasks.findAll(
-      { search: keyword, status: statusFilter, searchId },
+      { search: keyword, status: statusFilter, searchId, includeArchived },
       { field: 'created_at', order: 'desc' }
     );
   }

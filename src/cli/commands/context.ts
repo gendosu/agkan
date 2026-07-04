@@ -15,7 +15,7 @@ This project uses agkan (Agent Kanban) for task management.
 Common commands:
 - agkan task list [--status <s>] [--tag <id>] [--tree]
 - agkan task get <id>
-- agkan task add "<title>" [--status <s>] [--parent <id>] [--file <path>]
+- agkan task add "<title>" [--status <s>] [--parent <id>] [--file <path>] [--tag <names-or-ids>]
 - agkan task update <id> --status <s>
 - agkan task find "<keyword>"
 - agkan task block add <blocker-id> <blocked-id>
