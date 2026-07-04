@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### 変更
+- **破壊的変更:** `task add` の `-p` 短縮形の意味を `--parent` から `--priority` に変更。`task list` および新たに `-p` 短縮形を追加した `task update --priority` と統一し、全ての task サブコマンドで `-p` が一貫して priority を指すようにした。`task add` で parent を指定する場合は長形式の `--parent` を使用する必要がある (#660)
+
 ## [3.16.0] - 2026-07-04
 
 ### 追加

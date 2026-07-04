@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- **Breaking:** `task add`'s `-p` shorthand now refers to `--priority` instead of `--parent`, matching `task list` and the new `-p` shorthand added to `task update --priority`; `-p` is consistent across all task subcommands. `task add`'s parent option must now be specified with the long form `--parent` (#660)
+
 ## [3.16.0] - 2026-07-04
 
 ### Added

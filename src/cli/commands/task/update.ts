@@ -90,7 +90,7 @@ export function setupTaskUpdateCommand(program: Command): void {
     .option('--body <body>', 'Update body')
     .option('--author <author>', 'Update author')
     .option('--assignees <assignees>', 'Update assignees')
-    .option('--priority <priority>', 'Update priority (critical, high, medium, low, or empty to clear)')
+    .option('-p, --priority <priority>', 'Update priority (critical, high, medium, low, or empty to clear)')
     .option('--branch <branch>', 'Update git branch name (or empty to clear)')
     .option('--file <path>', 'Read body from file (only valid for body field)')
     .option('--json', 'Output in JSON format')

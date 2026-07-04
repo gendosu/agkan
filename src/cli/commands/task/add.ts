@@ -42,8 +42,8 @@ export function setupTaskAddCommand(program: Command): void {
       'Task status (icebox, backlog, ready, in_progress, review, done, closed)',
       'backlog'
     )
-    .option('--priority <priority>', 'Task priority (critical, high, medium, low)', 'medium')
-    .option('-p, --parent <id>', 'Parent task ID')
+    .option('-p, --priority <priority>', 'Task priority (critical, high, medium, low)', 'medium')
+    .option('--parent <id>', 'Parent task ID')
     .option('--file <path>', 'Read body from markdown file')
     .option('--branch <branch>', 'Git branch name for the task')
     .option('--blocked-by <ids>', 'Comma-separated task IDs that block this task')
