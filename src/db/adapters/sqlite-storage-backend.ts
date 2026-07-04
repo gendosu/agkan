@@ -253,8 +253,8 @@ class SQLiteTaskRepository implements TaskRepository {
     if (ids.length === 0) return 0;
     const placeholders = ids.map(() => '?').join(', ');
     const result = this.db
-      .prepare(`UPDATE tasks SET is_archived = 1, updated_at = datetime('now') WHERE id IN (${placeholders})`)
-      .run(...ids);
+      .prepare(`UPDATE tasks SET is_archived = 1, updated_at = ? WHERE id IN (${placeholders})`)
+      .run(new Date().toISOString(), ...ids);
     return result.changes;
   }
 
@@ -262,8 +262,8 @@ class SQLiteTaskRepository implements TaskRepository {
     if (ids.length === 0) return 0;
     const placeholders = ids.map(() => '?').join(', ');
     const result = this.db
-      .prepare(`UPDATE tasks SET is_archived = 0, updated_at = datetime('now') WHERE id IN (${placeholders})`)
-      .run(...ids);
+      .prepare(`UPDATE tasks SET is_archived = 0, updated_at = ? WHERE id IN (${placeholders})`)
+      .run(new Date().toISOString(), ...ids);
     return result.changes;
   }
 }

@@ -54,6 +54,15 @@ describe('TaskService.unarchiveTask', () => {
     expect(unarchived!.updated_at).not.toBe(originalUpdatedAt);
   });
 
+  it('should set updated_at to an ISO 8601 formatted string', () => {
+    const task = taskService.createTask({ title: 'Task to unarchive', status: 'done' });
+    archiveTask(task.id);
+
+    const unarchived = taskService.unarchiveTask(task.id);
+
+    expect(unarchived!.updated_at).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/);
+  });
+
   it('should return null if task is not found', () => {
     const result = taskService.unarchiveTask(9999);
     expect(result).toBeNull();
