@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### 修正
+- `task list --json` の0件時出力が通常時とスキーマ不一致だった問題を修正。list/tree view で `sort`/`order` が欠落、tree/dep-tree view で `viewMode` が欠落、`filters` のキーが各 view の通常時出力と一致していなかった (#659)
+
 ## [3.16.0] - 2026-07-04
 
 ### 追加

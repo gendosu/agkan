@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- Fix `task list --json` empty-results output using a different schema than the non-empty case (missing `sort`/`order` in list/tree view, missing `viewMode` in tree/dep-tree view, and `filters` keys not matching the view's normal output) (#659)
+
 ## [3.16.0] - 2026-07-04
 
 ### Added
