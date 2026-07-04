@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.16.0] - 2026-07-04
+
+### Added
+- Show metadata in `task get` output, matching Board's `GET /api/tasks/:id` and `task list` (#649)
+
+### Fixed
+- Fix `task add` leaving an orphaned task committed to the database when `--blocked-by`/`--blocks` setup failed (e.g. nonexistent ID or cycle), by wrapping task creation and block relationship setup in a single transaction (#626)
+- Fix Board terminal Enter watchdog miscalculating output-since-Enter after the output buffer was truncated, by tracking a monotonic total output length instead of a raw buffer index (#695)
+- Fix Board terminal sessions getting stuck when Claude's TUI absorbed a fixed-delay Enter as a paste instead of submitting it, by retrying Enter (up to 3 times) until submission is confirmed (#695)
+- Restore distinct `--dry-run` help text for `task purge` vs `task archive` after deduplicating their command setup logic (#638)
+- Fix vitest coverage silently excluding files never imported by any test, and excluding ambient `.d.ts` declaration files from the report (#644)
+
 ## [3.15.2] - 2026-07-04
 
 ### Fixed
