@@ -147,6 +147,25 @@ describe('ExportImportService', () => {
       expect(data.exported_at >= before).toBe(true);
       expect(data.exported_at <= after).toBe(true);
     });
+
+    it('should export priority and branch', () => {
+      taskService.createTask({ title: 'Priority Task', priority: 'high', branch: 'feat/123-test' });
+
+      const data = service.exportData();
+      expect(data.tasks[0].priority).toBe('high');
+      expect(data.tasks[0].branch).toBe('feat/123-test');
+    });
+
+    it('should include archived tasks in export', () => {
+      const backend = getStorageBackend();
+      const task = taskService.createTask({ title: 'Archived Task' });
+      backend.tasks.archiveMany([task.id]);
+
+      const data = service.exportData();
+      const exported = data.tasks.find((t) => t.id === task.id);
+      expect(exported).toBeDefined();
+      expect(exported?.is_archived).toBe(1);
+    });
   });
 
   describe('importData', () => {
@@ -596,6 +615,75 @@ describe('ExportImportService', () => {
       expect(tasks).toHaveLength(0);
     });
 
+    it('should restore priority, branch, and archived status', () => {
+      const exportData: ExportData = {
+        version: '1.0.0',
+        exported_at: '2026-01-01T00:00:00.000Z',
+        tasks: [
+          {
+            id: 1,
+            title: 'Restored Task',
+            body: null,
+            author: null,
+            assignees: null,
+            status: 'backlog',
+            parent_id: null,
+            created_at: '2026-01-01T10:00:00.000Z',
+            updated_at: '2026-01-01T10:00:00.000Z',
+            tags: [],
+            metadata: {},
+            comments: [],
+            blocked_by: [],
+            priority: 'critical',
+            branch: 'feat/1-restored-task',
+            is_archived: 1,
+          },
+        ],
+      };
+
+      service.importData(exportData);
+
+      const tasks = taskService.listTasks({ includeArchived: true });
+      expect(tasks).toHaveLength(1);
+      expect(tasks[0].priority).toBe('critical');
+      expect(tasks[0].branch).toBe('feat/1-restored-task');
+      expect(tasks[0].is_archived).toBe(1);
+      // Archiving must not clobber the restored timestamp
+      expect(tasks[0].updated_at).toBe('2026-01-01T10:00:00.000Z');
+    });
+
+    it('should import tasks from an old-format export without priority/branch/is_archived', () => {
+      const exportData: ExportData = {
+        version: '1.0.0',
+        exported_at: '2026-01-01T00:00:00.000Z',
+        tasks: [
+          {
+            id: 1,
+            title: 'Legacy Task',
+            body: null,
+            author: null,
+            assignees: null,
+            status: 'backlog',
+            parent_id: null,
+            created_at: '2026-01-01T10:00:00.000Z',
+            updated_at: '2026-01-01T10:00:00.000Z',
+            tags: [],
+            metadata: {},
+            comments: [],
+            blocked_by: [],
+          },
+        ],
+      };
+
+      expect(() => service.importData(exportData)).not.toThrow();
+
+      const tasks = taskService.listTasks();
+      expect(tasks).toHaveLength(1);
+      expect(tasks[0].priority).toBeNull();
+      expect(tasks[0].branch).toBeNull();
+      expect(tasks[0].is_archived).toBe(0);
+    });
+
     it('should return correct importedCount', () => {
       const exportData: ExportData = {
         version: '1.0.0',
@@ -680,6 +768,30 @@ describe('ExportImportService', () => {
       const importedComments = newCommentService.listComments(importedTasks[0].id);
       expect(importedComments).toHaveLength(1);
       expect(importedComments[0].content).toBe('A comment');
+    });
+
+    it('should preserve priority, branch, and archived status through export and import cycle', () => {
+      const backend = getStorageBackend();
+      const originalTask = taskService.createTask({
+        title: 'Archived Original',
+        priority: 'high',
+        branch: 'feat/99-archived-original',
+      });
+      backend.tasks.archiveMany([originalTask.id]);
+
+      const exportedData = service.exportData();
+
+      resetDatabase();
+
+      const newService = new ExportImportService(getStorageBackend());
+      newService.importData(exportedData);
+
+      const newTaskService = new TaskService(getStorageBackend());
+      const importedTasks = newTaskService.listTasks({ includeArchived: true });
+      expect(importedTasks).toHaveLength(1);
+      expect(importedTasks[0].priority).toBe('high');
+      expect(importedTasks[0].branch).toBe('feat/99-archived-original');
+      expect(importedTasks[0].is_archived).toBe(1);
     });
   });
 });
