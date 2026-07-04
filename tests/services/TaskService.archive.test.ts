@@ -114,6 +114,16 @@ describe('TaskService.archiveTasksBefore', () => {
     expect(taskService.getTask(task.id)!.is_archived).toBe(0);
   });
 
+  it('should set updated_at to an ISO 8601 formatted string on archived tasks', () => {
+    const task = taskService.createTask({ title: 'Old done task', status: 'done' });
+    setUpdatedAt(task.id, '2025-06-01T00:00:00.000Z');
+
+    taskService.archiveTasksBefore('2026-01-01T00:00:00.000Z');
+
+    const found = taskService.getTask(task.id);
+    expect(found!.updated_at).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/);
+  });
+
   it('should archive multiple tasks at once', () => {
     const task1 = taskService.createTask({ title: 'Old done 1', status: 'done' });
     const task2 = taskService.createTask({ title: 'Old done 2', status: 'done' });
