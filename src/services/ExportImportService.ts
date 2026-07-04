@@ -6,6 +6,8 @@ import { TaskTagService } from './TaskTagService';
 import { MetadataService } from './MetadataService';
 import { CommentService } from './CommentService';
 import { TaskBlockService } from './TaskBlockService';
+import type { Priority } from '../models/Priority';
+import type { Task } from '../models/Task';
 
 export interface ExportedComment {
   author: string | null;
@@ -28,6 +30,12 @@ export interface ExportedTask {
   metadata: Record<string, string>;
   comments: ExportedComment[];
   blocked_by: number[];
+  /** Optional for backward compatibility with export files created before this field existed */
+  priority?: Priority | null;
+  /** Optional for backward compatibility with export files created before this field existed */
+  branch?: string | null;
+  /** Optional for backward compatibility with export files created before this field existed */
+  is_archived?: 0 | 1;
 }
 
 export interface ExportData {
@@ -80,47 +88,63 @@ export class ExportImportService {
   }
 
   /**
+   * Build the exported representation of a single task
+   */
+  private buildExportedTask(
+    task: Task,
+    allTaskTags: Map<number, { name: string }[]>,
+    allMetadata: Map<number, { key: string; value: string }[]>,
+    allComments: Map<number, ExportedComment[]>,
+    blockedByMap: Map<number, number[]>
+  ): ExportedTask {
+    const tags = (allTaskTags.get(task.id) || []).map((tag) => tag.name);
+    const metadataList = allMetadata.get(task.id) || [];
+    const metadata: Record<string, string> = {};
+    for (const m of metadataList) {
+      metadata[m.key] = m.value;
+    }
+    const comments: ExportedComment[] = (allComments.get(task.id) || []).map((c) => ({
+      author: c.author,
+      content: c.content,
+      created_at: c.created_at,
+      updated_at: c.updated_at,
+    }));
+    return {
+      id: task.id,
+      title: task.title,
+      body: task.body,
+      author: task.author,
+      assignees: task.assignees,
+      status: task.status,
+      parent_id: task.parent_id,
+      created_at: task.created_at,
+      updated_at: task.updated_at,
+      tags,
+      metadata,
+      comments,
+      blocked_by: blockedByMap.get(task.id) || [],
+      priority: task.priority,
+      branch: task.branch,
+      is_archived: task.is_archived,
+    };
+  }
+
+  /**
    * Export all tasks with related data as JSON
    * @returns Export data object with version, timestamp, and tasks
    */
   exportData(): ExportData {
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     const { version } = require('../../package.json') as { version: string };
-    const tasks = this.taskService.listTasks({}, 'id', 'asc');
+    const tasks = this.taskService.listTasks({ includeArchived: true }, 'id', 'asc');
     const allTaskTags = this.taskTagService.getAllTaskTags();
     const allMetadata = this.metadataService.getAllTasksMetadata();
     const allComments = this.commentService.getCommentsForTasks(tasks.map((t) => t.id));
     const blockedByMap = this.buildBlockedByMap();
 
-    const exportedTasks: ExportedTask[] = tasks.map((task) => {
-      const tags = (allTaskTags.get(task.id) || []).map((tag) => tag.name);
-      const metadataList = allMetadata.get(task.id) || [];
-      const metadata: Record<string, string> = {};
-      for (const m of metadataList) {
-        metadata[m.key] = m.value;
-      }
-      const comments: ExportedComment[] = (allComments.get(task.id) || []).map((c) => ({
-        author: c.author,
-        content: c.content,
-        created_at: c.created_at,
-        updated_at: c.updated_at,
-      }));
-      return {
-        id: task.id,
-        title: task.title,
-        body: task.body,
-        author: task.author,
-        assignees: task.assignees,
-        status: task.status,
-        parent_id: task.parent_id,
-        created_at: task.created_at,
-        updated_at: task.updated_at,
-        tags,
-        metadata,
-        comments,
-        blocked_by: blockedByMap.get(task.id) || [],
-      };
-    });
+    const exportedTasks: ExportedTask[] = tasks.map((task) =>
+      this.buildExportedTask(task, allTaskTags, allMetadata, allComments, blockedByMap)
+    );
 
     return {
       version,
@@ -142,7 +166,15 @@ export class ExportImportService {
       assignees: exportedTask.assignees || undefined,
       status: exportedTask.status as Parameters<TaskService['createTask']>[0]['status'],
       parent_id: newParentId,
+      priority: exportedTask.priority ?? undefined,
+      branch: exportedTask.branch ?? undefined,
     });
+
+    // createTask does not accept is_archived directly; archive before restoring timestamps,
+    // since archiveMany also bumps updated_at and would otherwise clobber the restored value
+    if (exportedTask.is_archived === 1) {
+      this.backend.tasks.archiveMany([newTask.id]);
+    }
 
     // Restore original timestamps via the backend
     this.backend.updateTaskTimestamps(newTask.id, exportedTask.created_at, exportedTask.updated_at);
