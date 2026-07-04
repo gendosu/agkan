@@ -16,6 +16,7 @@ import { getStorageBackend } from '../../../db/connection';
 import {
   readBodyFromFile,
   parseBlockIds,
+  resolveTagIds,
   addBlockRelationships,
   fetchRelatedTasks,
   buildTaskJsonData,
@@ -48,6 +49,7 @@ export function setupTaskAddCommand(program: Command): void {
     .option('--branch <branch>', 'Git branch name for the task')
     .option('--blocked-by <ids>', 'Comma-separated task IDs that block this task')
     .option('--blocks <ids>', 'Comma-separated task IDs that this task blocks')
+    .option('--tag <names-or-ids>', 'Comma-separated tag names or IDs to attach')
     .option('--json', 'Output in JSON format')
     .description('Add a new task')
     .action(async (title, body, options) => {
@@ -135,7 +137,19 @@ export function setupTaskAddCommand(program: Command): void {
           return;
         }
 
-        const { taskService, taskBlockService } = getServiceContainer();
+        const { taskService, taskBlockService, taskTagService, tagService } = getServiceContainer();
+
+        let tagIds: number[] = [];
+        try {
+          tagIds = resolveTagIds(tagService, options.tag);
+        } catch (error) {
+          const msg = error instanceof Error ? error.message : 'Invalid tag';
+          formatter.error(msg, () => {
+            console.error(chalk.red(`\nError: ${msg}\n`));
+          });
+          process.exit(1);
+          return;
+        }
         const backend = getStorageBackend();
 
         // Wrap task creation and block relationship setup in a single transaction
@@ -153,6 +167,7 @@ export function setupTaskAddCommand(program: Command): void {
               priority: options.priority ? (options.priority as Priority) : undefined,
               parent_id: parentId,
               branch: options.branch ?? null,
+              tagIds,
             });
 
             try {
@@ -183,9 +198,10 @@ export function setupTaskAddCommand(program: Command): void {
           blockedByIds,
           blocksIds
         );
+        const tags = taskTagService.getTagsForTask(task.id);
         formatter.output(
-          () => buildTaskJsonData(task, parentTask, blockerTasks, blockedTasks),
-          () => printTaskCreated(task, parentTask, blockerTasks, blockedTasks)
+          () => buildTaskJsonData(task, parentTask, blockerTasks, blockedTasks, tags),
+          () => printTaskCreated(task, parentTask, blockerTasks, blockedTasks, tags)
         );
       } catch (error) {
         if (error instanceof Error) {

@@ -225,6 +225,95 @@ describe('setupTaskListCommand', () => {
     expect(parsed.tasks).toHaveLength(0);
   });
 
+  it('should match the non-empty list JSON schema (sort/order, no viewMode) when empty', async () => {
+    const taskService = new TaskService();
+    taskService.createTask({ title: 'Non Empty Task', status: 'ready' });
+
+    const consoleLogs: string[] = [];
+    const originalLog = console.log;
+    console.log = (...args: unknown[]) => consoleLogs.push(args.join(' '));
+    const originalExit = process.exit;
+    process.exit = (() => {}) as never;
+
+    try {
+      await program.parseAsync(['node', 'test', 'task', 'list', '--json']);
+      resetDatabase();
+      await program.parseAsync(['node', 'test', 'task', 'list', '--json']);
+    } finally {
+      console.log = originalLog;
+      process.exit = originalExit;
+    }
+
+    const nonEmpty = JSON.parse(consoleLogs[0]);
+    const empty = JSON.parse(consoleLogs[1]);
+
+    expect(Object.keys(empty).sort()).toEqual(Object.keys(nonEmpty).sort());
+    expect(Object.keys(empty.filters).sort()).toEqual(Object.keys(nonEmpty.filters).sort());
+    expect(empty.viewMode).toBeUndefined();
+    expect(empty.sort).toBe('created_at');
+    expect(empty.order).toBe('desc');
+    expect(empty.filters.all).toBeUndefined();
+  });
+
+  it('should match the non-empty tree JSON schema (viewMode + sort/order) when empty', async () => {
+    const taskService = new TaskService();
+    taskService.createTask({ title: 'Non Empty Tree Task', status: 'ready' });
+
+    const consoleLogs: string[] = [];
+    const originalLog = console.log;
+    console.log = (...args: unknown[]) => consoleLogs.push(args.join(' '));
+    const originalExit = process.exit;
+    process.exit = (() => {}) as never;
+
+    try {
+      await program.parseAsync(['node', 'test', 'task', 'list', '--tree', '--json']);
+      resetDatabase();
+      await program.parseAsync(['node', 'test', 'task', 'list', '--tree', '--json']);
+    } finally {
+      console.log = originalLog;
+      process.exit = originalExit;
+    }
+
+    const nonEmpty = JSON.parse(consoleLogs[0]);
+    const empty = JSON.parse(consoleLogs[1]);
+
+    expect(Object.keys(empty).sort()).toEqual(Object.keys(nonEmpty).sort());
+    expect(Object.keys(empty.filters).sort()).toEqual(Object.keys(nonEmpty.filters).sort());
+    expect(empty.viewMode).toBe('tree');
+    expect(empty.sort).toBe('created_at');
+    expect(empty.order).toBe('desc');
+  });
+
+  it('should match the non-empty dep-tree JSON schema (viewMode, no sort/order) when empty', async () => {
+    const taskService = new TaskService();
+    taskService.createTask({ title: 'Non Empty Dep Tree Task', status: 'ready' });
+
+    const consoleLogs: string[] = [];
+    const originalLog = console.log;
+    console.log = (...args: unknown[]) => consoleLogs.push(args.join(' '));
+    const originalExit = process.exit;
+    process.exit = (() => {}) as never;
+
+    try {
+      await program.parseAsync(['node', 'test', 'task', 'list', '--dep-tree', '--json']);
+      resetDatabase();
+      await program.parseAsync(['node', 'test', 'task', 'list', '--dep-tree', '--json']);
+    } finally {
+      console.log = originalLog;
+      process.exit = originalExit;
+    }
+
+    const nonEmpty = JSON.parse(consoleLogs[0]);
+    const empty = JSON.parse(consoleLogs[1]);
+
+    expect(Object.keys(empty).sort()).toEqual(Object.keys(nonEmpty).sort());
+    expect(Object.keys(empty.filters).sort()).toEqual(Object.keys(nonEmpty.filters).sort());
+    expect(empty.viewMode).toBe('dep-tree');
+    expect(empty.sort).toBeUndefined();
+    expect(empty.order).toBeUndefined();
+    expect(empty.filters.assignees).toBeUndefined();
+  });
+
   it('should show message when no tasks found', async () => {
     const consoleLogs: string[] = [];
     const originalLog = console.log;

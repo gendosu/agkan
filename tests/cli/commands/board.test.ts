@@ -20,6 +20,8 @@ vi.mock('../../../src/cli/utils/board-daemon', () => ({
   spawnBoardDaemon: vi.fn(() => 12345),
   killBoardProcess: vi.fn(() => true),
   readBoardPid: vi.fn(() => 12345),
+  waitForBoardReady: vi.fn(() => Promise.resolve(true)),
+  readBoardPort: vi.fn(() => null),
 }));
 
 vi.mock('../../../src/services/TaskService', () => {
@@ -38,13 +40,22 @@ vi.mock('../../../src/services/TaskService', () => {
 
 import { startBoardServer } from '../../../src/board/server';
 import { loadConfig } from '../../../src/db/config';
-import { isBoardRunning, spawnBoardDaemon, killBoardProcess, readBoardPid } from '../../../src/cli/utils/board-daemon';
+import {
+  isBoardRunning,
+  spawnBoardDaemon,
+  killBoardProcess,
+  readBoardPid,
+  waitForBoardReady,
+  readBoardPort,
+} from '../../../src/cli/utils/board-daemon';
 
 const mockLoadConfig = vi.mocked(loadConfig);
 const mockIsBoardRunning = vi.mocked(isBoardRunning);
 const mockSpawnBoardDaemon = vi.mocked(spawnBoardDaemon);
 const mockKillBoardProcess = vi.mocked(killBoardProcess);
 const mockReadBoardPid = vi.mocked(readBoardPid);
+const mockWaitForBoardReady = vi.mocked(waitForBoardReady);
+const mockReadBoardPort = vi.mocked(readBoardPort);
 
 describe('setupBoardCommand', () => {
   let program: Command;
@@ -55,6 +66,8 @@ describe('setupBoardCommand', () => {
     mockIsBoardRunning.mockReturnValue(false);
     mockSpawnBoardDaemon.mockReturnValue(12345);
     mockKillBoardProcess.mockReturnValue(true);
+    mockWaitForBoardReady.mockResolvedValue(true);
+    mockReadBoardPort.mockReturnValue(null);
     program = createProgram(setupBoardCommand);
   });
 
@@ -177,19 +190,19 @@ describe('setupBoardCommand', () => {
 
       await program.parseAsync(['node', 'test', 'board', 'start']);
 
-      expect(mockSpawnBoardDaemon).toHaveBeenCalledWith(['--port', '8080']);
+      expect(mockSpawnBoardDaemon).toHaveBeenCalledWith(['--port', '8080'], 8080);
       expect(logs.some((l) => l.includes('Board server started'))).toBe(true);
       spy.mockRestore();
     });
 
     it('should spawn daemon with custom port', async () => {
       await program.parseAsync(['node', 'test', 'board', '--port', '3000', 'start']);
-      expect(mockSpawnBoardDaemon).toHaveBeenCalledWith(['--port', '3000']);
+      expect(mockSpawnBoardDaemon).toHaveBeenCalledWith(['--port', '3000'], 3000);
     });
 
     it('should spawn daemon with title when provided', async () => {
       await program.parseAsync(['node', 'test', 'board', '--title', 'My Board', 'start']);
-      expect(mockSpawnBoardDaemon).toHaveBeenCalledWith(['--port', '8080', '--title', 'My Board']);
+      expect(mockSpawnBoardDaemon).toHaveBeenCalledWith(['--port', '8080', '--title', 'My Board'], 8080);
     });
 
     it('should log already running when board is running', async () => {
@@ -208,14 +221,14 @@ describe('setupBoardCommand', () => {
       mockLoadConfig.mockReturnValue({ board: { port: 9090 } });
       program = createProgram(setupBoardCommand);
       await program.parseAsync(['node', 'test', 'board', 'start']);
-      expect(mockSpawnBoardDaemon).toHaveBeenCalledWith(['--port', '9090']);
+      expect(mockSpawnBoardDaemon).toHaveBeenCalledWith(['--port', '9090'], 9090);
     });
 
     it('should use title from config', async () => {
       mockLoadConfig.mockReturnValue({ board: { title: 'Config Board' } });
       program = createProgram(setupBoardCommand);
       await program.parseAsync(['node', 'test', 'board', 'start']);
-      expect(mockSpawnBoardDaemon).toHaveBeenCalledWith(['--port', '8080', '--title', 'Config Board']);
+      expect(mockSpawnBoardDaemon).toHaveBeenCalledWith(['--port', '8080', '--title', 'Config Board'], 8080);
     });
 
     it('should exit with code 1 for invalid port', async () => {
@@ -233,6 +246,32 @@ describe('setupBoardCommand', () => {
 
       expect(exitCode).toBe(1);
       expect(mockSpawnBoardDaemon).not.toHaveBeenCalled();
+    });
+
+    it('should report failure and clean up when the health check never succeeds', async () => {
+      mockWaitForBoardReady.mockResolvedValue(false);
+      const logs: string[] = [];
+      const spy = vi.spyOn(console, 'log').mockImplementation((...a) => logs.push(a.join(' ')));
+      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+      let exitCode: number | undefined;
+      const originalExit = process.exit;
+      process.exit = ((code?: number) => {
+        exitCode = code;
+      }) as never;
+
+      try {
+        await program.parseAsync(['node', 'test', 'board', 'start']);
+      } finally {
+        process.exit = originalExit;
+        spy.mockRestore();
+        errorSpy.mockRestore();
+      }
+
+      expect(mockSpawnBoardDaemon).toHaveBeenCalled();
+      expect(mockKillBoardProcess).toHaveBeenCalled();
+      expect(exitCode).toBe(1);
+      expect(logs.some((l) => l.includes('Board server started'))).toBe(false);
     });
   });
 
@@ -289,19 +328,19 @@ describe('setupBoardCommand', () => {
       await program.parseAsync(['node', 'test', 'board', 'restart']);
 
       expect(mockKillBoardProcess).toHaveBeenCalled();
-      expect(mockSpawnBoardDaemon).toHaveBeenCalledWith(['--port', '8080']);
+      expect(mockSpawnBoardDaemon).toHaveBeenCalledWith(['--port', '8080'], 8080);
       expect(logs.some((l) => l.includes('Board server restarted'))).toBe(true);
       spy.mockRestore();
     });
 
     it('should restart with custom port', async () => {
       await program.parseAsync(['node', 'test', 'board', '--port', '4000', 'restart']);
-      expect(mockSpawnBoardDaemon).toHaveBeenCalledWith(['--port', '4000']);
+      expect(mockSpawnBoardDaemon).toHaveBeenCalledWith(['--port', '4000'], 4000);
     });
 
     it('should restart with title', async () => {
       await program.parseAsync(['node', 'test', 'board', '--title', 'New Title', 'restart']);
-      expect(mockSpawnBoardDaemon).toHaveBeenCalledWith(['--port', '8080', '--title', 'New Title']);
+      expect(mockSpawnBoardDaemon).toHaveBeenCalledWith(['--port', '8080', '--title', 'New Title'], 8080);
     });
 
     it('should restart even when board is not currently running', async () => {
@@ -310,6 +349,31 @@ describe('setupBoardCommand', () => {
       await program.parseAsync(['node', 'test', 'board', 'restart']);
 
       expect(mockSpawnBoardDaemon).toHaveBeenCalled();
+    });
+
+    it('should report failure and clean up when the health check never succeeds', async () => {
+      mockWaitForBoardReady.mockResolvedValue(false);
+      const logs: string[] = [];
+      const spy = vi.spyOn(console, 'log').mockImplementation((...a) => logs.push(a.join(' ')));
+      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+      let exitCode: number | undefined;
+      const originalExit = process.exit;
+      process.exit = ((code?: number) => {
+        exitCode = code;
+      }) as never;
+
+      try {
+        await program.parseAsync(['node', 'test', 'board', 'restart']);
+      } finally {
+        process.exit = originalExit;
+        spy.mockRestore();
+        errorSpy.mockRestore();
+      }
+
+      expect(mockSpawnBoardDaemon).toHaveBeenCalled();
+      expect(exitCode).toBe(1);
+      expect(logs.some((l) => l.includes('Board server restarted'))).toBe(false);
     });
   });
 
@@ -354,9 +418,10 @@ describe('setupBoardCommand', () => {
       spy.mockRestore();
     });
 
-    it('should respect custom port option when running', async () => {
+    it('should fall back to custom port option when no port is persisted', async () => {
       mockIsBoardRunning.mockReturnValue(true);
       mockReadBoardPid.mockReturnValue(12345);
+      mockReadBoardPort.mockReturnValue(null);
       const logs: string[] = [];
       const spy = vi.spyOn(console, 'log').mockImplementation((...a) => logs.push(a.join(' ')));
 
@@ -366,9 +431,10 @@ describe('setupBoardCommand', () => {
       spy.mockRestore();
     });
 
-    it('should use port from config when --port is not provided', async () => {
+    it('should fall back to port from config when --port is not provided and no port is persisted', async () => {
       mockIsBoardRunning.mockReturnValue(true);
       mockReadBoardPid.mockReturnValue(12345);
+      mockReadBoardPort.mockReturnValue(null);
       mockLoadConfig.mockReturnValue({ board: { port: 9090 } });
       program = createProgram(setupBoardCommand);
       const logs: string[] = [];
@@ -377,6 +443,23 @@ describe('setupBoardCommand', () => {
       await program.parseAsync(['node', 'test', 'board', 'status']);
 
       expect(logs.some((l) => l.includes('Port: 9090'))).toBe(true);
+      spy.mockRestore();
+    });
+
+    it('should show the actual persisted port instead of the configured/default port', async () => {
+      mockIsBoardRunning.mockReturnValue(true);
+      mockReadBoardPid.mockReturnValue(12345);
+      mockReadBoardPort.mockReturnValue(3000);
+      mockLoadConfig.mockReturnValue({});
+      const logs: string[] = [];
+      const spy = vi.spyOn(console, 'log').mockImplementation((...a) => logs.push(a.join(' ')));
+
+      // No --port/config given, so the resolved default (8080) would be wrong;
+      // the persisted port (3000, from `board start -p 3000`) must win.
+      await program.parseAsync(['node', 'test', 'board', 'status']);
+
+      expect(logs.some((l) => l.includes('Port: 3000'))).toBe(true);
+      expect(logs.some((l) => l.includes('Port: 8080'))).toBe(false);
       spy.mockRestore();
     });
 

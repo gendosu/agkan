@@ -7,8 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Add `--tag <names-or-ids>` option to `task add` to attach tags (by name or ID) at creation time, instead of requiring a separate `tag attach` command (#650)
+
 ### Changed
 - **Breaking:** `task add`'s `-p` shorthand now refers to `--priority` instead of `--parent`, matching `task list` and the new `-p` shorthand added to `task update --priority`; `-p` is consistent across all task subcommands. `task add`'s parent option must now be specified with the long form `--parent` (#660)
+
+### Fixed
+- Fix `task list --json` empty-results output using a different schema than the non-empty case (missing `sort`/`order` in list/tree view, missing `viewMode` in tree/dep-tree view, and `filters` keys not matching the view's normal output) (#659)
+- Fix `task list` help text not documenting `-s, --status`'s comma-separated multi-value support and valid values, and `--all`'s help text omitting that it includes `icebox` (#658)
 
 ## [3.16.0] - 2026-07-04
 

@@ -71,6 +71,46 @@ test_board_daemon_start() {
     print_success "board start launched daemon and server is reachable"
 }
 
+test_board_daemon_start_port_conflict() {
+    print_test "board start reports failure (not success) when the port is already in use"
+
+    cleanup_board_daemon
+
+    # Occupy the port with a plain listener so the daemon fails to bind.
+    node -e "require('net').createServer().listen($DAEMON_PORT)" &
+    local blocker_pid=$!
+    sleep 0.3
+
+    local output
+    output=$(node "$SCRIPT_DIR/bin/agkan" board start --port "$DAEMON_PORT" 2>&1)
+    local exit_code=$?
+
+    kill "$blocker_pid" 2>/dev/null || true
+    wait "$blocker_pid" 2>/dev/null || true
+
+    if [ $exit_code -eq 0 ]; then
+        print_error "board start exited 0 despite the port being unavailable"
+        cleanup_board_daemon
+        return 1
+    fi
+
+    if echo "$output" | grep -q "Board server started"; then
+        print_error "board start reported success while the server failed to bind: $output"
+        cleanup_board_daemon
+        return 1
+    fi
+
+    local pid_file
+    pid_file=$(get_daemon_pid_file)
+    if [ -f "$pid_file" ]; then
+        print_error "board start left a stale PID file behind after a failed start"
+        cleanup_board_daemon
+        return 1
+    fi
+
+    print_success "board start reported failure and cleaned up after a port conflict"
+}
+
 test_board_daemon_start_already_running() {
     print_test "board start shows already running message when daemon is active"
 
@@ -81,6 +121,22 @@ test_board_daemon_start_already_running() {
         print_success "board start reports already running correctly"
     else
         print_error "board start expected 'already running' message, got: $output"
+    fi
+}
+
+test_board_daemon_status_shows_actual_port() {
+    print_test "board status shows the actual running port, not the default"
+
+    # DAEMON_PORT (18090) differs from the default port (8080), so a status
+    # display falling back to the default/config port instead of the
+    # persisted running port would show the wrong value here.
+    local output
+    output=$(node "$SCRIPT_DIR/bin/agkan" board status)
+
+    if echo "$output" | grep -q "Port: $DAEMON_PORT"; then
+        print_success "board status shows actual running port $DAEMON_PORT"
+    else
+        print_error "board status expected 'Port: $DAEMON_PORT', got: $output"
     fi
 }
 
@@ -146,7 +202,7 @@ test_board_daemon_restart() {
     done
 
     local old_pid
-    old_pid=$(cat "$(get_daemon_pid_file)" 2>/dev/null)
+    old_pid=$(head -n1 "$(get_daemon_pid_file)" 2>/dev/null)
 
     # Restart
     node "$SCRIPT_DIR/bin/agkan" board restart --port "$DAEMON_PORT"
@@ -171,7 +227,7 @@ test_board_daemon_restart() {
     done
 
     local new_pid
-    new_pid=$(cat "$(get_daemon_pid_file)" 2>/dev/null)
+    new_pid=$(head -n1 "$(get_daemon_pid_file)" 2>/dev/null)
 
     if [ "$old_pid" = "$new_pid" ]; then
         print_error "board restart: PID did not change (old=$old_pid, new=$new_pid)"
@@ -191,7 +247,9 @@ test_board_daemon() {
     cleanup_board_daemon
 
     test_board_daemon_start
+    test_board_daemon_start_port_conflict
     test_board_daemon_start_already_running
+    test_board_daemon_status_shows_actual_port
     test_board_daemon_stop
     test_board_daemon_stop_not_running
     test_board_daemon_restart
