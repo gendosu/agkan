@@ -2674,7 +2674,7 @@ describe('handleRunLogToggle', () => {
 describe('openTaskDetail - additional error paths', () => {
   beforeEach(() => {
     vi.resetModules();
-    setupBoardContainerDOM();
+    setupMinimalBoardDOM();
     document.body.insertAdjacentHTML('beforeend', '<div id="toast"></div>');
   });
 
