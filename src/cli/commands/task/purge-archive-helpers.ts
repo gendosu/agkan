@@ -68,6 +68,8 @@ export interface PurgeArchiveCommandConfig {
   description: string;
   /** Help text for the --before option */
   beforeHelp: string;
+  /** Help text for the --dry-run option */
+  dryRunHelp: string;
   /** TaskService method to invoke */
   serviceMethod: (
     taskService: ReturnType<typeof getServiceContainer>['taskService'],
@@ -113,7 +115,7 @@ export function setupPurgeArchiveCommand(program: Command, config: PurgeArchiveC
     .command(config.commandName)
     .option('--before <date>', config.beforeHelp)
     .option('--status <statuses>', 'Comma-separated list of statuses to target (default: done,closed)', 'done,closed')
-    .option('--dry-run', `Preview tasks that would be ${config.verb}d without modifying them`)
+    .option('--dry-run', config.dryRunHelp)
     .option('--json', 'Output in JSON format')
     .description(config.description)
     .action(async (options) => {

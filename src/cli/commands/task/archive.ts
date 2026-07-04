@@ -12,6 +12,7 @@ export function setupTaskArchiveCommand(program: Command): void {
     pastVerb: 'Archived',
     description: 'Archive done/closed tasks older than a given date (sets is_archived flag)',
     beforeHelp: 'Archive tasks last updated before this date (ISO 8601, e.g. 2026-01-01). Defaults to 3 days ago.',
+    dryRunHelp: 'Preview tasks that would be archived without modifying them',
     serviceMethod: (taskService, beforeDate, statuses, dryRun) =>
       taskService.archiveTasksBefore(beforeDate, statuses, dryRun),
   });

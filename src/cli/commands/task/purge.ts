@@ -12,6 +12,7 @@ export function setupTaskPurgeCommand(program: Command): void {
     pastVerb: 'Purged',
     description: 'Delete done/closed tasks older than a given date to reduce database size',
     beforeHelp: 'Purge tasks last updated before this date (ISO 8601, e.g. 2026-01-01). Defaults to 3 days ago.',
+    dryRunHelp: 'Preview tasks that would be purged without deleting them',
     serviceMethod: (taskService, beforeDate, statuses, dryRun) =>
       taskService.purgeTasksBefore(beforeDate, statuses, dryRun),
   });
