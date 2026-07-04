@@ -7,8 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.15.2] - 2026-07-04
+
 ### 修正
 - Board の「Planning」（および Run/PR）ボタンが `Claude起動エラー ... HTTP 500: posix_spawnp failed.` で失敗する問題を修正。node-pty の同梱バイナリ `spawn-helper` が実行ビットを失う（pnpm on macOS がストアからモード 0644 で clone し、インストール毎に +x がリセットされる）ことが原因。サーバー起動時にバイナリの権限を自己修復し、`postinstall` スクリプトがインストール毎に +x を再付与、さらに spawn 失敗時にタスク情報付きでサーバーログを出力するようにした
+- archive/unarchive時の `updated_at` がシステム時刻ではなくアプリ生成のISO 8601タイムスタンプを使用するよう修正 (#624)
+- export/importでタスクのpriority、branch、archived状態が失われる問題を修正し、これらのフィールドを保持するようにした (#622)
+- tree viewおよびCLIの依存関係ツリー表示で、祖先タスクがフィルタで除外された場合にフィルタ後の子タスクが表示されない問題を修正。祖先チェーン全体を辿ってpseudo-rootを決定するようにした (#627)
+- Board APIが汎用的なエラーレスポンスを返していた問題を修正し、`AgkanError` のサブタイプを適切なHTTPステータスコードにマッピングするようにした (#625)
+- e2eテスト `test_hook_attention.sh` が削除済みの `/api/attention/stream` エンドポイントを参照していた問題を修正し、統合後の `/api/board/stream` エンドポイントを使用するようにした (#671)
 
 ## [3.15.1] - 2026-07-03
 
