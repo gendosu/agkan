@@ -65,6 +65,35 @@ export function spawnBoardDaemon(boardArgs: string[], port: number): number {
   return pid;
 }
 
+export interface WaitForBoardReadyOptions {
+  timeoutMs?: number;
+  intervalMs?: number;
+  fetchImpl?: typeof fetch;
+}
+
+export async function waitForBoardReady(port: number, options: WaitForBoardReadyOptions = {}): Promise<boolean> {
+  const timeoutMs = options.timeoutMs ?? 5000;
+  const intervalMs = options.intervalMs ?? 100;
+  const fetchImpl = options.fetchImpl ?? fetch;
+  const deadline = Date.now() + timeoutMs;
+
+  do {
+    const controller = new AbortController();
+    const attemptTimeout = setTimeout(() => controller.abort(), Math.max(deadline - Date.now(), 50));
+    try {
+      const response = await fetchImpl(`http://localhost:${port}/api/version`, { signal: controller.signal });
+      if (response.ok) return true;
+    } catch {
+      // Server not accepting connections yet, or the request stalled/was aborted; retry until the deadline.
+    } finally {
+      clearTimeout(attemptTimeout);
+    }
+    await new Promise((resolve) => setTimeout(resolve, intervalMs));
+  } while (Date.now() < deadline);
+
+  return false;
+}
+
 export function killBoardProcess(): boolean {
   const pid = readBoardPid();
   if (pid === null) return false;
