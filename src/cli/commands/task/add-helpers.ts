@@ -4,11 +4,12 @@
  */
 
 import chalk from 'chalk';
-import { TaskBlockService, FileService, TaskService } from '../../../services';
-import { Task } from '../../../models';
+import { TaskBlockService, FileService, TaskService, TagService } from '../../../services';
+import { Task, Tag } from '../../../models';
 import { parseNumericArray } from '../../utils/error-handler';
 import { getStatusColor, formatDate } from '../../../utils/format';
 import { filterNonNull } from '../../utils/array-utils';
+import { resolveTag } from '../../utils/tag-resolver';
 
 export function readBodyFromFile(filePath: string): string {
   const fileService = new FileService();
@@ -27,6 +28,26 @@ export function parseBlockIds(value: string | undefined, label: string): number[
     throw new Error(`Invalid ${label} IDs. IDs must be numbers.`);
   }
   return ids;
+}
+
+export function resolveTagIds(tagService: TagService, value: string | undefined): number[] {
+  if (!value) return [];
+
+  const parts = value
+    .split(',')
+    .map((s) => s.trim())
+    .filter((s) => s !== '');
+
+  const tagIds: number[] = [];
+  for (const part of parts) {
+    const { tag, byId } = resolveTag(tagService, part);
+    if (!tag) {
+      const message = byId ? `Tag with ID "${part}" not found` : `Tag with name "${part}" not found`;
+      throw new Error(message);
+    }
+    tagIds.push(tag.id);
+  }
+  return tagIds;
 }
 
 export function addBlockRelationships(
@@ -91,7 +112,8 @@ export function buildTaskJsonData(
   task: Task,
   parentTask: Task | null,
   blockerTasks: Task[],
-  blockedTasks: Task[]
+  blockedTasks: Task[],
+  tags: Tag[] = []
 ): object {
   return {
     success: true,
@@ -99,6 +121,7 @@ export function buildTaskJsonData(
     parent: parentTask ? taskToJson(parentTask) : null,
     blockedBy: blockerTasks.map(taskToJson),
     blocking: blockedTasks.map(taskToJson),
+    tags: tags.map((tag) => ({ id: tag.id, name: tag.name })),
   };
 }
 
@@ -106,7 +129,8 @@ export function printTaskCreated(
   task: Task,
   parentTask: Task | null,
   blockerTasks: Task[],
-  blockedTasks: Task[]
+  blockedTasks: Task[],
+  tags: Tag[] = []
 ): void {
   console.log(chalk.green('\n✓ Task created successfully\n'));
   console.log(`${chalk.bold('ID:')} ${task.id}`);
@@ -143,6 +167,13 @@ export function printTaskCreated(
         `  ${chalk.yellow('•')} ${chalk.cyan(`[${blocked.id}]`)} ${blocked.title} ` +
           `${chalk[blockedStatusColor](`(${blocked.status})`)}`
       );
+    });
+  }
+
+  if (tags.length > 0) {
+    console.log(`${chalk.bold('Tags:')}`);
+    tags.forEach((tag) => {
+      console.log(`  ${chalk.cyan('•')} ${chalk.cyan(`[${tag.id}]`)} ${tag.name}`);
     });
   }
 

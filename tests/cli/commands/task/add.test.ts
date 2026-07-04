@@ -6,7 +6,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { Command } from 'commander';
 import { setupTaskAddCommand } from '../../../../src/cli/commands/task/add';
 import { getDatabase } from '../../../../src/db/connection';
-import { TaskService } from '../../../../src/services';
+import { TaskService, TagService } from '../../../../src/services';
 import { createProgram, runCommand } from '../../../helpers/command-test-utils';
 
 describe('setupTaskAddCommand', () => {
@@ -15,9 +15,12 @@ describe('setupTaskAddCommand', () => {
   beforeEach(() => {
     // Reset database before each test
     const db = getDatabase();
-    db.exec('DELETE FROM tasks');
+    db.exec('DELETE FROM task_tags');
     db.exec('DELETE FROM task_blocks');
+    db.exec('DELETE FROM tasks');
+    db.exec('DELETE FROM tags');
     db.exec("DELETE FROM sqlite_sequence WHERE name='tasks'");
+    db.exec("DELETE FROM sqlite_sequence WHERE name='tags'");
 
     program = createProgram((prog) => {
       prog.command('task').description('Task management commands');
@@ -52,6 +55,7 @@ describe('setupTaskAddCommand', () => {
     expect(optionNames).toContain('--file');
     expect(optionNames).toContain('--blocked-by');
     expect(optionNames).toContain('--blocks');
+    expect(optionNames).toContain('--tag');
     expect(optionNames).toContain('--json');
   });
 
@@ -628,6 +632,123 @@ describe('setupTaskAddCommand', () => {
       const tasks = taskService.listTasks();
       expect(tasks).toHaveLength(1);
       expect(tasks[0].branch).toBeNull();
+    });
+  });
+
+  describe('--tag option', () => {
+    it('should attach a tag specified by name', async () => {
+      const tagService = new TagService();
+      tagService.createTag({ name: 'bug' });
+
+      const { exitCode, logs } = await runCommand(program, ['task', 'add', 'Tagged Task', '--tag', 'bug', '--json']);
+      expect(exitCode).toBeUndefined();
+      const output = JSON.parse(logs[0]);
+      expect(output.success).toBe(true);
+      expect(output.tags).toHaveLength(1);
+      expect(output.tags[0].name).toBe('bug');
+    });
+
+    it('should attach a tag specified by ID', async () => {
+      const tagService = new TagService();
+      const tag = tagService.createTag({ name: 'feature' });
+
+      const { exitCode, logs } = await runCommand(program, [
+        'task',
+        'add',
+        'Tagged Task',
+        '--tag',
+        tag.id.toString(),
+        '--json',
+      ]);
+      expect(exitCode).toBeUndefined();
+      const output = JSON.parse(logs[0]);
+      expect(output.success).toBe(true);
+      expect(output.tags).toHaveLength(1);
+      expect(output.tags[0].id).toBe(tag.id);
+    });
+
+    it('should attach multiple comma-separated tags', async () => {
+      const tagService = new TagService();
+      const bug = tagService.createTag({ name: 'bug' });
+      tagService.createTag({ name: 'feature' });
+
+      const { exitCode, logs } = await runCommand(program, [
+        'task',
+        'add',
+        'Multi Tagged Task',
+        '--tag',
+        `${bug.id},feature`,
+        '--json',
+      ]);
+      expect(exitCode).toBeUndefined();
+      const output = JSON.parse(logs[0]);
+      expect(output.success).toBe(true);
+      expect(output.tags).toHaveLength(2);
+      const tagNames = output.tags.map((t: { name: string }) => t.name).sort();
+      expect(tagNames).toEqual(['bug', 'feature']);
+    });
+
+    it('should show Tags in console output when --tag is specified', async () => {
+      const tagService = new TagService();
+      tagService.createTag({ name: 'bug' });
+
+      const { exitCode, logs } = await runCommand(program, ['task', 'add', 'Tagged Task', '--tag', 'bug']);
+      expect(exitCode).toBeUndefined();
+      const output = logs.join('\n');
+      expect(output).toContain('Tags:');
+      expect(output).toContain('bug');
+    });
+
+    it('should exit with error when tag name does not exist', async () => {
+      const { exitCode, errors } = await runCommand(program, ['task', 'add', 'New Task', '--tag', 'nonexistent']);
+      expect(exitCode).toBe(1);
+      expect(errors.join('\n')).toContain('Tag with name "nonexistent" not found');
+
+      const taskService = new TaskService();
+      expect(taskService.listTasks()).toHaveLength(0);
+    });
+
+    it('should exit with error when tag ID does not exist', async () => {
+      const { exitCode, errors } = await runCommand(program, ['task', 'add', 'New Task', '--tag', '99999']);
+      expect(exitCode).toBe(1);
+      expect(errors.join('\n')).toContain('Tag with ID "99999" not found');
+
+      const taskService = new TaskService();
+      expect(taskService.listTasks()).toHaveLength(0);
+    });
+
+    it('should output JSON error when tag is unresolved with --json', async () => {
+      const { exitCode, errors } = await runCommand(program, [
+        'task',
+        'add',
+        'New Task',
+        '--tag',
+        'nonexistent',
+        '--json',
+      ]);
+      expect(exitCode).toBe(1);
+      const output = JSON.parse(errors[0]);
+      expect(output.success).toBe(false);
+      expect(output.error.message).toContain('Tag with name "nonexistent" not found');
+    });
+
+    it('should not create a task when one of multiple tags is unresolved', async () => {
+      const tagService = new TagService();
+      tagService.createTag({ name: 'bug' });
+
+      const { exitCode } = await runCommand(program, ['task', 'add', 'New Task', '--tag', 'bug,nonexistent']);
+      expect(exitCode).toBe(1);
+
+      const taskService = new TaskService();
+      expect(taskService.listTasks()).toHaveLength(0);
+    });
+
+    it('should include empty tags array in JSON output when --tag is not specified', async () => {
+      const { exitCode, logs } = await runCommand(program, ['task', 'add', 'No Tag Task', '--json']);
+      expect(exitCode).toBeUndefined();
+      const output = JSON.parse(logs[0]);
+      expect(output.success).toBe(true);
+      expect(output.tags).toEqual([]);
     });
   });
 });
