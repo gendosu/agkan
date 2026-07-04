@@ -479,6 +479,14 @@ describe('setupTaskAddCommand', () => {
       expect(output.error.message).toContain('Error adding blocked-by relationship');
     });
 
+    it('should not leave an orphaned task when blocked-by task does not exist', async () => {
+      const { exitCode } = await runCommand(program, ['task', 'add', 'New Task', '--blocked-by', '99999']);
+      expect(exitCode).toBe(1);
+
+      const taskService = new TaskService();
+      expect(taskService.listTasks()).toHaveLength(0);
+    });
+
     it('should exit with error when blocks task does not exist', async () => {
       const { exitCode, errors } = await runCommand(program, ['task', 'add', 'New Task', '--blocks', '99999']);
       expect(exitCode).toBe(1);
@@ -498,6 +506,36 @@ describe('setupTaskAddCommand', () => {
       const output = JSON.parse(errors[0]);
       expect(output.success).toBe(false);
       expect(output.error.message).toContain('Error adding blocks relationship');
+    });
+
+    it('should not leave an orphaned task when blocks task does not exist', async () => {
+      const { exitCode } = await runCommand(program, ['task', 'add', 'New Task', '--blocks', '99999']);
+      expect(exitCode).toBe(1);
+
+      const taskService = new TaskService();
+      expect(taskService.listTasks()).toHaveLength(0);
+    });
+
+    it('should not leave an orphaned task when a circular block relationship is attempted', async () => {
+      const taskService = new TaskService();
+      const existing = taskService.createTask({ title: 'Existing Task' });
+
+      // Making the new task block the existing task, while also being blocked by it,
+      // would create a cycle once addBlock validates the second relationship.
+      const { exitCode } = await runCommand(program, [
+        'task',
+        'add',
+        'New Task',
+        '--blocked-by',
+        existing.id.toString(),
+        '--blocks',
+        existing.id.toString(),
+      ]);
+      expect(exitCode).toBe(1);
+
+      const tasks = taskService.listTasks();
+      expect(tasks).toHaveLength(1);
+      expect(tasks[0].id).toBe(existing.id);
     });
 
     it('should include parent in JSON output when --parent is given', async () => {
