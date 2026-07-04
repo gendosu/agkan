@@ -191,6 +191,37 @@ function buildTreeNode(
 }
 
 /**
+ * Determine the root tasks to render for tree view output. A task is a root
+ * if none of its ancestors (walked via the full, unfiltered taskById map) are
+ * present in the filtered result set (pseudo-root). Without this, a filter
+ * (e.g. `-s in_progress`) that only matches child tasks would report a
+ * non-zero count while rendering nothing, since the real root would be
+ * filtered out.
+ *
+ * Checking the entire ancestor chain (not just the immediate parent) avoids
+ * rendering a task twice: if some ancestor is in the display set, that
+ * ancestor will itself become a root (or a pseudo-root) and its full,
+ * unfiltered subtree — which already includes this task — gets printed.
+ */
+function getTreeRootTasks(displayTasks: TaskRecord[], taskById: TaskByIdMap): TaskRecord[] {
+  const displayTaskIds = new Set(displayTasks.map((task) => task.id));
+  return displayTasks.filter((task) => {
+    let current: TaskRecord = task;
+    while (current.parent_id != null) {
+      if (displayTaskIds.has(current.parent_id)) {
+        return false;
+      }
+      const parent = taskById.get(current.parent_id);
+      if (!parent) {
+        break;
+      }
+      current = parent;
+    }
+    return true;
+  });
+}
+
+/**
  * Build the JSON output object for the tree view.
  */
 function buildTreeJsonOutput(
@@ -207,10 +238,11 @@ function buildTreeJsonOutput(
   },
   tagIds: number[] | undefined,
   childrenByParentId: ChildrenMap,
+  taskById: TaskByIdMap,
   allTaskTags: TaskTagMap,
   allTasksMetadata: MetadataMap
 ): object {
-  const rootTasks = displayTasks.filter((task) => !task.parent_id);
+  const rootTasks = getTreeRootTasks(displayTasks, taskById);
 
   return {
     totalCount: displayTasks.length,
@@ -716,13 +748,15 @@ function handleTreeView(
   options: Record<string, unknown>,
   tagIds: number[] | undefined,
   childrenByParentId: ChildrenMap,
+  taskById: TaskByIdMap,
   allTaskTags: TaskTagMap,
   allTasksMetadata: MetadataMap,
   formatter: ReturnType<typeof createFormatter>
 ): void {
-  const rootTasks = displayTasks.filter((task) => !task.parent_id);
+  const rootTasks = getTreeRootTasks(displayTasks, taskById);
   formatter.output(
-    () => buildTreeJsonOutput(displayTasks, options, tagIds, childrenByParentId, allTaskTags, allTasksMetadata),
+    () =>
+      buildTreeJsonOutput(displayTasks, options, tagIds, childrenByParentId, taskById, allTaskTags, allTasksMetadata),
     () => {
       console.log(chalk.bold(`\nFound ${displayTasks.length} task(s) in tree view:\n`));
       console.log(chalk.bold('─'.repeat(80)));
@@ -960,7 +994,16 @@ async function executeListAction(
     fetchTaskRelations(taskService);
 
   if (options.tree) {
-    handleTreeView(displayTasks, options, tagIds, childrenByParentId, allTaskTags, allTasksMetadata, formatter);
+    handleTreeView(
+      displayTasks,
+      options,
+      tagIds,
+      childrenByParentId,
+      taskById,
+      allTaskTags,
+      allTasksMetadata,
+      formatter
+    );
   } else if (options.depTree) {
     handleDepTreeView(
       displayTasks,
