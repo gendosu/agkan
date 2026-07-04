@@ -38,16 +38,16 @@ export function resolveTagIds(tagService: TagService, value: string | undefined)
     .map((s) => s.trim())
     .filter((s) => s !== '');
 
-  const tagIds: number[] = [];
+  const tagIds = new Set<number>();
   for (const part of parts) {
     const { tag, byId } = resolveTag(tagService, part);
     if (!tag) {
       const message = byId ? `Tag with ID "${part}" not found` : `Tag with name "${part}" not found`;
       throw new Error(message);
     }
-    tagIds.push(tag.id);
+    tagIds.add(tag.id);
   }
-  return tagIds;
+  return Array.from(tagIds);
 }
 
 export function addBlockRelationships(

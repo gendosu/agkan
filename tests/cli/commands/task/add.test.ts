@@ -743,6 +743,25 @@ describe('setupTaskAddCommand', () => {
       expect(taskService.listTasks()).toHaveLength(0);
     });
 
+    it('should deduplicate repeated tag references without erroring', async () => {
+      const tagService = new TagService();
+      const tag = tagService.createTag({ name: 'bug' });
+
+      const { exitCode, logs } = await runCommand(program, [
+        'task',
+        'add',
+        'Deduped Tags Task',
+        '--tag',
+        `bug,${tag.id}`,
+        '--json',
+      ]);
+      expect(exitCode).toBeUndefined();
+      const output = JSON.parse(logs[0]);
+      expect(output.success).toBe(true);
+      expect(output.tags).toHaveLength(1);
+      expect(output.tags[0].id).toBe(tag.id);
+    });
+
     it('should include empty tags array in JSON output when --tag is not specified', async () => {
       const { exitCode, logs } = await runCommand(program, ['task', 'add', 'No Tag Task', '--json']);
       expect(exitCode).toBeUndefined();
