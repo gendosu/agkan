@@ -5,7 +5,7 @@
 import { Command } from 'commander';
 import chalk from 'chalk';
 import { Task, Tag } from '../../../models';
-import type { TaskComment } from '../../../models';
+import type { TaskComment, TaskMetadata } from '../../../models';
 import { getServiceContainer } from '../../utils/service-container';
 import { handleError, validateNumberInput } from '../../utils/error-handler';
 import { getStatusColor, formatDate } from '../../../utils/format';
@@ -40,6 +40,7 @@ interface RelatedTaskData {
   blockedTasks: Task[];
   tags: Tag[];
   comments: TaskComment[];
+  metadata: TaskMetadata[];
 }
 
 /**
@@ -66,7 +67,7 @@ function formatTaskOutput(task: Task): TaskOutputData {
  * Fetch all related task data
  */
 function fetchRelatedData(taskId: number): RelatedTaskData {
-  const { taskService, taskBlockService, taskTagService, commentService } = getServiceContainer();
+  const { taskService, taskBlockService, taskTagService, commentService, metadataService } = getServiceContainer();
 
   const task = taskService.getTask(taskId)!;
   const parentTask = task.parent_id ? taskService.getParentTask(taskId) : null;
@@ -77,8 +78,9 @@ function fetchRelatedData(taskId: number): RelatedTaskData {
   const blockedTasks = blockedIds.map((id) => taskService.getTask(id)).filter(filterNonNull);
   const tags = taskTagService.getTagsForTask(taskId);
   const comments = commentService.listComments(taskId);
+  const metadata = metadataService.listMetadata(taskId);
 
-  return { parentTask, childTasks, blockerTasks, blockedTasks, tags, comments };
+  return { parentTask, childTasks, blockerTasks, blockedTasks, tags, comments, metadata };
 }
 
 /**
@@ -143,6 +145,17 @@ function renderTags(tags: Tag[]): void {
   console.log(`${chalk.bold('Tags:')}`);
   tags.forEach((tag) => {
     console.log(`  ${chalk.cyan('•')} ${chalk.cyan(`[${tag.id}]`)} ${tag.name}`);
+  });
+}
+
+/**
+ * Render metadata list
+ */
+function renderMetadata(metadata: TaskMetadata[]): void {
+  if (metadata.length === 0) return;
+  console.log(`${chalk.bold('Metadata:')}`);
+  metadata.forEach((m) => {
+    console.log(`  ${chalk.cyan('•')} ${chalk.bold(m.key)}: ${m.value}`);
   });
 }
 
@@ -248,6 +261,10 @@ async function handleTaskGetAction(id: string, options: { json?: boolean }): Pro
           created_at: comment.created_at,
           updated_at: comment.updated_at,
         })),
+        metadata: relatedData.metadata.map((m) => ({
+          key: m.key,
+          value: m.value,
+        })),
       }),
       () => {
         renderTaskHeader(task);
@@ -255,6 +272,7 @@ async function handleTaskGetAction(id: string, options: { json?: boolean }): Pro
         renderChildTasks(relatedData.childTasks);
         renderBlockingRelationships(relatedData.blockerTasks, relatedData.blockedTasks);
         renderTags(relatedData.tags);
+        renderMetadata(relatedData.metadata);
         renderComments(relatedData.comments);
         renderTaskBody(task.body);
         console.log('\n');

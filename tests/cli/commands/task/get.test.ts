@@ -6,7 +6,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { Command } from 'commander';
 import { setupTaskGetCommand } from '../../../../src/cli/commands/task/get';
 import { getDatabase } from '../../../../src/db/connection';
-import { TaskService, TaskBlockService, TaskTagService, TagService } from '../../../../src/services';
+import { TaskService, TaskBlockService, TaskTagService, TagService, MetadataService } from '../../../../src/services';
 import { createProgram, runCommand } from '../../../helpers/command-test-utils';
 
 function archiveTask(id: number) {
@@ -18,6 +18,7 @@ function resetDatabase() {
   const db = getDatabase();
   db.exec('DELETE FROM task_tags');
   db.exec('DELETE FROM task_blocks');
+  db.exec('DELETE FROM task_metadata');
   db.exec('DELETE FROM tasks');
   db.exec('DELETE FROM tags');
   db.exec("DELETE FROM sqlite_sequence WHERE name='tasks'");
@@ -206,6 +207,22 @@ describe('setupTaskGetCommand', () => {
       expect(output).toContain('Tags');
       expect(output).toContain('my-tag');
     });
+
+    it('should display metadata when set', async () => {
+      const taskService = new TaskService();
+      const task = taskService.createTask({ title: 'Metadata Task', status: 'ready' });
+
+      const metadataService = new MetadataService();
+      metadataService.setMetadata({ task_id: task.id, key: 'pr', value: 'https://example.com/pr/1' });
+
+      const { exitCode, logs } = await runCommand(program, ['task', 'get', String(task.id)]);
+      expect(exitCode).toBeUndefined();
+
+      const output = logs.join('\n');
+      expect(output).toContain('Metadata');
+      expect(output).toContain('pr');
+      expect(output).toContain('https://example.com/pr/1');
+    });
   });
 
   describe('JSON output', () => {
@@ -304,6 +321,33 @@ describe('setupTaskGetCommand', () => {
       const parsed = JSON.parse(logs[0]);
       expect(parsed.tags).toHaveLength(1);
       expect(parsed.tags[0].name).toBe('json-tag');
+    });
+
+    it('should include metadata in JSON output', async () => {
+      const taskService = new TaskService();
+      const task = taskService.createTask({ title: 'Metadata JSON Task', status: 'ready' });
+
+      const metadataService = new MetadataService();
+      metadataService.setMetadata({ task_id: task.id, key: 'pr', value: 'https://example.com/pr/2' });
+
+      const { exitCode, logs } = await runCommand(program, ['task', 'get', String(task.id), '--json']);
+      expect(exitCode).toBeUndefined();
+
+      const parsed = JSON.parse(logs[0]);
+      expect(parsed.metadata).toHaveLength(1);
+      expect(parsed.metadata[0].key).toBe('pr');
+      expect(parsed.metadata[0].value).toBe('https://example.com/pr/2');
+    });
+
+    it('should include empty metadata array in JSON output when none set', async () => {
+      const taskService = new TaskService();
+      const task = taskService.createTask({ title: 'No Metadata Task', status: 'ready' });
+
+      const { exitCode, logs } = await runCommand(program, ['task', 'get', String(task.id), '--json']);
+      expect(exitCode).toBeUndefined();
+
+      const parsed = JSON.parse(logs[0]);
+      expect(parsed.metadata).toEqual([]);
     });
   });
 
