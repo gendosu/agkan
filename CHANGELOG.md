@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- Fix Board "Planning" (and Run/PR) buttons failing with `Claude起動エラー ... HTTP 500: posix_spawnp failed.` when node-pty's prebuilt `spawn-helper` lost its execute bit (pnpm on macOS clones it from the store as mode 0644, resetting +x on every install). The server now self-heals the binary's permissions on startup, a `postinstall` script re-applies +x after every install, and spawn failures are now logged server-side with task context
+
 ## [3.15.1] - 2026-07-03
 
 ### Fixed

@@ -5,6 +5,7 @@ import type { RunLog, OutputEvent as ClaudeOutputEvent, CompletionConfirmCallbac
 import { ConflictError } from '../errors';
 import { ensureBoardHookSettings } from '../hooks/claudeHookSettings';
 import { buildHookEnv } from './buildHookEnv';
+import { ensureSpawnHelperExecutable } from './ensureSpawnHelperExecutable';
 import { AttentionStateService } from '../services/AttentionStateService';
 import { loadConfig, buildPermissionArgs } from '../db/config';
 
@@ -86,6 +87,9 @@ export class PtySessionService {
     this.boardApiUrl = options?.boardApiUrl ?? null;
     this.attentionStateService = options?.attentionStateService ?? null;
     this.hookSettingsDataDir = options?.hookSettingsDataDir ?? null;
+    // Self-heal node-pty's spawn-helper permissions so pty.spawn() cannot fail
+    // with "posix_spawnp failed." when the prebuilt binary lost its execute bit.
+    ensureSpawnHelperExecutable();
   }
 
   setBoardApiUrl(url: string): void {
@@ -136,18 +140,26 @@ export class PtySessionService {
 
     const hookEnv = buildHookEnv(taskId, this.boardApiUrl, command);
 
-    const ptyProcess = pty.spawn(CLAUDE_BIN, args, {
-      name: 'xterm-256color',
-      cols: 220,
-      rows: 50,
-      cwd: process.cwd(),
-      env: {
-        ...process.env,
-        COLORTERM: 'truecolor',
-        TERM: 'xterm-256color',
-        ...hookEnv,
-      },
-    });
+    let ptyProcess: pty.IPty;
+    try {
+      ptyProcess = pty.spawn(CLAUDE_BIN, args, {
+        name: 'xterm-256color',
+        cols: 220,
+        rows: 50,
+        cwd: process.cwd(),
+        env: {
+          ...process.env,
+          COLORTERM: 'truecolor',
+          TERM: 'xterm-256color',
+          ...hookEnv,
+        },
+      });
+    } catch (e) {
+      console.error(
+        `[pty][spawn-error] taskId=${taskId} command=${command} bin=${CLAUDE_BIN} error=${e instanceof Error ? e.message : String(e)}`
+      );
+      throw e;
+    }
 
     const info: SessionInfo = {
       taskId,
