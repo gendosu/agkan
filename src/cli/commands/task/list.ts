@@ -191,6 +191,18 @@ function buildTreeNode(
 }
 
 /**
+ * Determine the root tasks to render for tree view output. A task is a root
+ * if it has no parent, or if its parent is not present in the filtered
+ * result set (pseudo-root). Without this, a filter (e.g. `-s in_progress`)
+ * that only matches child tasks would report a non-zero count while
+ * rendering nothing, since the real root would be filtered out.
+ */
+function getTreeRootTasks(displayTasks: TaskRecord[]): TaskRecord[] {
+  const displayTaskIds = new Set(displayTasks.map((task) => task.id));
+  return displayTasks.filter((task) => !task.parent_id || !displayTaskIds.has(task.parent_id));
+}
+
+/**
  * Build the JSON output object for the tree view.
  */
 function buildTreeJsonOutput(
@@ -210,7 +222,7 @@ function buildTreeJsonOutput(
   allTaskTags: TaskTagMap,
   allTasksMetadata: MetadataMap
 ): object {
-  const rootTasks = displayTasks.filter((task) => !task.parent_id);
+  const rootTasks = getTreeRootTasks(displayTasks);
 
   return {
     totalCount: displayTasks.length,
@@ -720,7 +732,7 @@ function handleTreeView(
   allTasksMetadata: MetadataMap,
   formatter: ReturnType<typeof createFormatter>
 ): void {
-  const rootTasks = displayTasks.filter((task) => !task.parent_id);
+  const rootTasks = getTreeRootTasks(displayTasks);
   formatter.output(
     () => buildTreeJsonOutput(displayTasks, options, tagIds, childrenByParentId, allTaskTags, allTasksMetadata),
     () => {

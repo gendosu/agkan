@@ -292,6 +292,30 @@ describe('setupTaskListCommand', () => {
     expect(output).toContain('Child Task');
   });
 
+  it('should display a filtered-in child task as a pseudo-root in tree view when its parent is filtered out', async () => {
+    const taskService = new TaskService();
+    const parent = taskService.createTask({ title: 'Unmatched Parent', status: 'backlog' });
+    taskService.createTask({ title: 'Matched Child', status: 'in_progress', parent_id: parent.id });
+
+    const consoleLogs: string[] = [];
+    const originalLog = console.log;
+    console.log = (...args: unknown[]) => consoleLogs.push(args.join(' '));
+
+    const originalExit = process.exit;
+    process.exit = (() => {}) as never;
+
+    try {
+      await program.parseAsync(['node', 'test', 'task', 'list', '--tree', '--status', 'in_progress']);
+    } finally {
+      console.log = originalLog;
+      process.exit = originalExit;
+    }
+
+    const output = consoleLogs.join('\n');
+    expect(output).toContain('Found 1 task(s) in tree view');
+    expect(output).toContain('Matched Child');
+  });
+
   it('should show error on invalid status', async () => {
     const consoleLogs: string[] = [];
     const originalLog = console.log;
@@ -346,6 +370,31 @@ describe('setupTaskListCommand', () => {
     expect(rootTask).toBeDefined();
     expect(rootTask.children).toHaveLength(1);
     expect(rootTask.children[0].title).toBe('Child Task');
+  });
+
+  it('should include a filtered-in child task as pseudo-root in tree JSON when its parent is filtered out', async () => {
+    const taskService = new TaskService();
+    const parent = taskService.createTask({ title: 'Unmatched Parent JSON', status: 'backlog' });
+    taskService.createTask({ title: 'Matched Child JSON', status: 'in_progress', parent_id: parent.id });
+
+    const consoleLogs: string[] = [];
+    const originalLog = console.log;
+    console.log = (...args: unknown[]) => consoleLogs.push(args.join(' '));
+
+    const originalExit = process.exit;
+    process.exit = (() => {}) as never;
+
+    try {
+      await program.parseAsync(['node', 'test', 'task', 'list', '--tree', '--json', '--status', 'in_progress']);
+    } finally {
+      console.log = originalLog;
+      process.exit = originalExit;
+    }
+
+    const parsed = JSON.parse(consoleLogs[0]);
+    expect(parsed.totalCount).toBe(1);
+    expect(parsed.tasks).toHaveLength(1);
+    expect(parsed.tasks[0].title).toBe('Matched Child JSON');
   });
 
   it('should include assignees in tree JSON output', async () => {
