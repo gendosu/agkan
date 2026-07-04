@@ -1644,6 +1644,18 @@ describe('TaskService', () => {
       expect(results.map((t) => t.title)).toContain('Archive-flag active task');
       expect(results.map((t) => t.title)).toContain('Archive-flag done task');
     });
+
+    it('includeArchived=true alone (includeAll=false) still finds done/closed archived tasks', () => {
+      taskService.createTask({ title: 'Archive-alone active task', status: 'in_progress' });
+      taskService.createTask({ title: 'Archive-alone done task', status: 'done' });
+      taskService.archiveTasksBefore(new Date(Date.now() + 1000).toISOString(), ['done']);
+
+      // includeAll defaults to false, only includeArchived is true
+      const results = taskService.searchTasks('Archive-alone', false, undefined, true);
+
+      expect(results.map((t) => t.title)).toContain('Archive-alone active task');
+      expect(results.map((t) => t.title)).toContain('Archive-alone done task');
+    });
   });
 
   describe('Parent-Child Relationships', () => {

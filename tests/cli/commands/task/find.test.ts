@@ -466,4 +466,30 @@ describe('setupTaskFindCommand', () => {
     expect(titles).toContain('Active archive-flag task');
     expect(titles).toContain('Done archive-flag task');
   });
+
+  it('should find a done/closed archived task with --archived alone (no --all)', async () => {
+    const taskService = new TaskService();
+    taskService.createTask({ title: 'Active archive-alone task', status: 'ready' });
+    taskService.createTask({ title: 'Done archive-alone task', status: 'done' });
+    taskService.archiveTasksBefore(new Date(Date.now() + 1000).toISOString(), ['done']);
+
+    const consoleLogs: string[] = [];
+    const originalLog = console.log;
+    console.log = (...args: unknown[]) => consoleLogs.push(args.join(' '));
+
+    const originalExit = process.exit;
+    process.exit = (() => {}) as never;
+
+    try {
+      await program.parseAsync(['node', 'test', 'task', 'find', 'archive-alone', '--archived', '--json']);
+    } finally {
+      console.log = originalLog;
+      process.exit = originalExit;
+    }
+
+    const parsed = JSON.parse(consoleLogs[0]);
+    const titles = parsed.tasks.map((t: { title: string }) => t.title);
+    expect(titles).toContain('Active archive-alone task');
+    expect(titles).toContain('Done archive-alone task');
+  });
 });
