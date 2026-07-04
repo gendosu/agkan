@@ -49,6 +49,7 @@ interface SessionInfo {
   ptyProcess: pty.IPty;
   startedAt: Date;
   outputBuffer: string;
+  totalOutputLength: number;
   exitSubscribers: Set<SubscribeCallback>;
   rawOutputSubscribers: Set<(data: string) => void>;
   outputUpdateSubscribers: Set<() => void>;
@@ -132,14 +133,19 @@ export class PtySessionService {
   // '\r' until it appears or we run out of retries.
   private sendEnterWithRetry(taskId: number, info: SessionInfo): void {
     const ptyProcess = info.ptyProcess;
-    const markLength = info.outputBuffer.length;
+    // Use the monotonic total-output counter rather than an index into outputBuffer:
+    // outputBuffer is truncated from the front once it exceeds MAX_SNAPSHOT_BYTES, which
+    // would desync a raw string-length mark recorded before the truncation happened.
+    const markLength = info.totalOutputLength;
     let attempts = 0;
 
     const scheduleCheck = () => {
       info.enterWatchdogTimer = setTimeout(() => {
         info.enterWatchdogTimer = null;
         if (!this.sessions.has(taskId)) return;
-        if (info.outputBuffer.slice(markLength).includes(CLAUDE_BUSY_SIGNAL)) {
+        const removedSoFar = info.totalOutputLength - info.outputBuffer.length;
+        const sinceMarkStart = Math.max(0, markLength - removedSoFar);
+        if (info.outputBuffer.slice(sinceMarkStart).includes(CLAUDE_BUSY_SIGNAL)) {
           return;
         }
         if (attempts >= MAX_ENTER_RETRIES) {
@@ -203,6 +209,7 @@ export class PtySessionService {
       ptyProcess,
       startedAt: new Date(),
       outputBuffer: '',
+      totalOutputLength: 0,
       exitSubscribers: new Set(),
       rawOutputSubscribers: new Set(),
       outputUpdateSubscribers: new Set(),
@@ -238,6 +245,7 @@ export class PtySessionService {
 
     ptyProcess.onData((data: string) => {
       info.outputBuffer += data;
+      info.totalOutputLength += data.length;
       if (info.outputBuffer.length > MAX_SNAPSHOT_BYTES) {
         info.outputBuffer = info.outputBuffer.slice(-MAX_SNAPSHOT_BYTES);
       }

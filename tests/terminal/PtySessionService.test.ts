@@ -463,6 +463,23 @@ describe('PtySessionService - output buffer truncation', () => {
     const snapshot = svc.getSnapshot(1);
     expect(snapshot.length).toBeLessThanOrEqual(500_000);
   });
+
+  it('still detects the busy signal after outputBuffer truncation shifts content past the Enter mark', async () => {
+    const svc = new PtySessionService();
+    await svc.startProcess(1, 'hello', 'run');
+    mockOnDataHandler?.('bypass permissions');
+    vi.advanceTimersByTime(700); // 500ms ready delay + 200ms enter delay -> sends '\r', marks totalOutputLength
+    mockWrite.mockClear();
+
+    // Flood enough output to push outputBuffer past MAX_SNAPSHOT_BYTES, truncating from the
+    // front and shifting the retained content relative to the mark recorded above.
+    mockOnDataHandler?.('x'.repeat(600_000));
+    mockOnDataHandler?.('esc to interrupt');
+
+    vi.advanceTimersByTime(2000);
+    // The busy signal was emitted after the mark and survives truncation, so no resend.
+    expect(mockWrite).not.toHaveBeenCalled();
+  });
 });
 
 describe('PtySessionService - completed snapshot eviction', () => {
