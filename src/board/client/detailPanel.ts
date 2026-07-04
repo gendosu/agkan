@@ -29,9 +29,7 @@ import {
 } from './detailPanelHtml';
 import { fitTerminal, stopTerminal, getCurrentTerminalTaskId, attachTerminalToTab } from './claudeTerminalModal';
 import { getRunningTaskIds } from './claudeButton';
-
-const BRANCH_AUTO_GENERATE = '<auto-generate>';
-const BRANCH_AUTO_GENERATE_DISPLAY = '✨ Auto-generate on run';
+import { initBranchSelector, type BranchSelector } from './branchSelector';
 
 // State
 let detailTaskId: number | null = null;
@@ -41,26 +39,9 @@ let currentFetchController: AbortController | null = null;
 let runLogLoadSeq = 0;
 let runLogsLoadedTaskId: number | null = null;
 
-// Branch suggestions state
-let branchSuggestions: string[] = [];
-let branchSuggestionsLoaded = false;
-
-// Branch internal value: '<auto-generate>' or actual branch name
-let branchInternalValue: string = BRANCH_AUTO_GENERATE;
-
-function setDetailBranchAutoMode(input: HTMLInputElement): void {
-  branchInternalValue = BRANCH_AUTO_GENERATE;
-  input.value = BRANCH_AUTO_GENERATE_DISPLAY;
-  input.readOnly = true;
-  input.classList.add('branch-auto-mode');
-}
-
-function setDetailBranchManualMode(input: HTMLInputElement, branch: string): void {
-  branchInternalValue = branch;
-  input.value = branch;
-  input.readOnly = false;
-  input.classList.remove('branch-auto-mode');
-}
+// Branch selector instance, re-created on every renderDetailPanel call since
+// the branch input/dropdown elements are rebuilt with the panel HTML.
+let branchSelector: BranchSelector | null = null;
 
 function closeRunLogStream(): void {
   if (runLogEventSource !== null) {
@@ -440,105 +421,6 @@ function handleRunLogToggle(e: MouseEvent): void {
   if (item) item.classList.toggle('open');
 }
 
-async function loadDetailBranchSuggestions(): Promise<void> {
-  if (branchSuggestionsLoaded) return;
-  try {
-    const res = await fetch('/api/git/branches');
-    if (!res.ok) throw new Error('Server error');
-    const data = (await res.json()) as { branches: string[] };
-    branchSuggestions = data.branches;
-  } catch {
-    branchSuggestions = [];
-  }
-  branchSuggestionsLoaded = true;
-}
-
-function renderDetailBranchDropdown(dropdown: HTMLElement, inputValue: string): void {
-  const input = document.getElementById('detail-edit-branch') as HTMLInputElement;
-  // When in auto-generate mode, show all suggestions unfiltered
-  const isAutoMode = branchInternalValue === BRANCH_AUTO_GENERATE;
-  const q = isAutoMode ? '' : inputValue.trim().toLowerCase();
-  const filtered = q ? branchSuggestions.filter((b) => b.toLowerCase().includes(q)) : branchSuggestions;
-
-  dropdown.innerHTML = '';
-
-  // Fixed top item: auto-generate
-  const autoOpt = document.createElement('div');
-  autoOpt.className = 'branch-select-option branch-select-option-auto';
-  autoOpt.textContent = BRANCH_AUTO_GENERATE_DISPLAY;
-  if (branchInternalValue === BRANCH_AUTO_GENERATE) {
-    autoOpt.classList.add('selected');
-  }
-  autoOpt.addEventListener('mousedown', (e: MouseEvent) => {
-    e.preventDefault();
-    if (input) setDetailBranchAutoMode(input);
-    dropdown.style.display = 'none';
-  });
-  dropdown.appendChild(autoOpt);
-
-  // Separator
-  const separator = document.createElement('div');
-  separator.className = 'branch-select-separator';
-  dropdown.appendChild(separator);
-
-  // Git branch list
-  filtered.forEach((branch) => {
-    const opt = document.createElement('div');
-    opt.className = 'branch-select-option';
-    opt.textContent = branch;
-    opt.addEventListener('mousedown', (e: MouseEvent) => {
-      e.preventDefault();
-      if (input) setDetailBranchManualMode(input, branch);
-      dropdown.style.display = 'none';
-    });
-    dropdown.appendChild(opt);
-  });
-
-  dropdown.style.display = 'block';
-}
-
-function wireBranchField(currentBranch: string | null | undefined): void {
-  const branchInput = document.getElementById('detail-edit-branch') as HTMLInputElement;
-  const branchDropdown = document.getElementById('detail-branch-dropdown') as HTMLElement;
-
-  // Initialize internal value from current task branch
-  const isAuto = currentBranch === null || currentBranch === undefined || currentBranch === BRANCH_AUTO_GENERATE;
-  branchInternalValue = isAuto ? BRANCH_AUTO_GENERATE : currentBranch;
-
-  if (!branchInput || !branchDropdown) return;
-
-  branchInput.addEventListener('focus', async () => {
-    await loadDetailBranchSuggestions();
-    renderDetailBranchDropdown(branchDropdown, branchInput.value);
-  });
-
-  branchInput.addEventListener('keydown', (e: KeyboardEvent) => {
-    if (branchInput.readOnly && e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
-      e.preventDefault();
-      branchInput.readOnly = false;
-      branchInput.classList.remove('branch-auto-mode');
-      branchInternalValue = e.key;
-      branchInput.value = e.key;
-      renderDetailBranchDropdown(branchDropdown, e.key);
-    }
-  });
-
-  branchInput.addEventListener('input', () => {
-    if (branchInternalValue === BRANCH_AUTO_GENERATE) {
-      branchInput.readOnly = false;
-      branchInput.classList.remove('branch-auto-mode');
-    }
-    branchInternalValue = branchInput.value;
-    renderDetailBranchDropdown(branchDropdown, branchInput.value);
-  });
-
-  branchInput.addEventListener('blur', () => {
-    setTimeout(() => {
-      branchDropdown.style.display = 'none';
-    }, 150);
-  });
-}
-
 export function renderDetailPanel(data: TaskDetail): void {
   // Remove stale update-warning bar so it does not persist after reload
   document.getElementById('detail-panel-update-warning')?.remove();
@@ -564,8 +446,12 @@ export function renderDetailPanel(data: TaskDetail): void {
     });
   }
 
-  // Wire branch field interactions
-  wireBranchField(data.task.branch);
+  // Wire branch field interactions (elements are rebuilt above, so re-init each render)
+  branchSelector = initBranchSelector({
+    inputId: 'detail-edit-branch',
+    dropdownId: 'detail-branch-dropdown',
+    initialBranch: data.task.branch,
+  });
 
   // Update footer with timestamp and save button
   const footer = document.getElementById('detail-panel-footer');
@@ -714,7 +600,7 @@ function collectEditedTaskFields(): {
     body: bodyEl ? bodyEl.value.trim() || null : null,
     status: statusEl ? statusEl.value : undefined,
     priority: priorityEl ? priorityEl.value || null : null,
-    branch: branchInternalValue || null,
+    branch: branchSelector?.getValue() || null,
   };
 }
 
