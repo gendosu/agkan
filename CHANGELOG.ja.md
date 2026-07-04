@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### 修正
+- Board の「Planning」（および Run/PR）ボタンが `Claude起動エラー ... HTTP 500: posix_spawnp failed.` で失敗する問題を修正。node-pty の同梱バイナリ `spawn-helper` が実行ビットを失う（pnpm on macOS がストアからモード 0644 で clone し、インストール毎に +x がリセットされる）ことが原因。サーバー起動時にバイナリの権限を自己修復し、`postinstall` スクリプトがインストール毎に +x を再付与、さらに spawn 失敗時にタスク情報付きでサーバーログを出力するようにした
+
 ## [3.15.1] - 2026-07-03
 
 ### 修正
