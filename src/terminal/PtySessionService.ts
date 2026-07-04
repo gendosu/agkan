@@ -34,6 +34,9 @@ function resolveClaudePath(): string {
 const CLAUDE_BIN = resolveClaudePath();
 const PROMPT_FALLBACK_DELAY_MS = 10000;
 const PROMPT_ENTER_DELAY_MS = 200;
+const ENTER_RETRY_INTERVAL_MS = 2000;
+const MAX_ENTER_RETRIES = 3;
+const CLAUDE_BUSY_SIGNAL = 'esc to interrupt';
 const MAX_SNAPSHOT_BYTES = 500_000;
 const MAX_COMPLETED_SNAPSHOTS = 10;
 
@@ -46,12 +49,14 @@ interface SessionInfo {
   ptyProcess: pty.IPty;
   startedAt: Date;
   outputBuffer: string;
+  totalOutputLength: number;
   exitSubscribers: Set<SubscribeCallback>;
   rawOutputSubscribers: Set<(data: string) => void>;
   outputUpdateSubscribers: Set<() => void>;
   runLogId: number | null;
   pendingPrompt: string | null;
   promptTimer: ReturnType<typeof setTimeout> | null;
+  enterWatchdogTimer: ReturnType<typeof setTimeout> | null;
   workspaceTrustHandled: boolean;
   lastEventsUpdate: number;
 }
@@ -122,6 +127,43 @@ export class PtySessionService {
     this.runningTasksChangeSubscribers.forEach((cb) => cb());
   }
 
+  // Claude Code's TUI treats fast consecutive writes as a paste, which can absorb the
+  // final '\r' as a soft newline instead of submitting when the terminal is slow to
+  // render (e.g. right after startup). Watch the output for the busy signal and resend
+  // '\r' until it appears or we run out of retries.
+  private sendEnterWithRetry(taskId: number, info: SessionInfo): void {
+    const ptyProcess = info.ptyProcess;
+    // Use the monotonic total-output counter rather than an index into outputBuffer:
+    // outputBuffer is truncated from the front once it exceeds MAX_SNAPSHOT_BYTES, which
+    // would desync a raw string-length mark recorded before the truncation happened.
+    const markLength = info.totalOutputLength;
+    let attempts = 0;
+
+    const scheduleCheck = () => {
+      info.enterWatchdogTimer = setTimeout(() => {
+        info.enterWatchdogTimer = null;
+        if (!this.sessions.has(taskId)) return;
+        const removedSoFar = info.totalOutputLength - info.outputBuffer.length;
+        const sinceMarkStart = Math.max(0, markLength - removedSoFar);
+        if (info.outputBuffer.slice(sinceMarkStart).includes(CLAUDE_BUSY_SIGNAL)) {
+          return;
+        }
+        if (attempts >= MAX_ENTER_RETRIES) {
+          console.error(
+            `[pty][enter-watchdog] taskId=${taskId} gave up resending Enter after ${MAX_ENTER_RETRIES} retries`
+          );
+          return;
+        }
+        attempts += 1;
+        ptyProcess.write('\r');
+        scheduleCheck();
+      }, ENTER_RETRY_INTERVAL_MS);
+    };
+
+    ptyProcess.write('\r');
+    scheduleCheck();
+  }
+
   async startProcess(taskId: number, prompt: string, command = 'run', model?: string, effort?: string): Promise<void> {
     if (this.sessions.has(taskId)) {
       throw new ConflictError(`Process for taskId ${taskId} is already running`);
@@ -167,12 +209,14 @@ export class PtySessionService {
       ptyProcess,
       startedAt: new Date(),
       outputBuffer: '',
+      totalOutputLength: 0,
       exitSubscribers: new Set(),
       rawOutputSubscribers: new Set(),
       outputUpdateSubscribers: new Set(),
       runLogId: null,
       pendingPrompt: prompt,
       promptTimer: null,
+      enterWatchdogTimer: null,
       workspaceTrustHandled: false,
       lastEventsUpdate: 0,
     };
@@ -193,7 +237,7 @@ export class PtySessionService {
         ptyProcess.write(fallbackPrompt);
         setTimeout(() => {
           if (this.sessions.has(taskId)) {
-            ptyProcess.write('\r');
+            this.sendEnterWithRetry(taskId, info);
           }
         }, PROMPT_ENTER_DELAY_MS);
       }
@@ -201,6 +245,7 @@ export class PtySessionService {
 
     ptyProcess.onData((data: string) => {
       info.outputBuffer += data;
+      info.totalOutputLength += data.length;
       if (info.outputBuffer.length > MAX_SNAPSHOT_BYTES) {
         info.outputBuffer = info.outputBuffer.slice(-MAX_SNAPSHOT_BYTES);
       }
@@ -226,7 +271,7 @@ export class PtySessionService {
             ptyProcess.write(prompt);
             setTimeout(() => {
               if (this.sessions.has(taskId)) {
-                ptyProcess.write('\r');
+                this.sendEnterWithRetry(taskId, info);
               }
             }, PROMPT_ENTER_DELAY_MS);
           }
@@ -251,6 +296,10 @@ export class PtySessionService {
       if (info.promptTimer !== null) {
         clearTimeout(info.promptTimer);
         info.promptTimer = null;
+      }
+      if (info.enterWatchdogTimer !== null) {
+        clearTimeout(info.enterWatchdogTimer);
+        info.enterWatchdogTimer = null;
       }
       info.pendingPrompt = null;
 
@@ -293,6 +342,10 @@ export class PtySessionService {
     if (info.promptTimer !== null) {
       clearTimeout(info.promptTimer);
       info.promptTimer = null;
+    }
+    if (info.enterWatchdogTimer !== null) {
+      clearTimeout(info.enterWatchdogTimer);
+      info.enterWatchdogTimer = null;
     }
     info.pendingPrompt = null;
     // Mark as user-stopped before emitting so synchronous subscribers (e.g. boardRoutes.ts)

@@ -129,6 +129,79 @@ describe('PtySessionService', () => {
     expect(mockWrite).toHaveBeenCalledWith('\r');
   });
 
+  it('does not resend Enter when the busy signal appears within the retry interval', () => {
+    service.startProcess(1, 'hello', 'run');
+    mockOnDataHandler?.('bypass permissions');
+    vi.advanceTimersByTime(500);
+    mockWrite.mockClear();
+    vi.advanceTimersByTime(200);
+    expect(mockWrite).toHaveBeenCalledWith('\r');
+    expect(mockWrite).toHaveBeenCalledTimes(1);
+
+    mockOnDataHandler?.('esc to interrupt');
+    mockWrite.mockClear();
+    vi.advanceTimersByTime(2000);
+    expect(mockWrite).not.toHaveBeenCalled();
+  });
+
+  it('resends Enter when the busy signal does not appear within the retry interval', () => {
+    service.startProcess(1, 'hello', 'run');
+    mockOnDataHandler?.('bypass permissions');
+    vi.advanceTimersByTime(700); // 500ms ready delay + 200ms enter delay
+    mockWrite.mockClear();
+
+    vi.advanceTimersByTime(2000);
+    expect(mockWrite).toHaveBeenCalledWith('\r');
+    expect(mockWrite).toHaveBeenCalledTimes(1);
+
+    mockOnDataHandler?.('esc to interrupt');
+    mockWrite.mockClear();
+    vi.advanceTimersByTime(2000);
+    expect(mockWrite).not.toHaveBeenCalled();
+  });
+
+  it('gives up after the maximum number of Enter retries', () => {
+    service.startProcess(1, 'hello', 'run');
+    mockOnDataHandler?.('bypass permissions');
+    vi.advanceTimersByTime(700);
+    mockWrite.mockClear();
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+    // 3 retries at 2s intervals, none confirmed by the busy signal
+    vi.advanceTimersByTime(2000);
+    vi.advanceTimersByTime(2000);
+    vi.advanceTimersByTime(2000);
+    expect(mockWrite).toHaveBeenCalledTimes(3);
+
+    mockWrite.mockClear();
+    vi.advanceTimersByTime(2000);
+    expect(mockWrite).not.toHaveBeenCalled();
+    expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining('gave up resending Enter'));
+    errorSpy.mockRestore();
+  });
+
+  it('clears the Enter watchdog timer on session exit', () => {
+    service.startProcess(1, 'hello', 'run');
+    mockOnDataHandler?.('bypass permissions');
+    vi.advanceTimersByTime(700);
+    mockWrite.mockClear();
+
+    mockOnExitHandler?.({ exitCode: 0 });
+    vi.advanceTimersByTime(10000);
+    expect(mockWrite).not.toHaveBeenCalled();
+  });
+
+  it('clears the Enter watchdog timer on stopProcess', () => {
+    service.startProcess(1, 'hello', 'run');
+    mockOnDataHandler?.('bypass permissions');
+    vi.advanceTimersByTime(700);
+    mockWrite.mockClear();
+
+    service.stopProcess(1);
+    vi.advanceTimersByTime(10000);
+    expect(mockWrite).not.toHaveBeenCalled();
+  });
+
   it('does not send prompt via ready signal after fallback already fired', () => {
     service.startProcess(1, 'hello', 'run');
     vi.advanceTimersByTime(10200); // advance past fallback delay and enter key delay
@@ -389,6 +462,23 @@ describe('PtySessionService - output buffer truncation', () => {
     mockOnDataHandler?.(chunk);
     const snapshot = svc.getSnapshot(1);
     expect(snapshot.length).toBeLessThanOrEqual(500_000);
+  });
+
+  it('still detects the busy signal after outputBuffer truncation shifts content past the Enter mark', async () => {
+    const svc = new PtySessionService();
+    await svc.startProcess(1, 'hello', 'run');
+    mockOnDataHandler?.('bypass permissions');
+    vi.advanceTimersByTime(700); // 500ms ready delay + 200ms enter delay -> sends '\r', marks totalOutputLength
+    mockWrite.mockClear();
+
+    // Flood enough output to push outputBuffer past MAX_SNAPSHOT_BYTES, truncating from the
+    // front and shifting the retained content relative to the mark recorded above.
+    mockOnDataHandler?.('x'.repeat(600_000));
+    mockOnDataHandler?.('esc to interrupt');
+
+    vi.advanceTimersByTime(2000);
+    // The busy signal was emitted after the mark and survives truncation, so no resend.
+    expect(mockWrite).not.toHaveBeenCalled();
   });
 });
 
