@@ -21,15 +21,37 @@ export function makeExecutable(filePath: string): boolean {
   }
 }
 
+// Mirrors node-pty's own lookup order (see node-pty's src/utils.ts
+// loadNativeModule): a node-gyp source build lands in build/Release (or
+// build/Debug), while platforms with no compiled output ship a bundled
+// prebuild instead.
+const SPAWN_HELPER_SEARCH_DIRS = ['build/Release', 'build/Debug', `prebuilds/${process.platform}-${process.arch}`];
+
 /**
- * Resolve node-pty's `spawn-helper` binary path for the current platform/arch.
- * Returns null when node-pty (or the prebuild) cannot be resolved.
+ * Find `spawn-helper` under a node-pty package directory, checking each
+ * search dir in order and returning the first one that exists.
+ */
+export function findSpawnHelperInPackage(
+  pkgRoot: string,
+  searchDirs: string[] = SPAWN_HELPER_SEARCH_DIRS
+): string | null {
+  for (const dir of searchDirs) {
+    const candidate = join(pkgRoot, dir, 'spawn-helper');
+    if (existsSync(candidate)) return candidate;
+  }
+  return null;
+}
+
+/**
+ * Resolve node-pty's `spawn-helper` binary path for the current install.
+ * Returns null when node-pty cannot be resolved or spawn-helper isn't found
+ * in any of its known locations.
  */
 export function resolveSpawnHelperPath(): string | null {
   try {
     const require = createRequire(__filename);
     const pkgPath = require.resolve('node-pty/package.json');
-    return join(dirname(pkgPath), 'prebuilds', `${process.platform}-${process.arch}`, 'spawn-helper');
+    return findSpawnHelperInPackage(dirname(pkgPath));
   } catch {
     return null;
   }
