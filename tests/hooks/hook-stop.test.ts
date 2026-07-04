@@ -2,7 +2,7 @@ import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 import { spawn } from 'child_process';
 import { createServer } from 'http';
 import type { Server } from 'http';
-import { existsSync, mkdtempSync, writeFileSync } from 'fs';
+import { existsSync, mkdtempSync, unlinkSync, writeFileSync } from 'fs';
 import { tmpdir } from 'os';
 import { join, resolve } from 'path';
 import { buildHookEnv } from './hook-test-env';
@@ -1250,6 +1250,8 @@ describe('hook-stop.mjs', () => {
     const realMarker = `/tmp/board-main-session-${TASK_ID_FOR_REGRESSION}`;
     const original = process.env.BOARD_TASK_ID;
     process.env.BOARD_TASK_ID = TASK_ID_FOR_REGRESSION;
+    // Defensive cleanup in case a prior crashed run left this behind.
+    if (existsSync(realMarker)) unlinkSync(realMarker);
     try {
       const transcript = join(tmp, 't.jsonl');
       writeFileSync(

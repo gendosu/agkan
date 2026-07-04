@@ -8,9 +8,15 @@ import { buildHookEnv } from './hook-test-env';
 const SCRIPT = resolve(__dirname, '../../src/hooks/hook-session-start.mjs');
 const REAL_SESSION_FILE = '/tmp/board-main-session-42';
 
+// Set by beforeEach below; runHook defaults BOARD_SESSION_MARKER_FILE to a path inside this
+// dir so no test ever touches the real /tmp/board-main-session-<taskId> marker file, even if
+// a call site forgets to pass BOARD_SESSION_MARKER_FILE explicitly.
+let tmp: string;
+let sessionFile: string;
+
 function runHook(stdinJson: unknown, env: Record<string, string>): Promise<number> {
   return new Promise((resolveFn) => {
-    const proc = spawn('node', [SCRIPT], { env: buildHookEnv(env) });
+    const proc = spawn('node', [SCRIPT], { env: buildHookEnv({ BOARD_SESSION_MARKER_FILE: sessionFile, ...env }) });
     proc.stdin.write(JSON.stringify(stdinJson));
     proc.stdin.end();
     proc.on('exit', (code) => resolveFn(code ?? 0));
@@ -18,9 +24,6 @@ function runHook(stdinJson: unknown, env: Record<string, string>): Promise<numbe
 }
 
 describe('hook-session-start.mjs', () => {
-  let tmp: string;
-  let sessionFile: string;
-
   beforeEach(() => {
     tmp = mkdtempSync(join(tmpdir(), 'hook-session-start-'));
     sessionFile = join(tmp, 'board-main-session-42');
@@ -31,7 +34,7 @@ describe('hook-session-start.mjs', () => {
   });
 
   it('exits 0 immediately when BOARD_TASK_ID is not set', async () => {
-    const code = await runHook({ session_id: 'abc' }, { BOARD_SESSION_MARKER_FILE: sessionFile });
+    const code = await runHook({ session_id: 'abc' }, {});
     expect(code).toBe(0);
     expect(existsSync(sessionFile)).toBe(false);
     expect(existsSync(REAL_SESSION_FILE)).toBe(false);
@@ -40,7 +43,7 @@ describe('hook-session-start.mjs', () => {
   it('writes session_id to the session marker file', async () => {
     const code = await runHook(
       { session_id: 'test-session-123', hook_event_name: 'SessionStart' },
-      { BOARD_TASK_ID: '42', BOARD_SESSION_MARKER_FILE: sessionFile }
+      { BOARD_TASK_ID: '42' }
     );
     expect(code).toBe(0);
     expect(existsSync(sessionFile)).toBe(true);
@@ -50,10 +53,7 @@ describe('hook-session-start.mjs', () => {
   });
 
   it('exits 0 silently when payload has no session_id', async () => {
-    const code = await runHook(
-      { hook_event_name: 'SessionStart' },
-      { BOARD_TASK_ID: '42', BOARD_SESSION_MARKER_FILE: sessionFile }
-    );
+    const code = await runHook({ hook_event_name: 'SessionStart' }, { BOARD_TASK_ID: '42' });
     expect(code).toBe(0);
     expect(existsSync(sessionFile)).toBe(false);
   });
@@ -61,7 +61,7 @@ describe('hook-session-start.mjs', () => {
   it('exits 0 silently when stdin is invalid JSON', async () => {
     return new Promise<void>((resolveFn) => {
       const proc = spawn('node', [SCRIPT], {
-        env: buildHookEnv({ BOARD_TASK_ID: '42', BOARD_SESSION_MARKER_FILE: sessionFile }),
+        env: buildHookEnv({ BOARD_SESSION_MARKER_FILE: sessionFile, BOARD_TASK_ID: '42' }),
       });
       proc.stdin.write('not-json');
       proc.stdin.end();
@@ -80,12 +80,16 @@ describe('hook-session-start.mjs', () => {
     // regression tests) so parallel test-file execution can't race on the same real path.
     process.env.BOARD_TASK_ID = '62701';
     delete process.env.BOARD_SESSION_MARKER_FILE;
+    const realMarker = '/tmp/board-main-session-62701';
+    // Defensive cleanup in case a prior crashed run left this behind.
+    if (existsSync(realMarker)) rmSync(realMarker);
     try {
       const code = await runHook({ session_id: 'abc' }, {});
       expect(code).toBe(0);
       expect(existsSync(REAL_SESSION_FILE)).toBe(false);
-      expect(existsSync('/tmp/board-main-session-62701')).toBe(false);
+      expect(existsSync(realMarker)).toBe(false);
     } finally {
+      if (existsSync(realMarker)) rmSync(realMarker);
       if (originalTaskId === undefined) delete process.env.BOARD_TASK_ID;
       else process.env.BOARD_TASK_ID = originalTaskId;
       if (originalMarker === undefined) delete process.env.BOARD_SESSION_MARKER_FILE;

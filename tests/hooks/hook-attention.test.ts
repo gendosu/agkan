@@ -186,9 +186,11 @@ describe('hook-attention.mjs', () => {
     const TASK_ID_FOR_REGRESSION = '62702';
     const realMarker = `/tmp/board-main-session-${TASK_ID_FOR_REGRESSION}`;
     const original = process.env.BOARD_TASK_ID;
-    process.env.BOARD_TASK_ID = TASK_ID_FOR_REGRESSION;
-    writeFileSync(realMarker, 'real-session-id', 'utf-8');
+    // Defensive cleanup in case a prior crashed run left this behind.
+    if (existsSync(realMarker)) unlinkSync(realMarker);
     try {
+      process.env.BOARD_TASK_ID = TASK_ID_FOR_REGRESSION;
+      writeFileSync(realMarker, 'real-session-id', 'utf-8');
       const code = await runHook(
         ['pre'],
         {
@@ -205,7 +207,7 @@ describe('hook-attention.mjs', () => {
       expect(last?.body).toEqual({ taskId: Number(TASK_ID_FOR_REGRESSION), state: 'needs' });
       expect(existsSync(realMarker)).toBe(true);
     } finally {
-      unlinkSync(realMarker);
+      if (existsSync(realMarker)) unlinkSync(realMarker);
       if (original === undefined) delete process.env.BOARD_TASK_ID;
       else process.env.BOARD_TASK_ID = original;
     }
