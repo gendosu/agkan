@@ -1170,8 +1170,10 @@ describe('closeDetailPanel', () => {
 
     renderDetailPanel(makeTaskDetail());
 
+    // Wait for the async comments fetch to resolve before proceeding, rather than
+    // the synchronous detailTaskId assignment, since that happens before any fetch settles.
     await vi.waitFor(() => {
-      expect(getDetailTaskId()).toBe(1);
+      expect(document.getElementById('detail-tab-comments')?.textContent).toBe('Comments (0)');
     });
 
     const panel = document.getElementById('detail-panel')!;
@@ -1378,8 +1380,10 @@ describe('Escape key closes detail panel', () => {
     initDetailPanel();
     renderDetailPanel(makeTaskDetail());
 
+    // Wait for the async comments fetch to resolve before proceeding, rather than
+    // the synchronous detailTaskId assignment, since that happens before any fetch settles.
     await vi.waitFor(() => {
-      expect(getDetailTaskId()).toBe(1);
+      expect(document.getElementById('detail-tab-comments')?.textContent).toBe('Comments (0)');
     });
 
     const panel = document.getElementById('detail-panel')!;
@@ -1423,14 +1427,15 @@ describe('Escape key closes detail panel', () => {
       return Promise.resolve({ ok: true, json: () => Promise.resolve({ comments: [] }) });
     });
 
-    const { renderDetailPanel, initDetailPanel, getDetailTaskId } =
-      await import('../../../src/board/client/detailPanel');
+    const { renderDetailPanel, initDetailPanel } = await import('../../../src/board/client/detailPanel');
 
     initDetailPanel();
     renderDetailPanel(makeTaskDetail());
 
+    // Wait for the async comments fetch to resolve before proceeding, rather than
+    // the synchronous detailTaskId assignment, since that happens before any fetch settles.
     await vi.waitFor(() => {
-      expect(getDetailTaskId()).toBe(1);
+      expect(document.getElementById('detail-tab-comments')?.textContent).toBe('Comments (0)');
     });
 
     const panel = document.getElementById('detail-panel')!;
@@ -1468,14 +1473,15 @@ describe('Escape key closes detail panel', () => {
       return Promise.resolve({ ok: true, json: () => Promise.resolve({ comments: [] }) });
     });
 
-    const { renderDetailPanel, initDetailPanel, getDetailTaskId } =
-      await import('../../../src/board/client/detailPanel');
+    const { renderDetailPanel, initDetailPanel } = await import('../../../src/board/client/detailPanel');
 
     initDetailPanel();
     renderDetailPanel(makeTaskDetail());
 
+    // Wait for the async comments fetch to resolve before proceeding, rather than
+    // the synchronous detailTaskId assignment, since that happens before any fetch settles.
     await vi.waitFor(() => {
-      expect(getDetailTaskId()).toBe(1);
+      expect(document.getElementById('detail-tab-comments')?.textContent).toBe('Comments (0)');
     });
 
     const panel = document.getElementById('detail-panel')!;

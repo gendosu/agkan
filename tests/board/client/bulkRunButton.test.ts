@@ -319,9 +319,10 @@ describe('menu item click', () => {
 
     split.classList.add('open');
     menuItem1.click();
-    await vi.waitFor(() => {
-      expect(split.classList.contains('open')).toBe(false);
-    });
+
+    // The menu item's click handler removes the 'open' class synchronously,
+    // before the awaited startBulkRun call — no async wait needed.
+    expect(split.classList.contains('open')).toBe(false);
   });
 
   it('defaults to direct command when data-command is missing', async () => {
