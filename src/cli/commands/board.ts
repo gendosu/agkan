@@ -2,7 +2,7 @@ import { Command } from 'commander';
 import { startBoardServer } from '../../board/server';
 import { handleError } from '../utils/error-handler';
 import { loadConfig } from '../../db/config';
-import { isBoardRunning, spawnBoardDaemon, killBoardProcess, readBoardPid } from '../utils/board-daemon';
+import { isBoardRunning, spawnBoardDaemon, killBoardProcess, readBoardPid, readBoardPort } from '../utils/board-daemon';
 import { TaskService } from '../../services/TaskService';
 import chalk from 'chalk';
 
@@ -33,7 +33,7 @@ function handleStart(options: BoardOptions): void {
     process.exit(1);
     return;
   }
-  const pid = spawnBoardDaemon(buildDaemonArgs(port, options.title ?? config.board?.title));
+  const pid = spawnBoardDaemon(buildDaemonArgs(port, options.title ?? config.board?.title), port);
   console.log(`Board server started (PID: ${pid}) on http://localhost:${port}`);
 }
 
@@ -59,7 +59,7 @@ function handleRestart(options: BoardOptions): void {
     process.exit(1);
     return;
   }
-  const pid = spawnBoardDaemon(buildDaemonArgs(port, options.title ?? config.board?.title));
+  const pid = spawnBoardDaemon(buildDaemonArgs(port, options.title ?? config.board?.title), port);
   console.log(`Board server restarted (PID: ${pid}) on http://localhost:${port}`);
 }
 
@@ -89,8 +89,8 @@ function printTaskSummary(): void {
 
 async function handleStatus(options: BoardOptions): Promise<void> {
   const config = loadConfig();
-  const port = resolvePort(options.port, config.board?.port);
-  if (port === null) {
+  const resolvedPort = resolvePort(options.port, config.board?.port);
+  if (resolvedPort === null) {
     console.error('Invalid port number');
     process.exit(1);
     return;
@@ -102,6 +102,7 @@ async function handleStatus(options: BoardOptions): Promise<void> {
   // Check server status
   const isRunning = isBoardRunning();
   const pid = readBoardPid();
+  const port = readBoardPort() ?? resolvedPort;
 
   if (isRunning && pid) {
     console.log(chalk.green(`✓ Server: RUNNING (PID: ${pid})`));
