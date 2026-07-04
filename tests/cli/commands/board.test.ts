@@ -20,6 +20,7 @@ vi.mock('../../../src/cli/utils/board-daemon', () => ({
   spawnBoardDaemon: vi.fn(() => 12345),
   killBoardProcess: vi.fn(() => true),
   readBoardPid: vi.fn(() => 12345),
+  waitForBoardReady: vi.fn(() => Promise.resolve(true)),
 }));
 
 vi.mock('../../../src/services/TaskService', () => {
@@ -38,13 +39,20 @@ vi.mock('../../../src/services/TaskService', () => {
 
 import { startBoardServer } from '../../../src/board/server';
 import { loadConfig } from '../../../src/db/config';
-import { isBoardRunning, spawnBoardDaemon, killBoardProcess, readBoardPid } from '../../../src/cli/utils/board-daemon';
+import {
+  isBoardRunning,
+  spawnBoardDaemon,
+  killBoardProcess,
+  readBoardPid,
+  waitForBoardReady,
+} from '../../../src/cli/utils/board-daemon';
 
 const mockLoadConfig = vi.mocked(loadConfig);
 const mockIsBoardRunning = vi.mocked(isBoardRunning);
 const mockSpawnBoardDaemon = vi.mocked(spawnBoardDaemon);
 const mockKillBoardProcess = vi.mocked(killBoardProcess);
 const mockReadBoardPid = vi.mocked(readBoardPid);
+const mockWaitForBoardReady = vi.mocked(waitForBoardReady);
 
 describe('setupBoardCommand', () => {
   let program: Command;
@@ -55,6 +63,7 @@ describe('setupBoardCommand', () => {
     mockIsBoardRunning.mockReturnValue(false);
     mockSpawnBoardDaemon.mockReturnValue(12345);
     mockKillBoardProcess.mockReturnValue(true);
+    mockWaitForBoardReady.mockResolvedValue(true);
     program = createProgram(setupBoardCommand);
   });
 
@@ -234,6 +243,32 @@ describe('setupBoardCommand', () => {
       expect(exitCode).toBe(1);
       expect(mockSpawnBoardDaemon).not.toHaveBeenCalled();
     });
+
+    it('should report failure and clean up when the health check never succeeds', async () => {
+      mockWaitForBoardReady.mockResolvedValue(false);
+      const logs: string[] = [];
+      const spy = vi.spyOn(console, 'log').mockImplementation((...a) => logs.push(a.join(' ')));
+      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+      let exitCode: number | undefined;
+      const originalExit = process.exit;
+      process.exit = ((code?: number) => {
+        exitCode = code;
+      }) as never;
+
+      try {
+        await program.parseAsync(['node', 'test', 'board', 'start']);
+      } finally {
+        process.exit = originalExit;
+        spy.mockRestore();
+        errorSpy.mockRestore();
+      }
+
+      expect(mockSpawnBoardDaemon).toHaveBeenCalled();
+      expect(mockKillBoardProcess).toHaveBeenCalled();
+      expect(exitCode).toBe(1);
+      expect(logs.some((l) => l.includes('Board server started'))).toBe(false);
+    });
   });
 
   describe('board stop subcommand', () => {
@@ -310,6 +345,31 @@ describe('setupBoardCommand', () => {
       await program.parseAsync(['node', 'test', 'board', 'restart']);
 
       expect(mockSpawnBoardDaemon).toHaveBeenCalled();
+    });
+
+    it('should report failure and clean up when the health check never succeeds', async () => {
+      mockWaitForBoardReady.mockResolvedValue(false);
+      const logs: string[] = [];
+      const spy = vi.spyOn(console, 'log').mockImplementation((...a) => logs.push(a.join(' ')));
+      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+      let exitCode: number | undefined;
+      const originalExit = process.exit;
+      process.exit = ((code?: number) => {
+        exitCode = code;
+      }) as never;
+
+      try {
+        await program.parseAsync(['node', 'test', 'board', 'restart']);
+      } finally {
+        process.exit = originalExit;
+        spy.mockRestore();
+        errorSpy.mockRestore();
+      }
+
+      expect(mockSpawnBoardDaemon).toHaveBeenCalled();
+      expect(exitCode).toBe(1);
+      expect(logs.some((l) => l.includes('Board server restarted'))).toBe(false);
     });
   });
 

@@ -20,6 +20,7 @@ import {
   spawnBoardDaemon,
   killBoardProcess,
   removePidFile,
+  waitForBoardReady,
 } from '../../../src/cli/utils/board-daemon';
 
 const mockFs = vi.mocked(fs);
@@ -178,5 +179,56 @@ describe('board-daemon', () => {
       expect(mockFs.unlinkSync).not.toHaveBeenCalled();
       killSpy.mockRestore();
     });
+  });
+
+  describe('waitForBoardReady', () => {
+    it('returns true immediately when the health check succeeds on the first attempt', async () => {
+      const fetchImpl = vi.fn().mockResolvedValue({ ok: true });
+
+      const ready = await waitForBoardReady(8080, { fetchImpl: fetchImpl as never, intervalMs: 1 });
+
+      expect(ready).toBe(true);
+      expect(fetchImpl).toHaveBeenCalledWith(
+        'http://localhost:8080/api/version',
+        expect.objectContaining({ signal: expect.any(AbortSignal) })
+      );
+    });
+
+    it('retries until the health check succeeds', async () => {
+      const fetchImpl = vi
+        .fn()
+        .mockRejectedValueOnce(new Error('ECONNREFUSED'))
+        .mockResolvedValueOnce({ ok: false })
+        .mockResolvedValueOnce({ ok: true });
+
+      const ready = await waitForBoardReady(8080, { fetchImpl: fetchImpl as never, intervalMs: 1, timeoutMs: 1000 });
+
+      expect(ready).toBe(true);
+      expect(fetchImpl).toHaveBeenCalledTimes(3);
+    });
+
+    it('returns false once the timeout elapses without a successful check', async () => {
+      const fetchImpl = vi.fn().mockRejectedValue(new Error('ECONNREFUSED'));
+
+      const ready = await waitForBoardReady(8080, { fetchImpl: fetchImpl as never, intervalMs: 5, timeoutMs: 20 });
+
+      expect(ready).toBe(false);
+      expect(fetchImpl.mock.calls.length).toBeGreaterThan(0);
+    });
+
+    it('bounds the total wait even when an individual health check never settles', async () => {
+      const fetchImpl = vi.fn().mockImplementation((_url: string, init?: RequestInit) => {
+        return new Promise((_resolve, reject) => {
+          init?.signal?.addEventListener('abort', () => reject(new Error('aborted')));
+        });
+      });
+
+      const started = Date.now();
+      const ready = await waitForBoardReady(8080, { fetchImpl: fetchImpl as never, intervalMs: 5, timeoutMs: 100 });
+      const elapsed = Date.now() - started;
+
+      expect(ready).toBe(false);
+      expect(elapsed).toBeLessThan(1000);
+    }, 2000);
   });
 });
