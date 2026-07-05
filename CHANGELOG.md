@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.17.1] - 2026-07-05
+
+### Fixed
+- Fix `task update` help text and error messages not including the priority field (#657)
+
+### Changed
+- Consolidate the `BRANCH_AUTO_GENERATE` constant to a single source of truth instead of redefining it in multiple files (#637)
+- Extract a shared `resolveBeforeDate` helper to remove duplicated date-parsing logic between the `task purge` and `task archive` routes (#639)
+
 ## [3.17.0] - 2026-07-05
 
 ### Added

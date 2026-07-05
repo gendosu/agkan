@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.17.1] - 2026-07-05
+
+### 修正
+- `task update` のヘルプ文言とエラーメッセージに priority フィールドが含まれていなかった問題を修正 (#657)
+
+### 変更
+- `BRANCH_AUTO_GENERATE` 定数を複数ファイルで再定義せず単一の情報源に統合 (#637)
+- `task purge` と `task archive` ルート間で重複していた日付パース処理を共通の `resolveBeforeDate` ヘルパーに抽出 (#639)
+
 ## [3.17.0] - 2026-07-05
 
 ### 追加
