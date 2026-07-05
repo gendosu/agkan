@@ -9,6 +9,29 @@ import { getServiceContainer } from '../../utils/service-container';
 import type { TaskStatus } from '../../../models';
 import { getStatusColor, formatDate } from '../../../utils/format';
 import { createFormatter } from '../../utils/output-formatter';
+import { validateTaskStatus } from '../../utils/validators';
+import { ValidationError } from '../../../errors';
+
+/**
+ * Parse and validate a comma-separated status filter string.
+ * Throws ValidationError if any status value is invalid.
+ */
+function parseStatusFilter(statusOption: string): TaskStatus[] {
+  const statuses = statusOption
+    .split(',')
+    .map((s) => s.trim())
+    .filter((s) => s !== '');
+
+  for (const s of statuses) {
+    if (!validateTaskStatus(s)) {
+      throw new ValidationError(
+        `Invalid status: ${s}. Valid statuses: icebox, backlog, ready, in_progress, review, done, closed`
+      );
+    }
+  }
+
+  return statuses as TaskStatus[];
+}
 
 export function setupTaskFindCommand(program: Command): void {
   const taskCommand = program.commands.find((cmd) => cmd.name() === 'task');
@@ -42,8 +65,7 @@ export function setupTaskFindCommand(program: Command): void {
         // Parse status filter from comma-separated string
         let statusFilter: TaskStatus[] | undefined;
         if (options.status) {
-          const statuses = options.status.split(',').map((s: string) => s.trim());
-          statusFilter = statuses as TaskStatus[];
+          statusFilter = parseStatusFilter(options.status as string);
         }
 
         const tasks = taskService.searchTasks(
