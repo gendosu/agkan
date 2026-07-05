@@ -1,14 +1,22 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { TagService } from '../src/services/TagService';
+import { TaskService } from '../src/services/TaskService';
+import { TaskTagService } from '../src/services/TaskTagService';
 import { resetDatabase } from '../src/db/reset';
+import { getStorageBackend } from '../src/db/connection';
 
 describe('TagService', () => {
   let tagService: TagService;
+  let taskService: TaskService;
+  let taskTagService: TaskTagService;
 
   beforeEach(() => {
     // 各テストの前にデータベースをリセット
     resetDatabase();
-    tagService = new TagService();
+    const backend = getStorageBackend();
+    tagService = new TagService(backend);
+    taskService = new TaskService(backend);
+    taskTagService = new TaskTagService(backend);
   });
 
   describe('createTag', () => {
@@ -221,6 +229,47 @@ describe('TagService', () => {
 
       // falseが返ることを検証
       expect(result).toBe(false);
+    });
+
+    it('dryRun=trueの場合はタグを削除せずtrueを返す', () => {
+      const tag = tagService.createTag({ name: 'dry-run-tag' });
+
+      const result = tagService.deleteTag(tag.id, true);
+
+      expect(result).toBe(true);
+      expect(tagService.getTag(tag.id)).not.toBeNull();
+    });
+
+    it('dryRun=trueかつ存在しないタグの場合はfalseを返す', () => {
+      const result = tagService.deleteTag(99999, true);
+
+      expect(result).toBe(false);
+    });
+  });
+
+  describe('getTagDeleteImpact', () => {
+    it('存在しないタグの場合はnullを返す', () => {
+      expect(tagService.getTagDeleteImpact(99999)).toBeNull();
+    });
+
+    it('参照タスクがない場合はtaskCountが0になる', () => {
+      const tag = tagService.createTag({ name: 'unused' });
+
+      const impact = tagService.getTagDeleteImpact(tag.id);
+
+      expect(impact).toEqual({ taskCount: 0 });
+    });
+
+    it('タグを参照するタスク数を返す', () => {
+      const tag = tagService.createTag({ name: 'referenced' });
+      const task1 = taskService.createTask({ title: 'Task 1' });
+      const task2 = taskService.createTask({ title: 'Task 2' });
+      taskTagService.addTagToTask({ task_id: task1.id, tag_id: tag.id });
+      taskTagService.addTagToTask({ task_id: task2.id, tag_id: tag.id });
+
+      const impact = tagService.getTagDeleteImpact(tag.id);
+
+      expect(impact).toEqual({ taskCount: 2 });
     });
   });
 });

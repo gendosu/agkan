@@ -5,8 +5,8 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { Command } from 'commander';
 import { setupTagDeleteCommand } from '../../../../src/cli/commands/tag/delete';
-import { getDatabase } from '../../../../src/db/connection';
-import { TagService } from '../../../../src/services';
+import { getDatabase, getStorageBackend } from '../../../../src/db/connection';
+import { TagService, TaskService, TaskTagService } from '../../../../src/services';
 import * as serviceContainer from '../../../../src/cli/utils/service-container';
 
 describe('setupTagDeleteCommand', () => {
@@ -41,6 +41,16 @@ describe('setupTagDeleteCommand', () => {
 
     expect(deleteCommand?.registeredArguments).toHaveLength(1);
     expect(deleteCommand?.registeredArguments[0].name()).toBe('id-or-name');
+  });
+
+  it('should have --dry-run option', () => {
+    const tagCommand = program.commands.find((cmd) => cmd.name() === 'tag');
+    const deleteCommand = tagCommand?.commands.find((cmd) => cmd.name() === 'delete');
+
+    const options = deleteCommand?.options || [];
+    const optionNames = options.map((opt) => opt.long);
+
+    expect(optionNames).toContain('--dry-run');
   });
 
   it('should delete an existing tag', async () => {
@@ -93,6 +103,64 @@ describe('setupTagDeleteCommand', () => {
     expect(parsed.success).toBe(true);
     expect(parsed.id).toBe(tag.id);
     expect(parsed.name).toBe('json-delete');
+  });
+
+  it('should preview deletion with --dry-run and not delete the tag', async () => {
+    const backend = getStorageBackend();
+    const tagService = new TagService(backend);
+    const taskService = new TaskService(backend);
+    const taskTagService = new TaskTagService(backend);
+
+    const tag = tagService.createTag({ name: 'dry-run-tag' });
+    const task = taskService.createTask({ title: 'Referencing task' });
+    taskTagService.addTagToTask({ task_id: task.id, tag_id: tag.id });
+
+    const consoleLogs: string[] = [];
+    const originalLog = console.log;
+    console.log = (...args: unknown[]) => consoleLogs.push(args.join(' '));
+
+    const originalExit = process.exit;
+    process.exit = (() => {}) as never;
+
+    try {
+      await program.parseAsync(['node', 'test', 'tag', 'delete', String(tag.id), '--dry-run']);
+    } finally {
+      console.log = originalLog;
+      process.exit = originalExit;
+    }
+
+    const output = consoleLogs.join('\n');
+    expect(output).toContain('Dry Run');
+    expect(output).toContain('1 task(s)');
+
+    expect(tagService.getTag(tag.id)).not.toBeNull();
+  });
+
+  it('should output JSON with --dry-run and include impact counts', async () => {
+    const tagService = new TagService();
+    tagService.createTag({ name: 'json-dry-run' });
+    const tag = tagService.listTags()[0];
+
+    const consoleLogs: string[] = [];
+    const originalLog = console.log;
+    console.log = (...args: unknown[]) => consoleLogs.push(args.join(' '));
+
+    const originalExit = process.exit;
+    process.exit = (() => {}) as never;
+
+    try {
+      await program.parseAsync(['node', 'test', 'tag', 'delete', String(tag.id), '--dry-run', '--json']);
+    } finally {
+      console.log = originalLog;
+      process.exit = originalExit;
+    }
+
+    const parsed = JSON.parse(consoleLogs.join(''));
+    expect(parsed.success).toBe(false);
+    expect(parsed.dryRun).toBe(true);
+    expect(parsed.impact).toEqual({ taskCount: 0 });
+
+    expect(tagService.getTag(tag.id)).not.toBeNull();
   });
 
   it('should show error when tag does not exist', async () => {
@@ -259,6 +327,7 @@ describe('setupTagDeleteCommand', () => {
         listTags: () => tagService.listTags(),
         createTag: (data: Parameters<typeof tagService.createTag>[0]) => tagService.createTag(data),
         updateTag: (id: number, data: Parameters<typeof tagService.updateTag>[1]) => tagService.updateTag(id, data),
+        getTagDeleteImpact: (id: number) => tagService.getTagDeleteImpact(id),
         deleteTag: () => {
           throw 'string error';
         },

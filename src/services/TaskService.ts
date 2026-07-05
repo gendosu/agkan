@@ -12,6 +12,20 @@ export type SortField = (typeof ALLOWED_SORT_FIELDS)[number];
 
 export type SortOrder = 'asc' | 'desc';
 
+/** Counts of records affected by deleting a task */
+export interface TaskDeleteImpact {
+  /** Direct child tasks; their parent_id will be set to null (ON DELETE SET NULL) */
+  childCount: number;
+  /** Comments that will be cascade-deleted */
+  commentCount: number;
+  /** Tag associations that will be cascade-deleted */
+  tagCount: number;
+  /** Metadata entries that will be cascade-deleted */
+  metadataCount: number;
+  /** Blocking relationships (as blocker or blocked) that will be cascade-deleted */
+  blockCount: number;
+}
+
 /**
  * Task Service
  * Provides CRUD operations for tasks
@@ -168,16 +182,39 @@ export class TaskService {
   /**
    * Delete task
    * @param id - Task ID
-   * @returns true if deletion succeeded, false if task not found
+   * @param dryRun - If true, verify the task exists without deleting it
+   * @returns true if deletion (or dry-run check) succeeded, false if task not found
    */
-  deleteTask(id: number): boolean {
+  deleteTask(id: number, dryRun: boolean = false): boolean {
     const task = this.getTask(id);
     if (!task) {
       return false;
     }
+    if (dryRun) {
+      return true;
+    }
     const deleted = this.backend.tasks.delete(id);
     if (deleted) this.boardEventService?.notify();
     return deleted;
+  }
+
+  /**
+   * Compute the cascade impact of deleting a task, without deleting it.
+   * @param id - Task ID
+   * @returns Impact counts, or null if the task does not exist
+   */
+  getTaskDeleteImpact(id: number): TaskDeleteImpact | null {
+    const task = this.getTask(id);
+    if (!task) {
+      return null;
+    }
+    return {
+      childCount: this.backend.tasks.findChildren(id).length,
+      commentCount: this.backend.comments.findByTaskId(id).length,
+      tagCount: this.backend.taskTags.findTagIdsByTaskId(id).length,
+      metadataCount: this.backend.metadata.findByTaskId(id).length,
+      blockCount: this.backend.blocks.findBlockedTaskIds(id).length + this.backend.blocks.findBlockerTaskIds(id).length,
+    };
   }
 
   /**

@@ -4,6 +4,47 @@
 # Section 5b: CASCADE Deletion Features
 ################################################################################
 
+test_cascade_deletion_dry_run_tag() {
+    local tag_id=$BUG_TAG_ID
+
+    print_test "tag delete --dry-run previews impact without deleting..."
+    local dry_run_output
+    dry_run_output=$(run_cli tag delete "$tag_id" --dry-run)
+    if echo "$dry_run_output" | grep -q "Dry Run"; then
+        print_success "tag delete --dry-run shows [Dry Run] header"
+    else
+        print_error "Expected [Dry Run] header in output, got: $dry_run_output"
+    fi
+    if echo "$dry_run_output" | grep -q "2 task"; then
+        print_success "tag delete --dry-run reports referencing task count"
+    else
+        print_error "Expected referencing task count in output, got: $dry_run_output"
+    fi
+
+    print_test "Verifying dry-run does not actually delete the tag..."
+    output=$(run_cli tag list)
+    if echo "$output" | grep -q "bug"; then
+        print_success "tag delete --dry-run did not delete the tag"
+    else
+        print_error "tag delete --dry-run should not delete the tag"
+    fi
+
+    print_test "tag delete --dry-run --json returns impact structure..."
+    local dry_run_json_output
+    dry_run_json_output=$(run_cli tag delete "$tag_id" --dry-run --json)
+    if echo "$dry_run_json_output" | python3 -c "
+import sys, json
+d = json.load(sys.stdin)
+assert d.get('dryRun') is True
+assert d.get('success') is False
+assert d['impact']['taskCount'] == 2
+" 2>/dev/null; then
+        print_success "tag delete --dry-run --json returns valid dryRun impact JSON"
+    else
+        print_error "tag delete --dry-run --json output structure invalid: $dry_run_json_output"
+    fi
+}
+
 test_cascade_deletion_delete_tag() {
     local tag_id=$BUG_TAG_ID
     assert_cli_success "Deleting tag 'bug' (ID:$tag_id, attached to task $FIRST_TASK_ID and $SECOND_TASK_ID)" "Tag deleted successfully" tag delete $tag_id > /dev/null
@@ -53,6 +94,7 @@ test_cascade_deletion_verify_remaining_tags() {
 test_cascade_deletion() {
     print_section "Section 5b: CASCADE Deletion Features"
 
+    test_cascade_deletion_dry_run_tag
     test_cascade_deletion_delete_tag
     test_cascade_deletion_verify_tasks_exist
     test_cascade_deletion_verify_tag_removed

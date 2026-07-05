@@ -46,6 +46,16 @@ describe('setupTaskDeleteCommand', () => {
     expect(optionNames).toContain('--json');
   });
 
+  it('should have --dry-run option', () => {
+    const taskCommand = program.commands.find((cmd) => cmd.name() === 'task');
+    const deleteCommand = taskCommand?.commands.find((cmd) => cmd.name() === 'delete');
+
+    const options = deleteCommand?.options || [];
+    const optionNames = options.map((opt) => opt.long);
+
+    expect(optionNames).toContain('--dry-run');
+  });
+
   it('should delete an existing task', async () => {
     const taskService = new TaskService();
     taskService.createTask({ title: 'Test task', body: null, author: null, status: 'ready', parent_id: null });
@@ -98,7 +108,84 @@ describe('setupTaskDeleteCommand', () => {
     expect(parsed.id).toBe(task.id);
   });
 
+  it('should preview deletion with --dry-run and not delete the task', async () => {
+    const taskService = new TaskService();
+    const parent = taskService.createTask({
+      title: 'Parent task',
+      body: null,
+      author: null,
+      status: 'ready',
+      parent_id: null,
+    });
+    taskService.createTask({
+      title: 'Child task',
+      body: null,
+      author: null,
+      status: 'ready',
+      parent_id: parent.id,
+    });
+
+    const consoleLogs: string[] = [];
+    const originalLog = console.log;
+    console.log = (...args: unknown[]) => consoleLogs.push(args.join(' '));
+
+    const originalExit = process.exit;
+    process.exit = (() => {}) as never;
+
+    try {
+      await program.parseAsync(['node', 'test', 'task', 'delete', String(parent.id), '--dry-run']);
+    } finally {
+      console.log = originalLog;
+      process.exit = originalExit;
+    }
+
+    const output = consoleLogs.join('\n');
+    expect(output).toContain('Dry Run');
+    expect(output).toContain('1 child task(s)');
+
+    const stillExists = taskService.getTask(parent.id);
+    expect(stillExists).not.toBeNull();
+  });
+
+  it('should output JSON with --dry-run and include impact counts', async () => {
+    const taskService = new TaskService();
+    taskService.createTask({ title: 'Test task', body: null, author: null, status: 'ready', parent_id: null });
+    const task = taskService.listTasks()[0];
+
+    const consoleLogs: string[] = [];
+    const originalLog = console.log;
+    console.log = (...args: unknown[]) => consoleLogs.push(args.join(' '));
+
+    const originalExit = process.exit;
+    process.exit = (() => {}) as never;
+
+    try {
+      await program.parseAsync(['node', 'test', 'task', 'delete', String(task.id), '--dry-run', '--json']);
+    } finally {
+      console.log = originalLog;
+      process.exit = originalExit;
+    }
+
+    const output = consoleLogs.join('\n');
+    const parsed = JSON.parse(output);
+    expect(parsed.success).toBe(false);
+    expect(parsed.dryRun).toBe(true);
+    expect(parsed.impact).toEqual({
+      childCount: 0,
+      commentCount: 0,
+      tagCount: 0,
+      metadataCount: 0,
+      blockCount: 0,
+    });
+
+    expect(taskService.getTask(task.id)).not.toBeNull();
+  });
+
   it('should show error when task does not exist', async () => {
+    const consoleErrors: string[] = [];
+    const originalError = console.error;
+    console.error = (...args: unknown[]) => consoleErrors.push(args.join(' '));
+
     const consoleLogs: string[] = [];
     const originalLog = console.log;
     console.log = (...args: unknown[]) => consoleLogs.push(args.join(' '));
@@ -112,13 +199,17 @@ describe('setupTaskDeleteCommand', () => {
     try {
       await program.parseAsync(['node', 'test', 'task', 'delete', '999']);
     } finally {
+      console.error = originalError;
       console.log = originalLog;
       process.exit = originalExit;
     }
 
-    const output = consoleLogs.join('\n');
+    const output = consoleErrors.join('\n');
     expect(output).toContain('999');
     expect(exitCode).toBe(1);
+    // Guards against a past regression where a missing `return` after
+    // process.exit(1) let execution fall through to the success formatter.
+    expect(consoleLogs).toHaveLength(0);
   });
 
   it('should show JSON error when task does not exist with --json option', async () => {

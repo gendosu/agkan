@@ -7,6 +7,20 @@ import chalk from 'chalk';
 import { getServiceContainer } from '../../utils/service-container';
 import { createFormatter } from '../../utils/output-formatter';
 import { resolveTag } from '../../utils/tag-resolver';
+import { Tag } from '../../../models';
+import { TagDeleteImpact } from '../../../services';
+
+function printResult(tag: Tag, impact: TagDeleteImpact, dryRun: boolean): void {
+  if (dryRun) {
+    console.log(chalk.bold('\n[Dry Run] Tag would be deleted\n'));
+  } else {
+    console.log(chalk.green('\n✓ Tag deleted successfully\n'));
+  }
+  console.log(`${chalk.bold('ID:')} ${chalk.cyan(tag.id)}`);
+  console.log(`${chalk.bold('Name:')} ${tag.name}`);
+  console.log(`${chalk.bold('Impact:')} ${impact.taskCount} task(s) will lose this tag association`);
+  console.log();
+}
 
 export function setupTagDeleteCommand(program: Command): void {
   // Find the tag command group
@@ -19,6 +33,7 @@ export function setupTagDeleteCommand(program: Command): void {
     .command('delete')
     .argument('<id-or-name>', 'Tag ID or name')
     .description('Delete a tag')
+    .option('--dry-run', 'Preview the impact of deletion without deleting the tag')
     .option('--json', 'Output in JSON format')
     .action(async (id, options) => {
       const formatter = createFormatter(options);
@@ -33,24 +48,25 @@ export function setupTagDeleteCommand(program: Command): void {
             console.error(chalk.red(`\nError: ${message}\n`));
           });
           process.exit(1);
+          return;
         }
+
+        const impact = tagService.getTagDeleteImpact(tag.id)!;
+        const dryRun: boolean = !!options.dryRun;
 
         // Delete tag
         try {
-          tagService.deleteTag(tag!.id);
+          tagService.deleteTag(tag.id, dryRun);
 
           formatter.output(
             () => ({
-              success: true,
+              success: !dryRun,
+              dryRun,
               id: tag.id,
               name: tag.name,
+              impact,
             }),
-            () => {
-              console.log(chalk.green('\n✓ Tag deleted successfully\n'));
-              console.log(`${chalk.bold('ID:')} ${chalk.cyan(tag.id)}`);
-              console.log(`${chalk.bold('Name:')} ${tag.name}`);
-              console.log();
-            }
+            () => printResult(tag, impact, dryRun)
           );
         } catch (error) {
           if (error instanceof Error) {
