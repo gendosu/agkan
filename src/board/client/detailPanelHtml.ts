@@ -2,9 +2,7 @@
 
 import type { TaskDetail } from './types';
 import { escapeHtmlClient, relativeTime } from './utils';
-
-const BRANCH_AUTO_GENERATE = '<auto-generate>';
-const BRANCH_AUTO_GENERATE_DISPLAY = '✨ Auto-generate on run';
+import { BRANCH_AUTO_GENERATE, BRANCH_AUTO_GENERATE_DISPLAY } from './branchSelector';
 
 export function renderCommentItemHtml(
   comment: { id: number; content: string; author?: string | null; created_at?: string },

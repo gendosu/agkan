@@ -1,7 +1,9 @@
 // Shared branch selection dropdown component used by both the add-task modal
 // and the detail panel.
 
-export const BRANCH_AUTO_GENERATE = '<auto-generate>';
+import { BRANCH_AUTO_GENERATE } from '../../models/Task';
+
+export { BRANCH_AUTO_GENERATE };
 export const BRANCH_AUTO_GENERATE_DISPLAY = '✨ Auto-generate on run';
 
 export interface BranchSelector {
