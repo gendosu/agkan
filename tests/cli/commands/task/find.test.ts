@@ -368,6 +368,56 @@ describe('setupTaskFindCommand', () => {
     expect(output).toContain('Hash ID search task');
   });
 
+  it('should exit with error for invalid status value', async () => {
+    const taskService = new TaskService();
+    taskService.createTask({ title: 'Ready task', status: 'ready' });
+
+    const consoleErrors: string[] = [];
+    const originalError = console.error;
+    console.error = (...args: unknown[]) => consoleErrors.push(args.join(' '));
+
+    let exitCode: number | undefined;
+    const originalExit = process.exit;
+    process.exit = ((code?: number) => {
+      exitCode = code;
+    }) as never;
+
+    try {
+      await program.parseAsync(['node', 'test', 'task', 'find', 'task', '--status', 'inprogress']);
+    } finally {
+      console.error = originalError;
+      process.exit = originalExit;
+    }
+
+    expect(exitCode).toBe(1);
+    expect(consoleErrors.join('\n')).toContain('Invalid status: inprogress');
+  });
+
+  it('should exit with error when one status among multiple is invalid', async () => {
+    const taskService = new TaskService();
+    taskService.createTask({ title: 'Ready task', status: 'ready' });
+
+    const consoleErrors: string[] = [];
+    const originalError = console.error;
+    console.error = (...args: unknown[]) => consoleErrors.push(args.join(' '));
+
+    let exitCode: number | undefined;
+    const originalExit = process.exit;
+    process.exit = ((code?: number) => {
+      exitCode = code;
+    }) as never;
+
+    try {
+      await program.parseAsync(['node', 'test', 'task', 'find', 'task', '--status', 'ready,bogus']);
+    } finally {
+      console.error = originalError;
+      process.exit = originalExit;
+    }
+
+    expect(exitCode).toBe(1);
+    expect(consoleErrors.join('\n')).toContain('Invalid status: bogus');
+  });
+
   it('should return correct JSON when searching by #ID format', async () => {
     const taskService = new TaskService();
     const task = taskService.createTask({ title: 'JSON ID search task', status: 'ready' });
