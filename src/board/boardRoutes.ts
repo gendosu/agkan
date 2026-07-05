@@ -17,7 +17,7 @@ import { AgkanError, ConflictError, NotFoundError, ValidationError } from '../er
 import { StorageBackend } from '../db/types/repository';
 import { readBoardConfig, writeBoardConfig, DETAIL_PANE_MAX_WIDTH, VALID_THEMES, ThemePreference } from './boardConfig';
 import { loadConfig } from '../db/config';
-import { daysAgoIso } from '../utils/date';
+import { resolveBeforeDate } from '../utils/date';
 import {
   buildTasksByStatus,
   getBoardUpdatedAt,
@@ -335,17 +335,11 @@ function registerTagRoutes(
 function registerUtilityRoutes(app: Hono, ts: TaskService): void {
   app.post('/api/tasks/purge', async (c) => {
     const body = (await c.req.json().catch(() => ({}))) as { beforeDate?: string };
-    let beforeDate: string;
-    if (body.beforeDate !== undefined) {
-      const parsed = new Date(body.beforeDate);
-      if (isNaN(parsed.getTime())) {
-        return c.json({ error: 'Invalid beforeDate. Use ISO 8601 format.' }, 400);
-      }
-      beforeDate = parsed.toISOString();
-    } else {
-      beforeDate = daysAgoIso(3);
+    const resolved = resolveBeforeDate(body.beforeDate);
+    if ('error' in resolved) {
+      return c.json({ error: resolved.error }, 400);
     }
-    const tasks = ts.purgeTasksBefore(beforeDate, ['done', 'closed'], false);
+    const tasks = ts.purgeTasksBefore(resolved.date, ['done', 'closed'], false);
     return c.json({
       count: tasks.length,
       tasks: tasks.map((t) => ({ id: t.id, title: t.title, status: t.status, updated_at: t.updated_at })),
@@ -353,17 +347,11 @@ function registerUtilityRoutes(app: Hono, ts: TaskService): void {
   });
   app.post('/api/tasks/archive', async (c) => {
     const body = (await c.req.json().catch(() => ({}))) as { beforeDate?: string };
-    let beforeDate: string;
-    if (body.beforeDate !== undefined) {
-      const parsed = new Date(body.beforeDate);
-      if (isNaN(parsed.getTime())) {
-        return c.json({ error: 'Invalid beforeDate. Use ISO 8601 format.' }, 400);
-      }
-      beforeDate = parsed.toISOString();
-    } else {
-      beforeDate = daysAgoIso(3);
+    const resolved = resolveBeforeDate(body.beforeDate);
+    if ('error' in resolved) {
+      return c.json({ error: resolved.error }, 400);
     }
-    const tasks = ts.archiveTasksBefore(beforeDate, ['done', 'closed'], false);
+    const tasks = ts.archiveTasksBefore(resolved.date, ['done', 'closed'], false);
     return c.json({
       count: tasks.length,
       tasks: tasks.map((t) => ({ id: t.id, title: t.title, status: t.status, updated_at: t.updated_at })),
