@@ -10,6 +10,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### 追加
 - `task add` に `--tag <names-or-ids>` オプションを追加。名前・ID指定でタグを付与しつつタスクを作成できるようにし、別途 `tag attach` を実行する必要をなくした (#650)
 
+### 変更
+- **破壊的変更:** `task add` の `-p` 短縮形の意味を `--parent` から `--priority` に変更。`task list` および新たに `-p` 短縮形を追加した `task update --priority` と統一し、全ての task サブコマンドで `-p` が一貫して priority を指すようにした。`task add` で parent を指定する場合は長形式の `--parent` を使用する必要がある (#660)
+
 ### 修正
 - `task list --json` の0件時出力が通常時とスキーマ不一致だった問題を修正。list/tree view で `sort`/`order` が欠落、tree/dep-tree view で `viewMode` が欠落、`filters` のキーが各 view の通常時出力と一致していなかった (#659)
 - `task list` のヘルプ文言を修正。`-s, --status` がカンマ区切りで複数指定できることと有効値一覧を明記し、`--all` のヘルプ文言に `icebox` を含む旨を追記 (#658)
