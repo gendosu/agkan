@@ -116,17 +116,19 @@ export function buildFlagModeInput(options: UpdateOptions, formatter: OutputForm
   return updateInput;
 }
 
-const SUPPORTED_FIELDS = ['status', 'title', 'body', 'author', 'assignees', 'priority', 'branch'] as const;
+export const SUPPORTED_FIELDS = ['status', 'title', 'body', 'author', 'assignees', 'priority', 'branch'] as const;
 type SupportedField = (typeof SUPPORTED_FIELDS)[number];
+
+const SUPPORTED_FLAGS = SUPPORTED_FIELDS.map((field) => `--${field}`).join(', ');
 
 function validateFieldName(field: string | undefined, formatter: OutputFormatter): field is SupportedField {
   if (!field) {
     formatter.error(
-      'No fields specified. Use --title, --status, --body, --author, --assignees, --branch flags or positional arguments: <field> <value>',
+      `No fields specified. Use ${SUPPORTED_FLAGS} flags or positional arguments: <field> <value>`,
       () => {
         console.error(
           chalk.red(
-            '\nError: No fields specified. Use --title, --status, --body, --author, --assignees, --branch flags or positional arguments: <field> <value>\n'
+            `\nError: No fields specified. Use ${SUPPORTED_FLAGS} flags or positional arguments: <field> <value>\n`
           )
         );
       }

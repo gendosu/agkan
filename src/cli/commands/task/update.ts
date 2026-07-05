@@ -11,7 +11,13 @@ import { Priority } from '../../../models/Priority';
 import { handleError, validateNumberInput } from '../../utils/error-handler';
 import { getStatusColor, formatDate } from '../../../utils/format';
 import { createFormatter } from '../../utils/output-formatter';
-import { isFlagMode, buildFlagModeInput, buildPositionalModeInput, UpdateOptions } from './update-helpers';
+import {
+  isFlagMode,
+  buildFlagModeInput,
+  buildPositionalModeInput,
+  UpdateOptions,
+  SUPPORTED_FIELDS,
+} from './update-helpers';
 import { notifyBoard } from '../../utils/boardNotify';
 
 function applyTaskUpdate(
@@ -80,10 +86,7 @@ export function setupTaskUpdateCommand(program: Command): void {
   taskCommand
     .command('update')
     .argument('<id>', 'Task ID')
-    .argument(
-      '[field]',
-      'Field to update (status, title, body, author, assignees, branch) - for legacy positional syntax'
-    )
+    .argument('[field]', `Field to update (${SUPPORTED_FIELDS.join(', ')}) - for legacy positional syntax`)
     .argument('[value]', 'New value - for legacy positional syntax')
     .option('--title <title>', 'Update title')
     .option('--status <status>', 'Update status')
