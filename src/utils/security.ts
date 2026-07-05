@@ -1,5 +1,3 @@
-import path from 'path';
-
 /**
  * Security utility functions
  * Provides path validation and security checks
@@ -11,14 +9,12 @@ import path from 'path';
  * @returns True if path is safe, false otherwise
  */
 export function isPathSafe(filePath: string): boolean {
-  // Check for path traversal (..)
-  if (filePath.includes('..')) {
-    return false;
-  }
-
-  // For additional safety, check the normalized path doesn't contain '..'
-  const normalizedPath = path.normalize(filePath);
-  if (normalizedPath.includes('..')) {
+  // Check for path traversal by inspecting path segments, not substrings.
+  // This must run against the original path (not path.normalize(filePath)),
+  // since normalize collapses 'dir/../file.txt' into 'file.txt' and would
+  // hide a traversal segment.
+  const segments = filePath.split(/[/\\]/);
+  if (segments.includes('..')) {
     return false;
   }
 
