@@ -103,6 +103,64 @@ test_task_comments_delete_verifies_removal() {
     fi
 }
 
+test_task_comments_update() {
+    print_test "Updating a comment..."
+    local add_output
+    add_output=$(run_cli task comment add "$COMMENT_TASK_ID" "Comment to update" --json)
+    local comment_id
+    comment_id=$(echo "$add_output" | python3 -c "import sys,json; print(json.load(sys.stdin)['data']['id'])" 2>/dev/null)
+    if [ -z "$comment_id" ]; then
+        print_error "Failed to create comment for update test"
+        return
+    fi
+
+    output=$(run_cli task comment update "$comment_id" "Updated comment content")
+    if assert_output_contains_all "$output" "Comment updated successfully" "Updated comment content"; then
+        print_success "Comment updated successfully"
+    else
+        print_error "Failed to update comment"
+    fi
+}
+
+test_task_comments_update_verifies_persistence() {
+    print_test "Verifying updated comment content is persisted..."
+    local add_output
+    add_output=$(run_cli task comment add "$COMMENT_TASK_ID" "Before update" --json)
+    local comment_id
+    comment_id=$(echo "$add_output" | python3 -c "import sys,json; print(json.load(sys.stdin)['data']['id'])" 2>/dev/null)
+    if [ -z "$comment_id" ]; then
+        print_error "Failed to create comment for update persistence test"
+        return
+    fi
+
+    run_cli task comment update "$comment_id" "After update" > /dev/null
+    output=$(run_cli task comment list "$COMMENT_TASK_ID")
+    if assert_output_contains_all "$output" "After update"; then
+        print_success "Updated comment content is persisted"
+    else
+        print_error "Updated comment content not persisted"
+    fi
+}
+
+test_task_comments_json_output_update() {
+    print_test "Updating comment with JSON output..."
+    local add_output
+    add_output=$(run_cli task comment add "$COMMENT_TASK_ID" "JSON update source" --json)
+    local comment_id
+    comment_id=$(echo "$add_output" | python3 -c "import sys,json; print(json.load(sys.stdin)['data']['id'])" 2>/dev/null)
+    if [ -z "$comment_id" ]; then
+        print_error "Failed to create comment for JSON update test"
+        return
+    fi
+
+    output=$(run_cli task comment update "$comment_id" "JSON updated content" --json)
+    if echo "$output" | python3 -c "import sys,json; d=json.load(sys.stdin); exit(0 if d.get('success') and d['data']['content']=='JSON updated content' else 1)" 2>/dev/null; then
+        print_success "Comment update JSON output is valid and correct"
+    else
+        print_error "Comment update JSON output invalid or incorrect"
+    fi
+}
+
 test_task_comments_json_output_add() {
     print_test "Adding comment with JSON output..."
     output=$(run_cli task comment add "$COMMENT_TASK_ID" "JSON test comment" --author "bob" --json)
@@ -135,6 +193,10 @@ test_task_comments_error_nonexistent_comment_delete() {
     assert_cli_error "Deleting non-existent comment" "not found" task comment delete 999
 }
 
+test_task_comments_error_nonexistent_comment_update() {
+    assert_cli_error "Updating non-existent comment" "not found" task comment update 999 "new content"
+}
+
 test_task_comments_error_empty_content() {
     assert_cli_error "Adding comment with empty content" "required" task comment add "$COMMENT_TASK_ID" ""
 }
@@ -145,6 +207,10 @@ test_task_comments_error_invalid_task_id() {
 
 test_task_comments_error_invalid_comment_id() {
     assert_cli_error "Deleting comment with invalid comment ID" "must be a number" task comment delete "abc"
+}
+
+test_task_comments_error_empty_content_update() {
+    assert_cli_error "Updating comment with empty content" "required" task comment update "$COMMENT_TASK_ID" ""
 }
 
 test_task_comments_visible_in_task_get() {
@@ -169,12 +235,17 @@ test_task_comments() {
     test_task_comments_list_empty
     test_task_comments_delete
     test_task_comments_delete_verifies_removal
+    test_task_comments_update
+    test_task_comments_update_verifies_persistence
     test_task_comments_json_output_add
+    test_task_comments_json_output_update
     test_task_comments_json_output_list
     test_task_comments_error_nonexistent_task_add
     test_task_comments_error_nonexistent_task_list
     test_task_comments_error_nonexistent_comment_delete
+    test_task_comments_error_nonexistent_comment_update
     test_task_comments_error_empty_content
+    test_task_comments_error_empty_content_update
     test_task_comments_error_invalid_task_id
     test_task_comments_error_invalid_comment_id
     test_task_comments_visible_in_task_get
