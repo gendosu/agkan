@@ -241,6 +241,7 @@ export class TaskService {
 
     if (!dryRun && tasks.length > 0) {
       this.backend.tasks.deleteMany(tasks.map((t) => t.id));
+      this.boardEventService?.notify();
     }
 
     return tasks;
@@ -263,6 +264,7 @@ export class TaskService {
 
     if (!dryRun && tasks.length > 0) {
       this.backend.tasks.archiveMany(tasks.map((t) => t.id));
+      this.boardEventService?.notify();
     }
 
     return tasks;
@@ -280,6 +282,7 @@ export class TaskService {
     }
 
     this.backend.tasks.unarchiveMany([id]);
+    this.boardEventService?.notify();
     return this.backend.tasks.findById(id);
   }
 
