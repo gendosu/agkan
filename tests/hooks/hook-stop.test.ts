@@ -676,6 +676,163 @@ describe('hook-stop.mjs', () => {
     expect(last?.body).toEqual({ taskId: 27, reason: 'complete' });
   });
 
+  it('posts complete when the task-notification is recorded as a plain string directly under message.content (#692)', async () => {
+    const transcript = join(tmp, 't.jsonl');
+    writeFileSync(
+      transcript,
+      [
+        JSON.stringify({
+          type: 'assistant',
+          message: {
+            content: [
+              {
+                type: 'tool_use',
+                id: 'bg-msg-str',
+                name: 'Bash',
+                input: { command: 'npx vitest run', run_in_background: true },
+              },
+            ],
+          },
+        }),
+        JSON.stringify({
+          type: 'user',
+          message: {
+            content: [{ type: 'tool_result', tool_use_id: 'bg-msg-str', content: 'Command running in background.' }],
+          },
+        }),
+        JSON.stringify({
+          type: 'user',
+          message: {
+            content: '<task-notification><tool-use-id>bg-msg-str</tool-use-id> done</task-notification>',
+          },
+        }),
+        JSON.stringify({
+          type: 'assistant',
+          message: { content: [{ type: 'text', text: 'Tests are all green.' }] },
+        }),
+      ].join('\n') + '\n'
+    );
+    const code = await runHook(
+      { transcript_path: transcript, hook_event_name: 'Stop', stop_hook_active: false },
+      {
+        BOARD_TASK_ID: '692',
+        BOARD_API_URL: `http://127.0.0.1:${svr.port}`,
+        BOARD_HOOK_TOKEN: 'tk',
+      }
+    );
+    expect(code).toBe(0);
+    const last = svr.captured.at(-1);
+    expect(last?.url).toBe('/api/internal/hooks/stop');
+    expect(last?.body).toEqual({ taskId: 692, reason: 'complete' });
+  });
+
+  it("posts complete when the task-notification is recorded inside a message.content block's `content` string (#692)", async () => {
+    const transcript = join(tmp, 't.jsonl');
+    writeFileSync(
+      transcript,
+      [
+        JSON.stringify({
+          type: 'assistant',
+          message: {
+            content: [
+              {
+                type: 'tool_use',
+                id: 'bg-block-content',
+                name: 'Task',
+                input: { description: 'run agent', prompt: 'do something', run_in_background: true },
+              },
+            ],
+          },
+        }),
+        JSON.stringify({
+          type: 'user',
+          message: {
+            content: [{ type: 'tool_result', tool_use_id: 'bg-block-content', content: 'Task running in background.' }],
+          },
+        }),
+        JSON.stringify({
+          type: 'user',
+          message: {
+            content: [
+              {
+                type: 'tool_result',
+                tool_use_id: 'unrelated',
+                content: '<task-notification><tool-use-id>bg-block-content</tool-use-id> done</task-notification>',
+              },
+            ],
+          },
+        }),
+        JSON.stringify({
+          type: 'assistant',
+          message: { content: [{ type: 'text', text: 'Sub-agent finished successfully.' }] },
+        }),
+      ].join('\n') + '\n'
+    );
+    const code = await runHook(
+      { transcript_path: transcript, hook_event_name: 'Stop', stop_hook_active: false },
+      {
+        BOARD_TASK_ID: '693',
+        BOARD_API_URL: `http://127.0.0.1:${svr.port}`,
+        BOARD_HOOK_TOKEN: 'tk',
+      }
+    );
+    expect(code).toBe(0);
+    const last = svr.captured.at(-1);
+    expect(last?.url).toBe('/api/internal/hooks/stop');
+    expect(last?.body).toEqual({ taskId: 693, reason: 'complete' });
+  });
+
+  it("posts complete when the task-notification is recorded inside a message.content block's `text` string (#692)", async () => {
+    const transcript = join(tmp, 't.jsonl');
+    writeFileSync(
+      transcript,
+      [
+        JSON.stringify({
+          type: 'assistant',
+          message: {
+            content: [
+              {
+                type: 'tool_use',
+                id: 'bg-block-text',
+                name: 'Bash',
+                input: { command: 'npx vitest run', run_in_background: true },
+              },
+            ],
+          },
+        }),
+        JSON.stringify({
+          type: 'user',
+          message: {
+            content: [{ type: 'tool_result', tool_use_id: 'bg-block-text', content: 'Command running in background.' }],
+          },
+        }),
+        JSON.stringify({
+          type: 'assistant',
+          message: {
+            content: [
+              {
+                type: 'text',
+                text: '<task-notification><tool-use-id>bg-block-text</tool-use-id> done</task-notification>',
+              },
+            ],
+          },
+        }),
+      ].join('\n') + '\n'
+    );
+    const code = await runHook(
+      { transcript_path: transcript, hook_event_name: 'Stop', stop_hook_active: false },
+      {
+        BOARD_TASK_ID: '694',
+        BOARD_API_URL: `http://127.0.0.1:${svr.port}`,
+        BOARD_HOOK_TOKEN: 'tk',
+      }
+    );
+    expect(code).toBe(0);
+    const last = svr.captured.at(-1);
+    expect(last?.url).toBe('/api/internal/hooks/stop');
+    expect(last?.body).toEqual({ taskId: 694, reason: 'complete' });
+  });
+
   it('does NOT post when last turn ends with AskUserQuestion awaiting answer', async () => {
     const before = svr.captured.length;
     const transcript = join(tmp, 't.jsonl');

@@ -84,17 +84,33 @@ function findBackgroundJobToolUses(entries, { includeAgentWithoutFlag = false } 
 }
 
 // The real completion signal for a background Bash/Task is a `<task-notification>` block
-// (delivered via a queue-operation transcript entry's `content` string) whose
-// `<tool-use-id>` matches the original tool_use id. The immediate "running in background"
-// ack is a normal tool_result and must NOT be mistaken for completion.
-function isBackgroundJobComplete(entries, toolUseId) {
-  const marker = `<tool-use-id>${toolUseId}</tool-use-id>`;
-  for (const entry of entries) {
-    if (typeof entry?.content === 'string' && entry.content.includes(marker)) {
-      return true;
+// whose `<tool-use-id>` matches the original tool_use id. The immediate "running in
+// background" ack is a normal tool_result and must NOT be mistaken for completion.
+//
+// The marker has been observed recorded in transcripts in four different shapes:
+//   1. Top-level `entry.content` string (queue-operation entries).
+//   2. `entry.message.content` as a plain string (user entries).
+//   3. `entry.message.content` as a block array, marker inside a block's `content` string.
+//   4. `entry.message.content` as a block array, marker inside a block's `text` string
+//      (assistant entries).
+// All four must be scanned, or notifications recorded in the less common shapes are
+// silently missed and `hasUnfinishedBackgroundJob` never clears (see #692).
+function entryContainsMarker(entry, marker) {
+  if (typeof entry?.content === 'string' && entry.content.includes(marker)) return true;
+  const messageContent = entry?.message?.content;
+  if (typeof messageContent === 'string') return messageContent.includes(marker);
+  if (Array.isArray(messageContent)) {
+    for (const block of messageContent) {
+      if (typeof block?.content === 'string' && block.content.includes(marker)) return true;
+      if (typeof block?.text === 'string' && block.text.includes(marker)) return true;
     }
   }
   return false;
+}
+
+function isBackgroundJobComplete(entries, toolUseId) {
+  const marker = `<tool-use-id>${toolUseId}</tool-use-id>`;
+  return entries.some((entry) => entryContainsMarker(entry, marker));
 }
 
 // Fetches the current task status from the board and checks whether it has reached the
