@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { mkdtempSync, rmSync, readFileSync, existsSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
@@ -30,12 +30,32 @@ describe('claudeHookSettings', () => {
     const json = JSON.parse(readFileSync(path, 'utf-8'));
     const preCmd = json.hooks.PreToolUse[0].hooks[0].command;
     expect(preCmd).toMatch(/hook-attention\.mjs/);
-    expect(preCmd).toMatch(/^node \//);
+    expect(preCmd).toMatch(/^node "/);
   });
 
   it('returns the same path on subsequent calls', async () => {
     const p1 = await ensureBoardHookSettings(tmp);
     const p2 = await ensureBoardHookSettings(tmp);
     expect(p1).toBe(p2);
+  });
+
+  it('quotes hook script paths containing spaces', async () => {
+    vi.resetModules();
+    vi.doMock('path', async (importOriginal) => {
+      const actual = await importOriginal();
+      return { ...actual, resolve: () => '/path with space/hook.mjs' };
+    });
+    try {
+      const { ensureBoardHookSettings: ensureWithSpacedPath } = await import('../../src/hooks/claudeHookSettings');
+      const path = await ensureWithSpacedPath(tmp);
+      const json = JSON.parse(readFileSync(path, 'utf-8'));
+      expect(json.hooks.SessionStart[0].hooks[0].command).toBe('node "/path with space/hook.mjs"');
+      expect(json.hooks.PreToolUse[0].hooks[0].command).toBe('node "/path with space/hook.mjs" pre');
+      expect(json.hooks.PostToolUse[0].hooks[0].command).toBe('node "/path with space/hook.mjs" post');
+      expect(json.hooks.Stop[0].hooks[0].command).toBe('node "/path with space/hook.mjs"');
+    } finally {
+      vi.doUnmock('path');
+      vi.resetModules();
+    }
   });
 });
