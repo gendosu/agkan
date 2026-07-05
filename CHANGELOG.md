@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.18.0] - 2026-07-05
+
+### Added
+- Add `--dry-run` flag to `task delete` and `tag delete` with an impact preview showing affected child tasks, comments, tag associations, metadata entries, and block relationships (#656)
+
+### Fixed
+- Fix `isPathSafe` rejecting file names containing `..` as a substring (e.g. `release..notes.md`) instead of only rejecting actual `..` path segments (#632)
+- Fix hook commands embedding unquoted absolute paths, causing SessionStart/PreToolUse/PostToolUse/Stop hooks to fail when the install path contained a space (#631)
+- Fix `task find --status` accepting invalid status values without validation, silently producing an empty result set instead of an error (#630)
+
 ## [3.17.1] - 2026-07-05
 
 ### Fixed
