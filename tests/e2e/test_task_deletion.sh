@@ -18,6 +18,60 @@ test_task_deletion() {
     fi
     print_success "Temporary task created with ID: $del_task_id"
 
+    # -------------------------------------------------------------------------
+    # Dry-run: preview impact without deleting
+    # -------------------------------------------------------------------------
+    print_test "Creating child task to verify dry-run impact reporting..."
+    local child_output
+    child_output=$(run_cli task add "削除テスト用子タスク" --parent "$del_task_id" --json)
+    local del_child_id
+    del_child_id=$(echo "$child_output" | python3 -c "import sys,json; print(json.load(sys.stdin)['task']['id'])" 2>/dev/null)
+
+    print_test "task delete --dry-run previews impact without deleting..."
+    local dry_run_output
+    dry_run_output=$(run_cli task delete "$del_task_id" --dry-run)
+    if echo "$dry_run_output" | grep -q "Dry Run"; then
+        print_success "task delete --dry-run shows [Dry Run] header"
+    else
+        print_error "Expected [Dry Run] header in output, got: $dry_run_output"
+    fi
+    if echo "$dry_run_output" | grep -q "1 child task"; then
+        print_success "task delete --dry-run reports child task impact"
+    else
+        print_error "Expected child task impact in output, got: $dry_run_output"
+    fi
+
+    print_test "Verifying dry-run does not actually delete the task..."
+    local prev_opts_dry=$-
+    set +e
+    dry_check_output=$(run_cli task get "$del_task_id" 2>&1)
+    [[ "$prev_opts_dry" == *e* ]] && set -e
+    if ! echo "$dry_check_output" | grep -q "not found"; then
+        print_success "task delete --dry-run did not delete the task"
+    else
+        print_error "task delete --dry-run should not delete the task"
+    fi
+
+    print_test "task delete --dry-run --json returns impact structure..."
+    local dry_run_json_output
+    dry_run_json_output=$(run_cli task delete "$del_task_id" --dry-run --json)
+    if echo "$dry_run_json_output" | python3 -c "
+import sys, json
+d = json.load(sys.stdin)
+assert d.get('dryRun') is True
+assert d.get('success') is False
+assert d['impact']['childCount'] == 1
+" 2>/dev/null; then
+        print_success "task delete --dry-run --json returns valid dryRun impact JSON"
+    else
+        print_error "task delete --dry-run --json output structure invalid: $dry_run_json_output"
+    fi
+
+    # Clean up the child task created for the dry-run check
+    if [ -n "$del_child_id" ]; then
+        run_cli task delete "$del_child_id" > /dev/null
+    fi
+
     print_test "Deleting task $del_task_id..."
     output=$(run_cli task delete $del_task_id)
     if echo "$output" | grep -q "✓"; then

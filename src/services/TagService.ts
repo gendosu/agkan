@@ -4,6 +4,12 @@ import { validateTagInput } from '../utils/input-validators';
 import { StorageBackend } from '../db/types/repository';
 import { ValidationError, ConflictError } from '../errors';
 
+/** Counts of records affected by deleting a tag */
+export interface TagDeleteImpact {
+  /** Tasks referencing this tag; their task_tags association will be cascade-deleted */
+  taskCount: number;
+}
+
 /**
  * Tag Service
  * Manages creation, retrieval, update, and deletion of tags
@@ -105,9 +111,28 @@ export class TagService {
   /**
    * Delete tag
    * @param id - Tag ID
-   * @returns True if deletion succeeded, false if tag not found
+   * @param dryRun - If true, verify the tag exists without deleting it
+   * @returns True if deletion (or dry-run check) succeeded, false if tag not found
    */
-  deleteTag(id: number): boolean {
+  deleteTag(id: number, dryRun: boolean = false): boolean {
+    if (dryRun) {
+      return this.getTag(id) !== null;
+    }
     return this.backend.tags.delete(id);
+  }
+
+  /**
+   * Compute the cascade impact of deleting a tag, without deleting it.
+   * @param id - Tag ID
+   * @returns Impact counts, or null if the tag does not exist
+   */
+  getTagDeleteImpact(id: number): TagDeleteImpact | null {
+    const tag = this.getTag(id);
+    if (!tag) {
+      return null;
+    }
+    return {
+      taskCount: this.backend.taskTags.findTaskIdsByTagId(id).length,
+    };
   }
 }

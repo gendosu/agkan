@@ -1,7 +1,12 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { TaskService } from '../src/services/TaskService';
 import { TagService } from '../src/services/TagService';
+import { TaskTagService } from '../src/services/TaskTagService';
+import { MetadataService } from '../src/services/MetadataService';
+import { CommentService } from '../src/services/CommentService';
+import { TaskBlockService } from '../src/services/TaskBlockService';
 import { resetDatabase } from '../src/db/reset';
+import { getStorageBackend } from '../src/db/connection';
 import { createMockStorageBackend } from './utils/mock-database';
 import type { StorageBackend } from '../src/db/types/repository';
 
@@ -1143,6 +1148,81 @@ describe('TaskService', () => {
 
       // Verify deletion failed (false is returned)
       expect(deleteResult).toBe(false);
+    });
+
+    it('dryRun=true does not delete the task and returns true', () => {
+      const task = taskService.createTask({ title: 'Dry run task' });
+
+      const result = taskService.deleteTask(task.id, true);
+
+      expect(result).toBe(true);
+      expect(taskService.getTask(task.id)).not.toBeNull();
+    });
+
+    it('dryRun=true with a non-existent task returns false', () => {
+      const result = taskService.deleteTask(99999, true);
+
+      expect(result).toBe(false);
+    });
+  });
+
+  describe('getTaskDeleteImpact', () => {
+    let tagService: TagService;
+    let taskTagService: TaskTagService;
+    let metadataService: MetadataService;
+    let commentService: CommentService;
+    let taskBlockService: TaskBlockService;
+
+    beforeEach(() => {
+      const backend = getStorageBackend();
+      taskService = new TaskService(backend);
+      tagService = new TagService(backend);
+      taskTagService = new TaskTagService(backend);
+      metadataService = new MetadataService(backend);
+      commentService = new CommentService(backend);
+      taskBlockService = new TaskBlockService(backend);
+    });
+
+    it('returns null for a non-existent task', () => {
+      expect(taskService.getTaskDeleteImpact(99999)).toBeNull();
+    });
+
+    it('returns all-zero counts for a task with no related data', () => {
+      const task = taskService.createTask({ title: 'Lonely task' });
+
+      const impact = taskService.getTaskDeleteImpact(task.id);
+
+      expect(impact).toEqual({
+        childCount: 0,
+        commentCount: 0,
+        tagCount: 0,
+        metadataCount: 0,
+        blockCount: 0,
+      });
+    });
+
+    it('counts child tasks, comments, tags, metadata, and block relationships', () => {
+      const parent = taskService.createTask({ title: 'Parent task' });
+      taskService.createTask({ title: 'Child 1', parent_id: parent.id });
+      taskService.createTask({ title: 'Child 2', parent_id: parent.id });
+
+      const other = taskService.createTask({ title: 'Other task' });
+      const tag = tagService.createTag({ name: 'impact-tag' });
+
+      commentService.addComment({ task_id: parent.id, content: 'note' });
+      taskTagService.addTagToTask({ task_id: parent.id, tag_id: tag.id });
+      metadataService.setMetadata({ task_id: parent.id, key: 'priority', value: 'high' });
+      taskBlockService.addBlock({ blocker_task_id: parent.id, blocked_task_id: other.id });
+
+      const impact = taskService.getTaskDeleteImpact(parent.id);
+
+      expect(impact).toEqual({
+        childCount: 2,
+        commentCount: 1,
+        tagCount: 1,
+        metadataCount: 1,
+        blockCount: 1,
+      });
     });
   });
 
