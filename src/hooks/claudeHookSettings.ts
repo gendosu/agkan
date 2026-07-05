@@ -12,24 +12,24 @@ function buildSettings(): unknown {
     hooks: {
       SessionStart: [
         {
-          hooks: [{ type: 'command', command: `node ${SESSION_START_HOOK}` }],
+          hooks: [{ type: 'command', command: `node ${JSON.stringify(SESSION_START_HOOK)}` }],
         },
       ],
       PreToolUse: [
         {
           matcher: 'AskUserQuestion',
-          hooks: [{ type: 'command', command: `node ${ATTENTION_HOOK} pre` }],
+          hooks: [{ type: 'command', command: `node ${JSON.stringify(ATTENTION_HOOK)} pre` }],
         },
       ],
       PostToolUse: [
         {
           matcher: 'AskUserQuestion',
-          hooks: [{ type: 'command', command: `node ${ATTENTION_HOOK} post` }],
+          hooks: [{ type: 'command', command: `node ${JSON.stringify(ATTENTION_HOOK)} post` }],
         },
       ],
       Stop: [
         {
-          hooks: [{ type: 'command', command: `node ${STOP_HOOK}` }],
+          hooks: [{ type: 'command', command: `node ${JSON.stringify(STOP_HOOK)}` }],
         },
       ],
     },
