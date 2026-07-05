@@ -186,6 +186,10 @@ describe('setupTaskDeleteCommand', () => {
     const originalError = console.error;
     console.error = (...args: unknown[]) => consoleErrors.push(args.join(' '));
 
+    const consoleLogs: string[] = [];
+    const originalLog = console.log;
+    console.log = (...args: unknown[]) => consoleLogs.push(args.join(' '));
+
     let exitCode: number | undefined;
     const originalExit = process.exit;
     process.exit = ((code?: number) => {
@@ -196,12 +200,16 @@ describe('setupTaskDeleteCommand', () => {
       await program.parseAsync(['node', 'test', 'task', 'delete', '999']);
     } finally {
       console.error = originalError;
+      console.log = originalLog;
       process.exit = originalExit;
     }
 
     const output = consoleErrors.join('\n');
     expect(output).toContain('999');
     expect(exitCode).toBe(1);
+    // Guards against a past regression where a missing `return` after
+    // process.exit(1) let execution fall through to the success formatter.
+    expect(consoleLogs).toHaveLength(0);
   });
 
   it('should show JSON error when task does not exist with --json option', async () => {

@@ -56,9 +56,7 @@ export function setupTagDeleteCommand(program: Command): void {
 
         // Delete tag
         try {
-          if (!dryRun) {
-            tagService.deleteTag(tag.id);
-          }
+          tagService.deleteTag(tag.id, dryRun);
 
           formatter.output(
             () => ({
