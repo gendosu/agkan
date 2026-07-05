@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### 追加
+- `task comment update <comment-id> <content>` CLI コマンドを追加。Board API に既に存在するコメント編集機能と揃えた (#655)
+
 ## [3.18.0] - 2026-07-05
 
 ### 追加

@@ -42,6 +42,7 @@ import { setupMetaDeleteCommand } from './commands/meta/delete';
 import { setupCommentAddCommand } from './commands/comment/add';
 import { setupCommentListCommand } from './commands/comment/list';
 import { setupCommentDeleteCommand } from './commands/comment/delete';
+import { setupCommentUpdateCommand } from './commands/comment/update';
 
 // Ps command handler
 import { setupPsCommand } from './commands/ps';
@@ -117,6 +118,7 @@ setupMetaDeleteCommand(program);
 setupCommentAddCommand(program);
 setupCommentListCommand(program);
 setupCommentDeleteCommand(program);
+setupCommentUpdateCommand(program);
 
 // Register ps command
 setupPsCommand(program);

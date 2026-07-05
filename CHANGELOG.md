@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Add `task comment update <comment-id> <content>` CLI command, matching the existing Board API comment edit capability (#655)
+
 ## [3.18.0] - 2026-07-05
 
 ### Added
