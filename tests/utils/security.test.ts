@@ -37,5 +37,10 @@ describe('Security Utils', () => {
       expect(isPathSafe('.hidden')).toBe(true);
       expect(isPathSafe('dir/.hidden')).toBe(true);
     });
+
+    it('should return true for filenames containing ".." as a substring but not as a segment', () => {
+      expect(isPathSafe('release..notes.md')).toBe(true);
+      expect(isPathSafe('dir/release..notes.md')).toBe(true);
+    });
   });
 });
