@@ -1296,7 +1296,7 @@ describe('hook receiver routes', () => {
     const attention = opts?.attentionStateService ?? new AttentionStateService();
     const ptySessionService = {
       stopProcess: opts?.ptyStopProcess ?? vi.fn().mockReturnValue(true),
-      stopProcessFromHook: opts?.ptyStopProcessFromHook,
+      stopProcessFromHook: opts?.ptyStopProcessFromHook ?? vi.fn().mockReturnValue(true),
     };
     const services = buildServices();
     registerBoardRoutes(app, { ...services, attentionStateService: attention });
