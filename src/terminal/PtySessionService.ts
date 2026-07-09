@@ -39,9 +39,11 @@ const MAX_ENTER_RETRIES = 3;
 const CLAUDE_BUSY_SIGNAL = 'esc to interrupt';
 const MAX_SNAPSHOT_BYTES = 500_000;
 const MAX_COMPLETED_SNAPSHOTS = 10;
+const RECENT_SCREEN_LINE_LIMIT = 80;
 
 type OutputEvent = { kind: 'done'; exitCode: number } | { kind: 'error'; message: string };
 type SubscribeCallback = (event: OutputEvent) => void;
+export type ClaudeScreenStatus = 'working' | 'blocked' | 'idle' | 'unknown';
 
 interface SessionInfo {
   taskId: number;
@@ -67,6 +69,49 @@ function hasWorkspaceTrustPrompt(text: string): boolean {
 
 function hasClaudeReadySignal(text: string): boolean {
   return text.includes('bypass permissions');
+}
+
+function latestOscTitle(text: string): string | null {
+  let title: string | null = null;
+  const pattern = /\x1b\](?:0|2);([^\x07\x1b]*)(?:\x07|\x1b\\|$)/g;
+  for (const match of text.matchAll(pattern)) {
+    title = match[1] ?? null;
+  }
+  return title;
+}
+
+function recentScreenText(text: string): string {
+  return stripAnsi(text).split('\n').slice(-RECENT_SCREEN_LINE_LIMIT).join('\n');
+}
+
+export function detectClaudeScreenStatus(outputBuffer: string): ClaudeScreenStatus {
+  const title = latestOscTitle(outputBuffer);
+  if (title && /^[\u2800-\u28ff] /.test(title)) {
+    return 'working';
+  }
+
+  const recent = recentScreenText(outputBuffer);
+  const normalized = recent.toLowerCase();
+
+  if (normalized.includes(CLAUDE_BUSY_SIGNAL)) {
+    return 'working';
+  }
+
+  if (
+    /\benter to select\b/.test(normalized) ||
+    /\besc to cancel\b/.test(normalized) ||
+    /\brun a dynamic workflow\??\b/.test(normalized) ||
+    /\bdo you want to proceed\??\b/.test(normalized) ||
+    /\bpermission\b/.test(normalized)
+  ) {
+    return 'blocked';
+  }
+
+  if (recent.includes('❯')) {
+    return 'idle';
+  }
+
+  return 'unknown';
 }
 
 export interface PtySessionServiceOptions {
@@ -360,6 +405,19 @@ export class PtySessionService {
     this.attentionStateService?.clearTask(taskId);
     this.notifyRunningTasksChange();
     return true;
+  }
+
+  stopProcessFromHook(taskId: number): boolean {
+    const info = this.sessions.get(taskId);
+    if (!info) return false;
+
+    const status = detectClaudeScreenStatus(info.outputBuffer);
+    if (status === 'working' || status === 'blocked') {
+      console.error(`[pty][hook-stop-guard] taskId=${taskId} skipped stopProcess because Claude screen is ${status}`);
+      return false;
+    }
+
+    return this.stopProcess(taskId);
   }
 
   listRunningTasks(): { taskId: number; command: string }[] {

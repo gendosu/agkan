@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { PtySessionService, stripAnsi } from '../../src/terminal/PtySessionService';
+import { PtySessionService, detectClaudeScreenStatus, stripAnsi } from '../../src/terminal/PtySessionService';
 import { AttentionStateService } from '../../src/services/AttentionStateService';
 import { ConflictError } from '../../src/errors';
 
@@ -42,6 +42,29 @@ describe('stripAnsi', () => {
 
   it('returns plain text unchanged', () => {
     expect(stripAnsi('hello world')).toBe('hello world');
+  });
+});
+
+describe('detectClaudeScreenStatus', () => {
+  it('detects Claude working from OSC title spinner', () => {
+    expect(detectClaudeScreenStatus('\x1b]0;⠋ Thinking\x07prompt')).toBe('working');
+  });
+
+  it('detects Claude working from visible interrupt hint', () => {
+    expect(detectClaudeScreenStatus('running tests\nesc to interrupt')).toBe('working');
+  });
+
+  it('detects Claude blocked from visible permission prompt', () => {
+    expect(detectClaudeScreenStatus('Bash command needs permission\nDo you want to proceed?')).toBe('blocked');
+  });
+
+  it('detects Claude idle from visible prompt marker', () => {
+    expect(detectClaudeScreenStatus('Ready\n❯')).toBe('idle');
+  });
+
+  it('ignores stale working text outside the recent screen window', () => {
+    const stale = ['esc to interrupt', ...Array.from({ length: 90 }, (_, i) => `line ${i}`), '❯'].join('\n');
+    expect(detectClaudeScreenStatus(stale)).toBe('idle');
   });
 });
 
@@ -321,6 +344,39 @@ describe('PtySessionService', () => {
     service.stopProcess(1);
 
     expect(isUserStoppedDuringEmit).toBe(true);
+  });
+
+  it('stopProcessFromHook stops when Claude screen is idle', () => {
+    service.startProcess(1, 'prompt', 'run');
+    mockOnDataHandler?.('Ready\n❯');
+
+    const stopped = service.stopProcessFromHook(1);
+
+    expect(stopped).toBe(true);
+    expect(mockKill).toHaveBeenCalled();
+    expect(service.listRunningTasks()).toEqual([]);
+  });
+
+  it('stopProcessFromHook does not stop while Claude screen is working', () => {
+    service.startProcess(1, 'prompt', 'run');
+    mockOnDataHandler?.('\x1b]0;⠋ Thinking\x07');
+
+    const stopped = service.stopProcessFromHook(1);
+
+    expect(stopped).toBe(false);
+    expect(mockKill).not.toHaveBeenCalled();
+    expect(service.listRunningTasks()).toEqual([{ taskId: 1, command: 'run' }]);
+  });
+
+  it('stopProcessFromHook does not stop while Claude screen is blocked', () => {
+    service.startProcess(1, 'prompt', 'run');
+    mockOnDataHandler?.('Do you want to proceed?\nesc to cancel');
+
+    const stopped = service.stopProcessFromHook(1);
+
+    expect(stopped).toBe(false);
+    expect(mockKill).not.toHaveBeenCalled();
+    expect(service.listRunningTasks()).toEqual([{ taskId: 1, command: 'run' }]);
   });
 });
 
