@@ -1289,11 +1289,15 @@ describe('hook receiver routes', () => {
   function buildHookApp(opts?: {
     attentionStateService?: AttentionStateService;
     ptyStopProcess?: (taskId: number) => boolean;
+    ptyStopProcessFromHook?: (taskId: number) => boolean;
     taskService?: BoardServices['ts'];
   }): Hono {
     const app = new Hono();
     const attention = opts?.attentionStateService ?? new AttentionStateService();
-    const ptySessionService = { stopProcess: opts?.ptyStopProcess ?? vi.fn().mockReturnValue(true) };
+    const ptySessionService = {
+      stopProcess: opts?.ptyStopProcess ?? vi.fn().mockReturnValue(true),
+      stopProcessFromHook: opts?.ptyStopProcessFromHook,
+    };
     const services = buildServices();
     registerBoardRoutes(app, { ...services, attentionStateService: attention });
     registerHookRoutes(app, {
@@ -1357,9 +1361,10 @@ describe('hook receiver routes', () => {
     expect(attention.getAttention(1)).toBe(false);
   });
 
-  it('POST /api/internal/hooks/stop calls ptySessionService.stopProcess with valid token', async () => {
+  it('POST /api/internal/hooks/stop calls ptySessionService.stopProcessFromHook with valid token', async () => {
     const ptyStop = vi.fn().mockReturnValue(true);
-    const app = buildHookApp({ ptyStopProcess: ptyStop });
+    const ptyStopFromHook = vi.fn().mockReturnValue(true);
+    const app = buildHookApp({ ptyStopProcess: ptyStop, ptyStopProcessFromHook: ptyStopFromHook });
     const res = await app.fetch(
       new Request('http://localhost/api/internal/hooks/stop', {
         method: 'POST',
@@ -1368,7 +1373,8 @@ describe('hook receiver routes', () => {
       })
     );
     expect(res.status).toBe(200);
-    expect(ptyStop).toHaveBeenCalledWith(42);
+    expect(ptyStopFromHook).toHaveBeenCalledWith(42);
+    expect(ptyStop).not.toHaveBeenCalled();
   });
 
   it('POST /api/internal/hooks/stop returns 401 without token', async () => {
@@ -1394,7 +1400,8 @@ describe('hook receiver routes', () => {
     const app = new Hono();
     const services = buildServices();
     const attention = new AttentionStateService();
-    const ptySessionService = { stopProcess: ptyStop };
+    const ptyStopFromHook = vi.fn().mockReturnValue(true);
+    const ptySessionService = { stopProcess: ptyStop, stopProcessFromHook: ptyStopFromHook };
 
     // Register routes in the same order as startBoardServer: board, then hooks
     registerBoardRoutes(app, { ...services, ptySessionService: undefined });
@@ -1413,7 +1420,8 @@ describe('hook receiver routes', () => {
       })
     );
     expect(hookRes.status).toBe(200);
-    expect(ptyStop).toHaveBeenCalledWith(55);
+    expect(ptyStopFromHook).toHaveBeenCalledWith(55);
+    expect(ptyStop).not.toHaveBeenCalled();
   });
 
   it('GET /api/internal/tasks/:id/status returns status with valid token', async () => {

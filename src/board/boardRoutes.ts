@@ -702,7 +702,7 @@ function registerClaudeRoutes(app: Hono, claudeProcess: PtySessionService, ts: T
 
 export interface HookRouteDeps {
   attentionStateService: AttentionStateService;
-  ptySessionService: { stopProcess: (taskId: number) => boolean };
+  ptySessionService: { stopProcess: (taskId: number) => boolean; stopProcessFromHook?: (taskId: number) => boolean };
   taskService: Pick<TaskService, 'getTask'>;
 }
 
@@ -732,7 +732,7 @@ export function registerHookRoutes(app: Hono, deps: HookRouteDeps): void {
       return c.json({ error: 'invalid taskId' }, 400);
     }
     if (body.reason === 'complete') {
-      deps.ptySessionService.stopProcess(id);
+      (deps.ptySessionService.stopProcessFromHook ?? deps.ptySessionService.stopProcess)(id);
     }
     return c.json({ ok: true });
   });
