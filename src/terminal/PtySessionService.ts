@@ -262,8 +262,8 @@ export function detectClaudeScreenStatus(outputBuffer: string): ClaudeScreenStat
   if (
     /\benter to select\b/.test(normalized) ||
     /\besc to cancel\b/.test(normalized) ||
-    /\brun a dynamic workflow\??\b/.test(normalized) ||
-    /\bdo you want to proceed\??\b/.test(normalized)
+    /\brun a dynamic workflow\b/.test(normalized) ||
+    /\bdo you want to proceed\b/.test(normalized)
   ) {
     return 'blocked';
   }
