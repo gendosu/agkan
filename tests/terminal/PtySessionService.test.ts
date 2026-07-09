@@ -435,17 +435,18 @@ describe('PtySessionService', () => {
     expect(service.listRunningTasks()).toEqual([]);
   });
 
-  it('stopProcessFromHook force-stops after exhausting deferred re-evaluations while still blocked', () => {
+  it('force-stops when the screen claims working but output has stalled', () => {
     service.startProcess(1, 'prompt', 'run');
-    mockOnDataHandler?.('Do you want to proceed?\nesc to cancel');
+    mockOnDataHandler?.('\x1b]0;⠋ Thinking\x07');
 
     const stopped = service.stopProcessFromHook(1);
     expect(stopped).toBe(false);
 
     const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
 
-    // 5 deferred re-evaluations at 3s intervals, screen never clears — must still
-    // guarantee termination instead of leaking the PTY session forever.
+    // 5 consecutive stalled (zero-output) re-evaluations at 3s intervals must still
+    // guarantee termination instead of leaking the PTY session forever, since a
+    // "working" screen with no output for that long is a stale frame, not real work.
     vi.advanceTimersByTime(3000);
     expect(mockKill).not.toHaveBeenCalled();
     vi.advanceTimersByTime(3000);
@@ -462,11 +463,50 @@ describe('PtySessionService', () => {
     errorSpy.mockRestore();
   });
 
-  it('stopProcessFromHook does not stack duplicate deferred timers on repeated guard skips', () => {
+  it('never force-stops a blocked screen waiting for user input', () => {
     service.startProcess(1, 'prompt', 'run');
     mockOnDataHandler?.('Do you want to proceed?\nesc to cancel');
 
-    // Two real Stop-hook calls while still blocked must not reset/duplicate the deferred
+    const stopped = service.stopProcessFromHook(1);
+    expect(stopped).toBe(false);
+
+    // A permission prompt is legitimately static while it waits for the user, so it must
+    // never be force-stopped no matter how many deferred re-evaluations elapse.
+    vi.advanceTimersByTime(3000 * 10);
+
+    expect(mockKill).not.toHaveBeenCalled();
+    expect(service.listRunningTasks()).toEqual([{ taskId: 1, command: 'run' }]);
+  });
+
+  it('keeps deferring without force-stop while output continues flowing', () => {
+    service.startProcess(1, 'prompt', 'run');
+    mockOnDataHandler?.('\x1b]0;⠋ Thinking\x07');
+
+    const stopped = service.stopProcessFromHook(1);
+    expect(stopped).toBe(false);
+
+    // Output keeps changing well past MAX_STALLED_DEFERRED_HOOK_STOP_CHECKS re-evaluations;
+    // as long as the buffer is still moving, this is genuine in-flight work and must never
+    // be force-stopped.
+    for (let i = 0; i < 7; i++) {
+      mockOnDataHandler?.('chunk' + i + '\n');
+      vi.advanceTimersByTime(3000);
+      expect(mockKill).not.toHaveBeenCalled();
+    }
+
+    // Screen settles to idle; the next re-evaluation stops it as usual.
+    mockOnDataHandler?.('\x1b]0;Claude\x07Ready\n❯');
+    vi.advanceTimersByTime(3000);
+
+    expect(mockKill).toHaveBeenCalled();
+    expect(service.listRunningTasks()).toEqual([]);
+  });
+
+  it('stopProcessFromHook does not stack duplicate deferred timers on repeated guard skips', () => {
+    service.startProcess(1, 'prompt', 'run');
+    mockOnDataHandler?.('\x1b]0;⠋ Thinking\x07');
+
+    // Two real Stop-hook calls while still working must not reset/duplicate the deferred
     // re-evaluation schedule — otherwise force-termination could be delayed indefinitely.
     expect(service.stopProcessFromHook(1)).toBe(false);
     expect(service.stopProcessFromHook(1)).toBe(false);

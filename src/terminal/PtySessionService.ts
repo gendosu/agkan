@@ -40,10 +40,11 @@ const MAX_ENTER_RETRIES = 3;
 // working/blocked), the Stop hook that triggered the call fires only once per turn and may
 // never fire again if this really was the session's final turn — leaving the PTY process
 // leaked forever with no further signal to clean it up. Re-evaluate the screen status on a
-// delay instead of trusting the single stale snapshot, and after enough re-evaluations still
-// look stuck, fall back to an unconditional stop so a leaked session is never permanent.
+// delay instead of trusting the single stale snapshot; a "working" screen whose output has
+// been static for this many consecutive checks is treated as a stale frame and force-stopped
+// (see scheduleDeferredHookStop), so a leaked session is never permanent.
 const DEFERRED_HOOK_STOP_INTERVAL_MS = 3000;
-const MAX_DEFERRED_HOOK_STOP_RETRIES = 5;
+const MAX_STALLED_DEFERRED_HOOK_STOP_CHECKS = 5;
 const CLAUDE_BUSY_SIGNAL = 'esc to interrupt';
 const MAX_SNAPSHOT_BYTES = 500_000;
 const MAX_COMPLETED_SNAPSHOTS = 10;
@@ -585,7 +586,7 @@ export class PtySessionService {
     const status = detectClaudeScreenStatus(info.outputBuffer);
     if (status === 'working' || status === 'blocked') {
       console.error(`[pty][hook-stop-guard] taskId=${taskId} skipped stopProcess because Claude screen is ${status}`);
-      this.scheduleDeferredHookStop(taskId, info, 1);
+      this.scheduleDeferredHookStop(taskId, info, 0, info.outputBuffer);
       return false;
     }
 
@@ -595,13 +596,20 @@ export class PtySessionService {
   // Re-evaluates the screen-status guard after a delay instead of trusting the single stale
   // snapshot taken during stopProcessFromHook. This is not an immediate retry (which would
   // observe the same unchanged outputBuffer and reach the same wrong conclusion) — by the
-  // time the timer fires, either the render has settled to idle/unknown (stale animation
-  // frame case) or genuinely-still-running output will have kept the buffer changing.
-  // If it is STILL stuck after MAX_DEFERRED_HOOK_STOP_RETRIES re-evaluations, force the stop
-  // unconditionally: a session that has looked working/blocked for this long without the
-  // guard clearing is far more likely to be a permanently leaked PTY than genuine in-flight
-  // work, and an indefinitely leaked process is worse than an occasional early stop.
-  private scheduleDeferredHookStop(taskId: number, info: SessionInfo, attempt: number): void {
+  // time the timer fires, the render has often settled to idle/unknown, in which case we
+  // stop right away.
+  //
+  // If the screen still looks working/blocked, compare the buffer against the snapshot taken
+  // at the last check: while output keeps changing, this is genuine in-flight work, so we
+  // keep re-evaluating indefinitely and never force-stop it. Only once output has been
+  // completely static for MAX_STALLED_DEFERRED_HOOK_STOP_CHECKS consecutive re-evaluations
+  // while the screen claims "working" do we force-stop — a working screen with zero output
+  // for that long is a stale frame (genuine work always animates the spinner or streams
+  // tokens), which means the process is almost certainly a leaked PTY. A `blocked` screen is
+  // never force-stopped this way: a permission prompt is legitimately static while it waits
+  // for the user, so it just keeps being re-evaluated until it clears (the timer is cleaned
+  // up on stopProcess/natural exit regardless).
+  private scheduleDeferredHookStop(taskId: number, info: SessionInfo, stalledChecks: number, lastBuffer: string): void {
     if (info.deferredHookStopTimer !== null) {
       // A re-evaluation is already pending for this session; do not stack another one on
       // top of it just because another Stop-hook call skipped again in the meantime.
@@ -623,15 +631,23 @@ export class PtySessionService {
         return;
       }
 
-      if (attempt >= MAX_DEFERRED_HOOK_STOP_RETRIES) {
+      if (info.outputBuffer !== lastBuffer) {
+        // Output is still flowing: genuine in-flight work, so reset the stall counter and
+        // keep watching rather than ever force-stopping it.
+        this.scheduleDeferredHookStop(taskId, info, 0, info.outputBuffer);
+        return;
+      }
+
+      const next = stalledChecks + 1;
+      if (status === 'working' && next >= MAX_STALLED_DEFERRED_HOOK_STOP_CHECKS) {
         console.error(
-          `[pty][hook-stop-guard] taskId=${taskId} still ${status} after ${MAX_DEFERRED_HOOK_STOP_RETRIES} deferred re-evaluations; force-stopping to avoid a leaked session`
+          `[pty][hook-stop-guard] taskId=${taskId} still working but stalled with no output after ${MAX_STALLED_DEFERRED_HOOK_STOP_CHECKS} consecutive checks; force-stopping to avoid a leaked session`
         );
         this.stopProcess(taskId);
         return;
       }
 
-      this.scheduleDeferredHookStop(taskId, info, attempt + 1);
+      this.scheduleDeferredHookStop(taskId, info, next, lastBuffer);
     }, DEFERRED_HOOK_STOP_INTERVAL_MS);
   }
 
