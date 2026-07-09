@@ -70,6 +70,24 @@ describe('detectClaudeScreenStatus', () => {
     const stale = ['esc to interrupt', ...Array.from({ length: 90 }, (_, i) => `line ${i}`), '❯'].join('\n');
     expect(detectClaudeScreenStatus(stale)).toBe('idle');
   });
+
+  // Regression for #700: Claude Code's TUI redraws its footer in place via cursor
+  // movement + erase sequences rather than a newline, so a naive strip-and-split of
+  // the raw stream still contains the visually-erased "esc to interrupt" footer text.
+  it('does not misdetect working from a footer erased via cursor-up + erase-line (2K)', () => {
+    const output = 'content\nesc to interrupt\n\x1b[2A\x1b[2K\x1b[1B\x1b[2Kall done';
+    expect(detectClaudeScreenStatus(output)).not.toBe('working');
+  });
+
+  it('does not misdetect working from a footer erased via cursor-up + erase-display (0J)', () => {
+    const output = 'content line\nesc to interrupt\x1b[1A\x1b[0Jcontent line\ncompleted';
+    expect(detectClaudeScreenStatus(output)).not.toBe('working');
+  });
+
+  it('still detects working when the busy signal is erased and immediately redrawn in place', () => {
+    const output = 'content\nesc to interrupt\x1b[2K\resc to interrupt';
+    expect(detectClaudeScreenStatus(output)).toBe('working');
+  });
 });
 
 // Mock node-pty

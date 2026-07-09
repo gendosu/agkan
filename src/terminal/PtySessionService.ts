@@ -80,8 +80,148 @@ function latestOscTitle(text: string): string | null {
   return title;
 }
 
+const CSI_PATTERN = /^\x1b\[([\x30-\x3F]*)([\x20-\x2F]*)([\x40-\x7E])/;
+const OSC_PATTERN = /^\x1b\][^\x07\x1b]*(?:\x07|\x1b\\|$)/;
+const LONE_ESC_PATTERN = /^\x1b[=>]/;
+
+interface ScreenCursor {
+  row: number;
+  col: number;
+}
+
+function parseCsiParam(raw: string): number | undefined {
+  const value = parseInt(raw, 10);
+  return Number.isNaN(value) ? undefined : value;
+}
+
+function ensureRow(lines: string[], row: number): void {
+  while (lines.length <= row) lines.push('');
+}
+
+function eraseLine(lines: string[], cursor: ScreenCursor, mode: number | undefined): void {
+  const line = lines[cursor.row] ?? '';
+  if (mode === 1) {
+    // Erase from start of line to cursor (inclusive).
+    lines[cursor.row] = ' '.repeat(Math.min(cursor.col, line.length)) + line.slice(cursor.col);
+  } else if (mode === 2) {
+    // Erase entire line.
+    lines[cursor.row] = '';
+  } else {
+    // Erase from cursor to end of line (default).
+    lines[cursor.row] = line.slice(0, cursor.col);
+  }
+}
+
+function eraseDisplay(lines: string[], cursor: ScreenCursor, mode: number | undefined): void {
+  if (mode === 1) {
+    // Erase from start of screen to cursor.
+    for (let i = 0; i < cursor.row; i++) lines[i] = '';
+    eraseLine(lines, cursor, 1);
+  } else if (mode === 2 || mode === 3) {
+    // Erase entire screen (and scrollback for mode 3, which we treat the same).
+    for (let i = 0; i < lines.length; i++) lines[i] = '';
+  } else {
+    // Erase from cursor to end of screen (default).
+    eraseLine(lines, cursor, 0);
+    lines.length = cursor.row + 1;
+  }
+}
+
+function applyCsiSequence(lines: string[], cursor: ScreenCursor, paramStr: string, final: string): void {
+  const n = paramStr.split(';').map(parseCsiParam)[0];
+  switch (final) {
+    case 'A':
+      cursor.row = Math.max(0, cursor.row - (n ?? 1));
+      break;
+    case 'B':
+      cursor.row += n ?? 1;
+      ensureRow(lines, cursor.row);
+      break;
+    case 'K':
+      eraseLine(lines, cursor, n);
+      break;
+    case 'J':
+      eraseDisplay(lines, cursor, n);
+      break;
+    default:
+      break;
+  }
+}
+
+// Consumes one escape sequence starting at `text[at]` and returns its length in
+// characters (at least 1, so callers always make progress). Recognized CSI cursor
+// movement (A/B) and erase (K/J) sequences are applied to the virtual screen; all
+// other CSI/OSC/lone-ESC sequences are consumed with no effect, matching stripAnsi.
+function consumeEscapeSequence(text: string, at: number, lines: string[], cursor: ScreenCursor): number {
+  const rest = text.slice(at);
+
+  const csiMatch = CSI_PATTERN.exec(rest);
+  if (csiMatch) {
+    const [full, paramStr, , final] = csiMatch;
+    applyCsiSequence(lines, cursor, paramStr, final);
+    return full.length;
+  }
+
+  const oscMatch = OSC_PATTERN.exec(rest);
+  if (oscMatch) return oscMatch[0].length;
+
+  const loneMatch = LONE_ESC_PATTERN.exec(rest);
+  if (loneMatch) return loneMatch[0].length;
+
+  // Unrecognized escape byte: drop it alone so we can't get stuck looping.
+  return 1;
+}
+
+function writeChar(lines: string[], cursor: ScreenCursor, ch: string): void {
+  ensureRow(lines, cursor.row);
+  const line = lines[cursor.row];
+  const padded = line.length < cursor.col ? line + ' '.repeat(cursor.col - line.length) : line;
+  lines[cursor.row] = padded.slice(0, cursor.col) + ch + padded.slice(cursor.col + 1);
+  cursor.col += 1;
+}
+
+// Interprets cursor-movement (CUU/CUD) and erase (EL/ED) escape sequences against a
+// virtual line buffer instead of just stripping them. Claude Code's TUI redraws its
+// footer in place by moving the cursor up and erasing the old line(s) rather than
+// emitting a newline, so a naive strip-and-split (the old `recentScreenText`
+// implementation) leaves stale, visually-erased text (e.g. "esc to interrupt")
+// looking like it's still part of the "recent" screen.
+function renderVisibleScreen(text: string): string {
+  const lines: string[] = [''];
+  const cursor: ScreenCursor = { row: 0, col: 0 };
+
+  let i = 0;
+  while (i < text.length) {
+    const ch = text[i];
+
+    if (ch === '\x1b') {
+      i += consumeEscapeSequence(text, i, lines, cursor);
+      continue;
+    }
+
+    if (ch === '\r') {
+      cursor.col = 0;
+      i += 1;
+      continue;
+    }
+
+    if (ch === '\n') {
+      cursor.row += 1;
+      cursor.col = 0;
+      ensureRow(lines, cursor.row);
+      i += 1;
+      continue;
+    }
+
+    writeChar(lines, cursor, ch);
+    i += 1;
+  }
+
+  return lines.join('\n');
+}
+
 function recentScreenText(text: string): string {
-  return stripAnsi(text).split('\n').slice(-RECENT_SCREEN_LINE_LIMIT).join('\n');
+  return renderVisibleScreen(text).split('\n').slice(-RECENT_SCREEN_LINE_LIMIT).join('\n');
 }
 
 export function detectClaudeScreenStatus(outputBuffer: string): ClaudeScreenStatus {
