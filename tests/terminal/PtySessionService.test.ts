@@ -62,6 +62,10 @@ describe('detectClaudeScreenStatus', () => {
     expect(detectClaudeScreenStatus('Ready\n❯')).toBe('idle');
   });
 
+  it('does not misdetect blocked from the word "permission" in ordinary output', () => {
+    expect(detectClaudeScreenStatus('Permission denied\n❯')).toBe('idle');
+  });
+
   it('ignores stale working text outside the recent screen window', () => {
     const stale = ['esc to interrupt', ...Array.from({ length: 90 }, (_, i) => `line ${i}`), '❯'].join('\n');
     expect(detectClaudeScreenStatus(stale)).toBe('idle');
