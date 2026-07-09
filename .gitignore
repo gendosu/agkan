@@ -31,3 +31,4 @@ docs/.bundle/
 # Playwright MCP
 .playwright-mcp/
 .claude/scheduled_tasks.lock
+.DS_Store
