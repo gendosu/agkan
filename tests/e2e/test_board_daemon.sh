@@ -247,11 +247,11 @@ test_board_daemon() {
     cleanup_board_daemon
 
     test_board_daemon_start
-    test_board_daemon_start_port_conflict
     test_board_daemon_start_already_running
     test_board_daemon_status_shows_actual_port
     test_board_daemon_stop
     test_board_daemon_stop_not_running
+    test_board_daemon_start_port_conflict
     test_board_daemon_restart
 
     # Final cleanup
