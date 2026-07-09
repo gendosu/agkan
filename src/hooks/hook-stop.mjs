@@ -150,6 +150,15 @@ async function notifyComplete(apiUrl, token, taskId, sessionFile) {
     });
     if (!res.ok) {
       process.stderr.write(`hook-stop: API responded ${res.status}\n`);
+    } else {
+      // A 200 response can still carry ok:false when the server's screen-status guard
+      // skipped termination. This is not retried here — the server itself schedules a
+      // delayed re-evaluation and guarantees eventual termination — but it is logged so
+      // guard-skip cases are observable instead of silently looking identical to success.
+      const data = await res.json().catch(() => null);
+      if (data && data.ok === false) {
+        process.stderr.write(`hook-stop: server skipped stop (reason=${data.reason ?? 'unknown'})\n`);
+      }
     }
   } catch (err) {
     process.stderr.write(`hook-stop: ${(err && err.message) || err}\n`);

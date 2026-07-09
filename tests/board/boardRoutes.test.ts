@@ -1377,6 +1377,51 @@ describe('hook receiver routes', () => {
     expect(ptyStop).not.toHaveBeenCalled();
   });
 
+  it('POST /api/internal/hooks/stop returns { ok: false, reason: "guard-skipped" } when stopProcessFromHook skips termination', async () => {
+    const ptyStop = vi.fn().mockReturnValue(true);
+    const ptyStopFromHook = vi.fn().mockReturnValue(false);
+    const app = buildHookApp({ ptyStopProcess: ptyStop, ptyStopProcessFromHook: ptyStopFromHook });
+    const res = await app.fetch(
+      new Request('http://localhost/api/internal/hooks/stop', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-hook-token': getHookToken() },
+        body: JSON.stringify({ taskId: 42, reason: 'complete' }),
+      })
+    );
+    expect(res.status).toBe(200);
+    expect(ptyStopFromHook).toHaveBeenCalledWith(42);
+    expect(await res.json()).toEqual({ ok: false, reason: 'guard-skipped' });
+  });
+
+  it('POST /api/internal/hooks/stop returns { ok: true } when stopProcessFromHook succeeds', async () => {
+    const ptyStopFromHook = vi.fn().mockReturnValue(true);
+    const app = buildHookApp({ ptyStopProcessFromHook: ptyStopFromHook });
+    const res = await app.fetch(
+      new Request('http://localhost/api/internal/hooks/stop', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-hook-token': getHookToken() },
+        body: JSON.stringify({ taskId: 42, reason: 'complete' }),
+      })
+    );
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ ok: true });
+  });
+
+  it('POST /api/internal/hooks/stop returns { ok: true } for a non-complete reason without calling stopProcessFromHook', async () => {
+    const ptyStopFromHook = vi.fn().mockReturnValue(false);
+    const app = buildHookApp({ ptyStopProcessFromHook: ptyStopFromHook });
+    const res = await app.fetch(
+      new Request('http://localhost/api/internal/hooks/stop', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-hook-token': getHookToken() },
+        body: JSON.stringify({ taskId: 42, reason: 'other' }),
+      })
+    );
+    expect(res.status).toBe(200);
+    expect(ptyStopFromHook).not.toHaveBeenCalled();
+    expect(await res.json()).toEqual({ ok: true });
+  });
+
   it('POST /api/internal/hooks/stop returns 401 without token', async () => {
     const ptyStop = vi.fn().mockReturnValue(true);
     const app = buildHookApp({ ptyStopProcess: ptyStop });

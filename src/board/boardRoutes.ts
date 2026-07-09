@@ -732,7 +732,15 @@ export function registerHookRoutes(app: Hono, deps: HookRouteDeps): void {
       return c.json({ error: 'invalid taskId' }, 400);
     }
     if (body.reason === 'complete') {
-      deps.ptySessionService.stopProcessFromHook(id);
+      const stopped = deps.ptySessionService.stopProcessFromHook(id);
+      if (!stopped) {
+        // The screen-status guard skipped termination (or no session was running). Report
+        // this observably instead of silently claiming success: the caller (hook-stop.mjs)
+        // fires only once per turn and does not retry, so a swallowed skip here would be
+        // invisible. PtySessionService itself schedules a deferred re-evaluation to
+        // guarantee the session is eventually stopped even though this response is ok:false.
+        return c.json({ ok: false, reason: 'guard-skipped' });
+      }
     }
     return c.json({ ok: true });
   });

@@ -36,6 +36,14 @@ const PROMPT_FALLBACK_DELAY_MS = 10000;
 const PROMPT_ENTER_DELAY_MS = 200;
 const ENTER_RETRY_INTERVAL_MS = 2000;
 const MAX_ENTER_RETRIES = 3;
+// When stopProcessFromHook's screen-status guard skips termination (screen still looks
+// working/blocked), the Stop hook that triggered the call fires only once per turn and may
+// never fire again if this really was the session's final turn — leaving the PTY process
+// leaked forever with no further signal to clean it up. Re-evaluate the screen status on a
+// delay instead of trusting the single stale snapshot, and after enough re-evaluations still
+// look stuck, fall back to an unconditional stop so a leaked session is never permanent.
+const DEFERRED_HOOK_STOP_INTERVAL_MS = 3000;
+const MAX_DEFERRED_HOOK_STOP_RETRIES = 5;
 const CLAUDE_BUSY_SIGNAL = 'esc to interrupt';
 const MAX_SNAPSHOT_BYTES = 500_000;
 const MAX_COMPLETED_SNAPSHOTS = 10;
@@ -59,6 +67,7 @@ interface SessionInfo {
   pendingPrompt: string | null;
   promptTimer: ReturnType<typeof setTimeout> | null;
   enterWatchdogTimer: ReturnType<typeof setTimeout> | null;
+  deferredHookStopTimer: ReturnType<typeof setTimeout> | null;
   workspaceTrustHandled: boolean;
   lastEventsUpdate: number;
 }
@@ -401,6 +410,7 @@ export class PtySessionService {
       pendingPrompt: prompt,
       promptTimer: null,
       enterWatchdogTimer: null,
+      deferredHookStopTimer: null,
       workspaceTrustHandled: false,
       lastEventsUpdate: 0,
     };
@@ -485,6 +495,10 @@ export class PtySessionService {
         clearTimeout(info.enterWatchdogTimer);
         info.enterWatchdogTimer = null;
       }
+      if (info.deferredHookStopTimer !== null) {
+        clearTimeout(info.deferredHookStopTimer);
+        info.deferredHookStopTimer = null;
+      }
       info.pendingPrompt = null;
 
       if (this.db && info.runLogId) {
@@ -531,6 +545,10 @@ export class PtySessionService {
       clearTimeout(info.enterWatchdogTimer);
       info.enterWatchdogTimer = null;
     }
+    if (info.deferredHookStopTimer !== null) {
+      clearTimeout(info.deferredHookStopTimer);
+      info.deferredHookStopTimer = null;
+    }
     info.pendingPrompt = null;
     // Mark as user-stopped before emitting so synchronous subscribers (e.g. boardRoutes.ts)
     // observe isUserStopped() === true and skip auto-advancing status on this done event.
@@ -553,10 +571,54 @@ export class PtySessionService {
     const status = detectClaudeScreenStatus(info.outputBuffer);
     if (status === 'working' || status === 'blocked') {
       console.error(`[pty][hook-stop-guard] taskId=${taskId} skipped stopProcess because Claude screen is ${status}`);
+      this.scheduleDeferredHookStop(taskId, info, 1);
       return false;
     }
 
     return this.stopProcess(taskId);
+  }
+
+  // Re-evaluates the screen-status guard after a delay instead of trusting the single stale
+  // snapshot taken during stopProcessFromHook. This is not an immediate retry (which would
+  // observe the same unchanged outputBuffer and reach the same wrong conclusion) — by the
+  // time the timer fires, either the render has settled to idle/unknown (stale animation
+  // frame case) or genuinely-still-running output will have kept the buffer changing.
+  // If it is STILL stuck after MAX_DEFERRED_HOOK_STOP_RETRIES re-evaluations, force the stop
+  // unconditionally: a session that has looked working/blocked for this long without the
+  // guard clearing is far more likely to be a permanently leaked PTY than genuine in-flight
+  // work, and an indefinitely leaked process is worse than an occasional early stop.
+  private scheduleDeferredHookStop(taskId: number, info: SessionInfo, attempt: number): void {
+    if (info.deferredHookStopTimer !== null) {
+      // A re-evaluation is already pending for this session; do not stack another one on
+      // top of it just because another Stop-hook call skipped again in the meantime.
+      return;
+    }
+
+    info.deferredHookStopTimer = setTimeout(() => {
+      info.deferredHookStopTimer = null;
+      // The session may have exited (and a new one for the same taskId started) between
+      // scheduling and firing; only act if this exact session is still the live one.
+      if (this.sessions.get(taskId) !== info) return;
+
+      const status = detectClaudeScreenStatus(info.outputBuffer);
+      if (status !== 'working' && status !== 'blocked') {
+        console.error(
+          `[pty][hook-stop-guard] taskId=${taskId} deferred re-evaluation found screen ${status}; stopping now`
+        );
+        this.stopProcess(taskId);
+        return;
+      }
+
+      if (attempt >= MAX_DEFERRED_HOOK_STOP_RETRIES) {
+        console.error(
+          `[pty][hook-stop-guard] taskId=${taskId} still ${status} after ${MAX_DEFERRED_HOOK_STOP_RETRIES} deferred re-evaluations; force-stopping to avoid a leaked session`
+        );
+        this.stopProcess(taskId);
+        return;
+      }
+
+      this.scheduleDeferredHookStop(taskId, info, attempt + 1);
+    }, DEFERRED_HOOK_STOP_INTERVAL_MS);
   }
 
   listRunningTasks(): { taskId: number; command: string }[] {

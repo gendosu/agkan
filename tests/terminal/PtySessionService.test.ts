@@ -400,6 +400,96 @@ describe('PtySessionService', () => {
     expect(mockKill).not.toHaveBeenCalled();
     expect(service.listRunningTasks()).toEqual([{ taskId: 1, command: 'run' }]);
   });
+
+  it('stopProcessFromHook deferred re-evaluation stops the session once the screen settles to idle', () => {
+    service.startProcess(1, 'prompt', 'run');
+    mockOnDataHandler?.('\x1b]0;⠋ Thinking\x07');
+
+    const stopped = service.stopProcessFromHook(1);
+    expect(stopped).toBe(false);
+    expect(mockKill).not.toHaveBeenCalled();
+
+    // Screen settles to idle before the next deferred re-evaluation fires. A fresh OSC
+    // title is required to override the earlier "working" title (detectClaudeScreenStatus
+    // looks at the LAST OSC title seen in the whole buffer, not just the newest chunk).
+    mockOnDataHandler?.('\x1b]0;Claude\x07Ready\n❯');
+
+    vi.advanceTimersByTime(3000);
+
+    expect(mockKill).toHaveBeenCalled();
+    expect(service.listRunningTasks()).toEqual([]);
+  });
+
+  it('stopProcessFromHook force-stops after exhausting deferred re-evaluations while still blocked', () => {
+    service.startProcess(1, 'prompt', 'run');
+    mockOnDataHandler?.('Do you want to proceed?\nesc to cancel');
+
+    const stopped = service.stopProcessFromHook(1);
+    expect(stopped).toBe(false);
+
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+    // 5 deferred re-evaluations at 3s intervals, screen never clears — must still
+    // guarantee termination instead of leaking the PTY session forever.
+    vi.advanceTimersByTime(3000);
+    expect(mockKill).not.toHaveBeenCalled();
+    vi.advanceTimersByTime(3000);
+    expect(mockKill).not.toHaveBeenCalled();
+    vi.advanceTimersByTime(3000);
+    expect(mockKill).not.toHaveBeenCalled();
+    vi.advanceTimersByTime(3000);
+    expect(mockKill).not.toHaveBeenCalled();
+    vi.advanceTimersByTime(3000);
+
+    expect(mockKill).toHaveBeenCalled();
+    expect(service.listRunningTasks()).toEqual([]);
+    expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining('force-stopping to avoid a leaked session'));
+    errorSpy.mockRestore();
+  });
+
+  it('stopProcessFromHook does not stack duplicate deferred timers on repeated guard skips', () => {
+    service.startProcess(1, 'prompt', 'run');
+    mockOnDataHandler?.('Do you want to proceed?\nesc to cancel');
+
+    // Two real Stop-hook calls while still blocked must not reset/duplicate the deferred
+    // re-evaluation schedule — otherwise force-termination could be delayed indefinitely.
+    expect(service.stopProcessFromHook(1)).toBe(false);
+    expect(service.stopProcessFromHook(1)).toBe(false);
+
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    vi.advanceTimersByTime(3000 * 5);
+
+    expect(mockKill).toHaveBeenCalledTimes(1);
+    errorSpy.mockRestore();
+  });
+
+  it('clears the deferred hook-stop timer on natural process exit', () => {
+    service.startProcess(1, 'prompt', 'run');
+    mockOnDataHandler?.('Do you want to proceed?\nesc to cancel');
+    service.stopProcessFromHook(1);
+
+    // Process exits naturally before the deferred re-evaluation fires.
+    mockOnExitHandler?.({ exitCode: 0 });
+    mockKill.mockClear();
+
+    vi.advanceTimersByTime(3000 * 5);
+
+    // No stale timer should fire stopProcess again on the already-cleaned-up session.
+    expect(mockKill).not.toHaveBeenCalled();
+  });
+
+  it('clears the deferred hook-stop timer when the session is stopped directly', () => {
+    service.startProcess(1, 'prompt', 'run');
+    mockOnDataHandler?.('Do you want to proceed?\nesc to cancel');
+    service.stopProcessFromHook(1);
+
+    service.stopProcess(1);
+    mockKill.mockClear();
+
+    vi.advanceTimersByTime(3000 * 5);
+
+    expect(mockKill).not.toHaveBeenCalled();
+  });
 });
 
 describe('PtySessionService - model/effort/boardApiUrl args', () => {
