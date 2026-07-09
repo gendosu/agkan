@@ -95,6 +95,14 @@ describe('detectClaudeScreenStatus', () => {
     const output = 'content\nesc to interrupt\x1b[2K\resc to interrupt';
     expect(detectClaudeScreenStatus(output)).toBe('working');
   });
+
+  // Regression: CSI 1K (EL with parameter 1) erases from the start of the line THROUGH the
+  // cursor position, inclusive. A carriage return moves the cursor to col 0, so `\x1b[1K`
+  // right after `\r` must erase the character at col 0, not leave the line untouched.
+  it('erases the character at the cursor position for CSI 1K (erase to cursor, inclusive)', () => {
+    const output = 'esc to interrupt\r\x1b[1K\n❯';
+    expect(detectClaudeScreenStatus(output)).toBe('idle');
+  });
 });
 
 // Mock node-pty

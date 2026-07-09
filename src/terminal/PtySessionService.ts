@@ -123,8 +123,9 @@ function ensureRow(lines: string[], row: number): void {
 function eraseLine(lines: string[], cursor: ScreenCursor, mode: number | undefined): void {
   const line = lines[cursor.row] ?? '';
   if (mode === 1) {
-    // Erase from start of line to cursor (inclusive).
-    lines[cursor.row] = ' '.repeat(Math.min(cursor.col, line.length)) + line.slice(cursor.col);
+    // Erase from start of line to cursor, inclusive of the cursor position.
+    const eraseEnd = Math.min(cursor.col + 1, line.length);
+    lines[cursor.row] = ' '.repeat(eraseEnd) + line.slice(eraseEnd);
   } else if (mode === 2) {
     // Erase entire line.
     lines[cursor.row] = '';
