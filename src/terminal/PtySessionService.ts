@@ -80,13 +80,26 @@ function hasClaudeReadySignal(text: string): boolean {
   return text.includes('bypass permissions');
 }
 
+const OSC_TITLE_PATTERN = /\x1b\](?:0|2);([^\x07\x1b]*)(?:\x07|\x1b\\|$)/y;
+
+// Returns the payload of the most recent OSC 0/2 "set title" sequence in `text`,
+// or null if there is none. Only the last match is ever needed, so this walks
+// backward from the end of the (up to 500KB) buffer via lastIndexOf instead of
+// running a global regex (matchAll) over the entire buffer to find every match
+// just to discard all but the last one.
 function latestOscTitle(text: string): string | null {
-  let title: string | null = null;
-  const pattern = /\x1b\](?:0|2);([^\x07\x1b]*)(?:\x07|\x1b\\|$)/g;
-  for (const match of text.matchAll(pattern)) {
-    title = match[1] ?? null;
+  let searchEnd = text.length;
+  while (searchEnd > 0) {
+    const idx = text.lastIndexOf('\x1b]', searchEnd - 1);
+    if (idx === -1) return null;
+    OSC_TITLE_PATTERN.lastIndex = idx;
+    const match = OSC_TITLE_PATTERN.exec(text);
+    if (match) {
+      return match[1] ?? null;
+    }
+    searchEnd = idx;
   }
-  return title;
+  return null;
 }
 
 const CSI_PATTERN = /^\x1b\[([\x30-\x3F]*)([\x20-\x2F]*)([\x40-\x7E])/;

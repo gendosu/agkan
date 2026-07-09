@@ -50,6 +50,13 @@ describe('detectClaudeScreenStatus', () => {
     expect(detectClaudeScreenStatus('\x1b]0;⠋ Thinking\x07prompt')).toBe('working');
   });
 
+  // Regression for #704: latestOscTitle must resolve to the LAST OSC 0/2 title in the
+  // buffer even when an earlier spinner-style title is also present, not just the first.
+  it('uses only the last OSC title when multiple are present in the buffer', () => {
+    const output = '\x1b]0;⠋ Thinking\x07some output\x1b]0;Claude\x07Ready\n❯';
+    expect(detectClaudeScreenStatus(output)).toBe('idle');
+  });
+
   it('detects Claude working from visible interrupt hint', () => {
     expect(detectClaudeScreenStatus('running tests\nesc to interrupt')).toBe('working');
   });
