@@ -14,6 +14,7 @@ A lightweight CLI task management tool, built for humans and AI coding agents wo
 - 7-status Kanban workflow: icebox, backlog, ready, in_progress, review, done, closed
 - Create tasks from CLI arguments or Markdown files; filter by status, author, or tag
 - Color-coded terminal output
+- Metadata support (e.g. `priority`) for structured, per-task key/value fields
 
 **Dependencies**
 - Parent-child relationships with tree view (`task list --tree`)
@@ -23,13 +24,17 @@ A lightweight CLI task management tool, built for humans and AI coding agents wo
 **Kanban Board**
 - Local, zero-config web UI (`agkan board`)
 - Filter and browse tasks by status, tag, or author in the browser
+- Task detail panel with full task history and Claude run logs
 
 **AI Integration**
 - Machine-readable JSON output on key commands for scripting and automation
 - Companion [agkan-skills](https://github.com/gendosu/agkan-skills) package for Claude Code
 - Run Claude directly from the board, with live streaming output and run history
+- `agkan init` installs a SessionStart hook so Claude Code loads agkan context automatically each session
 
 ## Quick Start
+
+Go from zero to a running Kanban board in five steps.
 
 ### 1. Install
 
@@ -92,7 +97,11 @@ agkan board
 Server is running on http://localhost:8080
 ```
 
+Need a different port? `agkan board -p 3000`.
+
 ## Command Cheat Sheet
+
+Every command also accepts `--help` for its own usage details.
 
 | Command | Description |
 |---|---|
@@ -104,11 +113,20 @@ Server is running on http://localhost:8080
 | `agkan task update <id> <field> <value>` | Update a task's status, title, body, or author |
 | `agkan task update-parent <id> <parent-id>` | Set or clear (`null`) a task's parent |
 | `agkan task delete <id>` | Delete a task |
-| `agkan task block add\|remove\|list <id> [id2]` | Manage blocking relationships |
-| `agkan task meta set\|get\|list\|delete <id> [key] [value]` | Manage task metadata (e.g. `priority`) |
-| `agkan task count` | Count tasks by status |
-| `agkan tag add\|list\|delete <name>` | Manage tags |
-| `agkan tag attach\|detach\|show <task-id> <tag>` | Attach, detach, or list tags on a task |
+| `agkan task block add <id> <id2>` | Mark `<id>` as blocking `<id2>` |
+| `agkan task block remove <id> <id2>` | Remove a blocking relationship |
+| `agkan task block list <id>` | Show what a task blocks and is blocked by |
+| `agkan task meta set <id> <key> <value>` | Set a metadata value on a task (e.g. `priority`) |
+| `agkan task meta get <id> <key>` | Get a metadata value from a task |
+| `agkan task meta list <id>` | List all metadata for a task |
+| `agkan task meta delete <id> <key>` | Delete a metadata value from a task |
+| `agkan task count` | Count tasks by status (`--status`, `--json`) |
+| `agkan tag add <name>` | Create a tag |
+| `agkan tag list` | List all tags with task counts |
+| `agkan tag delete <name>` | Delete a tag |
+| `agkan tag attach <task-id> <tag>` | Attach a tag to a task |
+| `agkan tag detach <task-id> <tag>` | Detach a tag from a task |
+| `agkan tag show <task-id>` | List tags attached to a task |
 | `agkan board` | Start the local Kanban board web UI |
 | `agkan ps` | List currently running Claude processes |
 | `agkan config get [key]` | Show resolved configuration values |
@@ -124,6 +142,7 @@ agkan is designed to be driven by AI coding agents as well as humans:
 - **Run / Plan**: each task card in the board has a "Run" button that launches `claude` for that task, with a dropdown to run in plan mode instead
 - **Stream modal**: while Claude is running, a modal shows the live output stream in real time, with a "Stop" button and a header indicator for active processes
 - **Run Logs**: the task detail panel's "Run Logs" tab keeps the full history of past Claude executions, with timestamps and output
+- **`agkan ps`**: from any terminal, list which Claude processes the board currently has running and which tasks they belong to
 
 ## Configuration
 
@@ -136,9 +155,15 @@ board:
   port: 8080
 ```
 
-See **[documentation/configuration.md](documentation/configuration.md)** for the full reference, including environment variables, per-project setup, model selection, and permission modes.
+The database path can also be overridden with the `AGENT_KANBAN_DB_PATH` environment variable, which takes priority over `.agkan.yml`.
+
+In test mode (`NODE_ENV=test`), agkan automatically isolates data using `.agkan-test.yml` and `.agkan-test/` instead, so tests never touch your real task database.
+
+See **[documentation/configuration.md](documentation/configuration.md)** for the full reference, including per-project setup, model selection, and permission modes.
 
 ## Task Statuses
+
+Every task moves through one of seven statuses:
 
 | Status | Meaning |
 |---|---|
@@ -151,6 +176,8 @@ See **[documentation/configuration.md](documentation/configuration.md)** for the
 | `closed` | Closed |
 
 ## Documentation
+
+Detailed reference material lives outside this file:
 
 | Document | Description |
 |---|---|
