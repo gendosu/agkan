@@ -1,5 +1,14 @@
 # Development
 
+## Technology Stack
+
+- **Language**: TypeScript 5.x
+- **CLI Framework**: Commander.js
+- **Database**: SQLite3 (better-sqlite3)
+- **Terminal Display**: Chalk
+- **Web Server**: Hono (for Kanban board viewer)
+- **Build Tool**: TypeScript Compiler
+
 ## Developer Setup
 
 For contributors and developers who want to work on agkan itself:
