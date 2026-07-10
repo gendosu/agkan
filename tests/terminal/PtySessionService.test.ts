@@ -134,6 +134,14 @@ describe('detectClaudeScreenStatus', () => {
     const output = 'Do you want to proceed?\n❯ 1. Yes\n  2. No';
     expect(detectClaudeScreenStatus(output)).toBe('blocked');
   });
+
+  // When a blocked word and the idle prompt marker land on the very same line, the
+  // comparison is a tie; favor blocked as the safer default (never force-stops the
+  // session) rather than risk cutting off a real permission prompt mid-render.
+  it('favors blocked when a blocked-sounding word and the prompt marker share the same line', () => {
+    const output = 'Do you want to proceed?\n❯ esc to cancel';
+    expect(detectClaudeScreenStatus(output)).toBe('blocked');
+  });
 });
 
 // Mock node-pty
