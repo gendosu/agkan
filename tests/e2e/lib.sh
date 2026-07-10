@@ -127,6 +127,35 @@ run_cli() {
     node "$SCRIPT_DIR/bin/agkan" "$@" 2>&1
 }
 
+# Start a command in the background, using a dedicated process group when the
+# platform provides setsid (Linux). macOS does not ship setsid, so fall back to
+# a regular background process; callers also clean up the listening port to
+# catch any remaining server process.
+BACKGROUND_PROCESS_PID=""
+start_background_process() {
+    if command -v setsid > /dev/null 2>&1; then
+        setsid "$@" &
+    else
+        "$@" &
+    fi
+    BACKGROUND_PROCESS_PID=$!
+}
+
+# Stop a process started by start_background_process. On Linux, terminate the
+# whole process group created by setsid. On macOS, terminate the process itself.
+stop_background_process() {
+    local pid="$1"
+    if [ -z "$pid" ]; then
+        return
+    fi
+
+    if command -v setsid > /dev/null 2>&1; then
+        kill -- -"$pid" 2>/dev/null || kill "$pid" 2>/dev/null || true
+    else
+        kill "$pid" 2>/dev/null || true
+    fi
+}
+
 # Assert CLI command succeeds with expected output
 assert_cli_success() {
     local test_name=$1

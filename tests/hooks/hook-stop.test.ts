@@ -1388,6 +1388,266 @@ describe('hook-stop.mjs', () => {
     expect(last?.body).toEqual({ taskId: 43, reason: 'complete' });
   });
 
+  it('posts complete when BOARD_TARGET_STATUS is unset and a synchronous Agent has a completed tool_result with toolUseResult.status "completed" (regression: planning sessions never terminate)', async () => {
+    const transcript = join(tmp, 't.jsonl');
+    writeFileSync(
+      transcript,
+      [
+        JSON.stringify({
+          type: 'assistant',
+          message: {
+            content: [
+              { type: 'tool_use', id: 'agent-sync-1', name: 'Agent', input: { description: 'plan sub-agent' } },
+            ],
+          },
+        }),
+        JSON.stringify({
+          type: 'user',
+          message: {
+            content: [{ type: 'tool_result', tool_use_id: 'agent-sync-1', content: 'Plan drafted: three steps.' }],
+          },
+          toolUseResult: { status: 'completed', agentId: 'x' },
+        }),
+        JSON.stringify({
+          type: 'assistant',
+          message: { content: [{ type: 'text', text: 'Planning finished.' }] },
+        }),
+      ].join('\n') + '\n'
+    );
+    const code = await runHook(
+      { transcript_path: transcript, hook_event_name: 'Stop', stop_hook_active: false },
+      {
+        BOARD_TASK_ID: '44',
+        BOARD_API_URL: `http://127.0.0.1:${svr.port}`,
+        BOARD_HOOK_TOKEN: 'tk',
+      }
+    );
+    expect(code).toBe(0);
+    const last = svr.captured.at(-1);
+    expect(last?.body).toEqual({ taskId: 44, reason: 'complete' });
+  });
+
+  it('posts complete when a synchronous Agent tool_result has no toolUseResult sidecar and its text is a normal report', async () => {
+    const transcript = join(tmp, 't.jsonl');
+    writeFileSync(
+      transcript,
+      [
+        JSON.stringify({
+          type: 'assistant',
+          message: {
+            content: [{ type: 'tool_use', id: 'agent-sync-2', name: 'Agent', input: { description: 'explore' } }],
+          },
+        }),
+        JSON.stringify({
+          type: 'user',
+          message: {
+            content: [
+              {
+                type: 'tool_result',
+                tool_use_id: 'agent-sync-2',
+                content: [{ type: 'text', text: 'Findings: the config lives in src/config.ts.' }],
+              },
+            ],
+          },
+        }),
+        JSON.stringify({
+          type: 'assistant',
+          message: { content: [{ type: 'text', text: 'Done.' }] },
+        }),
+      ].join('\n') + '\n'
+    );
+    const code = await runHook(
+      { transcript_path: transcript, hook_event_name: 'Stop', stop_hook_active: false },
+      {
+        BOARD_TASK_ID: '45',
+        BOARD_API_URL: `http://127.0.0.1:${svr.port}`,
+        BOARD_HOOK_TOKEN: 'tk',
+      }
+    );
+    expect(code).toBe(0);
+    const last = svr.captured.at(-1);
+    expect(last?.body).toEqual({ taskId: 45, reason: 'complete' });
+  });
+
+  it('does NOT post when a background Agent only has its async-launch ack tool_result (toolUseResult.isAsync) and no task-notification (regression: #667 kill-in-flight guard)', async () => {
+    const before = svr.captured.length;
+    const transcript = join(tmp, 't.jsonl');
+    writeFileSync(
+      transcript,
+      [
+        JSON.stringify({
+          type: 'assistant',
+          message: {
+            content: [{ type: 'tool_use', id: 'agent-async-1', name: 'Agent', input: { description: 'bg sub-agent' } }],
+          },
+        }),
+        JSON.stringify({
+          type: 'user',
+          message: {
+            content: [
+              {
+                type: 'tool_result',
+                tool_use_id: 'agent-async-1',
+                content: 'Async agent launched successfully. It will continue running in the background.',
+              },
+            ],
+          },
+          toolUseResult: { isAsync: true, status: 'async_launched', agentId: 'bg-1', outputFile: '/tmp/bg-1.out' },
+        }),
+        JSON.stringify({
+          type: 'assistant',
+          message: { content: [{ type: 'text', text: 'Waiting for the sub-agent.' }] },
+        }),
+      ].join('\n') + '\n'
+    );
+    const code = await runHook(
+      { transcript_path: transcript, hook_event_name: 'Stop', stop_hook_active: false },
+      {
+        BOARD_TASK_ID: '46',
+        BOARD_API_URL: `http://127.0.0.1:${svr.port}`,
+        BOARD_HOOK_TOKEN: 'tk',
+      }
+    );
+    expect(code).toBe(0);
+    expect(svr.captured.length).toBe(before);
+  });
+
+  it('does NOT post when a background Agent async-launch ack is recognizable only by its tool_result text (no toolUseResult sidecar)', async () => {
+    const before = svr.captured.length;
+    const transcript = join(tmp, 't.jsonl');
+    writeFileSync(
+      transcript,
+      [
+        JSON.stringify({
+          type: 'assistant',
+          message: {
+            content: [{ type: 'tool_use', id: 'agent-async-2', name: 'Agent', input: { description: 'bg sub-agent' } }],
+          },
+        }),
+        JSON.stringify({
+          type: 'user',
+          message: {
+            content: [
+              {
+                type: 'tool_result',
+                tool_use_id: 'agent-async-2',
+                content: [{ type: 'text', text: 'Async agent launched successfully with ID: bg-2.' }],
+              },
+            ],
+          },
+        }),
+        JSON.stringify({
+          type: 'assistant',
+          message: { content: [{ type: 'text', text: 'Waiting for the sub-agent.' }] },
+        }),
+      ].join('\n') + '\n'
+    );
+    const code = await runHook(
+      { transcript_path: transcript, hook_event_name: 'Stop', stop_hook_active: false },
+      {
+        BOARD_TASK_ID: '47',
+        BOARD_API_URL: `http://127.0.0.1:${svr.port}`,
+        BOARD_HOOK_TOKEN: 'tk',
+      }
+    );
+    expect(code).toBe(0);
+    expect(svr.captured.length).toBe(before);
+  });
+
+  it('posts complete when an Agent tool_use failed with a string toolUseResult (nothing left running)', async () => {
+    const transcript = join(tmp, 't.jsonl');
+    writeFileSync(
+      transcript,
+      [
+        JSON.stringify({
+          type: 'assistant',
+          message: {
+            content: [{ type: 'tool_use', id: 'agent-err-1', name: 'Agent', input: { description: 'explore' } }],
+          },
+        }),
+        JSON.stringify({
+          type: 'user',
+          message: {
+            content: [
+              {
+                type: 'tool_result',
+                tool_use_id: 'agent-err-1',
+                is_error: true,
+                content: 'Error: Agent type Explore not found',
+              },
+            ],
+          },
+          toolUseResult: 'Error: Agent type Explore not found',
+        }),
+        JSON.stringify({
+          type: 'assistant',
+          message: { content: [{ type: 'text', text: 'The agent type was invalid.' }] },
+        }),
+      ].join('\n') + '\n'
+    );
+    const code = await runHook(
+      { transcript_path: transcript, hook_event_name: 'Stop', stop_hook_active: false },
+      {
+        BOARD_TASK_ID: '48',
+        BOARD_API_URL: `http://127.0.0.1:${svr.port}`,
+        BOARD_HOOK_TOKEN: 'tk',
+      }
+    );
+    expect(code).toBe(0);
+    const last = svr.captured.at(-1);
+    expect(last?.body).toEqual({ taskId: 48, reason: 'complete' });
+  });
+
+  it('does NOT loosen flagged-job completion: a background Bash ack tool_result with an object toolUseResult (no async fields) still does not count as completion', async () => {
+    const before = svr.captured.length;
+    const transcript = join(tmp, 't.jsonl');
+    writeFileSync(
+      transcript,
+      [
+        JSON.stringify({
+          type: 'assistant',
+          message: {
+            content: [
+              {
+                type: 'tool_use',
+                id: 'bash-ack-1',
+                name: 'Bash',
+                input: { command: 'npm test', run_in_background: true },
+              },
+            ],
+          },
+        }),
+        JSON.stringify({
+          type: 'user',
+          message: {
+            content: [
+              {
+                type: 'tool_result',
+                tool_use_id: 'bash-ack-1',
+                content: 'Command running in background with ID: bk-ack-1',
+              },
+            ],
+          },
+          toolUseResult: { shellId: 'bk-ack-1', command: 'npm test' },
+        }),
+        JSON.stringify({
+          type: 'assistant',
+          message: { content: [{ type: 'text', text: 'Waiting for tests to finish.' }] },
+        }),
+      ].join('\n') + '\n'
+    );
+    const code = await runHook(
+      { transcript_path: transcript, hook_event_name: 'Stop', stop_hook_active: false },
+      {
+        BOARD_TASK_ID: '49',
+        BOARD_API_URL: `http://127.0.0.1:${svr.port}`,
+        BOARD_HOOK_TOKEN: 'tk',
+      }
+    );
+    expect(code).toBe(0);
+    expect(svr.captured.length).toBe(before);
+  });
+
   it('does not leak a parent-process BOARD_TARGET_STATUS into a test override that omits it (regression: #690)', async () => {
     // Reproduces the reported bug: inside a real Board pr/run session, BOARD_TARGET_STATUS
     // is set on the parent process. A test override that doesn't mention the key must not

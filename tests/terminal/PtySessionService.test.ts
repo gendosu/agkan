@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { PtySessionService, stripAnsi } from '../../src/terminal/PtySessionService';
+import { PtySessionService, detectClaudeScreenStatus, stripAnsi } from '../../src/terminal/PtySessionService';
 import { AttentionStateService } from '../../src/services/AttentionStateService';
 import { ConflictError } from '../../src/errors';
 
@@ -42,6 +42,105 @@ describe('stripAnsi', () => {
 
   it('returns plain text unchanged', () => {
     expect(stripAnsi('hello world')).toBe('hello world');
+  });
+});
+
+describe('detectClaudeScreenStatus', () => {
+  it('detects Claude working from OSC title spinner', () => {
+    expect(detectClaudeScreenStatus('\x1b]0;⠋ Thinking\x07prompt')).toBe('working');
+  });
+
+  // Regression for #706: a stale OSC spinner title left over from before Claude paused
+  // must not override a permission prompt that is now visibly displayed on screen.
+  it('detects blocked over a stale OSC spinner title when a permission prompt is now visible', () => {
+    const output = '\x1b]0;⠋ Thinking\x07Bash command needs permission\nDo you want to proceed?\nesc to cancel';
+    expect(detectClaudeScreenStatus(output)).toBe('blocked');
+  });
+
+  it('still detects working when the OSC spinner title and the current busy signal agree', () => {
+    const output = '\x1b]0;⠋ Thinking\x07running tests\nesc to interrupt';
+    expect(detectClaudeScreenStatus(output)).toBe('working');
+  });
+
+  // Regression for #704: latestOscTitle must resolve to the LAST OSC 0/2 title in the
+  // buffer even when an earlier spinner-style title is also present, not just the first.
+  it('uses only the last OSC title when multiple are present in the buffer', () => {
+    const output = '\x1b]0;⠋ Thinking\x07some output\x1b]0;Claude\x07Ready\n❯';
+    expect(detectClaudeScreenStatus(output)).toBe('idle');
+  });
+
+  it('detects Claude working from visible interrupt hint', () => {
+    expect(detectClaudeScreenStatus('running tests\nesc to interrupt')).toBe('working');
+  });
+
+  it('detects Claude blocked from visible permission prompt', () => {
+    expect(detectClaudeScreenStatus('Bash command needs permission\nDo you want to proceed?')).toBe('blocked');
+  });
+
+  it('detects Claude idle from visible prompt marker', () => {
+    expect(detectClaudeScreenStatus('Ready\n❯')).toBe('idle');
+  });
+
+  it('does not misdetect blocked from the word "permission" in ordinary output', () => {
+    expect(detectClaudeScreenStatus('Permission denied\n❯')).toBe('idle');
+  });
+
+  it('ignores stale working text outside the recent screen window', () => {
+    const stale = ['esc to interrupt', ...Array.from({ length: 90 }, (_, i) => `line ${i}`), '❯'].join('\n');
+    expect(detectClaudeScreenStatus(stale)).toBe('idle');
+  });
+
+  // Regression for #700: Claude Code's TUI redraws its footer in place via cursor
+  // movement + erase sequences rather than a newline, so a naive strip-and-split of
+  // the raw stream still contains the visually-erased "esc to interrupt" footer text.
+  it('does not misdetect working from a footer erased via cursor-up + erase-line (2K)', () => {
+    const output = 'content\nesc to interrupt\n\x1b[2A\x1b[2K\x1b[1B\x1b[2Kall done';
+    expect(detectClaudeScreenStatus(output)).not.toBe('working');
+  });
+
+  it('does not misdetect working from a footer erased via cursor-up + erase-display (0J)', () => {
+    const output = 'content line\nesc to interrupt\x1b[1A\x1b[0Jcontent line\ncompleted';
+    expect(detectClaudeScreenStatus(output)).not.toBe('working');
+  });
+
+  it('still detects working when the busy signal is erased and immediately redrawn in place', () => {
+    const output = 'content\nesc to interrupt\x1b[2K\resc to interrupt';
+    expect(detectClaudeScreenStatus(output)).toBe('working');
+  });
+
+  // Regression: CSI 1K (EL with parameter 1) erases from the start of the line THROUGH the
+  // cursor position, inclusive. A carriage return moves the cursor to col 0, so `\x1b[1K`
+  // right after `\r` must erase the character at col 0, not leave the line untouched.
+  it('erases the character at the cursor position for CSI 1K (erase to cursor, inclusive)', () => {
+    const output = 'esc to interrupt\r\x1b[1K\n❯';
+    expect(detectClaudeScreenStatus(output)).toBe('idle');
+  });
+
+  // Regression for #705: a blocked-sounding word in ordinary answer text must not outrank
+  // a fresh idle prompt marker rendered below it, or the session never terminates.
+  it('detects idle when a blocked-sounding word appears in ordinary answer text above the prompt marker', () => {
+    const output = 'The task is complete. Press Esc to cancel if you want to undo.\n❯';
+    expect(detectClaudeScreenStatus(output)).toBe('idle');
+  });
+
+  it('detects blocked for a real permission UI with question, selection cursor, and hint line', () => {
+    const output = 'Do you want to proceed?\n❯ 1. Yes\n  2. No\n\nEnter to select · Esc to cancel';
+    expect(detectClaudeScreenStatus(output)).toBe('blocked');
+  });
+
+  // The selection cursor "❯ 1. Yes" must not be mistaken for the idle prompt marker, or a
+  // permission UI with no trailing hint line would be misdetected as idle.
+  it('detects blocked for a permission UI with a selection cursor line but no trailing hint line', () => {
+    const output = 'Do you want to proceed?\n❯ 1. Yes\n  2. No';
+    expect(detectClaudeScreenStatus(output)).toBe('blocked');
+  });
+
+  // When a blocked word and the idle prompt marker land on the very same line, the
+  // comparison is a tie; favor blocked as the safer default (never force-stops the
+  // session) rather than risk cutting off a real permission prompt mid-render.
+  it('favors blocked when a blocked-sounding word and the prompt marker share the same line', () => {
+    const output = 'Do you want to proceed?\n❯ esc to cancel';
+    expect(detectClaudeScreenStatus(output)).toBe('blocked');
   });
 });
 
@@ -321,6 +420,203 @@ describe('PtySessionService', () => {
     service.stopProcess(1);
 
     expect(isUserStoppedDuringEmit).toBe(true);
+  });
+
+  it('stopProcessFromHook stops when Claude screen is idle', () => {
+    service.startProcess(1, 'prompt', 'run');
+    mockOnDataHandler?.('Ready\n❯');
+
+    const stopped = service.stopProcessFromHook(1);
+
+    expect(stopped).toBe(true);
+    expect(mockKill).toHaveBeenCalled();
+    expect(service.listRunningTasks()).toEqual([]);
+  });
+
+  it('stopProcessFromHook does not stop while Claude screen is working', () => {
+    service.startProcess(1, 'prompt', 'run');
+    mockOnDataHandler?.('\x1b]0;⠋ Thinking\x07');
+
+    const stopped = service.stopProcessFromHook(1);
+
+    expect(stopped).toBe(false);
+    expect(mockKill).not.toHaveBeenCalled();
+    expect(service.listRunningTasks()).toEqual([{ taskId: 1, command: 'run' }]);
+  });
+
+  it('stopProcessFromHook does not stop while Claude screen is blocked', () => {
+    service.startProcess(1, 'prompt', 'run');
+    mockOnDataHandler?.('Do you want to proceed?\nesc to cancel');
+
+    const stopped = service.stopProcessFromHook(1);
+
+    expect(stopped).toBe(false);
+    expect(mockKill).not.toHaveBeenCalled();
+    expect(service.listRunningTasks()).toEqual([{ taskId: 1, command: 'run' }]);
+  });
+
+  it('stopProcessFromHook deferred re-evaluation stops the session once the screen settles to idle', () => {
+    service.startProcess(1, 'prompt', 'run');
+    mockOnDataHandler?.('\x1b]0;⠋ Thinking\x07');
+
+    const stopped = service.stopProcessFromHook(1);
+    expect(stopped).toBe(false);
+    expect(mockKill).not.toHaveBeenCalled();
+
+    // Screen settles to idle before the next deferred re-evaluation fires. A fresh OSC
+    // title is required to override the earlier "working" title (detectClaudeScreenStatus
+    // looks at the LAST OSC title seen in the whole buffer, not just the newest chunk).
+    mockOnDataHandler?.('\x1b]0;Claude\x07Ready\n❯');
+
+    vi.advanceTimersByTime(3000);
+
+    expect(mockKill).toHaveBeenCalled();
+    expect(service.listRunningTasks()).toEqual([]);
+  });
+
+  it('force-stops when the screen claims working but output has stalled', () => {
+    service.startProcess(1, 'prompt', 'run');
+    mockOnDataHandler?.('\x1b]0;⠋ Thinking\x07');
+
+    const stopped = service.stopProcessFromHook(1);
+    expect(stopped).toBe(false);
+
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+    // 5 consecutive stalled (zero-output) re-evaluations at 3s intervals must still
+    // guarantee termination instead of leaking the PTY session forever, since a
+    // "working" screen with no output for that long is a stale frame, not real work.
+    vi.advanceTimersByTime(3000);
+    expect(mockKill).not.toHaveBeenCalled();
+    vi.advanceTimersByTime(3000);
+    expect(mockKill).not.toHaveBeenCalled();
+    vi.advanceTimersByTime(3000);
+    expect(mockKill).not.toHaveBeenCalled();
+    vi.advanceTimersByTime(3000);
+    expect(mockKill).not.toHaveBeenCalled();
+    vi.advanceTimersByTime(3000);
+
+    expect(mockKill).toHaveBeenCalled();
+    expect(service.listRunningTasks()).toEqual([]);
+    expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining('force-stopping to avoid a leaked session'));
+    errorSpy.mockRestore();
+  });
+
+  it('never force-stops a blocked screen waiting for user input', () => {
+    service.startProcess(1, 'prompt', 'run');
+    mockOnDataHandler?.('Do you want to proceed?\nesc to cancel');
+
+    const stopped = service.stopProcessFromHook(1);
+    expect(stopped).toBe(false);
+
+    // A permission prompt is legitimately static while it waits for the user, so it must
+    // never be force-stopped no matter how many deferred re-evaluations elapse.
+    vi.advanceTimersByTime(3000 * 10);
+
+    expect(mockKill).not.toHaveBeenCalled();
+    expect(service.listRunningTasks()).toEqual([{ taskId: 1, command: 'run' }]);
+  });
+
+  // Regression for #705: a blocked-sounding word in an ordinary final answer (e.g. "Press
+  // Esc to cancel") must not keep the session alive forever. Since a screen classified as
+  // "blocked" is never force-stopped by scheduleDeferredHookStop, an ordinary answer that
+  // happens to mention a blocked word previously left the session leaked indefinitely once
+  // the idle prompt marker appeared beneath it.
+  it('stops immediately when a blocked-sounding word in ordinary answer text is followed by the idle prompt', () => {
+    service.startProcess(1, 'prompt', 'run');
+    mockOnDataHandler?.('The task is complete. Press Esc to cancel if you want to undo.\n❯');
+
+    const stopped = service.stopProcessFromHook(1);
+
+    expect(stopped).toBe(true);
+    expect(mockKill).toHaveBeenCalled();
+    expect(service.listRunningTasks()).toEqual([]);
+  });
+
+  it('never force-stops when a stale OSC spinner title lingers behind a visible permission prompt', () => {
+    service.startProcess(1, 'prompt', 'run');
+    // Buffer retains an earlier spinner title from before Claude paused for permission,
+    // while the currently rendered screen shows the permission prompt.
+    mockOnDataHandler?.('\x1b]0;⠋ Thinking\x07Bash command needs permission\nDo you want to proceed?\nesc to cancel');
+
+    const stopped = service.stopProcessFromHook(1);
+    expect(stopped).toBe(false);
+
+    // Regression for #706: without prioritizing the current screen's blocked signal over
+    // the stale spinner title, this session would previously be force-killed after
+    // MAX_STALLED_DEFERRED_HOOK_STOP_CHECKS (5) re-evaluations at 3s intervals (15s).
+    vi.advanceTimersByTime(3000 * 5);
+
+    expect(mockKill).not.toHaveBeenCalled();
+    expect(service.listRunningTasks()).toEqual([{ taskId: 1, command: 'run' }]);
+  });
+
+  it('keeps deferring without force-stop while output continues flowing', () => {
+    service.startProcess(1, 'prompt', 'run');
+    mockOnDataHandler?.('\x1b]0;⠋ Thinking\x07');
+
+    const stopped = service.stopProcessFromHook(1);
+    expect(stopped).toBe(false);
+
+    // Output keeps changing well past MAX_STALLED_DEFERRED_HOOK_STOP_CHECKS re-evaluations;
+    // as long as the buffer is still moving, this is genuine in-flight work and must never
+    // be force-stopped.
+    for (let i = 0; i < 7; i++) {
+      mockOnDataHandler?.('chunk' + i + '\n');
+      vi.advanceTimersByTime(3000);
+      expect(mockKill).not.toHaveBeenCalled();
+    }
+
+    // Screen settles to idle; the next re-evaluation stops it as usual.
+    mockOnDataHandler?.('\x1b]0;Claude\x07Ready\n❯');
+    vi.advanceTimersByTime(3000);
+
+    expect(mockKill).toHaveBeenCalled();
+    expect(service.listRunningTasks()).toEqual([]);
+  });
+
+  it('stopProcessFromHook does not stack duplicate deferred timers on repeated guard skips', () => {
+    service.startProcess(1, 'prompt', 'run');
+    mockOnDataHandler?.('\x1b]0;⠋ Thinking\x07');
+
+    // Two real Stop-hook calls while still working must not reset/duplicate the deferred
+    // re-evaluation schedule — otherwise force-termination could be delayed indefinitely.
+    expect(service.stopProcessFromHook(1)).toBe(false);
+    expect(service.stopProcessFromHook(1)).toBe(false);
+
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    vi.advanceTimersByTime(3000 * 5);
+
+    expect(mockKill).toHaveBeenCalledTimes(1);
+    errorSpy.mockRestore();
+  });
+
+  it('clears the deferred hook-stop timer on natural process exit', () => {
+    service.startProcess(1, 'prompt', 'run');
+    mockOnDataHandler?.('Do you want to proceed?\nesc to cancel');
+    service.stopProcessFromHook(1);
+
+    // Process exits naturally before the deferred re-evaluation fires.
+    mockOnExitHandler?.({ exitCode: 0 });
+    mockKill.mockClear();
+
+    vi.advanceTimersByTime(3000 * 5);
+
+    // No stale timer should fire stopProcess again on the already-cleaned-up session.
+    expect(mockKill).not.toHaveBeenCalled();
+  });
+
+  it('clears the deferred hook-stop timer when the session is stopped directly', () => {
+    service.startProcess(1, 'prompt', 'run');
+    mockOnDataHandler?.('Do you want to proceed?\nesc to cancel');
+    service.stopProcessFromHook(1);
+
+    service.stopProcess(1);
+    mockKill.mockClear();
+
+    vi.advanceTimersByTime(3000 * 5);
+
+    expect(mockKill).not.toHaveBeenCalled();
   });
 });
 

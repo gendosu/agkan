@@ -22,15 +22,15 @@ start_hook_attention_server() {
     kill_port "$HOOK_ATTENTION_PORT"
 
     print_info "Starting board server (hook-attention) on port $HOOK_ATTENTION_PORT..."
-    setsid node "$SCRIPT_DIR/bin/agkan" board --port "$HOOK_ATTENTION_PORT" &
-    HOOK_ATTENTION_PID=$!
+    start_background_process node "$SCRIPT_DIR/bin/agkan" board --port "$HOOK_ATTENTION_PORT"
+    HOOK_ATTENTION_PID=$BACKGROUND_PROCESS_PID
 
     local retries=0
     while ! curl -s "http://localhost:$HOOK_ATTENTION_PORT/" > /dev/null 2>&1; do
         retries=$((retries + 1))
         if [ $retries -ge 50 ]; then
             print_error "Hook attention board server failed to start within 10 seconds"
-            kill -- -"$HOOK_ATTENTION_PID" 2>/dev/null || true
+            stop_background_process "$HOOK_ATTENTION_PID"
             kill_port "$HOOK_ATTENTION_PORT"
             HOOK_ATTENTION_PID=""
             return 1
@@ -45,7 +45,7 @@ start_hook_attention_server() {
 
     if [ -z "$HOOK_ATTENTION_HOOK_TOKEN" ]; then
         print_error "Failed to get hook token from server (got: $token_response)"
-        kill -- -"$HOOK_ATTENTION_PID" 2>/dev/null || true
+        stop_background_process "$HOOK_ATTENTION_PID"
         kill_port "$HOOK_ATTENTION_PORT"
         HOOK_ATTENTION_PID=""
         return 1
@@ -57,7 +57,7 @@ start_hook_attention_server() {
 stop_hook_attention_server() {
     if [ -n "$HOOK_ATTENTION_PID" ]; then
         print_info "Stopping hook attention board server (PID: $HOOK_ATTENTION_PID)..."
-        kill -- -"$HOOK_ATTENTION_PID" 2>/dev/null || kill "$HOOK_ATTENTION_PID" 2>/dev/null || true
+        stop_background_process "$HOOK_ATTENTION_PID"
         HOOK_ATTENTION_PID=""
     fi
     kill_port "$HOOK_ATTENTION_PORT"
@@ -261,7 +261,7 @@ test_hook_stop_without_ask_user_question() {
 
     # Create transcript without AskUserQuestion
     local transcript_tmp
-    transcript_tmp=$(mktemp --suffix=".jsonl")
+    transcript_tmp=$(mktemp "${TMPDIR:-/tmp}/agkan-hook-transcript.XXXXXX")
     cat > "$transcript_tmp" << 'EOF'
 {"type":"assistant","message":{"content":[{"type":"tool_use","name":"Read","id":"t1","input":{}}]}}
 EOF
@@ -319,7 +319,7 @@ test_hook_stop_with_ask_user_question() {
 
     # Create transcript WITH AskUserQuestion as last tool_use
     local transcript_tmp
-    transcript_tmp=$(mktemp --suffix=".jsonl")
+    transcript_tmp=$(mktemp "${TMPDIR:-/tmp}/agkan-hook-transcript.XXXXXX")
     cat > "$transcript_tmp" << 'EOF'
 {"type":"assistant","message":{"content":[{"type":"tool_use","name":"AskUserQuestion","id":"t1","input":{"question":"What do you want?"}}]}}
 EOF
@@ -368,7 +368,7 @@ EOF
     rm -f "$hook_stderr_tmp"
 
     # Re-create transcript since previous one was deleted
-    transcript_tmp=$(mktemp --suffix=".jsonl")
+    transcript_tmp=$(mktemp "${TMPDIR:-/tmp}/agkan-hook-transcript.XXXXXX")
     cat > "$transcript_tmp" << 'EOF'
 {"type":"assistant","message":{"content":[{"type":"tool_use","name":"AskUserQuestion","id":"t1","input":{"question":"What do you want?"}}]}}
 EOF
