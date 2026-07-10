@@ -7,11 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.19.0] - 2026-07-10
+
 ### 追加
 - `task comment update <comment-id> <content>` CLI コマンドを追加。Board API に既に存在するコメント編集機能と揃えた (#655)
+- Board ターミナルセッションにスクリーン状態検知による安全なプロセス終了を追加。hook-stop フローがターミナルのスクリーン状態（ブロック/パーミッションプロンプト、スピナー動作、カーソル消去シーケンス）を検知し、実行中の作業を強制終了せず、安全にアイドル状態のときのみセッションを終了するようにした (#377)
 
 ### 修正
 - Board の planning セッションが終了しない問題を修正。Stop フックのバックグラウンドジョブガードがすべての `Agent` ツール使用を実行中のバックグラウンドジョブとして扱い、完了判定を `<task-notification>` マーカーのみに依存していたが、同期（フォアグラウンド）実行の Agent はこのマーカーを一切出力しない。Agent の最終 tool_result（エラー・拒否の結果を含む）も完了として認識するようにし、真の非同期起動中はこれまで通りセッションを維持する
+- `task purge`・`task archive`・`task unarchive` が BoardEventService に通知せず、Board クライアントが次のフルリフレッシュまで変更を認識できなかった問題を修正 (#628)
+- `message.content` が単純な文字列でない場合（コンテンツブロック配列など）に Stop フックが `<task-notification>` マーカーを検出できなかった問題を修正 (#692)
 
 ## [3.18.0] - 2026-07-05
 
