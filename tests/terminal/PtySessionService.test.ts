@@ -115,6 +115,25 @@ describe('detectClaudeScreenStatus', () => {
     const output = 'esc to interrupt\r\x1b[1K\n❯';
     expect(detectClaudeScreenStatus(output)).toBe('idle');
   });
+
+  // Regression for #705: a blocked-sounding word in ordinary answer text must not outrank
+  // a fresh idle prompt marker rendered below it, or the session never terminates.
+  it('detects idle when a blocked-sounding word appears in ordinary answer text above the prompt marker', () => {
+    const output = 'The task is complete. Press Esc to cancel if you want to undo.\n❯';
+    expect(detectClaudeScreenStatus(output)).toBe('idle');
+  });
+
+  it('detects blocked for a real permission UI with question, selection cursor, and hint line', () => {
+    const output = 'Do you want to proceed?\n❯ 1. Yes\n  2. No\n\nEnter to select · Esc to cancel';
+    expect(detectClaudeScreenStatus(output)).toBe('blocked');
+  });
+
+  // The selection cursor "❯ 1. Yes" must not be mistaken for the idle prompt marker, or a
+  // permission UI with no trailing hint line would be misdetected as idle.
+  it('detects blocked for a permission UI with a selection cursor line but no trailing hint line', () => {
+    const output = 'Do you want to proceed?\n❯ 1. Yes\n  2. No';
+    expect(detectClaudeScreenStatus(output)).toBe('blocked');
+  });
 });
 
 // Mock node-pty
@@ -488,6 +507,22 @@ describe('PtySessionService', () => {
 
     expect(mockKill).not.toHaveBeenCalled();
     expect(service.listRunningTasks()).toEqual([{ taskId: 1, command: 'run' }]);
+  });
+
+  // Regression for #705: a blocked-sounding word in an ordinary final answer (e.g. "Press
+  // Esc to cancel") must not keep the session alive forever. Since a screen classified as
+  // "blocked" is never force-stopped by scheduleDeferredHookStop, an ordinary answer that
+  // happens to mention a blocked word previously left the session leaked indefinitely once
+  // the idle prompt marker appeared beneath it.
+  it('stops immediately when a blocked-sounding word in ordinary answer text is followed by the idle prompt', () => {
+    service.startProcess(1, 'prompt', 'run');
+    mockOnDataHandler?.('The task is complete. Press Esc to cancel if you want to undo.\n❯');
+
+    const stopped = service.stopProcessFromHook(1);
+
+    expect(stopped).toBe(true);
+    expect(mockKill).toHaveBeenCalled();
+    expect(service.listRunningTasks()).toEqual([]);
   });
 
   it('never force-stops when a stale OSC spinner title lingers behind a visible permission prompt', () => {

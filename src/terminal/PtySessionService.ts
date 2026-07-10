@@ -248,6 +248,36 @@ function recentScreenText(text: string): string {
   return renderVisibleScreen(text).split('\n').slice(-RECENT_SCREEN_LINE_LIMIT).join('\n');
 }
 
+const BLOCKED_LINE_PATTERNS = [
+  /\benter to select\b/,
+  /\besc to cancel\b/,
+  /\brun a dynamic workflow\b/,
+  /\bdo you want to proceed\b/,
+];
+
+// A permission prompt's selection cursor also renders as "❯ 1. Yes", reusing the same
+// glyph as the idle input prompt marker. Without excluding this shape, a permission UI
+// with no trailing hint line (e.g. "Do you want to proceed?\n❯ 1. Yes\n  2. No") would have
+// its lowest ❯-bearing line mistaken for an idle prompt instead of the selection cursor.
+const SELECTION_CURSOR_LINE_PATTERN = /^\s*❯\s*\d+[.)]/;
+
+function isBlockedLine(line: string): boolean {
+  return BLOCKED_LINE_PATTERNS.some((pattern) => pattern.test(line));
+}
+
+function isIdlePromptLine(line: string): boolean {
+  return line.includes('❯') && !SELECTION_CURSOR_LINE_PATTERN.test(line);
+}
+
+function findLastMatchingLineIndex(lines: string[], predicate: (line: string) => boolean): number {
+  for (let i = lines.length - 1; i >= 0; i -= 1) {
+    if (predicate(lines[i])) {
+      return i;
+    }
+  }
+  return -1;
+}
+
 export function detectClaudeScreenStatus(outputBuffer: string): ClaudeScreenStatus {
   const recent = recentScreenText(outputBuffer);
   const normalized = recent.toLowerCase();
@@ -256,12 +286,16 @@ export function detectClaudeScreenStatus(outputBuffer: string): ClaudeScreenStat
     return 'working';
   }
 
-  if (
-    /\benter to select\b/.test(normalized) ||
-    /\besc to cancel\b/.test(normalized) ||
-    /\brun a dynamic workflow\b/.test(normalized) ||
-    /\bdo you want to proceed\b/.test(normalized)
-  ) {
+  // Blocked words (e.g. "esc to cancel") and the idle prompt marker (❯) can both appear
+  // on screen at once: an ordinary answer may mention "Press Esc to cancel" above a fresh
+  // idle prompt, while a real permission UI renders its hint words below the prompt's
+  // selection cursor. Rather than a fixed precedence, prefer whichever signal is on the
+  // lowest (most recently rendered) line.
+  const lines = normalized.split('\n');
+  const blockedLineIdx = findLastMatchingLineIndex(lines, isBlockedLine);
+  const idleLineIdx = findLastMatchingLineIndex(lines, isIdlePromptLine);
+
+  if (blockedLineIdx !== -1 && blockedLineIdx >= idleLineIdx) {
     return 'blocked';
   }
 
@@ -270,7 +304,7 @@ export function detectClaudeScreenStatus(outputBuffer: string): ClaudeScreenStat
     return 'working';
   }
 
-  if (recent.includes('❯')) {
+  if (idleLineIdx !== -1) {
     return 'idle';
   }
 
