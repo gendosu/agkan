@@ -7,11 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.19.0] - 2026-07-10
+
 ### Added
 - Add `task comment update <comment-id> <content>` CLI command, matching the existing Board API comment edit capability (#655)
+- Add screen-aware safe process termination for Board terminal sessions: the hook-stop flow now detects the terminal screen status (blocked/permission prompts, spinner activity, cursor-erase sequences) and only terminates a session when it is safely idle, instead of force-killing in-flight work (#377)
 
 ### Fixed
 - Fix Board planning sessions never terminating: the Stop hook's background-job guard treated every `Agent` tool use as an in-flight background job and only recognized `<task-notification>` markers as completion, which synchronous (foreground) Agent runs never emit. The guard now also recognizes an Agent's final tool_result (including error/rejection results) as completion, while still keeping the session alive for genuine async launches
+- Fix `task purge`, `task archive`, and `task unarchive` not notifying BoardEventService, leaving Board clients unaware of those changes until the next full refresh (#628)
+- Fix the Stop hook failing to detect `<task-notification>` markers when `message.content` was not a plain string (e.g. content-block arrays) (#692)
 
 ## [3.18.0] - 2026-07-05
 
