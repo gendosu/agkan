@@ -3,7 +3,7 @@
 [![Test](https://github.com/gendosu/agkan/workflows/Test/badge.svg?branch=main)](https://github.com/gendosu/agkan/actions/workflows/test.yml)
 [![Quality Check](https://github.com/gendosu/agkan/workflows/Quality%20Check/badge.svg?branch=main)](https://github.com/gendosu/agkan/actions/workflows/quality.yml)
 
-TypeScriptで実装された軽量なCLIタスク管理ツールです。人間とAIコーディングエージェントが協働するために作られています。
+人間とAIコーディングエージェントが一緒にタスクを進めるための、軽量なCLI＆カンバンボードです。
 
 ![agkanのカンバンボード](docs/assets/readme-board.png)
 
@@ -14,7 +14,6 @@ TypeScriptで実装された軽量なCLIタスク管理ツールです。人間�
 - 7つのステータスによるカンバンワークフロー: icebox, backlog, ready, in_progress, review, done, closed
 - コマンドライン引数またはMarkdownファイルからタスクを作成。ステータス・作成者・タグで絞り込み
 - ステータスごとに見やすい色分け表示
-- 構造化されたキー/バリュー形式のメタデータ（例: `priority`）をタスクごとに管理
 
 **依存関係**
 - ツリー表示に対応した親子関係（`task list --tree`）

@@ -3,7 +3,7 @@
 [![Test](https://github.com/gendosu/agkan/workflows/Test/badge.svg?branch=main)](https://github.com/gendosu/agkan/actions/workflows/test.yml)
 [![Quality Check](https://github.com/gendosu/agkan/workflows/Quality%20Check/badge.svg?branch=main)](https://github.com/gendosu/agkan/actions/workflows/quality.yml)
 
-A lightweight CLI task management tool, built for humans and AI coding agents working together.
+A lightweight CLI & Kanban board for humans and AI coding agents to get things done together.
 
 ![agkan Kanban board](docs/assets/readme-board.png)
 
@@ -14,7 +14,6 @@ A lightweight CLI task management tool, built for humans and AI coding agents wo
 - 7-status Kanban workflow: icebox, backlog, ready, in_progress, review, done, closed
 - Create tasks from CLI arguments or Markdown files; filter by status, author, or tag
 - Color-coded terminal output
-- Metadata support (e.g. `priority`) for structured, per-task key/value fields
 
 **Dependencies**
 - Parent-child relationships with tree view (`task list --tree`)
