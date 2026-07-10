@@ -1,5 +1,14 @@
 # 開発
 
+## 技術スタック
+
+- **言語**: TypeScript 5.x
+- **CLIフレームワーク**: Commander.js
+- **データベース**: SQLite3 (better-sqlite3)
+- **ターミナル表示**: Chalk
+- **Webサーバー**: Hono（カンバンボードビューア用）
+- **ビルドツール**: TypeScript Compiler
+
 ## 開発者向けセットアップ
 
 agkan自体の開発に参加したい開発者向けの手順:
