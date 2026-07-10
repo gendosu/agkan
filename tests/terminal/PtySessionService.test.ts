@@ -50,6 +50,18 @@ describe('detectClaudeScreenStatus', () => {
     expect(detectClaudeScreenStatus('\x1b]0;⠋ Thinking\x07prompt')).toBe('working');
   });
 
+  // Regression for #706: a stale OSC spinner title left over from before Claude paused
+  // must not override a permission prompt that is now visibly displayed on screen.
+  it('detects blocked over a stale OSC spinner title when a permission prompt is now visible', () => {
+    const output = '\x1b]0;⠋ Thinking\x07Bash command needs permission\nDo you want to proceed?\nesc to cancel';
+    expect(detectClaudeScreenStatus(output)).toBe('blocked');
+  });
+
+  it('still detects working when the OSC spinner title and the current busy signal agree', () => {
+    const output = '\x1b]0;⠋ Thinking\x07running tests\nesc to interrupt';
+    expect(detectClaudeScreenStatus(output)).toBe('working');
+  });
+
   // Regression for #704: latestOscTitle must resolve to the LAST OSC 0/2 title in the
   // buffer even when an earlier spinner-style title is also present, not just the first.
   it('uses only the last OSC title when multiple are present in the buffer', () => {
@@ -473,6 +485,24 @@ describe('PtySessionService', () => {
     // A permission prompt is legitimately static while it waits for the user, so it must
     // never be force-stopped no matter how many deferred re-evaluations elapse.
     vi.advanceTimersByTime(3000 * 10);
+
+    expect(mockKill).not.toHaveBeenCalled();
+    expect(service.listRunningTasks()).toEqual([{ taskId: 1, command: 'run' }]);
+  });
+
+  it('never force-stops when a stale OSC spinner title lingers behind a visible permission prompt', () => {
+    service.startProcess(1, 'prompt', 'run');
+    // Buffer retains an earlier spinner title from before Claude paused for permission,
+    // while the currently rendered screen shows the permission prompt.
+    mockOnDataHandler?.('\x1b]0;⠋ Thinking\x07Bash command needs permission\nDo you want to proceed?\nesc to cancel');
+
+    const stopped = service.stopProcessFromHook(1);
+    expect(stopped).toBe(false);
+
+    // Regression for #706: without prioritizing the current screen's blocked signal over
+    // the stale spinner title, this session would previously be force-killed after
+    // MAX_STALLED_DEFERRED_HOOK_STOP_CHECKS (5) re-evaluations at 3s intervals (15s).
+    vi.advanceTimersByTime(3000 * 5);
 
     expect(mockKill).not.toHaveBeenCalled();
     expect(service.listRunningTasks()).toEqual([{ taskId: 1, command: 'run' }]);

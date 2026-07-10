@@ -249,11 +249,6 @@ function recentScreenText(text: string): string {
 }
 
 export function detectClaudeScreenStatus(outputBuffer: string): ClaudeScreenStatus {
-  const title = latestOscTitle(outputBuffer);
-  if (title && /^[\u2800-\u28ff] /.test(title)) {
-    return 'working';
-  }
-
   const recent = recentScreenText(outputBuffer);
   const normalized = recent.toLowerCase();
 
@@ -268,6 +263,11 @@ export function detectClaudeScreenStatus(outputBuffer: string): ClaudeScreenStat
     /\bdo you want to proceed\b/.test(normalized)
   ) {
     return 'blocked';
+  }
+
+  const title = latestOscTitle(outputBuffer);
+  if (title && /^[\u2800-\u28ff] /.test(title)) {
+    return 'working';
   }
 
   if (recent.includes('❯')) {
