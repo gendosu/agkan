@@ -50,15 +50,17 @@ function findLastToolUse(entries) {
 // the current turn ends on an unrelated tool (e.g. ScheduleWakeup) — the last-tool-only
 // view used by findLastToolUse cannot see it, so a full scan is required here.
 //
-// Two shapes are recognized:
-//   1. Bash or Task with input.run_in_background === true (the documented flag).
-//   2. Agent, with no flag at all, when `includeAgentWithoutFlag` is true. Newer CLI
-//      versions run sub-agents under the tool name `Agent` and default to background
-//      execution without ever setting run_in_background (see #667). This shape is only
-//      opted into by the caller for BOARD_TARGET_STATUS-less (planning) sessions: this
-//      guard runs before the status-reached check, so if an Agent's completion is never
-//      observed as a matching <task-notification>, treating it as background here would
-//      permanently block status-based termination for pr/run sessions.
+// Two shapes are recognized, and each job is tagged with its `kind` because the two
+// shapes have different completion signals (see the guard in main()):
+//   1. `kind: 'flagged'` — Bash or Task with input.run_in_background === true (the
+//      documented flag). Completion is signalled only by a matching <task-notification>.
+//   2. `kind: 'agent'` — Agent, with no flag at all, when `includeAgentWithoutFlag` is
+//      true. Newer CLI versions run sub-agents under the tool name `Agent` and may run
+//      them in the background without ever setting run_in_background (see #667). This
+//      shape is only opted into by the caller for BOARD_TARGET_STATUS-less (planning)
+//      sessions: this guard runs before the status-reached check, so if an Agent's
+//      completion is never observed, treating it as background here would permanently
+//      block status-based termination for pr/run sessions.
 function findBackgroundJobToolUses(entries, { includeAgentWithoutFlag = false } = {}) {
   const jobs = [];
   for (const entry of entries) {
@@ -76,7 +78,7 @@ function findBackgroundJobToolUses(entries, { includeAgentWithoutFlag = false } 
       if (isFlaggedBashOrTask || isUnflaggedAgent) {
         // A missing id means we cannot verify completion at all — treat conservatively
         // as unfinished rather than silently skipping the guard.
-        jobs.push(item.id ?? null);
+        jobs.push({ id: item.id ?? null, kind: isUnflaggedAgent ? 'agent' : 'flagged' });
       }
     }
   }
@@ -111,6 +113,38 @@ function entryContainsMarker(entry, marker) {
 function isBackgroundJobComplete(entries, toolUseId) {
   const marker = `<tool-use-id>${toolUseId}</tool-use-id>`;
   return entries.some((entry) => entryContainsMarker(entry, marker));
+}
+
+// Completion check for the `Agent`-without-flag shape. Unlike flagged Bash/Task jobs,
+// Agent runs are synchronous by default: the tool_result IS the agent's final report,
+// and no <task-notification> marker is ever emitted for it. The only tool_result that
+// must not count as completion is the background-launch ack, which is recognized by its
+// `toolUseResult` sidecar (`isAsync: true` / `status: 'async_launched'`) or, when the
+// sidecar is absent, by its "Async agent launched" text. A string `toolUseResult`
+// (error / user rejection) means nothing is running, so it also counts as final.
+function hasFinalAgentToolResult(entries, toolUseId) {
+  for (const entry of entries) {
+    const messageContent = entry?.message?.content;
+    if (!Array.isArray(messageContent)) continue;
+    for (const block of messageContent) {
+      if (block?.type !== 'tool_result' || block.tool_use_id !== toolUseId) continue;
+      const sidecar = entry.toolUseResult;
+      if (sidecar && typeof sidecar === 'object') {
+        if (sidecar.isAsync === true || sidecar.status === 'async_launched') continue;
+        return true;
+      }
+      const texts = [];
+      if (typeof block.content === 'string') texts.push(block.content);
+      if (Array.isArray(block.content)) {
+        for (const part of block.content) {
+          if (typeof part?.text === 'string') texts.push(part.text);
+        }
+      }
+      if (texts.some((t) => t.includes('Async agent launched'))) continue;
+      return true;
+    }
+  }
+  return false;
 }
 
 // Fetches the current task status from the board and checks whether it has reached the
@@ -237,8 +271,17 @@ async function main() {
   // signal to fall back on. pr/run/direct sessions always have BOARD_TARGET_STATUS set and
   // rely on the status-reached check below as their sole termination signal (see #667) —
   // opting an unverified completion shape into their guard could wedge them open forever.
-  const backgroundJobIds = findBackgroundJobToolUses(entries, { includeAgentWithoutFlag: !targetStatus });
-  const hasUnfinishedBackgroundJob = backgroundJobIds.some((id) => !isBackgroundJobComplete(entries, id));
+  //
+  // Completion is shape-specific: flagged Bash/Task jobs complete only via the
+  // <task-notification> marker, while Agent runs also complete via their final
+  // tool_result — synchronous Agent runs never emit a marker, so requiring one would
+  // keep planning sessions alive forever after a foreground sub-agent returns.
+  const backgroundJobs = findBackgroundJobToolUses(entries, { includeAgentWithoutFlag: !targetStatus });
+  const hasUnfinishedBackgroundJob = backgroundJobs.some((job) => {
+    if (job.id === null) return true;
+    if (isBackgroundJobComplete(entries, job.id)) return false;
+    return !(job.kind === 'agent' && hasFinalAgentToolResult(entries, job.id));
+  });
   if (hasUnfinishedBackgroundJob) return;
 
   // When a target status is configured (pr/run/direct), status-reached is the ONLY
