@@ -188,10 +188,11 @@
         {
           "name": "agkan task comment",
           "desc": "Manage comments on a task",
-          "syntax": "agkan task comment <add|list|delete> ...",
+          "syntax": "agkan task comment <add|list|update|delete> ...",
           "opts": [
             ["add <task-id> <content>", "Add a comment to a task"],
             ["list <task-id>", "List all comments for a task"],
+            ["update <comment-id> <content>", "Update a comment by ID"],
             ["delete <comment-id>", "Delete a comment by ID"],
             ["--author <author>", "Comment author (add only)"],
             ["--json", "Output as JSON"]
@@ -199,6 +200,7 @@
           "examples": [
             "agkan task comment add 1 \"Looks good\" --author claude",
             "agkan task comment list 1",
+            "agkan task comment update 5 \"Updated content\"",
             "agkan task comment delete 5"
           ]
         },
@@ -594,10 +596,11 @@
         {
           "name": "agkan task comment",
           "desc": "タスクのコメントを管理",
-          "syntax": "agkan task comment <add|list|delete> ...",
+          "syntax": "agkan task comment <add|list|update|delete> ...",
           "opts": [
             ["add <task-id> <content>", "タスクにコメントを追加"],
             ["list <task-id>", "タスクのコメント一覧を表示"],
+            ["update <comment-id> <content>", "コメントをIDで更新"],
             ["delete <comment-id>", "コメントをIDで削除"],
             ["--author <author>", "コメント投稿者（add時のみ）"],
             ["--json", "JSON形式で出力"]
@@ -605,6 +608,7 @@
           "examples": [
             "agkan task comment add 1 \"動作確認しました\" --author claude",
             "agkan task comment list 1",
+            "agkan task comment update 5 \"内容を更新しました\"",
             "agkan task comment delete 5"
           ]
         },
