@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Add an `e2e` job to the `Test` GitHub Actions workflow so the 18-section E2E suite (`pnpm run test:e2e`) runs on every PR and push to `main`, instead of only manually via `pnpm run test:all` (#641)
+
 ## [3.19.0] - 2026-07-10
 
 ### Added
