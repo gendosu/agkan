@@ -33,6 +33,12 @@ function setupAddModalDOM(): void {
         </div>
         <div id="add-metadata-rows"></div>
         <button type="button" id="add-metadata-add-row">+ Add metadata</button>
+        <select id="add-model-planning">
+          <option value="">Default (config)</option>
+        </select>
+        <select id="add-model-run">
+          <option value="">Default (config)</option>
+        </select>
         <input type="hidden" id="add-status">
         <div class="modal-actions">
           <button id="add-cancel">Cancel</button>
