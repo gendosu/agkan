@@ -110,6 +110,41 @@ module.exports = [
     },
   },
   {
+    files: ['vitest.config.ts'],
+    languageOptions: {
+      parser: tsParser,
+      parserOptions: {
+        ecmaVersion: 2020,
+        sourceType: 'module',
+        project: './tsconfig.config.json',
+      },
+      globals: {
+        console: 'readonly',
+        process: 'readonly',
+      },
+    },
+    plugins: {
+      '@typescript-eslint': tsPlugin,
+    },
+    rules: {
+      ...tsPlugin.configs.recommended.rules,
+      '@typescript-eslint/no-explicit-any': 'error',
+      'max-len': [
+        'error',
+        {
+          code: 120,
+          ignoreStrings: true,
+          ignoreTemplateLiterals: true,
+          ignoreComments: true,
+        },
+      ],
+      'no-console': 'off',
+      semi: ['error', 'always'],
+      indent: ['error', 2],
+      quotes: ['error', 'single'],
+    },
+  },
+  {
     files: ['tests/**/*.ts'],
     languageOptions: {
       parser: tsParser,
