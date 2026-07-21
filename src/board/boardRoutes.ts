@@ -32,6 +32,7 @@ import { runTargetStatus } from '../utils/runTargetStatus';
 import { AttentionStateService } from '../services/AttentionStateService';
 import { BoardEventService } from '../services/BoardEventService';
 import { isTestMode } from '../db/config';
+import { getTaskModelOverride, persistTaskModelOverrides } from './taskModelOverride';
 
 export type BoardServices = {
   ts: TaskService;
@@ -54,6 +55,7 @@ type TaskPatchBody = {
   status?: BoardTaskStatus;
   priority?: string | null;
   branch?: string | null;
+  models?: unknown;
 };
 
 type BoardTaskStatus = TaskStatus;
@@ -116,6 +118,7 @@ type CreateTaskBody = {
   branch?: string | null;
   tags?: unknown;
   metadata?: unknown;
+  models?: unknown;
 };
 
 function resolveTagIds(rawTags: unknown, tags: TagService): number[] | undefined {
@@ -154,6 +157,7 @@ function registerCreateTaskRoute(app: Hono, ts: TaskService, ms: MetadataService
       tagIds,
     });
     persistTaskMetadata(task.id, body.metadata, ms);
+    persistTaskModelOverrides(task.id, body.models, ms);
     return c.json(task, 201);
   });
 }
@@ -191,14 +195,16 @@ function registerGetTaskRoute(
   });
 }
 
-function registerPatchAndDeleteTaskRoutes(app: Hono, ts: TaskService): void {
+function registerPatchAndDeleteTaskRoutes(app: Hono, ts: TaskService, ms: MetadataService): void {
   app.patch('/api/tasks/:id', async (c) => {
     const id = Number(c.req.param('id'));
     if (isNaN(id)) return c.json({ error: 'Invalid task id' }, 400);
-    const { input, error } = buildTaskUpdateInput(await c.req.json<TaskPatchBody>());
+    const body = await c.req.json<TaskPatchBody>();
+    const { input, error } = buildTaskUpdateInput(body);
     if (error) return c.json({ error }, 400);
     const task = ts.updateTask(id, input);
     if (!task) return c.json({ error: 'Task not found' }, 404);
+    if (body.models !== undefined) persistTaskModelOverrides(id, body.models, ms);
     return c.json(task);
   });
   app.delete('/api/tasks/:id', (c) => {
@@ -221,7 +227,7 @@ function registerTaskCrudRoutes(
   registerListTaskRoute(app, ts);
   registerCreateTaskRoute(app, ts, ms, tags);
   registerGetTaskRoute(app, ts, tts, tbs, ms);
-  registerPatchAndDeleteTaskRoutes(app, ts);
+  registerPatchAndDeleteTaskRoutes(app, ts, ms);
 }
 
 function registerTaskCommentRoutes(app: Hono, cs: CommentService, ts: TaskService): void {
@@ -513,7 +519,7 @@ function parseBoardCardFilters(query: {
   return filters;
 }
 
-function registerClaudeRoutes(app: Hono, claudeProcess: PtySessionService, ts: TaskService): void {
+function registerClaudeRoutes(app: Hono, claudeProcess: PtySessionService, ts: TaskService, ms: MetadataService): void {
   app.post('/api/claude/tasks/:taskId/run', async (c) => {
     const taskId = Number(c.req.param('taskId'));
     if (isNaN(taskId)) return c.json({ error: 'Invalid taskId' }, 400);
@@ -558,8 +564,10 @@ function registerClaudeRoutes(app: Hono, claudeProcess: PtySessionService, ts: T
 
     const config = loadConfig();
     // 'pr' and 'run' commands both use the run model configuration
+    const overrideKind = command === 'planning' ? 'planning' : 'run';
     const rawConfig = command === 'planning' ? config.models?.planning : config.models?.run;
-    const model = rawConfig?.model?.trim() || undefined;
+    // Priority: task-level override (UI selection) > config file > default
+    const model = getTaskModelOverride(ms, taskId, overrideKind) ?? rawConfig?.model?.trim() ?? undefined;
     const effort = rawConfig?.effort?.trim() || undefined;
 
     const validEffortLevels = ['low', 'medium', 'high', 'xhigh', 'max'];
@@ -1006,8 +1014,8 @@ export function registerBoardRoutes(app: Hono, services: BoardServices): void {
   registerConfigApiRoutes(app, configDir);
   registerBoardNotifyRoute(app, boardEventService);
   if (services.ptySessionService) {
-    registerClaudeRoutes(app, services.ptySessionService, ts);
-    const bulkRunService = new BulkRunService(ts, tbs, services.ptySessionService);
+    registerClaudeRoutes(app, services.ptySessionService, ts, services.ms);
+    const bulkRunService = new BulkRunService(ts, tbs, services.ptySessionService, services.ms);
     registerBulkRunRoutes(app, bulkRunService);
   }
 }

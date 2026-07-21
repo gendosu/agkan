@@ -1,8 +1,10 @@
 import { TaskService } from '../services/TaskService';
 import { TaskBlockService } from '../services/TaskBlockService';
+import { MetadataService } from '../services/MetadataService';
 import { PtySessionService } from '../terminal/PtySessionService';
 import { loadConfig } from '../db/config';
 import { PRIORITY_ORDER } from '../models';
+import { getTaskModelOverride } from './taskModelOverride';
 
 export type BulkRunCommand = 'direct' | 'pr';
 type BulkRunState = 'idle' | 'running';
@@ -27,7 +29,8 @@ export class BulkRunService {
   constructor(
     private ts: TaskService,
     private tbs: TaskBlockService,
-    private claudeProcess: PtySessionService
+    private claudeProcess: PtySessionService,
+    private ms?: MetadataService
   ) {}
 
   getStatus(): BulkRunStatus {
@@ -149,10 +152,13 @@ export class BulkRunService {
         ? `Task ID: ${taskId}\n/agkan-subtask${exitInstruction}`
         : `Task ID: ${taskId}\n/agkan-subtask-direct${exitInstruction}`;
     const rawConfig = loadConfig().models?.run;
+    // Priority: task-level override (UI selection) > config file > default
+    const model =
+      (this.ms ? getTaskModelOverride(this.ms, taskId, 'run') : undefined) ?? rawConfig?.model?.trim() ?? undefined;
     return {
       prompt,
       ptyCommand,
-      model: rawConfig?.model?.trim() || undefined,
+      model,
       effort: rawConfig?.effort?.trim() || undefined,
     };
   }

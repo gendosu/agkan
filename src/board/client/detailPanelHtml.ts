@@ -91,6 +91,39 @@ export function renderPriorityField(currentPriority: string | null | undefined, 
   return html;
 }
 
+// Keep in sync with BOARD_MODEL_OPTIONS/MODEL_ALIAS_OPTIONS in src/board/boardRenderer.ts
+// (duplicated because the client bundle is compiled as a separate TS project).
+const MODEL_ALIAS_OPTIONS = ['opus', 'sonnet', 'haiku'];
+
+export const MODEL_PLANNING_METADATA_KEY = 'model:planning';
+export const MODEL_RUN_METADATA_KEY = 'model:run';
+
+function renderModelSelect(id: string, currentValue: string): string {
+  let html = '<select id="' + id + '" class="detail-edit-select">';
+  html += '<option value="">Default (config)</option>';
+  MODEL_ALIAS_OPTIONS.forEach((m) => {
+    const selected = m === currentValue ? ' selected' : '';
+    html += '<option value="' + m + '"' + selected + '>' + m.charAt(0).toUpperCase() + m.slice(1) + '</option>';
+  });
+  html += '</select>';
+  return html;
+}
+
+export function renderModelFields(metadata: Array<{ key: string; value: string }>): string {
+  const planningValue = metadata.find((m) => m.key === MODEL_PLANNING_METADATA_KEY)?.value ?? '';
+  const runValue = metadata.find((m) => m.key === MODEL_RUN_METADATA_KEY)?.value ?? '';
+
+  let html = '<div class="detail-field">';
+  html += '<div class="detail-field-label">Planning Model</div>';
+  html += renderModelSelect('detail-edit-model-planning', planningValue);
+  html += '</div>';
+  html += '<div class="detail-field">';
+  html += '<div class="detail-field-label">Run Model</div>';
+  html += renderModelSelect('detail-edit-model-run', runValue);
+  html += '</div>';
+  return html;
+}
+
 export function renderBranchField(currentBranch: string | null | undefined): string {
   const isAuto = currentBranch === null || currentBranch === undefined || currentBranch === BRANCH_AUTO_GENERATE;
   const displayValue = isAuto ? BRANCH_AUTO_GENERATE_DISPLAY : escapeHtmlClient(currentBranch as string);
@@ -200,6 +233,7 @@ export function renderDetailPanelHtml(data: TaskDetail): string {
   html += renderStatusField(task.status, allStatuses, statusLabels);
   html += renderPriorityField(task.priority, allPriorities);
   html += renderBranchField(task.branch);
+  html += renderModelFields(metadata);
   html += '<div class="detail-field"><div class="detail-field-label">Tags</div>';
   html += '<div id="detail-tags-container"></div></div>';
 
@@ -208,7 +242,10 @@ export function renderDetailPanelHtml(data: TaskDetail): string {
     html += renderRelationsHtml(parent, blockedBy, blocking);
   }
 
-  html += renderMetadataTable(metadata);
+  const displayMetadata = metadata.filter(
+    (m) => m.key !== MODEL_PLANNING_METADATA_KEY && m.key !== MODEL_RUN_METADATA_KEY
+  );
+  html += renderMetadataTable(displayMetadata);
   html += renderEditableTextFields(task);
 
   return html;

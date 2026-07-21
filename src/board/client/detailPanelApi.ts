@@ -51,7 +51,14 @@ export async function fetchTaskDetail(taskId: number | string, signal?: AbortSig
 
 export async function patchTask(
   taskId: number,
-  fields: { title: string; body: string | null; status: string | undefined; priority: string | null }
+  fields: {
+    title: string;
+    body: string | null;
+    status: string | undefined;
+    priority: string | null;
+    branch?: string | null;
+    models?: { planning?: string; run?: string };
+  }
 ): Promise<TaskDetail> {
   const res = await fetch('/api/tasks/' + taskId, {
     method: 'PATCH',
