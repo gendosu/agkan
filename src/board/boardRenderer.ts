@@ -112,6 +112,13 @@ const BOARD_MODEL_OPTIONS = MODEL_ALIAS_OPTIONS.map(
   (m) => `<option value="${m}">${m.charAt(0).toUpperCase() + m.slice(1)}</option>`
 ).join('\n          ');
 
+// Keep in sync with EFFORT_OPTIONS in src/board/client/detailPanelHtml.ts
+// (duplicated because the client bundle is compiled as a separate TS project).
+const EFFORT_OPTIONS = ['low', 'medium', 'high', 'xhigh', 'max'];
+const BOARD_EFFORT_OPTIONS = EFFORT_OPTIONS.map(
+  (e) => `<option value="${e}">${e.charAt(0).toUpperCase() + e.slice(1)}</option>`
+).join('\n          ');
+
 function getAddTaskModal(): string {
   return `
   <div class="modal-overlay" id="add-modal">
@@ -135,15 +142,27 @@ function getAddTaskModal(): string {
         <div class="branch-select-dropdown" id="add-branch-dropdown" style="display:none;"></div>
       </div>
       <label for="add-model-planning">Planning Model</label>
-      <select id="add-model-planning">
-        <option value="">Default (config)</option>
-        ${BOARD_MODEL_OPTIONS}
-      </select>
+      <div class="model-effort-row">
+        <select id="add-model-planning">
+          <option value="">Default (config)</option>
+          ${BOARD_MODEL_OPTIONS}
+        </select>
+        <select id="add-effort-planning">
+          <option value="">Effort: default</option>
+          ${BOARD_EFFORT_OPTIONS}
+        </select>
+      </div>
       <label for="add-model-run">Run Model</label>
-      <select id="add-model-run">
-        <option value="">Default (config)</option>
-        ${BOARD_MODEL_OPTIONS}
-      </select>
+      <div class="model-effort-row">
+        <select id="add-model-run">
+          <option value="">Default (config)</option>
+          ${BOARD_MODEL_OPTIONS}
+        </select>
+        <select id="add-effort-run">
+          <option value="">Effort: default</option>
+          ${BOARD_EFFORT_OPTIONS}
+        </select>
+      </div>
       <label>Tags</label>
       <div class="tag-select-wrapper" id="add-tags-wrapper">
         <div class="tag-select-control" id="add-tag-select-control"></div>

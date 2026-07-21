@@ -32,7 +32,12 @@ import { runTargetStatus } from '../utils/runTargetStatus';
 import { AttentionStateService } from '../services/AttentionStateService';
 import { BoardEventService } from '../services/BoardEventService';
 import { isTestMode } from '../db/config';
-import { getTaskModelOverride, persistTaskModelOverrides } from './taskModelOverride';
+import {
+  getTaskModelOverride,
+  getTaskEffortOverride,
+  persistTaskModelOverrides,
+  persistTaskEffortOverrides,
+} from './taskModelOverride';
 
 export type BoardServices = {
   ts: TaskService;
@@ -56,6 +61,7 @@ type TaskPatchBody = {
   priority?: string | null;
   branch?: string | null;
   models?: unknown;
+  efforts?: unknown;
 };
 
 type BoardTaskStatus = TaskStatus;
@@ -119,6 +125,7 @@ type CreateTaskBody = {
   tags?: unknown;
   metadata?: unknown;
   models?: unknown;
+  efforts?: unknown;
 };
 
 function resolveTagIds(rawTags: unknown, tags: TagService): number[] | undefined {
@@ -158,6 +165,7 @@ function registerCreateTaskRoute(app: Hono, ts: TaskService, ms: MetadataService
     });
     persistTaskMetadata(task.id, body.metadata, ms);
     persistTaskModelOverrides(task.id, body.models, ms);
+    persistTaskEffortOverrides(task.id, body.efforts, ms);
     return c.json(task, 201);
   });
 }
@@ -205,6 +213,7 @@ function registerPatchAndDeleteTaskRoutes(app: Hono, ts: TaskService, ms: Metada
     const task = ts.updateTask(id, input);
     if (!task) return c.json({ error: 'Task not found' }, 404);
     if (body.models !== undefined) persistTaskModelOverrides(id, body.models, ms);
+    if (body.efforts !== undefined) persistTaskEffortOverrides(id, body.efforts, ms);
     return c.json(task);
   });
   app.delete('/api/tasks/:id', (c) => {
@@ -568,7 +577,7 @@ function registerClaudeRoutes(app: Hono, claudeProcess: PtySessionService, ts: T
     const rawConfig = command === 'planning' ? config.models?.planning : config.models?.run;
     // Priority: task-level override (UI selection) > config file > default
     const model = getTaskModelOverride(ms, taskId, overrideKind) ?? rawConfig?.model?.trim() ?? undefined;
-    const effort = rawConfig?.effort?.trim() || undefined;
+    const effort = getTaskEffortOverride(ms, taskId, overrideKind) ?? rawConfig?.effort?.trim() ?? undefined;
 
     const validEffortLevels = ['low', 'medium', 'high', 'xhigh', 'max'];
     if (effort && !validEffortLevels.includes(effort)) {

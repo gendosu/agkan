@@ -4,7 +4,7 @@ import { MetadataService } from '../services/MetadataService';
 import { PtySessionService } from '../terminal/PtySessionService';
 import { loadConfig } from '../db/config';
 import { PRIORITY_ORDER } from '../models';
-import { getTaskModelOverride } from './taskModelOverride';
+import { getTaskModelOverride, getTaskEffortOverride } from './taskModelOverride';
 
 export type BulkRunCommand = 'direct' | 'pr';
 type BulkRunState = 'idle' | 'running';
@@ -155,11 +155,13 @@ export class BulkRunService {
     // Priority: task-level override (UI selection) > config file > default
     const model =
       (this.ms ? getTaskModelOverride(this.ms, taskId, 'run') : undefined) ?? rawConfig?.model?.trim() ?? undefined;
+    const effort =
+      (this.ms ? getTaskEffortOverride(this.ms, taskId, 'run') : undefined) ?? rawConfig?.effort?.trim() ?? undefined;
     return {
       prompt,
       ptyCommand,
       model,
-      effort: rawConfig?.effort?.trim() || undefined,
+      effort,
     };
   }
 

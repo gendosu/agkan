@@ -36,8 +36,14 @@ function setupAddModalDOM(): void {
         <select id="add-model-planning">
           <option value="">Default (config)</option>
         </select>
+        <select id="add-effort-planning">
+          <option value="">Effort: default</option>
+        </select>
         <select id="add-model-run">
           <option value="">Default (config)</option>
+        </select>
+        <select id="add-effort-run">
+          <option value="">Effort: default</option>
         </select>
         <input type="hidden" id="add-status">
         <div class="modal-actions">

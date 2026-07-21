@@ -492,6 +492,45 @@ describe('BulkRunService - auto status update on completion', () => {
   });
 });
 
+describe('BulkRunService model/effort override resolution', () => {
+  it('uses task-level effort override in preference to config', async () => {
+    const db = getStorageBackend();
+    const ts = new TaskService(db);
+    const tbs = new TaskBlockService(db);
+    const { MetadataService } = await import('../../src/services/MetadataService');
+    const ms = new MetadataService(db);
+
+    const task = ts.createTask({ title: 'Effort Task', status: 'ready', priority: 'high' });
+    ms.setMetadata({ task_id: task.id, key: 'effort:run', value: 'xhigh' });
+
+    const startProcess = vi.fn().mockResolvedValue(undefined);
+    const pty = buildMockPty({ startProcess });
+    const service = new BulkRunService(ts, tbs, pty, ms);
+
+    await service.start('direct');
+
+    expect(startProcess).toHaveBeenCalledWith(task.id, expect.any(String), 'run', undefined, 'xhigh');
+  });
+
+  it('falls back to no effort when no override or config is set', async () => {
+    const db = getStorageBackend();
+    const ts = new TaskService(db);
+    const tbs = new TaskBlockService(db);
+    const { MetadataService } = await import('../../src/services/MetadataService');
+    const ms = new MetadataService(db);
+
+    const task = ts.createTask({ title: 'No Effort Task', status: 'ready', priority: 'high' });
+
+    const startProcess = vi.fn().mockResolvedValue(undefined);
+    const pty = buildMockPty({ startProcess });
+    const service = new BulkRunService(ts, tbs, pty, ms);
+
+    await service.start('direct');
+
+    expect(startProcess).toHaveBeenCalledWith(task.id, expect.any(String), 'run', undefined, undefined);
+  });
+});
+
 describe('BulkRunService API routes', () => {
   it('POST /api/claude/bulk-run starts bulk run', async () => {
     const { Hono } = await import('hono');

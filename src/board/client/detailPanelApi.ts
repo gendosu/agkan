@@ -58,6 +58,7 @@ export async function patchTask(
     priority: string | null;
     branch?: string | null;
     models?: { planning?: string; run?: string };
+    efforts?: { planning?: string; run?: string };
   }
 ): Promise<TaskDetail> {
   const res = await fetch('/api/tasks/' + taskId, {

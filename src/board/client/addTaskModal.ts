@@ -17,6 +17,8 @@ interface AddModalElements {
   addMetadataRows: HTMLElement;
   addModelPlanning: HTMLSelectElement;
   addModelRun: HTMLSelectElement;
+  addEffortPlanning: HTMLSelectElement;
+  addEffortRun: HTMLSelectElement;
 }
 
 // State for the add modal tag selector
@@ -242,6 +244,8 @@ function resetAddModal(elements: AddModalElements): void {
   elements.addPriority.value = 'medium';
   elements.addModelPlanning.value = '';
   elements.addModelRun.value = '';
+  elements.addEffortPlanning.value = '';
+  elements.addEffortRun.value = '';
   // Reset tags
   selectedTags = [];
   tagInputValue = '';
@@ -279,6 +283,10 @@ async function submitAddTask(elements: AddModalElements): Promise<void> {
   const runModel = elements.addModelRun.value;
   const models =
     planningModel || runModel ? { planning: planningModel || undefined, run: runModel || undefined } : undefined;
+  const planningEffort = elements.addEffortPlanning.value;
+  const runEffort = elements.addEffortRun.value;
+  const efforts =
+    planningEffort || runEffort ? { planning: planningEffort || undefined, run: runEffort || undefined } : undefined;
 
   try {
     const res = await fetch('/api/tasks', {
@@ -293,6 +301,7 @@ async function submitAddTask(elements: AddModalElements): Promise<void> {
         metadata: metadata.length > 0 ? metadata : undefined,
         branch: branchSelector?.getValue() || undefined,
         models,
+        efforts,
       }),
     });
     if (!res.ok) throw new Error('Server error');
@@ -314,6 +323,8 @@ export function initAddTaskModal(): void {
     addMetadataRows: document.getElementById('add-metadata-rows') as HTMLElement,
     addModelPlanning: document.getElementById('add-model-planning') as HTMLSelectElement,
     addModelRun: document.getElementById('add-model-run') as HTMLSelectElement,
+    addEffortPlanning: document.getElementById('add-effort-planning') as HTMLSelectElement,
+    addEffortRun: document.getElementById('add-effort-run') as HTMLSelectElement,
   };
 
   initAddTagSelector();

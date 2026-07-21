@@ -271,6 +271,82 @@ describe('POST /api/claude/tasks/:taskId/run', () => {
     );
   });
 
+  it('uses task-level effort override in preference to config', async () => {
+    fs.writeFileSync(TEST_AGKAN_CONFIG, yaml.dump({ models: { run: { effort: 'high' } } }));
+    const mock = buildMockClaudeProcessService();
+    const services = buildServices(mock);
+    const task = services.ts.createTask({
+      title: 'Effort Override Task',
+      status: 'backlog',
+      branch: 'feature/effort-override',
+    });
+    services.ms.setMetadata({ task_id: task.id, key: 'effort:run', value: 'xhigh' });
+    const app = buildApp(services);
+
+    const res = await app.fetch(
+      new Request(`http://localhost/api/claude/tasks/${task.id}/run`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ command: 'run' }),
+      })
+    );
+
+    expect(res.status).toBe(201);
+    expect(mock.startProcess).toHaveBeenCalledWith(
+      task.id,
+      `Task ID: ${task.id}\n/agkan-subtask-direct\n\nWhen you have completed this task, send 'exit' as a prompt (not as a bash command) to end this session.`,
+      'run',
+      undefined,
+      'xhigh'
+    );
+  });
+
+  it('uses task-level effort override for the planning command with the planning config key', async () => {
+    fs.writeFileSync(TEST_AGKAN_CONFIG, yaml.dump({ models: { planning: { effort: 'low' } } }));
+    const mock = buildMockClaudeProcessService();
+    const services = buildServices(mock);
+    const task = services.ts.createTask({ title: 'Planning Effort Task', status: 'backlog' });
+    services.ms.setMetadata({ task_id: task.id, key: 'effort:planning', value: 'max' });
+    const app = buildApp(services);
+
+    const res = await app.fetch(
+      new Request(`http://localhost/api/claude/tasks/${task.id}/run`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ command: 'planning' }),
+      })
+    );
+
+    expect(res.status).toBe(201);
+    expect(mock.startProcess).toHaveBeenCalledWith(
+      task.id,
+      `Task ID: ${task.id}\n/agkan-planning-subtask\n\nWhen you have completed this task, send 'exit' as a prompt (not as a bash command) to end this session.`,
+      'planning',
+      undefined,
+      'max'
+    );
+  });
+
+  it('returns 400 when the task-level effort override is invalid', async () => {
+    const mock = buildMockClaudeProcessService();
+    const services = buildServices(mock);
+    const task = services.ts.createTask({ title: 'Invalid Effort Override Task', status: 'backlog' });
+    services.ms.setMetadata({ task_id: task.id, key: 'effort:run', value: 'ultra' });
+    const app = buildApp(services);
+
+    const res = await app.fetch(
+      new Request(`http://localhost/api/claude/tasks/${task.id}/run`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ command: 'run' }),
+      })
+    );
+
+    expect(res.status).toBe(400);
+    const data = (await res.json()) as { error: string };
+    expect(data.error).toMatch(/Invalid effort level/);
+  });
+
   it('returns 400 when effort is an invalid value', async () => {
     fs.writeFileSync(TEST_AGKAN_CONFIG, yaml.dump({ models: { run: { effort: 'ultra' } } }));
     const mock = buildMockClaudeProcessService();

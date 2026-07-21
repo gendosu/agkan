@@ -95,8 +95,14 @@ export function renderPriorityField(currentPriority: string | null | undefined, 
 // (duplicated because the client bundle is compiled as a separate TS project).
 const MODEL_ALIAS_OPTIONS = ['opus', 'sonnet', 'haiku'];
 
+// Keep in sync with BOARD_EFFORT_OPTIONS/EFFORT_OPTIONS in src/board/boardRenderer.ts
+// (duplicated because the client bundle is compiled as a separate TS project).
+const EFFORT_OPTIONS = ['low', 'medium', 'high', 'xhigh', 'max'];
+
 export const MODEL_PLANNING_METADATA_KEY = 'model:planning';
 export const MODEL_RUN_METADATA_KEY = 'model:run';
+export const EFFORT_PLANNING_METADATA_KEY = 'effort:planning';
+export const EFFORT_RUN_METADATA_KEY = 'effort:run';
 
 function renderModelSelect(id: string, currentValue: string): string {
   let html = '<select id="' + id + '" class="detail-edit-select">';
@@ -109,17 +115,36 @@ function renderModelSelect(id: string, currentValue: string): string {
   return html;
 }
 
+function renderEffortSelect(id: string, currentValue: string): string {
+  let html = '<select id="' + id + '" class="detail-edit-select">';
+  html += '<option value="">Effort: default</option>';
+  EFFORT_OPTIONS.forEach((e) => {
+    const selected = e === currentValue ? ' selected' : '';
+    html += '<option value="' + e + '"' + selected + '>' + e.charAt(0).toUpperCase() + e.slice(1) + '</option>';
+  });
+  html += '</select>';
+  return html;
+}
+
 export function renderModelFields(metadata: Array<{ key: string; value: string }>): string {
   const planningValue = metadata.find((m) => m.key === MODEL_PLANNING_METADATA_KEY)?.value ?? '';
   const runValue = metadata.find((m) => m.key === MODEL_RUN_METADATA_KEY)?.value ?? '';
+  const planningEffort = metadata.find((m) => m.key === EFFORT_PLANNING_METADATA_KEY)?.value ?? '';
+  const runEffort = metadata.find((m) => m.key === EFFORT_RUN_METADATA_KEY)?.value ?? '';
 
   let html = '<div class="detail-field">';
   html += '<div class="detail-field-label">Planning Model</div>';
+  html += '<div class="detail-field-row">';
   html += renderModelSelect('detail-edit-model-planning', planningValue);
+  html += renderEffortSelect('detail-edit-effort-planning', planningEffort);
+  html += '</div>';
   html += '</div>';
   html += '<div class="detail-field">';
   html += '<div class="detail-field-label">Run Model</div>';
+  html += '<div class="detail-field-row">';
   html += renderModelSelect('detail-edit-model-run', runValue);
+  html += renderEffortSelect('detail-edit-effort-run', runEffort);
+  html += '</div>';
   html += '</div>';
   return html;
 }
@@ -243,7 +268,11 @@ export function renderDetailPanelHtml(data: TaskDetail): string {
   }
 
   const displayMetadata = metadata.filter(
-    (m) => m.key !== MODEL_PLANNING_METADATA_KEY && m.key !== MODEL_RUN_METADATA_KEY
+    (m) =>
+      m.key !== MODEL_PLANNING_METADATA_KEY &&
+      m.key !== MODEL_RUN_METADATA_KEY &&
+      m.key !== EFFORT_PLANNING_METADATA_KEY &&
+      m.key !== EFFORT_RUN_METADATA_KEY
   );
   html += renderMetadataTable(displayMetadata);
   html += renderEditableTextFields(task);

@@ -117,6 +117,10 @@ export const BOARD_STYLES = `
     .modal label { display: block; font-size: 12px; font-weight: 600; color: var(--text-secondary); margin-bottom: 4px; }
     .modal input, .modal textarea, .modal select { width: 100%; border: 1px solid var(--border-color); border-radius: 6px; padding: 8px 10px; font-size: 13px; font-family: inherit; margin-bottom: 12px; background: var(--input-bg); color: var(--text-primary); }
     .modal textarea { resize: vertical; min-height: 60px; }
+    .model-effort-row { display: flex; gap: 6px; }
+    .model-effort-row > select { flex: 1; width: auto; min-width: 0; }
+    .detail-field-row { display: flex; gap: 6px; }
+    .detail-field-row > select { flex: 1; min-width: 0; }
     .modal input:focus, .modal textarea:focus, .modal select:focus { outline: none; border-color: #3b82f6; box-shadow: 0 0 0 2px rgba(59,130,246,0.2); }
     .modal-actions { display: flex; justify-content: flex-end; gap: 8px; }
     .modal-actions button { padding: 6px 14px; border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer; border: 1px solid var(--border-color); background: var(--bg-surface); color: var(--text-secondary); }
