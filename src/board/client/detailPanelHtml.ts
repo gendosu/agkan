@@ -93,7 +93,7 @@ export function renderPriorityField(currentPriority: string | null | undefined, 
 
 // Keep in sync with BOARD_MODEL_OPTIONS/MODEL_ALIAS_OPTIONS in src/board/boardRenderer.ts
 // (duplicated because the client bundle is compiled as a separate TS project).
-const MODEL_ALIAS_OPTIONS = ['opus', 'sonnet', 'haiku'];
+const MODEL_ALIAS_OPTIONS = ['fable', 'opus', 'sonnet', 'haiku'];
 
 // Keep in sync with BOARD_EFFORT_OPTIONS/EFFORT_OPTIONS in src/board/boardRenderer.ts
 // (duplicated because the client bundle is compiled as a separate TS project).
