@@ -15,6 +15,12 @@ import {
 } from '../../../src/board/client/boardPolling';
 import { updateButtonStates } from '../../../src/board/client/claudeButton';
 import * as boardStream from '../../../src/board/client/boardStream';
+import * as dragDrop from '../../../src/board/client/dragDrop';
+
+vi.mock('../../../src/board/client/dragDrop', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../../src/board/client/dragDrop')>();
+  return { ...actual, attachDragListeners: vi.fn(actual.attachDragListeners) };
+});
 
 // --- MockEventSource for SSE tests ---
 
@@ -176,6 +182,31 @@ describe('refreshBoardCards', () => {
 
     const runBtn = document.querySelector<HTMLButtonElement>('.claude-run-btn')!;
     expect(runBtn.disabled).toBe(true);
+  });
+
+  it('does not re-attach drag listeners to a card that already has listeners attached across repeated board updates', async () => {
+    const attachDragListenersSpy = vi.mocked(dragDrop.attachDragListeners);
+    attachDragListenersSpy.mockClear();
+
+    const cardHtml =
+      '<div class="card" data-id="1" data-status="backlog" data-updated-at="2026-01-01T00:00:00.000Z"></div>';
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: vi.fn().mockResolvedValue({
+        columns: [{ status: 'backlog', html: cardHtml, count: 1 }],
+      }),
+    } as unknown as Response);
+
+    // Simulate repeated SSE-driven board updates (e.g. 10 refreshes) where the card
+    // content is unchanged, so the same DOM element is reused each time.
+    for (let i = 0; i < 10; i++) {
+      await refreshBoardCards();
+    }
+
+    // attachDragListeners must only be called once for the card: the first time it is
+    // seen. Subsequent refreshes must be blocked by the listenersAttached guard, since
+    // dragstart/dragend listeners would otherwise pile up on every board update.
+    expect(attachDragListenersSpy).toHaveBeenCalledTimes(1);
   });
 
   it('does not refresh detail pane while run-logs tab is active', async () => {

@@ -197,7 +197,7 @@ describe('document dragover tracking during drag', () => {
     document.dispatchEvent(event);
   }
 
-  it('tracks mouse position and triggers the redraw callback while dragging', () => {
+  it('tracks mouse position and triggers the redraw callback (throttled via rAF) while dragging', async () => {
     const redrawSpy = vi.fn();
     registerDependencyRedrawCallback(redrawSpy);
 
@@ -208,7 +208,8 @@ describe('document dragover tracking during drag', () => {
 
     dispatchDocumentDragover(105, 205);
 
-    expect(redrawSpy).toHaveBeenCalled();
+    // Redraw is scheduled via requestAnimationFrame, not called synchronously.
+    await vi.waitFor(() => expect(redrawSpy).toHaveBeenCalled());
     const rect = getDraggedCardVirtualRect();
     expect(rect!.left).toBe(100);
     expect(rect!.top).toBe(200);
@@ -216,7 +217,27 @@ describe('document dragover tracking during drag', () => {
     card.dispatchEvent(new Event('dragend', { bubbles: true }));
   });
 
-  it('stops tracking mouse position after dragend', () => {
+  it('coalesces a burst of dragover events into a single redraw per animation frame', async () => {
+    const redrawSpy = vi.fn();
+    registerDependencyRedrawCallback(redrawSpy);
+
+    const card = makeCard();
+    card.getBoundingClientRect = vi.fn(() => new DOMRect(0, 0, 10, 10));
+    attachDragListeners(card);
+    dispatchDragStart(card, 5, 5);
+
+    // Simulate many dragover events firing within the same frame.
+    for (let i = 0; i < 20; i++) {
+      dispatchDocumentDragover(i, i);
+    }
+
+    await vi.waitFor(() => expect(redrawSpy).toHaveBeenCalled());
+    expect(redrawSpy.mock.calls.length).toBeLessThan(20);
+
+    card.dispatchEvent(new Event('dragend', { bubbles: true }));
+  });
+
+  it('stops tracking mouse position after dragend', async () => {
     const redrawSpy = vi.fn();
     registerDependencyRedrawCallback(redrawSpy);
 
@@ -227,6 +248,30 @@ describe('document dragover tracking during drag', () => {
 
     redrawSpy.mockClear();
     dispatchDocumentDragover(999, 999);
+
+    // Give any (unexpected) pending animation frame a chance to fire.
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(redrawSpy).not.toHaveBeenCalled();
+  });
+
+  it('does not leak a document-level dragover listener when dragstart fires again without a matching dragend', async () => {
+    const redrawSpy = vi.fn();
+    registerDependencyRedrawCallback(redrawSpy);
+
+    const card = makeCard();
+    attachDragListeners(card);
+
+    // First dragstart without a matching dragend (e.g. a missed/cancelled drag end event)
+    // would normally leave a stale document-level dragover listener registered.
+    dispatchDragStart(card, 1, 1);
+    // Second dragstart must remove the stale listener before registering a new one.
+    dispatchDragStart(card, 2, 2);
+    // A single dragend should now be enough to fully clean up — nothing should remain.
+    card.dispatchEvent(new Event('dragend', { bubbles: true }));
+
+    dispatchDocumentDragover(50, 50);
+    // Give any pending animation frame a chance to fire before asserting nothing ran.
+    await new Promise((resolve) => setTimeout(resolve, 50));
 
     expect(redrawSpy).not.toHaveBeenCalled();
   });

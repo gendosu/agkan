@@ -80,6 +80,16 @@ async function handleDrop(e: DragEvent, newStatus: string, colEl: HTMLElement): 
 }
 
 let _documentDragOverListener: ((e: DragEvent) => void) | null = null;
+let _redrawAnimationFrameId: number | null = null;
+
+/** Schedules a single redraw per animation frame, coalescing bursts of dragover events. */
+function scheduleRedrawDependencies(): void {
+  if (_redrawAnimationFrameId !== null) return;
+  _redrawAnimationFrameId = requestAnimationFrame(() => {
+    _redrawAnimationFrameId = null;
+    if (_redrawDependencies) _redrawDependencies();
+  });
+}
 
 export function attachDragListeners(card: HTMLElement): void {
   card.addEventListener('dragstart', (e: DragEvent) => {
@@ -95,11 +105,21 @@ export function attachDragListeners(card: HTMLElement): void {
     _dragMouseX = e.clientX;
     _dragMouseY = e.clientY;
 
-    // Track mouse position during drag and redraw dependency lines
+    // Defensive cleanup: remove any previously registered listener before adding a new
+    // one. This guards against leaks if a prior dragend was missed (e.g. drag cancelled
+    // outside the document) or if dragstart fires again without a matching dragend.
+    if (_documentDragOverListener) {
+      document.removeEventListener('dragover', _documentDragOverListener);
+      _documentDragOverListener = null;
+    }
+
+    // Track mouse position during drag and throttle dependency-line redraws to at most
+    // once per animation frame, since dragover can fire far more often than the screen
+    // repaints (especially with many cards / dependency lines on screen).
     _documentDragOverListener = (ev: DragEvent) => {
       _dragMouseX = ev.clientX;
       _dragMouseY = ev.clientY;
-      if (_redrawDependencies) _redrawDependencies();
+      scheduleRedrawDependencies();
     };
     document.addEventListener('dragover', _documentDragOverListener);
   });
@@ -110,6 +130,10 @@ export function attachDragListeners(card: HTMLElement): void {
     if (_documentDragOverListener) {
       document.removeEventListener('dragover', _documentDragOverListener);
       _documentDragOverListener = null;
+    }
+    if (_redrawAnimationFrameId !== null) {
+      cancelAnimationFrame(_redrawAnimationFrameId);
+      _redrawAnimationFrameId = null;
     }
   });
 }
