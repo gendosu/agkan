@@ -15,6 +15,10 @@ interface AddModalElements {
   addTagControl: HTMLElement;
   addTagDropdown: HTMLElement;
   addMetadataRows: HTMLElement;
+  addModelPlanning: HTMLSelectElement;
+  addModelRun: HTMLSelectElement;
+  addEffortPlanning: HTMLSelectElement;
+  addEffortRun: HTMLSelectElement;
 }
 
 // State for the add modal tag selector
@@ -238,6 +242,10 @@ function resetAddModal(elements: AddModalElements): void {
   elements.addTitle.value = '';
   elements.addBody.value = '';
   elements.addPriority.value = 'medium';
+  elements.addModelPlanning.value = '';
+  elements.addModelRun.value = '';
+  elements.addEffortPlanning.value = '';
+  elements.addEffortRun.value = '';
   // Reset tags
   selectedTags = [];
   tagInputValue = '';
@@ -271,6 +279,14 @@ async function submitAddTask(elements: AddModalElements): Promise<void> {
 
   const tags = selectedTags.map((t) => t.id);
   const metadata = collectMetadata(elements.addMetadataRows);
+  const planningModel = elements.addModelPlanning.value;
+  const runModel = elements.addModelRun.value;
+  const models =
+    planningModel || runModel ? { planning: planningModel || undefined, run: runModel || undefined } : undefined;
+  const planningEffort = elements.addEffortPlanning.value;
+  const runEffort = elements.addEffortRun.value;
+  const efforts =
+    planningEffort || runEffort ? { planning: planningEffort || undefined, run: runEffort || undefined } : undefined;
 
   try {
     const res = await fetch('/api/tasks', {
@@ -284,6 +300,8 @@ async function submitAddTask(elements: AddModalElements): Promise<void> {
         tags: tags.length > 0 ? tags : undefined,
         metadata: metadata.length > 0 ? metadata : undefined,
         branch: branchSelector?.getValue() || undefined,
+        models,
+        efforts,
       }),
     });
     if (!res.ok) throw new Error('Server error');
@@ -303,6 +321,10 @@ export function initAddTaskModal(): void {
     addTagControl: document.getElementById('add-tag-select-control') as HTMLElement,
     addTagDropdown: document.getElementById('add-tag-select-dropdown') as HTMLElement,
     addMetadataRows: document.getElementById('add-metadata-rows') as HTMLElement,
+    addModelPlanning: document.getElementById('add-model-planning') as HTMLSelectElement,
+    addModelRun: document.getElementById('add-model-run') as HTMLSelectElement,
+    addEffortPlanning: document.getElementById('add-effort-planning') as HTMLSelectElement,
+    addEffortRun: document.getElementById('add-effort-run') as HTMLSelectElement,
   };
 
   initAddTagSelector();

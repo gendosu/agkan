@@ -585,6 +585,8 @@ function collectEditedTaskFields(): {
   status: string | undefined;
   priority: string | null;
   branch: string | null;
+  models: { planning?: string; run?: string };
+  efforts: { planning?: string; run?: string };
 } | null {
   const titleInput = document.getElementById('detail-edit-title') as HTMLInputElement;
   const title = titleInput ? titleInput.value.trim() : '';
@@ -595,12 +597,24 @@ function collectEditedTaskFields(): {
   const bodyEl = document.getElementById('detail-edit-body') as HTMLTextAreaElement;
   const statusEl = document.getElementById('detail-edit-status') as HTMLSelectElement;
   const priorityEl = document.getElementById('detail-edit-priority') as HTMLSelectElement;
+  const modelPlanningEl = document.getElementById('detail-edit-model-planning') as HTMLSelectElement | null;
+  const modelRunEl = document.getElementById('detail-edit-model-run') as HTMLSelectElement | null;
+  const effortPlanningEl = document.getElementById('detail-edit-effort-planning') as HTMLSelectElement | null;
+  const effortRunEl = document.getElementById('detail-edit-effort-run') as HTMLSelectElement | null;
   return {
     title,
     body: bodyEl ? bodyEl.value.trim() || null : null,
     status: statusEl ? statusEl.value : undefined,
     priority: priorityEl ? priorityEl.value || null : null,
     branch: branchSelector?.getValue() || null,
+    models: {
+      planning: modelPlanningEl?.value || '',
+      run: modelRunEl?.value || '',
+    },
+    efforts: {
+      planning: effortPlanningEl?.value || '',
+      run: effortRunEl?.value || '',
+    },
   };
 }
 
