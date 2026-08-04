@@ -538,8 +538,12 @@ describe('BulkRunService - auto status update on completion', () => {
       return () => {};
     });
     const startProcess = vi.fn().mockResolvedValue(undefined);
+    // A hook-driven stop sets isUserStopped() (shared with the user-stop path) but never
+    // isExplicitUserStop() — this combination is what distinguishes it from a plain
+    // completion with no stop at all.
+    const isUserStopped = vi.fn().mockReturnValue(true);
     const isExplicitUserStop = vi.fn().mockReturnValue(false);
-    const pty = buildMockPty({ startProcess, subscribeOutput, isExplicitUserStop });
+    const pty = buildMockPty({ startProcess, subscribeOutput, isUserStopped, isExplicitUserStop });
     const service = new BulkRunService(ts, tbs, pty);
 
     await service.start('direct');
