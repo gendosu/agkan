@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.20.0] - 2026-08-04
+
+### 追加
+- Board のタスク作成モーダルおよび詳細パネルに、planning/run コマンドで使用する Claude モデルをタスク単位で選択できる機能を追加。Fable もモデル選択肢に追加。タスク単位の指定は `.agkan.yml` の設定より優先され、指定がなければ CLI のデフォルトにフォールバックする (#715)
+- Board UI に planning/run コマンドの reasoning effort（low/medium/high/xhigh/max）をタスク単位で選択できる機能を追加。モデル選択と同様の優先順位で解決される (#715)
+- `Test` GitHub Actions ワークフローに `e2e` ジョブを追加し、18セクション構成の E2E スイート（`pnpm run test:e2e`）を PR および `main` への push のたびに実行するようにした。これまでは `pnpm run test:all` による手動実行のみだった (#641)
+
+### 修正
+- Board のカードで dragstart/dragend リスナーが重複登録され、document レベルの dragover リスナーもリークしていた問題を修正。カード数が多いボードでドラッグ操作を行うとリスナーの蓄積によりページがフリーズしていた (#11)
+
 ## [3.19.0] - 2026-07-10
 
 ### 追加

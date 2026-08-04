@@ -7,8 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.20.0] - 2026-08-04
+
 ### Added
+- Add per-task Claude model selection for planning/run commands in the Board task creation modal and detail panel, including Fable as a selectable model; task-level overrides take priority over `.agkan.yml` config, which falls back to the CLI default (#715)
+- Add per-task reasoning effort selection (low/medium/high/xhigh/max) for planning/run commands in the Board UI, mirroring the model override (#715)
 - Add an `e2e` job to the `Test` GitHub Actions workflow so the 18-section E2E suite (`pnpm run test:e2e`) runs on every PR and push to `main`, instead of only manually via `pnpm run test:all` (#641)
+
+### Fixed
+- Fix duplicate drag listeners and leaked document-level dragover listeners on the Board, which accumulated with every card update and froze the page during drag operations on boards with many cards (#11)
 
 ## [3.19.0] - 2026-07-10
 
