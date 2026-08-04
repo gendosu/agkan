@@ -57,9 +57,9 @@ export function registerDependencyRedrawCallback(callback: () => void): void {
 
 function attachCardListeners(body: HTMLElement): void {
   body.querySelectorAll<HTMLElement>('.card').forEach((card) => {
-    attachDragListeners(card);
     if (card.dataset.listenersAttached) return;
     card.dataset.listenersAttached = '1';
+    attachDragListeners(card);
     card.addEventListener('click', async (e: MouseEvent) => {
       if (e.defaultPrevented) return;
       if (_openTaskDetail) await _openTaskDetail(card.dataset.id!);
