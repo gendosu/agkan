@@ -422,6 +422,38 @@ describe('PtySessionService', () => {
     expect(isUserStoppedDuringEmit).toBe(true);
   });
 
+  // Regression for task #12: BulkRunService needs a narrower signal than isUserStopped()
+  // (which is true for both user- and hook-originated stops) to tell apart a genuine
+  // user-initiated Stop from a hook-driven normal-completion stop.
+  it('reports isExplicitUserStop as true when stopProcess is called with no origin (default user)', () => {
+    service.startProcess(1, 'prompt', 'run');
+    service.stopProcess(1);
+
+    expect(service.isExplicitUserStop(1)).toBe(true);
+  });
+
+  it('reports isExplicitUserStop as false when stopProcessFromHook stops the session', () => {
+    service.startProcess(1, 'prompt', 'run');
+    mockOnDataHandler?.('Ready\n❯');
+
+    service.stopProcessFromHook(1);
+
+    expect(service.isExplicitUserStop(1)).toBe(false);
+    // isUserStopped() must still be true for hook stops — boardRoutes.ts's single-run
+    // confirm-skip guard relies on this and must keep skipping for both origins.
+    expect(service.isUserStopped(1)).toBe(true);
+  });
+
+  it('clears isExplicitUserStop on natural process exit', () => {
+    service.startProcess(1, 'prompt', 'run');
+    service.stopProcess(1);
+    expect(service.isExplicitUserStop(1)).toBe(true);
+
+    mockOnExitHandler?.({ exitCode: null as unknown as number });
+
+    expect(service.isExplicitUserStop(1)).toBe(false);
+  });
+
   it('stopProcessFromHook stops when Claude screen is idle', () => {
     service.startProcess(1, 'prompt', 'run');
     mockOnDataHandler?.('Ready\n❯');

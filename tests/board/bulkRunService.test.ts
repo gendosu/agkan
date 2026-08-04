@@ -22,6 +22,7 @@ function buildMockPty(overrides?: Partial<PtySessionService>): PtySessionService
     subscribeCompletionConfirm: vi.fn().mockReturnValue(() => {}),
     notifyCompletionConfirm: vi.fn(),
     isUserStopped: vi.fn().mockReturnValue(false),
+    isExplicitUserStop: vi.fn().mockReturnValue(false),
     getRunLogs: vi.fn().mockReturnValue([]),
     ...overrides,
   } as unknown as PtySessionService;
@@ -487,6 +488,65 @@ describe('BulkRunService - auto status update on completion', () => {
     await Promise.resolve();
 
     expect(updateTaskSpy).not.toHaveBeenCalledWith(expect.any(Number), { status: 'done' });
+
+    service.stop();
+  });
+
+  // Regression for task #12: a user pressing Stop on a still-running task must not have the
+  // resulting synthetic done event (exitCode 0) advance the task to 'done'.
+  it('does not update task status to done when the completion follows a user-initiated stop', async () => {
+    const db = getStorageBackend();
+    const ts = new TaskService(db);
+    const tbs = new TaskBlockService(db);
+
+    const task = ts.createTask({ title: 'task', status: 'ready', priority: 'medium' });
+    const updateTaskSpy = vi.spyOn(ts, 'updateTask');
+
+    let outputCallback: OutputCallback | null = null;
+    const subscribeOutput = vi.fn().mockImplementation((_id: number, cb: OutputCallback) => {
+      outputCallback = cb;
+      return () => {};
+    });
+    const startProcess = vi.fn().mockResolvedValue(undefined);
+    const isExplicitUserStop = vi.fn().mockReturnValue(true);
+    const pty = buildMockPty({ startProcess, subscribeOutput, isExplicitUserStop });
+    const service = new BulkRunService(ts, tbs, pty);
+
+    await service.start('direct');
+    outputCallback?.({ kind: 'done', exitCode: 0 });
+    await Promise.resolve();
+
+    expect(updateTaskSpy).not.toHaveBeenCalledWith(task.id, { status: 'done' });
+    expect(isExplicitUserStop).toHaveBeenCalledWith(task.id);
+
+    service.stop();
+  });
+
+  // Regression for task #12: the fix must not regress hook-driven completion, which also
+  // routes through stopProcess's synthetic done event but is not a user-initiated stop.
+  it('still updates task status to done when the completion follows a hook-driven stop', async () => {
+    const db = getStorageBackend();
+    const ts = new TaskService(db);
+    const tbs = new TaskBlockService(db);
+
+    const task = ts.createTask({ title: 'task', status: 'ready', priority: 'medium' });
+    const updateTaskSpy = vi.spyOn(ts, 'updateTask');
+
+    let outputCallback: OutputCallback | null = null;
+    const subscribeOutput = vi.fn().mockImplementation((_id: number, cb: OutputCallback) => {
+      outputCallback = cb;
+      return () => {};
+    });
+    const startProcess = vi.fn().mockResolvedValue(undefined);
+    const isExplicitUserStop = vi.fn().mockReturnValue(false);
+    const pty = buildMockPty({ startProcess, subscribeOutput, isExplicitUserStop });
+    const service = new BulkRunService(ts, tbs, pty);
+
+    await service.start('direct');
+    outputCallback?.({ kind: 'done', exitCode: 0 });
+    await Promise.resolve();
+
+    expect(updateTaskSpy).toHaveBeenCalledWith(task.id, { status: 'done' });
 
     service.stop();
   });

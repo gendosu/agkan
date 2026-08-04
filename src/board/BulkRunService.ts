@@ -191,7 +191,7 @@ export class BulkRunService {
     let unsubscribe: (() => void) | undefined;
     unsubscribe = this.claudeProcess.subscribeOutput(taskId, (evt) => {
       if (evt.kind === 'done' || evt.kind === 'error') {
-        if (evt.kind === 'done' && evt.exitCode === 0) {
+        if (evt.kind === 'done' && evt.exitCode === 0 && !this.claudeProcess.isExplicitUserStop(taskId)) {
           this.ts.updateTask(taskId, { status: 'done' });
         }
         unsubscribe?.();
