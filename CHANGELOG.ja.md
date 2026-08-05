@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### 修正
+- Bulk Run で、実行中のタスクに対してユーザーが STOP ボタンを押した際、完了判定コールバックがタスクを `done` に更新してしまう問題を修正。`stopProcess()` が停止時に発火する合成完了イベントは、実際の正常終了と exitCode だけでは区別できなかったことが原因。`PtySessionService` が停止の起点（ユーザー起点 / hook 起点）を区別して記録するようにし、`BulkRunService` はユーザー起点の停止時のみ `done` への自動更新をスキップする（hook 起点の自動完了は維持） (#12)
+
 ## [3.20.0] - 2026-08-04
 
 ### 追加

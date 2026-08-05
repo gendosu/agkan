@@ -323,6 +323,7 @@ export class PtySessionService {
   private db: StorageBackend | null;
   private runningTasksChangeSubscribers: Set<() => void> = new Set();
   private userStoppedTasks: Set<number> = new Set();
+  private explicitUserStopTasks: Set<number> = new Set();
   private completionConfirmSubscribers: Set<CompletionConfirmCallback> = new Set();
   private boardApiUrl: string | null;
   private attentionStateService: AttentionStateService | null;
@@ -363,6 +364,15 @@ export class PtySessionService {
 
   isUserStopped(taskId: number): boolean {
     return this.userStoppedTasks.has(taskId);
+  }
+
+  // Unlike isUserStopped(), true only for a stop that originated from the user clicking
+  // Stop — not from stopProcessFromHook's normal-completion stop, which also sets
+  // userStoppedTasks (see stopProcess's `origin` param). BulkRunService needs this
+  // narrower signal to skip its done auto-advance only when the task is genuinely
+  // incomplete, while still auto-advancing on hook-driven completion.
+  isExplicitUserStop(taskId: number): boolean {
+    return this.explicitUserStopTasks.has(taskId);
   }
 
   private notifyRunningTasksChange(): void {
@@ -580,10 +590,11 @@ export class PtySessionService {
         this.notifyRunningTasksChange();
       }
       this.userStoppedTasks.delete(taskId);
+      this.explicitUserStopTasks.delete(taskId);
     });
   }
 
-  stopProcess(taskId: number): boolean {
+  stopProcess(taskId: number, origin: 'user' | 'hook' = 'user'): boolean {
     const info = this.sessions.get(taskId);
     if (!info) return false;
     if (info.promptTimer !== null) {
@@ -601,7 +612,11 @@ export class PtySessionService {
     info.pendingPrompt = null;
     // Mark as user-stopped before emitting so synchronous subscribers (e.g. boardRoutes.ts)
     // observe isUserStopped() === true and skip auto-advancing status on this done event.
+    // This fires for both origins (user and hook) — that part of the contract is unchanged.
     this.userStoppedTasks.add(taskId);
+    if (origin === 'user') {
+      this.explicitUserStopTasks.add(taskId);
+    }
     // Notify subscribers before clearing so they can advance (e.g. BulkRunService.runNext()).
     const doneEvent: OutputEvent = { kind: 'done', exitCode: 0 };
     info.exitSubscribers.forEach((cb) => cb(doneEvent));
@@ -624,7 +639,7 @@ export class PtySessionService {
       return false;
     }
 
-    return this.stopProcess(taskId);
+    return this.stopProcess(taskId, 'hook');
   }
 
   // Re-evaluates the screen-status guard after a delay instead of trusting the single stale
@@ -661,7 +676,7 @@ export class PtySessionService {
         console.error(
           `[pty][hook-stop-guard] taskId=${taskId} deferred re-evaluation found screen ${status}; stopping now`
         );
-        this.stopProcess(taskId);
+        this.stopProcess(taskId, 'hook');
         return;
       }
 
@@ -677,6 +692,9 @@ export class PtySessionService {
         console.error(
           `[pty][hook-stop-guard] taskId=${taskId} still working but stalled with no output after ${MAX_STALLED_DEFERRED_HOOK_STOP_CHECKS} consecutive checks; force-stopping to avoid a leaked session`
         );
+        // Default origin ('user') is intentional here: the screen still claims "working",
+        // so this is a leaked session being force-killed, not a genuine completion — the
+        // task is not done, so BulkRunService must not auto-advance it on this event either.
         this.stopProcess(taskId);
         return;
       }
