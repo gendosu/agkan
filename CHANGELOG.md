@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.20.1] - 2026-08-05
+
 ### Fixed
 - Fix Bulk Run marking a task `done` when the user pressed Stop on a still-running task in that task's completion callback, because the synthetic completion event `stopProcess()` emits on stop is indistinguishable from a real successful exit by exit code alone. `PtySessionService` now tracks whether a stop was user-initiated versus hook-driven, and `BulkRunService` skips the automatic `done` update only for user-initiated stops, preserving hook-driven auto-completion (#12)
 
