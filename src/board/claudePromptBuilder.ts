@@ -4,7 +4,7 @@
 // concern itself with how they were derived.
 
 import { TaskService } from '../services/TaskService';
-import { loadConfig } from '../db/config';
+import { loadConfig, resolveModelSettings } from '../db/config';
 import { BRANCH_AUTO_GENERATE } from '../models/Task';
 import { getTaskModelOverride, getTaskEffortOverride, ModelOverrideKind } from './taskModelOverride';
 
@@ -68,7 +68,7 @@ export function resolveModelAndEffort(
 ): ResolvedModelEffort {
   const config = loadConfig();
   const overrideKind: ModelOverrideKind = command === 'planning' ? 'planning' : 'run';
-  const rawConfig = command === 'planning' ? config.models?.planning : config.models?.run;
+  const rawConfig = resolveModelSettings(config, overrideKind);
   const model =
     (taskService ? getTaskModelOverride(taskService, taskId, overrideKind) : undefined) ??
     rawConfig?.model?.trim() ??
