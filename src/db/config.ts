@@ -2,20 +2,49 @@ import fs from 'fs';
 import path from 'path';
 import yaml from 'js-yaml';
 
+export type AgentTool = 'claude' | 'codex';
+export type ModelSettings = { model?: string; effort?: string };
+export type AgentModelSettings = {
+  planning?: ModelSettings;
+  run?: ModelSettings;
+};
+
 /**
  * Configuration file type definition
  */
 export interface Config {
+  agent?: AgentTool;
   path?: string;
   board?: {
     port?: number;
     title?: string;
   };
-  models?: {
-    planning?: { model?: string; effort?: string };
-    run?: { model?: string; effort?: string };
+  models?: AgentModelSettings & {
+    claude?: AgentModelSettings;
+    codex?: AgentModelSettings;
   };
   permissionMode?: string;
+}
+
+/**
+ * Resolve the configured AI coding agent.
+ * Claude remains the default for backward compatibility.
+ */
+export function resolveAgentTool(config: Config): AgentTool {
+  const agent = config.agent ?? 'claude';
+  if (agent !== 'claude' && agent !== 'codex') {
+    throw new Error('Invalid agent "' + String(agent) + '". Must be one of: claude, codex');
+  }
+  return agent;
+}
+
+/**
+ * Resolve model settings for the selected agent. Agent-specific settings take
+ * precedence over the legacy flat planning/run settings.
+ */
+export function resolveModelSettings(config: Config, command: 'planning' | 'run'): ModelSettings | undefined {
+  const agent = resolveAgentTool(config);
+  return config.models?.[agent]?.[command] ?? config.models?.[command];
 }
 
 /**
@@ -30,6 +59,25 @@ export function buildPermissionArgs(config: Config): string[] {
     return ['--dangerously-skip-permissions'];
   }
   return ['--permission-mode', mode ?? 'auto'];
+}
+
+/**
+ * Build Codex CLI approval and sandbox arguments from the existing permission
+ * setting. Modes without a direct Codex equivalent use the safe interactive
+ * default.
+ */
+export function buildCodexPermissionArgs(config: Config): string[] {
+  switch (config.permissionMode) {
+    case 'skipPermissions':
+    case 'bypassPermissions':
+      return ['--dangerously-bypass-approvals-and-sandbox'];
+    case 'dontAsk':
+      return ['--ask-for-approval', 'never', '--sandbox', 'workspace-write'];
+    case 'plan':
+      return ['--ask-for-approval', 'never', '--sandbox', 'read-only'];
+    default:
+      return ['--ask-for-approval', 'on-request', '--sandbox', 'workspace-write'];
+  }
 }
 
 /**

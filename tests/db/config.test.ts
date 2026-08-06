@@ -19,7 +19,49 @@ import yaml from 'js-yaml';
 
 // Import functions that will be implemented in Phase 2.2
 // These imports will fail until src/db/config.ts is created
-import { resolveDatabasePath, isTestMode, getConfigFileName, getDefaultDirName, loadConfig } from '../../src/db/config';
+import {
+  resolveDatabasePath,
+  isTestMode,
+  getConfigFileName,
+  getDefaultDirName,
+  loadConfig,
+  resolveAgentTool,
+  resolveModelSettings,
+} from '../../src/db/config';
+
+describe('Agent tool resolution', () => {
+  it('defaults to claude', () => {
+    expect(resolveAgentTool({})).toBe('claude');
+  });
+
+  it('accepts codex', () => {
+    expect(resolveAgentTool({ agent: 'codex' })).toBe('codex');
+  });
+
+  it('selects agent-specific model settings', () => {
+    const config = {
+      agent: 'codex' as const,
+      models: {
+        claude: { run: { model: 'claude-sonnet' } },
+        codex: { run: { model: 'gpt-codex', effort: 'high' } },
+      },
+    };
+
+    expect(resolveModelSettings(config, 'run')).toEqual({ model: 'gpt-codex', effort: 'high' });
+  });
+
+  it('falls back to legacy flat model settings', () => {
+    expect(resolveModelSettings({ agent: 'codex', models: { run: { model: 'legacy-model' } } }, 'run')).toEqual({
+      model: 'legacy-model',
+    });
+  });
+
+  it('rejects unsupported values loaded from YAML', () => {
+    expect(() => resolveAgentTool({ agent: 'other' as 'claude' })).toThrow(
+      'Invalid agent "other". Must be one of: claude, codex'
+    );
+  });
+});
 
 describe('Database Path Resolution', () => {
   const originalEnv = process.env;
