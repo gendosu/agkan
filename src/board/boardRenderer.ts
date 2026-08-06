@@ -109,7 +109,7 @@ const BOARD_PRIORITY_OPTIONS = PRIORITIES.map(
 // (duplicated because the client bundle is compiled as a separate TS project).
 const MODEL_ALIAS_OPTIONS = ['fable', 'opus', 'sonnet', 'haiku'];
 const BOARD_MODEL_OPTIONS = MODEL_ALIAS_OPTIONS.map(
-  (m) => `<option value="${m}">${m.charAt(0).toUpperCase() + m.slice(1)}</option>`
+  (m) => `<option value="${m}">claude[${m.charAt(0).toUpperCase() + m.slice(1)}]</option>`
 ).join('\n          ');
 
 // Keep in sync with EFFORT_OPTIONS in src/board/client/detailPanelHtml.ts

@@ -109,7 +109,7 @@ function renderModelSelect(id: string, currentValue: string): string {
   html += '<option value="">Default (config)</option>';
   MODEL_ALIAS_OPTIONS.forEach((m) => {
     const selected = m === currentValue ? ' selected' : '';
-    html += '<option value="' + m + '"' + selected + '>' + m.charAt(0).toUpperCase() + m.slice(1) + '</option>';
+    html += '<option value="' + m + '"' + selected + '>claude[' + m.charAt(0).toUpperCase() + m.slice(1) + ']</option>';
   });
   html += '</select>';
   return html;
