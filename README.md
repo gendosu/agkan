@@ -158,7 +158,7 @@ The database path can also be overridden with the `AGENT_KANBAN_DB_PATH` environ
 
 In test mode (`NODE_ENV=test`), agkan automatically isolates data using `.agkan-test.yml` and `.agkan-test/` instead, so tests never touch your real task database.
 
-See **[documentation/configuration.md](documentation/configuration.md)** for the full reference, including per-project setup, model selection, and permission modes.
+See **[documentation/configuration.md](documentation/configuration.md)** for the full reference, including per-project setup, agent selection (Claude/Codex), model selection, and permission modes.
 
 ## Task Statuses
 
@@ -181,7 +181,7 @@ Detailed reference material lives outside this file:
 | Document | Description |
 |---|---|
 | [documentation/cli-reference.md](documentation/cli-reference.md) | Full command reference, options, and JSON output formats |
-| [documentation/configuration.md](documentation/configuration.md) | `.agkan.yml` reference (paths, board, models, permission mode) |
+| [documentation/configuration.md](documentation/configuration.md) | `.agkan.yml` reference (paths, board, agent selection, models, permission mode) |
 | [documentation/project-structure.md](documentation/project-structure.md) | Repository directory layout |
 | [documentation/database-schema.md](documentation/database-schema.md) | SQLite schema reference |
 | [documentation/development.md](documentation/development.md) | Technology stack, local setup, and build information |

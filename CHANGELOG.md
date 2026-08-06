@@ -22,6 +22,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 - Move task-level Claude model/effort overrides from `task_metadata` rows (`model:planning` / `model:run` / `effort:planning` / `effort:run`) to dedicated `tasks` table columns. Existing metadata rows are migrated automatically on the next run and then removed
+- Change the Codex agent's default model to `gpt-5.6-sol` when no model is specified (or resolves to an empty string) via task override or `.agkan.yml`, instead of deferring to the Codex CLI's own default. **Breaking change**: agkan now always passes `--model` to Codex; to keep using the Codex CLI's own default, set `models.codex.planning.model` / `models.codex.run.model` explicitly (#14)
 
 ## [3.20.2] - 2026-08-29
 

@@ -22,6 +22,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### 変更
 - タスク単位の Claude model/effort override の保存先を、`task_metadata` の行（`model:planning` / `model:run` / `effort:planning` / `effort:run`）から `tasks` テーブルの専用カラムへ変更。既存の metadata は次回起動時のマイグレーションで自動的に移行され、元の行は削除される
+- Codex エージェントのデフォルトモデルを変更。タスク単位のオーバーライドや `.agkan.yml` でモデルが未指定（または空文字に解決される場合）、Codex CLI自身のデフォルトに委ねる代わりに `gpt-5.6-sol` を使用するようにした。**破壊的変更**: agkanは今後常に `--model` をCodexに渡す。Codex CLI自身のデフォルトを使い続けたい場合は `models.codex.planning.model` / `models.codex.run.model` を明示的に設定すること (#14)
 
 ## [3.20.2] - 2026-08-29
 
