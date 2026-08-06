@@ -330,7 +330,8 @@ function buildAgentArgs(
   if (agent === 'codex') {
     const modelArgs = ['--model', model || DEFAULT_CODEX_MODEL];
     const effortArgs = effort ? ['--config', 'model_reasoning_effort=' + JSON.stringify(effort)] : [];
-    return [...modelArgs, ...effortArgs, ...buildCodexPermissionArgs(config), prompt];
+    // '--' keeps a flag-like or subcommand-like prompt from being parsed as codex options.
+    return [...modelArgs, ...effortArgs, ...buildCodexPermissionArgs(config), '--', prompt];
   }
 
   const modelArgs = model ? ['--model', model] : [];

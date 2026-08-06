@@ -696,9 +696,21 @@ describe('PtySessionService - model/effort/boardApiUrl args', () => {
       'on-request',
       '--sandbox',
       'workspace-write',
+      '--',
       'Task ID: 1',
     ]);
     expect(mockWrite).not.toHaveBeenCalled();
+  });
+
+  it('shields a flag-like Codex prompt behind the -- end-of-options sentinel', async () => {
+    vi.mocked(configModule.loadConfig).mockReturnValue({ agent: 'codex' });
+    const svc = new PtySessionService();
+    await svc.startProcess(1, '--dangerously-bypass-approvals-and-sandbox', 'run');
+
+    const args = spawnMock.mock.calls[0][1] as string[];
+    expect(args.indexOf('--')).toBeGreaterThan(-1);
+    expect(args.indexOf('--')).toBeLessThan(args.indexOf('--dangerously-bypass-approvals-and-sandbox'));
+    expect(args[args.length - 1]).toBe('--dangerously-bypass-approvals-and-sandbox');
   });
 
   it('defaults Codex model to gpt-5.6-sol when model is not provided', async () => {
