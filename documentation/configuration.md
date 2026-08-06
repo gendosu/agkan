@@ -11,6 +11,7 @@ Full configuration reference for agkan, covering `.agkan.yml` fields, database p
   - [Default Behavior](#default-behavior)
   - [Per-Project Management](#per-project-management)
 - [Board Settings](#board-settings)
+- [Agent Settings](#agent-settings)
 - [Models Settings](#models-settings)
 - [Permission Mode Settings](#permission-mode-settings)
 
@@ -185,20 +186,50 @@ board:
     title: "My Project Board"
   ```
 
+## Agent Settings
+
+The `agent` field in `.agkan.yml` selects which AI coding agent the board launches to execute tasks.
+
+### Available Values
+
+| Value | Description |
+|-------|-------------|
+| (not set) | Defaults to `claude` |
+| `claude` | Use Claude Code CLI |
+| `codex` | Use OpenAI Codex CLI |
+
+```yaml
+# Default
+agent: claude
+
+# Use OpenAI Codex CLI
+agent: codex
+```
+
+Each agent CLI must be installed and authenticated separately. Setting `agent` to any other value raises an error: `Invalid agent "<value>". Must be one of: claude, codex`.
+
 ## Models Settings
 
-The `models` section in `.agkan.yml` allows you to specify the Claude model and effort level used when executing planning and run commands via the board.
+The `models` section in `.agkan.yml` specifies the model and effort level used by the selected agent when executing planning and run commands via the board.
 
 ### Available Fields
 
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
-| `models.planning.model` | string | (Claude CLI default) | Model used for planning command execution |
-| `models.planning.effort` | string | (Claude CLI default) | Effort level for planning command (`low`, `medium`, `high`, `xhigh`, `max`) |
-| `models.run.model` | string | (Claude CLI default) | Model used for run/pr command execution |
-| `models.run.effort` | string | (Claude CLI default) | Effort level for run/pr command (`low`, `medium`, `high`, `xhigh`, `max`) |
+| `models.<agent>.planning.model` | string | claude: selected CLI default; codex: `gpt-5.6-sol` | Model used for planning command execution |
+| `models.<agent>.planning.effort` | string | (selected CLI default) | Effort level for planning command (`low`, `medium`, `high`, `xhigh`, `max`) |
+| `models.<agent>.run.model` | string | claude: selected CLI default; codex: `gpt-5.6-sol` | Model used for run/pr command execution |
+| `models.<agent>.run.effort` | string | (selected CLI default) | Effort level for run/pr command (`low`, `medium`, `high`, `xhigh`, `max`) |
 
-Both full model names and Claude CLI aliases are supported. Both `model` and `effort` are optional within each entry.
+`<agent>` is `claude` or `codex`. Both `models.claude` and `models.codex` can be configured at the same time; only the profile matching the selected `agent` is used. Both `model` and `effort` are optional within each entry.
+
+If `models.codex.planning.model` / `models.codex.run.model` is not set, agkan defaults to `gpt-5.6-sol` rather than deferring to the Codex CLI's own default. `claude` has no such agkan-side default; if unset, the Claude CLI's own default model is used.
+
+> **Breaking Change**: Prior to this default, an unset Codex model omitted `--model` entirely and deferred to the Codex CLI's own default model. agkan now always passes `--model`, defaulting to `gpt-5.6-sol` when unset. If you rely on the Codex CLI's own default, set `models.codex.planning.model` / `models.codex.run.model` explicitly to that model name.
+
+For backward compatibility, the legacy flat `models.planning` / `models.run` form (without an agent key) is still supported as a fallback: if `models.<agent>.planning` (or `.run`) is not set, agkan falls back to `models.planning` (or `.run`). Agent-specific settings always take priority over the legacy flat form.
+
+Model names are passed through as-is to the selected agent's CLI (`--model` for both `claude` and `codex`). Claude CLI aliases such as `opus`, `sonnet`, and `haiku` are resolved by the Claude CLI itself, not by agkan; agkan does not resolve or validate model aliases for either agent. For Codex, `effort` is passed via `--config model_reasoning_effort=<effort>` instead of a `--effort` flag.
 
 ### Configuration Example
 
@@ -207,46 +238,58 @@ Both full model names and Claude CLI aliases are supported. Both `model` and `ef
 path: ./.agkan/data.db
 
 # Model settings
+agent: codex
 models:
-  planning:
-    model: claude-opus-4-7
-    effort: high
-  run:
-    model: claude-sonnet-4-6
-    effort: low
+  claude:
+    planning:
+      model: claude-opus-4-7
+      effort: high
+    run:
+      model: claude-sonnet-4-6
+      effort: low
+  codex:
+    planning:
+      model: gpt-5.1-codex
+      effort: high
+    run:
+      model: gpt-5.1-codex
+      effort: high
 ```
 
 ### Using Aliases
 
-You can use short aliases instead of full model names:
+You can use short aliases instead of full model names when `agent: claude` is selected:
 
 ```yaml
 models:
-  planning:
-    model: opus
-    effort: high
-  run:
-    model: sonnet
-```
-
-Supported aliases: `opus`, `sonnet`, `haiku` (resolved by the Claude CLI)
-
-### Field Details
-
-- **`models.planning`**: Specifies the Claude model and effort level used when the board executes planning tasks. Recommended to use a high-capability model and effort level such as `opus` with `high`.
-  ```yaml
-  models:
+  claude:
     planning:
       model: opus
       effort: high
-  ```
-
-- **`models.run`**: Specifies the Claude model and effort level used when the board executes run or pr commands. The `pr` command also uses this value.
-  ```yaml
-  models:
     run:
       model: sonnet
-      effort: low
+```
+
+Supported aliases: `opus`, `sonnet`, `haiku` (resolved by the Claude CLI; agkan does not resolve aliases for Codex)
+
+### Field Details
+
+- **`models.<agent>.planning`**: Specifies the model and effort level used by the target agent for planning tasks. Recommended to use a high-capability model and effort level such as `opus` with `high` for `claude`.
+  ```yaml
+  models:
+    claude:
+      planning:
+        model: opus
+        effort: high
+  ```
+
+- **`models.<agent>.run`**: Specifies the model and effort level used by the target agent for run or pr commands. The `pr` command also uses this value.
+  ```yaml
+  models:
+    claude:
+      run:
+        model: sonnet
+        effort: low
   ```
 
 ## Permission Mode Settings
