@@ -14,6 +14,11 @@ const DEFAULT_CONFIG_CONTENT = `# agkan configuration file
 # This file controls the behavior of agkan (Agent Kanban).
 # Uncomment and modify the settings below to customize your agkan instance.
 
+# AI coding agent used by the board
+# Valid values: claude | codex
+# Default: claude
+agent: claude
+
 # Database path
 # Location where agkan stores task data.
 # Default: .agkan/data.db
@@ -32,24 +37,33 @@ const DEFAULT_CONFIG_CONTENT = `# agkan configuration file
 #   title: Agent Kanban
 
 # Model configuration
-# Claude model used when executing planning and run commands via the board.
-# Accepts full model names (e.g. claude-opus-4-7) or aliases (e.g. opus, sonnet, haiku).
+# Model used when executing planning and run commands via the board.
+# The value is passed to the selected agent CLI.
 # Valid effort values: low | medium | high | xhigh | max
-# If omitted, the Claude CLI's default model is used.
+# If omitted for claude, the Claude CLI's own default model is used.
+# If omitted for codex, agkan defaults to gpt-5.6-sol instead of the Codex CLI's own default.
 # models:
-#   planning:
-#     model: opus
-#     effort: low
-#   run:
-#     model: sonnet
-#     effort: low
+#   claude:
+#     planning:
+#       model: opus
+#       effort: high
+#     run:
+#       model: sonnet
+#       effort: high
+#   codex:
+#     planning:
+#       model: gpt-5.1-codex
+#       effort: high
+#     run:
+#       model: gpt-5.1-codex
+#       effort: high
 
 # Permission mode configuration
-# Controls how Claude CLI handles permission prompts when running agents.
+# Controls permission prompts for the selected agent CLI.
 # Default: auto
 # Valid values: auto | acceptEdits | bypassPermissions | default | dontAsk | plan | skipPermissions
-# Note: skipPermissions maps to --dangerously-skip-permissions (legacy behavior).
-#       All other values use --permission-mode <value>.
+# Permission values are translated to the selected CLI's flags.
+# Note: skipPermissions bypasses permission checks for both agents.
 # Example: permissionMode: auto
 # permissionMode: auto
 `;

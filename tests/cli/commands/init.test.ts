@@ -83,6 +83,9 @@ describe('setupInitCommand', () => {
     const content = fs.readFileSync(configPath, 'utf8');
     expect(content).toContain('path:');
     expect(content).toContain('.agkan/data.db');
+    expect(content).toContain('agent: claude');
+    expect(content).toContain('  claude:');
+    expect(content).toContain('  codex:');
   });
 
   it('should display success messages after creation', async () => {
