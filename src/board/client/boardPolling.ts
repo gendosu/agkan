@@ -145,6 +145,55 @@ function updateColumnHtml(col: { status: string; html: string; count: number }):
   updateButtonStates(getRunningTaskIds());
 }
 
+function findCardElementById(taskId: number): HTMLElement | null {
+  return document.querySelector<HTMLElement>('.card[data-id="' + taskId + '"]');
+}
+
+interface CardSnapshot {
+  updatedAt: string;
+  tagIds: string;
+  blockedBy: string;
+  blocking: string;
+}
+
+function snapshotCard(card: HTMLElement | null): CardSnapshot | null {
+  if (!card) return null;
+  return {
+    updatedAt: card.dataset.updatedAt ?? '',
+    tagIds: card.dataset.tagIds ?? '',
+    blockedBy: card.dataset.blockedBy ?? '',
+    blocking: card.dataset.blocking ?? '',
+  };
+}
+
+// Detects whether the detail task's own card changed (attributes, or appeared/disappeared),
+// as opposed to some other task's card changing elsewhere on the board.
+function didDetailCardChange(before: HTMLElement | null, after: HTMLElement | null): boolean {
+  const beforeSnapshot = snapshotCard(before);
+  const afterSnapshot = snapshotCard(after);
+  if (beforeSnapshot === null || afterSnapshot === null) {
+    return beforeSnapshot !== afterSnapshot;
+  }
+  return (
+    beforeSnapshot.updatedAt !== afterSnapshot.updatedAt ||
+    beforeSnapshot.tagIds !== afterSnapshot.tagIds ||
+    beforeSnapshot.blockedBy !== afterSnapshot.blockedBy ||
+    beforeSnapshot.blocking !== afterSnapshot.blocking
+  );
+}
+
+// Refreshes the open detail panel only if the detail task's own card changed —
+// unrelated task updates elsewhere on the board must not reload/warn the open panel.
+async function refreshDetailPanelIfCardChanged(
+  detailTaskId: number,
+  beforeDetailCard: HTMLElement | null
+): Promise<void> {
+  const afterDetailCard = findCardElementById(detailTaskId);
+  if (didDetailCardChange(beforeDetailCard, afterDetailCard)) {
+    await refreshOpenDetailPanel(detailTaskId);
+  }
+}
+
 function isEditingDetailPanel(): boolean {
   const editableFields = ['detail-edit-title', 'detail-edit-body', 'detail-edit-status', 'detail-edit-priority'];
   return editableFields.some((id) => document.activeElement && document.activeElement.id === id);
@@ -176,10 +225,13 @@ export async function refreshBoardCards(): Promise<void> {
     const res = await fetch(url);
     if (!res.ok) return;
     const data = (await res.json()) as { columns: Array<{ status: string; html: string; count: number }> };
+
+    const detailTaskId = _getDetailTaskId ? _getDetailTaskId() : null;
+    const beforeDetailCard = detailTaskId !== null ? findCardElementById(detailTaskId) : null;
+
     data.columns.forEach(updateColumnHtml);
 
     // Re-apply active card indicator after DOM update
-    const detailTaskId = _getDetailTaskId ? _getDetailTaskId() : null;
     if (detailTaskId !== null && _setActiveCard) {
       _setActiveCard(detailTaskId);
     }
@@ -189,9 +241,8 @@ export async function refreshBoardCards(): Promise<void> {
       _redrawDependencies();
     }
 
-    // If detail panel is open, refresh its content if the task was updated
     if (detailTaskId !== null) {
-      await refreshOpenDetailPanel(detailTaskId);
+      await refreshDetailPanelIfCardChanged(detailTaskId, beforeDetailCard);
     }
   } catch {
     // Ignore network errors during card refresh

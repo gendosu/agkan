@@ -237,6 +237,119 @@ describe('refreshBoardCards', () => {
     expect(renderDetailPanel).not.toHaveBeenCalled();
     expect(fetchCalls.some((u) => u.includes('/api/tasks/1'))).toBe(false);
   });
+
+  it('does not refresh open detail panel when the displayed task card is unchanged', async () => {
+    document.getElementById('col-backlog')!.innerHTML =
+      '<div class="card" data-id="1" data-status="backlog" data-updated-at="2026-01-01T00:00:00.000Z"></div>';
+
+    const renderDetailPanel = vi.fn();
+    registerDetailPanelCallbacks({
+      openTaskDetail: vi.fn(),
+      renderDetailPanel,
+      showUpdateWarning: vi.fn(),
+      getDetailTaskId: vi.fn().mockReturnValue(1),
+      getDetailActiveTab: vi.fn().mockReturnValue('details'),
+      setActiveCard: vi.fn(),
+    });
+
+    const fetchCalls: string[] = [];
+    global.fetch = vi.fn().mockImplementation((url: string) => {
+      fetchCalls.push(String(url));
+      return Promise.resolve({
+        ok: true,
+        json: vi.fn().mockResolvedValue({
+          columns: [
+            {
+              status: 'backlog',
+              // Same task, same data-updated-at/tags/deps: an unrelated task changed
+              // elsewhere, but this task's own card is unchanged.
+              html: '<div class="card" data-id="1" data-status="backlog" data-updated-at="2026-01-01T00:00:00.000Z"></div>',
+              count: 1,
+            },
+          ],
+        }),
+      });
+    });
+
+    await refreshBoardCards();
+
+    expect(renderDetailPanel).not.toHaveBeenCalled();
+    expect(fetchCalls.some((u) => u.includes('/api/tasks/1'))).toBe(false);
+  });
+
+  it('refreshes open detail panel when the displayed task card itself changes', async () => {
+    document.getElementById('col-backlog')!.innerHTML =
+      '<div class="card" data-id="1" data-status="backlog" data-updated-at="2026-01-01T00:00:00.000Z"></div>';
+
+    const renderDetailPanel = vi.fn();
+    registerDetailPanelCallbacks({
+      openTaskDetail: vi.fn(),
+      renderDetailPanel,
+      showUpdateWarning: vi.fn(),
+      getDetailTaskId: vi.fn().mockReturnValue(1),
+      getDetailActiveTab: vi.fn().mockReturnValue('details'),
+      setActiveCard: vi.fn(),
+    });
+
+    global.fetch = vi.fn().mockImplementation((url: string) => {
+      if (String(url).includes('/api/tasks/1')) {
+        return Promise.resolve({
+          ok: true,
+          json: vi.fn().mockResolvedValue({ id: 1, title: 'Updated Title' }),
+        });
+      }
+      return Promise.resolve({
+        ok: true,
+        json: vi.fn().mockResolvedValue({
+          columns: [
+            {
+              status: 'backlog',
+              html: '<div class="card" data-id="1" data-status="backlog" data-updated-at="2026-01-02T00:00:00.000Z"></div>',
+              count: 1,
+            },
+          ],
+        }),
+      });
+    });
+
+    await refreshBoardCards();
+
+    expect(renderDetailPanel).toHaveBeenCalledWith(expect.objectContaining({ id: 1 }));
+  });
+
+  it('refreshes open detail panel when the displayed task card disappears from the board', async () => {
+    document.getElementById('col-backlog')!.innerHTML =
+      '<div class="card" data-id="1" data-status="backlog" data-updated-at="2026-01-01T00:00:00.000Z"></div>';
+
+    const renderDetailPanel = vi.fn();
+    registerDetailPanelCallbacks({
+      openTaskDetail: vi.fn(),
+      renderDetailPanel,
+      showUpdateWarning: vi.fn(),
+      getDetailTaskId: vi.fn().mockReturnValue(1),
+      getDetailActiveTab: vi.fn().mockReturnValue('details'),
+      setActiveCard: vi.fn(),
+    });
+
+    global.fetch = vi.fn().mockImplementation((url: string) => {
+      if (String(url).includes('/api/tasks/1')) {
+        return Promise.resolve({
+          ok: true,
+          json: vi.fn().mockResolvedValue({ id: 1, status: 'done' }),
+        });
+      }
+      return Promise.resolve({
+        ok: true,
+        json: vi.fn().mockResolvedValue({
+          columns: [{ status: 'backlog', html: '', count: 0 }],
+        }),
+      });
+    });
+
+    await refreshBoardCards();
+
+    expect(renderDetailPanel).toHaveBeenCalled();
+  });
 });
 
 describe('registerDetailPanelCallbacks', () => {
