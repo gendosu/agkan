@@ -238,9 +238,10 @@ describe('refreshBoardCards', () => {
     expect(fetchCalls.some((u) => u.includes('/api/tasks/1'))).toBe(false);
   });
 
-  it('does not refresh open detail panel when the displayed task card is unchanged', async () => {
+  it('does not refresh open detail panel when an unrelated task card changes but the displayed task card is unchanged', async () => {
     document.getElementById('col-backlog')!.innerHTML =
-      '<div class="card" data-id="1" data-status="backlog" data-updated-at="2026-01-01T00:00:00.000Z"></div>';
+      '<div class="card" data-id="1" data-status="backlog" data-updated-at="2026-01-01T00:00:00.000Z"></div>' +
+      '<div class="card" data-id="2" data-status="backlog" data-updated-at="2026-01-01T00:00:00.000Z"></div>';
 
     const renderDetailPanel = vi.fn();
     registerDetailPanelCallbacks({
@@ -261,9 +262,89 @@ describe('refreshBoardCards', () => {
           columns: [
             {
               status: 'backlog',
-              // Same task, same data-updated-at/tags/deps: an unrelated task changed
-              // elsewhere, but this task's own card is unchanged.
-              html: '<div class="card" data-id="1" data-status="backlog" data-updated-at="2026-01-01T00:00:00.000Z"></div>',
+              // Task 1 (the displayed task) is unchanged; task 2 (unrelated) was updated.
+              html:
+                '<div class="card" data-id="1" data-status="backlog" data-updated-at="2026-01-01T00:00:00.000Z"></div>' +
+                '<div class="card" data-id="2" data-status="backlog" data-updated-at="2026-01-02T00:00:00.000Z"></div>',
+              count: 2,
+            },
+          ],
+        }),
+      });
+    });
+
+    await refreshBoardCards();
+
+    // Background board card for the unrelated task still updates.
+    expect(document.querySelector('[data-id="2"]')?.getAttribute('data-updated-at')).toBe('2026-01-02T00:00:00.000Z');
+    // The open detail panel for task 1 is left alone.
+    expect(renderDetailPanel).not.toHaveBeenCalled();
+    expect(fetchCalls.some((u) => u.includes('/api/tasks/1'))).toBe(false);
+  });
+
+  it('does not show the edit-in-progress warning bar for an unrelated task update', async () => {
+    document.getElementById('col-backlog')!.innerHTML =
+      '<div class="card" data-id="1" data-status="backlog" data-updated-at="2026-01-01T00:00:00.000Z"></div>';
+    // Simulate the user actively editing the open detail panel.
+    const editingInput = document.createElement('input');
+    editingInput.id = 'detail-edit-title';
+    document.body.appendChild(editingInput);
+    editingInput.focus();
+
+    const showUpdateWarning = vi.fn();
+    registerDetailPanelCallbacks({
+      openTaskDetail: vi.fn(),
+      renderDetailPanel: vi.fn(),
+      showUpdateWarning,
+      getDetailTaskId: vi.fn().mockReturnValue(1),
+      getDetailActiveTab: vi.fn().mockReturnValue('details'),
+      setActiveCard: vi.fn(),
+    });
+
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: vi.fn().mockResolvedValue({
+        columns: [
+          {
+            status: 'backlog',
+            // Displayed task's own card is unchanged — an unrelated update happened elsewhere.
+            html: '<div class="card" data-id="1" data-status="backlog" data-updated-at="2026-01-01T00:00:00.000Z"></div>',
+            count: 1,
+          },
+        ],
+      }),
+    });
+
+    await refreshBoardCards();
+
+    expect(showUpdateWarning).not.toHaveBeenCalled();
+  });
+
+  it('refreshes open detail panel when only the displayed task card tags change (updated-at unchanged)', async () => {
+    document.getElementById('col-backlog')!.innerHTML =
+      '<div class="card" data-id="1" data-status="backlog" data-updated-at="2026-01-01T00:00:00.000Z"></div>';
+
+    const renderDetailPanel = vi.fn();
+    registerDetailPanelCallbacks({
+      openTaskDetail: vi.fn(),
+      renderDetailPanel,
+      showUpdateWarning: vi.fn(),
+      getDetailTaskId: vi.fn().mockReturnValue(1),
+      getDetailActiveTab: vi.fn().mockReturnValue('details'),
+      setActiveCard: vi.fn(),
+    });
+
+    global.fetch = vi.fn().mockImplementation((url: string) => {
+      if (String(url).includes('/api/tasks/1')) {
+        return Promise.resolve({ ok: true, json: vi.fn().mockResolvedValue({ id: 1 }) });
+      }
+      return Promise.resolve({
+        ok: true,
+        json: vi.fn().mockResolvedValue({
+          columns: [
+            {
+              status: 'backlog',
+              html: '<div class="card" data-id="1" data-status="backlog" data-updated-at="2026-01-01T00:00:00.000Z" data-tag-ids="5"></div>',
               count: 1,
             },
           ],
@@ -273,8 +354,109 @@ describe('refreshBoardCards', () => {
 
     await refreshBoardCards();
 
-    expect(renderDetailPanel).not.toHaveBeenCalled();
-    expect(fetchCalls.some((u) => u.includes('/api/tasks/1'))).toBe(false);
+    expect(renderDetailPanel).toHaveBeenCalledWith(expect.objectContaining({ id: 1 }));
+  });
+
+  it('refreshes open detail panel when only the displayed task card blocked-by relation changes (updated-at unchanged)', async () => {
+    document.getElementById('col-backlog')!.innerHTML =
+      '<div class="card" data-id="1" data-status="backlog" data-updated-at="2026-01-01T00:00:00.000Z"></div>';
+
+    const renderDetailPanel = vi.fn();
+    registerDetailPanelCallbacks({
+      openTaskDetail: vi.fn(),
+      renderDetailPanel,
+      showUpdateWarning: vi.fn(),
+      getDetailTaskId: vi.fn().mockReturnValue(1),
+      getDetailActiveTab: vi.fn().mockReturnValue('details'),
+      setActiveCard: vi.fn(),
+    });
+
+    global.fetch = vi.fn().mockImplementation((url: string) => {
+      if (String(url).includes('/api/tasks/1')) {
+        return Promise.resolve({ ok: true, json: vi.fn().mockResolvedValue({ id: 1 }) });
+      }
+      return Promise.resolve({
+        ok: true,
+        json: vi.fn().mockResolvedValue({
+          columns: [
+            {
+              status: 'backlog',
+              html: '<div class="card" data-id="1" data-status="backlog" data-updated-at="2026-01-01T00:00:00.000Z" data-blocked-by="2"></div>',
+              count: 1,
+            },
+          ],
+        }),
+      });
+    });
+
+    await refreshBoardCards();
+
+    expect(renderDetailPanel).toHaveBeenCalledWith(expect.objectContaining({ id: 1 }));
+  });
+
+  it('refreshes open detail panel when only the displayed task card blocking relation changes (updated-at unchanged)', async () => {
+    document.getElementById('col-backlog')!.innerHTML =
+      '<div class="card" data-id="1" data-status="backlog" data-updated-at="2026-01-01T00:00:00.000Z"></div>';
+
+    const renderDetailPanel = vi.fn();
+    registerDetailPanelCallbacks({
+      openTaskDetail: vi.fn(),
+      renderDetailPanel,
+      showUpdateWarning: vi.fn(),
+      getDetailTaskId: vi.fn().mockReturnValue(1),
+      getDetailActiveTab: vi.fn().mockReturnValue('details'),
+      setActiveCard: vi.fn(),
+    });
+
+    global.fetch = vi.fn().mockImplementation((url: string) => {
+      if (String(url).includes('/api/tasks/1')) {
+        return Promise.resolve({ ok: true, json: vi.fn().mockResolvedValue({ id: 1 }) });
+      }
+      return Promise.resolve({
+        ok: true,
+        json: vi.fn().mockResolvedValue({
+          columns: [
+            {
+              status: 'backlog',
+              html: '<div class="card" data-id="1" data-status="backlog" data-updated-at="2026-01-01T00:00:00.000Z" data-blocking="3"></div>',
+              count: 1,
+            },
+          ],
+        }),
+      });
+    });
+
+    await refreshBoardCards();
+
+    expect(renderDetailPanel).toHaveBeenCalledWith(expect.objectContaining({ id: 1 }));
+  });
+
+  it('refreshes open detail panel when the displayed task card is not present on the board at all (e.g. filtered out)', async () => {
+    // No card for task 1 exists before or after — we cannot determine whether it changed,
+    // so the panel must still refresh rather than silently going stale forever.
+    const renderDetailPanel = vi.fn();
+    registerDetailPanelCallbacks({
+      openTaskDetail: vi.fn(),
+      renderDetailPanel,
+      showUpdateWarning: vi.fn(),
+      getDetailTaskId: vi.fn().mockReturnValue(1),
+      getDetailActiveTab: vi.fn().mockReturnValue('details'),
+      setActiveCard: vi.fn(),
+    });
+
+    global.fetch = vi.fn().mockImplementation((url: string) => {
+      if (String(url).includes('/api/tasks/1')) {
+        return Promise.resolve({ ok: true, json: vi.fn().mockResolvedValue({ id: 1 }) });
+      }
+      return Promise.resolve({
+        ok: true,
+        json: vi.fn().mockResolvedValue({ columns: [{ status: 'backlog', html: '', count: 0 }] }),
+      });
+    });
+
+    await refreshBoardCards();
+
+    expect(renderDetailPanel).toHaveBeenCalledWith(expect.objectContaining({ id: 1 }));
   });
 
   it('refreshes open detail panel when the displayed task card itself changes', async () => {

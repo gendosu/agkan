@@ -67,6 +67,28 @@ function attachCardListeners(body: HTMLElement): void {
   });
 }
 
+interface CardWatchAttrs {
+  updatedAt: string;
+  tagIds: string;
+  blockedBy: string;
+  blocking: string;
+}
+
+function readCardWatchAttrs(card: HTMLElement): CardWatchAttrs {
+  return {
+    updatedAt: card.dataset.updatedAt ?? '',
+    tagIds: card.dataset.tagIds ?? '',
+    blockedBy: card.dataset.blockedBy ?? '',
+    blocking: card.dataset.blocking ?? '',
+  };
+}
+
+function cardWatchAttrsEqual(a: CardWatchAttrs, b: CardWatchAttrs): boolean {
+  return (
+    a.updatedAt === b.updatedAt && a.tagIds === b.tagIds && a.blockedBy === b.blockedBy && a.blocking === b.blocking
+  );
+}
+
 export function applyIncrementalCardUpdate(body: HTMLElement, newHtml: string): void {
   const template = document.createElement('div');
   template.innerHTML = newHtml;
@@ -96,22 +118,12 @@ export function applyIncrementalCardUpdate(body: HTMLElement, newHtml: string): 
   // Insert or update cards in order
   newCards.forEach((newCard, index) => {
     const id = newCard.dataset.id;
-    const newUpdatedAt = newCard.dataset.updatedAt;
-    const newTagIds = newCard.dataset.tagIds ?? '';
-    const newBlockedBy = newCard.dataset.blockedBy ?? '';
-    const newBlocking = newCard.dataset.blocking ?? '';
     const existing = id ? existingCards.get(id) : undefined;
 
     if (existing) {
       // Update if content changed: compare updated-at, tag, and dependency attributes
-      const existingUpdatedAt = existing.dataset.updatedAt;
-      const existingTagIds = existing.dataset.tagIds ?? '';
-      const existingBlockedBy = existing.dataset.blockedBy ?? '';
-      const existingBlocking = existing.dataset.blocking ?? '';
-      const tagsChanged = newTagIds !== existingTagIds;
-      const depsChanged = newBlockedBy !== existingBlockedBy || newBlocking !== existingBlocking;
       let activeCard: HTMLElement;
-      if (newUpdatedAt !== existingUpdatedAt || tagsChanged || depsChanged) {
+      if (!cardWatchAttrsEqual(readCardWatchAttrs(existing), readCardWatchAttrs(newCard))) {
         existing.replaceWith(newCard);
         activeCard = newCard;
       } else {
@@ -149,47 +161,36 @@ function findCardElementById(taskId: number): HTMLElement | null {
   return document.querySelector<HTMLElement>('.card[data-id="' + taskId + '"]');
 }
 
-interface CardSnapshot {
-  updatedAt: string;
-  tagIds: string;
-  blockedBy: string;
-  blocking: string;
+interface DetailCardSnapshot extends CardWatchAttrs {
+  status: string;
 }
 
-function snapshotCard(card: HTMLElement | null): CardSnapshot | null {
+// Captures the detail task's card attributes by value (not an element reference) so the
+// comparison in didDetailCardChange doesn't depend on whether the DOM node gets replaced
+// or updated in place.
+function snapshotDetailCard(taskId: number): DetailCardSnapshot | null {
+  const card = findCardElementById(taskId);
   if (!card) return null;
-  return {
-    updatedAt: card.dataset.updatedAt ?? '',
-    tagIds: card.dataset.tagIds ?? '',
-    blockedBy: card.dataset.blockedBy ?? '',
-    blocking: card.dataset.blocking ?? '',
-  };
+  return { ...readCardWatchAttrs(card), status: card.dataset.status ?? '' };
 }
 
-// Detects whether the detail task's own card changed (attributes, or appeared/disappeared),
-// as opposed to some other task's card changing elsewhere on the board.
-function didDetailCardChange(before: HTMLElement | null, after: HTMLElement | null): boolean {
-  const beforeSnapshot = snapshotCard(before);
-  const afterSnapshot = snapshotCard(after);
-  if (beforeSnapshot === null || afterSnapshot === null) {
-    return beforeSnapshot !== afterSnapshot;
-  }
-  return (
-    beforeSnapshot.updatedAt !== afterSnapshot.updatedAt ||
-    beforeSnapshot.tagIds !== afterSnapshot.tagIds ||
-    beforeSnapshot.blockedBy !== afterSnapshot.blockedBy ||
-    beforeSnapshot.blocking !== afterSnapshot.blocking
-  );
+// Detects whether the detail task's own card changed (attributes, status/column move, or
+// appeared/disappeared), as opposed to some other task's card changing elsewhere on the
+// board. When the card can't be found on either side (e.g. filtered out of view), we cannot
+// rule out a change, so we conservatively report a change and let the panel refresh.
+function didDetailCardChange(before: DetailCardSnapshot | null, after: DetailCardSnapshot | null): boolean {
+  if (before === null || after === null) return true;
+  return !cardWatchAttrsEqual(before, after) || before.status !== after.status;
 }
 
 // Refreshes the open detail panel only if the detail task's own card changed —
 // unrelated task updates elsewhere on the board must not reload/warn the open panel.
 async function refreshDetailPanelIfCardChanged(
   detailTaskId: number,
-  beforeDetailCard: HTMLElement | null
+  beforeDetailSnapshot: DetailCardSnapshot | null
 ): Promise<void> {
-  const afterDetailCard = findCardElementById(detailTaskId);
-  if (didDetailCardChange(beforeDetailCard, afterDetailCard)) {
+  const afterDetailSnapshot = snapshotDetailCard(detailTaskId);
+  if (didDetailCardChange(beforeDetailSnapshot, afterDetailSnapshot)) {
     await refreshOpenDetailPanel(detailTaskId);
   }
 }
@@ -227,7 +228,7 @@ export async function refreshBoardCards(): Promise<void> {
     const data = (await res.json()) as { columns: Array<{ status: string; html: string; count: number }> };
 
     const detailTaskId = _getDetailTaskId ? _getDetailTaskId() : null;
-    const beforeDetailCard = detailTaskId !== null ? findCardElementById(detailTaskId) : null;
+    const beforeDetailSnapshot = detailTaskId !== null ? snapshotDetailCard(detailTaskId) : null;
 
     data.columns.forEach(updateColumnHtml);
 
@@ -242,7 +243,7 @@ export async function refreshBoardCards(): Promise<void> {
     }
 
     if (detailTaskId !== null) {
-      await refreshDetailPanelIfCardChanged(detailTaskId, beforeDetailCard);
+      await refreshDetailPanelIfCardChanged(detailTaskId, beforeDetailSnapshot);
     }
   } catch {
     // Ignore network errors during card refresh
