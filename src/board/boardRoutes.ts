@@ -15,7 +15,6 @@ import { BRANCH_AUTO_GENERATE } from '../models/Task';
 import { AgkanError, ConflictError, NotFoundError, ValidationError } from '../errors';
 import { StorageBackend } from '../db/types/repository';
 import { readBoardConfig, writeBoardConfig, DETAIL_PANE_MAX_WIDTH, VALID_THEMES, ThemePreference } from './boardConfig';
-import { loadConfig } from '../db/config';
 import { resolveBeforeDate } from '../utils/date';
 import {
   buildTasksByStatus,
@@ -32,12 +31,14 @@ import { runTargetStatus } from '../utils/runTargetStatus';
 import { AttentionStateService } from '../services/AttentionStateService';
 import { BoardEventService } from '../services/BoardEventService';
 import { isTestMode } from '../db/config';
+import { persistTaskModelOverrides, persistTaskEffortOverrides } from './taskModelOverride';
 import {
-  getTaskModelOverride,
-  getTaskEffortOverride,
-  persistTaskModelOverrides,
-  persistTaskEffortOverrides,
-} from './taskModelOverride';
+  parseClaudeCommand,
+  buildClaudePrompt,
+  resolveModelAndEffort,
+  isValidEffortLevel,
+  VALID_EFFORT_LEVELS,
+} from './claudePromptBuilder';
 
 export type BoardServices = {
   ts: TaskService;
@@ -536,37 +537,14 @@ function registerClaudeRoutes(
     }
 
     const body = (await c.req.json().catch(() => ({}))) as { command?: string };
-    const command = body.command === 'planning' ? 'planning' : body.command === 'pr' ? 'pr' : 'run';
+    const command = parseClaudeCommand(body.command);
 
-    const branchInstruction =
-      command === 'planning'
-        ? ''
-        : !task.branch || task.branch === BRANCH_AUTO_GENERATE
-          ? `\n\nNo branch specified: Read this task's title and body, and generate an appropriate git branch name for the work. Format: task/${taskId}-<kebab-case> (alphanumeric characters and hyphens only, maximum 60 characters). Run git checkout -b with the generated branch name before starting work, then save the branch field via PATCH /api/tasks/${taskId} (body: { "branch": "<generated-branch-name>" }) after starting work.`
-          : '';
+    const prompt = buildClaudePrompt(taskId, command, task.branch);
 
-    const exitInstruction =
-      "\n\nWhen you have completed this task, send 'exit' as a prompt (not as a bash command) to end this session.";
-
-    const prompt =
-      command === 'planning'
-        ? `Task ID: ${taskId}\n/agkan-planning-subtask${branchInstruction}${exitInstruction}`
-        : command === 'pr'
-          ? `Task ID: ${taskId}\n/agkan-subtask${branchInstruction}${exitInstruction}`
-          : `Task ID: ${taskId}\n/agkan-subtask-direct${branchInstruction}${exitInstruction}`;
-
-    const config = loadConfig();
-    // 'pr' and 'run' commands both use the run model configuration
-    const overrideKind = command === 'planning' ? 'planning' : 'run';
-    const rawConfig = command === 'planning' ? config.models?.planning : config.models?.run;
-    // Priority: task-level override (UI selection) > config file > default
-    const model = getTaskModelOverride(ms, taskId, overrideKind) ?? rawConfig?.model?.trim() ?? undefined;
-    const effort = getTaskEffortOverride(ms, taskId, overrideKind) ?? rawConfig?.effort?.trim() ?? undefined;
-
-    const validEffortLevels = ['low', 'medium', 'high', 'xhigh', 'max'];
-    if (effort && !validEffortLevels.includes(effort)) {
+    const { model, effort } = resolveModelAndEffort(ms, taskId, command);
+    if (effort && !isValidEffortLevel(effort)) {
       return c.json(
-        { error: `Invalid effort level "${effort}". Must be one of: ${validEffortLevels.join(', ')}` },
+        { error: `Invalid effort level "${effort}". Must be one of: ${VALID_EFFORT_LEVELS.join(', ')}` },
         400
       );
     }
