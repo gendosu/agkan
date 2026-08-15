@@ -1,6 +1,5 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import { execSync, execFileSync } from 'child_process';
 import { Hono } from 'hono';
 import { verboseLog } from '../utils/logger';
 import { TaskService } from '../services/TaskService';
@@ -27,6 +26,7 @@ import {
   buildBlockMap,
 } from './boardRenderer';
 import { BulkRunService, BulkRunCommand } from './BulkRunService';
+import { GitService } from './GitService';
 import { verifyHookToken, getHookToken } from '../utils/hookToken';
 import { runTargetStatus } from '../utils/runTargetStatus';
 import { AttentionStateService } from '../services/AttentionStateService';
@@ -347,7 +347,7 @@ function registerTagRoutes(
   });
 }
 
-function registerUtilityRoutes(app: Hono, ts: TaskService): void {
+function registerUtilityRoutes(app: Hono, ts: TaskService, gitService: GitService): void {
   app.post('/api/tasks/purge', async (c) => {
     const body = (await c.req.json().catch(() => ({}))) as { beforeDate?: string };
     const resolved = resolveBeforeDate(body.beforeDate);
@@ -398,22 +398,7 @@ function registerUtilityRoutes(app: Hono, ts: TaskService): void {
     return c.json({ version });
   });
   app.get('/api/git/branches', (c) => {
-    try {
-      const output = execSync('git branch -a', { cwd: process.cwd() }).toString();
-      const branches = output
-        .split('\n')
-        .map((line) =>
-          line
-            .replace(/^\*?\s+/, '')
-            .replace(/^remotes\/origin\//, '')
-            .trim()
-        )
-        .filter((line) => line && !line.startsWith('HEAD ->'))
-        .filter((line, idx, arr) => arr.indexOf(line) === idx);
-      return c.json({ branches });
-    } catch {
-      return c.json({ branches: [] });
-    }
+    return c.json({ branches: gitService.listBranches() });
   });
 }
 
@@ -448,12 +433,12 @@ function registerExportImportRoutes(app: Hono, services: BoardServices): void {
   });
 }
 
-export function registerTaskApiRoutes(app: Hono, services: BoardServices): void {
+export function registerTaskApiRoutes(app: Hono, services: BoardServices, gitService: GitService): void {
   const { ts, tts, tags, ms, cs, tbs, boardEventService } = services;
   registerTaskCrudRoutes(app, ts, tts, tbs, ms, tags);
   registerCommentRoutes(app, cs, ts);
   registerTagRoutes(app, tts, tags, ts, boardEventService);
-  registerUtilityRoutes(app, ts);
+  registerUtilityRoutes(app, ts, gitService);
   registerExportImportRoutes(app, services);
 }
 
@@ -528,7 +513,13 @@ function parseBoardCardFilters(query: {
   return filters;
 }
 
-function registerClaudeRoutes(app: Hono, claudeProcess: PtySessionService, ts: TaskService, ms: MetadataService): void {
+function registerClaudeRoutes(
+  app: Hono,
+  claudeProcess: PtySessionService,
+  ts: TaskService,
+  ms: MetadataService,
+  gitService: GitService
+): void {
   app.post('/api/claude/tasks/:taskId/run', async (c) => {
     const taskId = Number(c.req.param('taskId'));
     if (isNaN(taskId)) return c.json({ error: 'Invalid taskId' }, 400);
@@ -537,14 +528,7 @@ function registerClaudeRoutes(app: Hono, claudeProcess: PtySessionService, ts: T
 
     if (task.branch && task.branch !== BRANCH_AUTO_GENERATE) {
       try {
-        const branchExists = execFileSync('git', ['branch', '--list', task.branch], { cwd: process.cwd() })
-          .toString()
-          .trim();
-        if (branchExists) {
-          execFileSync('git', ['checkout', task.branch], { cwd: process.cwd() });
-        } else {
-          execFileSync('git', ['checkout', '-b', task.branch], { cwd: process.cwd() });
-        }
+        gitService.checkoutBranch(task.branch);
       } catch (e) {
         console.error(`[boardRoutes] git checkout failed:`, e);
         return c.json({ error: `Failed to checkout branch: ${task.branch}` }, 500);
@@ -862,6 +846,7 @@ function registerBulkRunRoutes(app: Hono, bulkRunService: BulkRunService): void 
 
 export function registerBoardRoutes(app: Hono, services: BoardServices): void {
   const { ts, tts, tbs, database, boardTitle, configDir, boardEventService, attentionStateService } = services;
+  const gitService = new GitService();
 
   app.onError((err, c) => {
     if (err instanceof AgkanError) {
@@ -1019,11 +1004,11 @@ export function registerBoardRoutes(app: Hono, services: BoardServices): void {
     const columns = buildBoardCardsPayload(tasksByStatus, tts.getAllTaskTags(), blockMap);
     return c.json({ columns });
   });
-  registerTaskApiRoutes(app, services);
+  registerTaskApiRoutes(app, services, gitService);
   registerConfigApiRoutes(app, configDir);
   registerBoardNotifyRoute(app, boardEventService);
   if (services.ptySessionService) {
-    registerClaudeRoutes(app, services.ptySessionService, ts, services.ms);
+    registerClaudeRoutes(app, services.ptySessionService, ts, services.ms, gitService);
     const bulkRunService = new BulkRunService(ts, tbs, services.ptySessionService, services.ms);
     registerBulkRunRoutes(app, bulkRunService);
   }
