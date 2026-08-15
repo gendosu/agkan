@@ -7,8 +7,8 @@
 - Load agkan
 - Use agkan for task management
 - Write commit messages in English
-- If a background task does not finish, wait at least 30 minutes before considering next actions
-  - Never retry just because it hasn't finished — duplicate processes are strictly prohibited
+- Background tasks (sub agents, background Bash) resume the session automatically via completion notifications; do not call tools (e.g. ScheduleWakeup) just to wait — end the turn
+  - Never re-run or duplicate a task just because it hasn't finished — duplicate processes are strictly prohibited
 
 ## Agkan Tag Guidelines
 
