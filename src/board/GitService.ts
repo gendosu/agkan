@@ -1,9 +1,9 @@
 import { execSync, execFileSync } from 'child_process';
 
 export class GitService {
-  listBranches(cwd: string = process.cwd()): string[] {
+  listBranches(): string[] {
     try {
-      const output = execSync('git branch -a', { cwd }).toString();
+      const output = execSync('git branch -a', { cwd: process.cwd() }).toString();
       return output
         .split('\n')
         .map((line) =>
@@ -19,7 +19,8 @@ export class GitService {
     }
   }
 
-  checkoutBranch(branch: string, cwd: string = process.cwd()): void {
+  checkoutBranch(branch: string): void {
+    const cwd = process.cwd();
     const branchExists = execFileSync('git', ['branch', '--list', branch], { cwd }).toString().trim();
     if (branchExists) {
       execFileSync('git', ['checkout', branch], { cwd });
