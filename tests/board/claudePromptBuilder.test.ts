@@ -3,8 +3,9 @@
  * (src/board/claudePromptBuilder.ts)
  */
 
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import fs from 'fs';
+import os from 'os';
 import path from 'path';
 import yaml from 'js-yaml';
 import { resetDatabase } from '../../src/db/reset';
@@ -20,16 +21,8 @@ import {
   resolveModelAndEffort,
 } from '../../src/board/claudePromptBuilder';
 
-const TEST_AGKAN_CONFIG = path.join(process.cwd(), '.agkan-test.yml');
-
 beforeEach(() => {
   resetDatabase();
-});
-
-afterEach(() => {
-  if (fs.existsSync(TEST_AGKAN_CONFIG)) {
-    fs.unlinkSync(TEST_AGKAN_CONFIG);
-  }
 });
 
 function buildServices() {
@@ -71,6 +64,13 @@ describe('buildClaudePrompt', () => {
     expect(promptAuto).toBe(promptNull);
   });
 
+  it('appends the branch-generation instruction for the pr command too', () => {
+    const promptNull = buildClaudePrompt(4, 'pr', null);
+    const promptAuto = buildClaudePrompt(4, 'pr', '<auto-generate>');
+    expect(promptNull).toContain('No branch specified');
+    expect(promptAuto).toBe(promptNull);
+  });
+
   it('omits the branch-generation instruction once a branch is set', () => {
     const prompt = buildClaudePrompt(3, 'run', 'feature/bar');
     expect(prompt).not.toContain('No branch specified');
@@ -91,6 +91,28 @@ describe('isValidEffortLevel / VALID_EFFORT_LEVELS', () => {
 });
 
 describe('resolveModelAndEffort', () => {
+  // loadConfig() reads '<cwd>/.agkan-test.yml'. Other test files (e.g.
+  // claudeRoutes.test.ts) write that same repo-root path, and vitest runs
+  // test files concurrently across forks, so writing there too would race.
+  // Isolate by mocking process.cwd() to a private tmp dir per test, matching
+  // the pattern in tests/db/config.test.ts.
+  let tmpCwd: string;
+  let cwdSpy: ReturnType<typeof vi.spyOn>;
+
+  beforeEach(() => {
+    tmpCwd = fs.mkdtempSync(path.join(os.tmpdir(), 'agkan-prompt-builder-test-'));
+    cwdSpy = vi.spyOn(process, 'cwd').mockReturnValue(tmpCwd);
+  });
+
+  afterEach(() => {
+    cwdSpy.mockRestore();
+    fs.rmSync(tmpCwd, { recursive: true, force: true });
+  });
+
+  function writeConfig(config: unknown): void {
+    fs.writeFileSync(path.join(tmpCwd, '.agkan-test.yml'), yaml.dump(config));
+  }
+
   it('returns undefined for both when no config or override is set', () => {
     const { ts, ms } = buildServices();
     const task = ts.createTask({ title: 'Task', status: 'backlog' });
@@ -100,7 +122,7 @@ describe('resolveModelAndEffort', () => {
   it('falls back to the run config for both pr and run commands', () => {
     const { ts, ms } = buildServices();
     const task = ts.createTask({ title: 'Task', status: 'backlog' });
-    fs.writeFileSync(TEST_AGKAN_CONFIG, yaml.dump({ models: { run: { model: 'claude-sonnet-4-6', effort: 'high' } } }));
+    writeConfig({ models: { run: { model: 'claude-sonnet-4-6', effort: 'high' } } });
 
     expect(resolveModelAndEffort(ms, task.id, 'run')).toEqual({ model: 'claude-sonnet-4-6', effort: 'high' });
     expect(resolveModelAndEffort(ms, task.id, 'pr')).toEqual({ model: 'claude-sonnet-4-6', effort: 'high' });
@@ -109,7 +131,7 @@ describe('resolveModelAndEffort', () => {
   it('uses the planning config only for the planning command', () => {
     const { ts, ms } = buildServices();
     const task = ts.createTask({ title: 'Task', status: 'backlog' });
-    fs.writeFileSync(TEST_AGKAN_CONFIG, yaml.dump({ models: { planning: { effort: 'low' } } }));
+    writeConfig({ models: { planning: { effort: 'low' } } });
 
     expect(resolveModelAndEffort(ms, task.id, 'planning')).toEqual({ model: undefined, effort: 'low' });
     expect(resolveModelAndEffort(ms, task.id, 'run')).toEqual({ model: undefined, effort: undefined });
@@ -118,7 +140,7 @@ describe('resolveModelAndEffort', () => {
   it('prefers a task-level override over the config file', () => {
     const { ts, ms } = buildServices();
     const task = ts.createTask({ title: 'Task', status: 'backlog' });
-    fs.writeFileSync(TEST_AGKAN_CONFIG, yaml.dump({ models: { run: { effort: 'high' } } }));
+    writeConfig({ models: { run: { effort: 'high' } } });
     persistTaskEffortOverrides(task.id, { run: 'xhigh' }, ms);
     persistTaskModelOverrides(task.id, { run: 'opus' }, ms);
 

@@ -34,7 +34,7 @@ export function buildClaudePrompt(taskId: number, command: ClaudeCommand, branch
 
 export const VALID_EFFORT_LEVELS = ['low', 'medium', 'high', 'xhigh', 'max'] as const;
 
-export function isValidEffortLevel(effort: string): boolean {
+export function isValidEffortLevel(effort: string): effort is (typeof VALID_EFFORT_LEVELS)[number] {
   return (VALID_EFFORT_LEVELS as readonly string[]).includes(effort);
 }
 
