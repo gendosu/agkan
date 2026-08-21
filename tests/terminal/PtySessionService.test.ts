@@ -410,7 +410,7 @@ describe('PtySessionService', () => {
     let isUserStoppedDuringEmit: boolean | null = null;
     service.subscribeOutput(1, (evt) => {
       if (evt.kind === 'done') {
-        // Regression guard: boardRoutes.ts reads isUserStopped() synchronously inside this
+        // Regression guard: claudeRoutes.ts reads isUserStopped() synchronously inside this
         // callback to decide whether to auto-advance status. It must already reflect the
         // user-initiated stop by the time the done event reaches subscribers.
         isUserStoppedDuringEmit = service.isUserStopped(1);
@@ -439,7 +439,7 @@ describe('PtySessionService', () => {
     service.stopProcessFromHook(1);
 
     expect(service.isExplicitUserStop(1)).toBe(false);
-    // isUserStopped() must still be true for hook stops — boardRoutes.ts's single-run
+    // isUserStopped() must still be true for hook stops — claudeRoutes.ts's single-run
     // confirm-skip guard relies on this and must keep skipping for both origins.
     expect(service.isUserStopped(1)).toBe(true);
   });
