@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.20.2] - 2026-08-29
+
 ### Fixed
 - Fix the open board detail panel unconditionally reloading (or showing the edit-in-progress warning bar) whenever any task was updated via the CLI, even when the update was to a different, unrelated task. The panel now refreshes only when the displayed task's own card (status/updated-at/tags/blocked-by/blocking) actually changed; background board cards still update as before (#718)
 
