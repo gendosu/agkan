@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.20.2] - 2026-08-29
+
 ### 修正
 - CLI で任意のタスクを更新すると、表示中の detail panel が無関係なタスクの更新であっても無条件にリロード（または編集中の警告バー表示）されていた問題を修正。表示中タスク自身のカード（status/updated-at/tags/blocked-by/blocking）が実際に変化した場合のみパネルを更新するようにした。背後のボードカードは従来どおり更新される (#718)
 
