@@ -58,6 +58,23 @@ export interface ImportResult {
 }
 
 /**
+ * Legacy task_metadata keys used to store model/effort overrides before they became
+ * dedicated `tasks` columns. Export files created before that migration still carry
+ * overrides under these keys; import must backfill them into the new columns and must
+ * not re-write them into task_metadata, since nothing reads them from there anymore.
+ */
+const LEGACY_MODEL_PLANNING_METADATA_KEY = 'model:planning';
+const LEGACY_MODEL_RUN_METADATA_KEY = 'model:run';
+const LEGACY_EFFORT_PLANNING_METADATA_KEY = 'effort:planning';
+const LEGACY_EFFORT_RUN_METADATA_KEY = 'effort:run';
+const LEGACY_OVERRIDE_METADATA_KEYS: readonly string[] = [
+  LEGACY_MODEL_PLANNING_METADATA_KEY,
+  LEGACY_MODEL_RUN_METADATA_KEY,
+  LEGACY_EFFORT_PLANNING_METADATA_KEY,
+  LEGACY_EFFORT_RUN_METADATA_KEY,
+];
+
+/**
  * Export/Import Service
  * Handles JSON bulk export and import of tasks with all related data
  */
@@ -180,10 +197,12 @@ export class ExportImportService {
       parent_id: newParentId,
       priority: exportedTask.priority ?? undefined,
       branch: exportedTask.branch ?? undefined,
-      model_planning: exportedTask.model_planning ?? undefined,
-      model_run: exportedTask.model_run ?? undefined,
-      effort_planning: exportedTask.effort_planning ?? undefined,
-      effort_run: exportedTask.effort_run ?? undefined,
+      model_planning:
+        exportedTask.model_planning ?? exportedTask.metadata[LEGACY_MODEL_PLANNING_METADATA_KEY] ?? undefined,
+      model_run: exportedTask.model_run ?? exportedTask.metadata[LEGACY_MODEL_RUN_METADATA_KEY] ?? undefined,
+      effort_planning:
+        exportedTask.effort_planning ?? exportedTask.metadata[LEGACY_EFFORT_PLANNING_METADATA_KEY] ?? undefined,
+      effort_run: exportedTask.effort_run ?? exportedTask.metadata[LEGACY_EFFORT_RUN_METADATA_KEY] ?? undefined,
     });
 
     // createTask does not accept is_archived directly; archive before restoring timestamps,
@@ -272,6 +291,7 @@ export class ExportImportService {
         this.importTaskTags(newTaskId, exportedTask.tags);
 
         for (const [key, value] of Object.entries(exportedTask.metadata)) {
+          if (LEGACY_OVERRIDE_METADATA_KEYS.includes(key)) continue;
           this.metadataService.setMetadata({ task_id: newTaskId, key, value });
         }
 

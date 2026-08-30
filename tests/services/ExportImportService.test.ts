@@ -737,6 +737,49 @@ describe('ExportImportService', () => {
       expect(tasks[0].effort_run).toBeNull();
     });
 
+    it('should restore model/effort overrides stored in legacy metadata keys from a pre-migration export', () => {
+      const exportData: ExportData = {
+        version: '0.9.0',
+        exported_at: '2026-01-01T00:00:00.000Z',
+        tasks: [
+          {
+            id: 1,
+            title: 'Legacy Metadata Override Task',
+            body: null,
+            author: null,
+            assignees: null,
+            status: 'backlog',
+            parent_id: null,
+            created_at: '2026-01-01T10:00:00.000Z',
+            updated_at: '2026-01-01T10:00:00.000Z',
+            tags: [],
+            metadata: { 'model:run': 'sonnet', 'effort:planning': 'low' },
+            comments: [],
+            blocked_by: [],
+            // No model_planning/model_run/effort_planning/effort_run fields — this
+            // simulates an export file created before those columns existed.
+          },
+        ],
+      };
+
+      service.importData(exportData);
+
+      const tasks = taskService.listTasks();
+      expect(tasks).toHaveLength(1);
+      expect(tasks[0].model_run).toBe('sonnet');
+      expect(tasks[0].effort_planning).toBe('low');
+      // Legacy override keys are absent, not fall back to some default
+      expect(tasks[0].model_planning).toBeNull();
+      expect(tasks[0].effort_run).toBeNull();
+
+      // The legacy keys must not be re-written into task_metadata as dead rows —
+      // nothing reads model/effort overrides from task_metadata anymore.
+      const metadataRows = getStorageBackend().metadata.findByTaskId(tasks[0].id);
+      const metadataKeys = metadataRows.map((m) => m.key);
+      expect(metadataKeys).not.toContain('model:run');
+      expect(metadataKeys).not.toContain('effort:planning');
+    });
+
     it('should import tasks from an old-format export without priority/branch/is_archived', () => {
       const exportData: ExportData = {
         version: '1.0.0',
