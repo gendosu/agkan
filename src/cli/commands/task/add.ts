@@ -21,7 +21,9 @@ import {
   fetchRelatedTasks,
   buildTaskJsonData,
   printTaskCreated,
+  validateModelEffortOptions,
 } from './add-helpers';
+import { MODEL_ALIASES, VALID_EFFORT_LEVELS } from '../../../board/claudePromptBuilder';
 
 /** Marker error used to distinguish block-relationship failures from other errors thrown within the transaction */
 class BlockRelationshipError extends Error {}
@@ -47,6 +49,10 @@ export function setupTaskAddCommand(program: Command): void {
     .option('--parent <id>', 'Parent task ID')
     .option('--file <path>', 'Read body from markdown file')
     .option('--branch <branch>', 'Git branch name for the task')
+    .option('--model-planning <alias>', `Claude model for planning runs (${MODEL_ALIASES.join(', ')})`)
+    .option('--model-run <alias>', `Claude model for implementation runs (${MODEL_ALIASES.join(', ')})`)
+    .option('--effort-planning <level>', `Reasoning effort for planning runs (${VALID_EFFORT_LEVELS.join(', ')})`)
+    .option('--effort-run <level>', `Reasoning effort for implementation runs (${VALID_EFFORT_LEVELS.join(', ')})`)
     .option('--blocked-by <ids>', 'Comma-separated task IDs that block this task')
     .option('--blocks <ids>', 'Comma-separated task IDs that this task blocks')
     .option('--tag <names-or-ids>', 'Comma-separated tag names or IDs to attach')
@@ -110,6 +116,15 @@ export function setupTaskAddCommand(program: Command): void {
           process.exit(1);
         }
 
+        const modelEffortError = validateModelEffortOptions(options);
+        if (modelEffortError) {
+          formatter.error(modelEffortError, () => {
+            console.error(chalk.red(`\nError: ${modelEffortError}\n`));
+          });
+          process.exit(1);
+          return;
+        }
+
         let parentId: number | undefined = undefined;
         if (options.parent) {
           const parsed = validateNumberInput(options.parent);
@@ -167,6 +182,10 @@ export function setupTaskAddCommand(program: Command): void {
               priority: options.priority ? (options.priority as Priority) : undefined,
               parent_id: parentId,
               branch: options.branch ?? null,
+              model_planning: options.modelPlanning ?? null,
+              model_run: options.modelRun ?? null,
+              effort_planning: options.effortPlanning ?? null,
+              effort_run: options.effortRun ?? null,
               tagIds,
             });
 
