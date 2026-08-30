@@ -309,6 +309,90 @@ describe('POST /api/tasks', () => {
     const data = (await res.json()) as { error: string };
     expect(data.error).toContain('Body');
   });
+
+  it('stores model and effort overrides on the created task', async () => {
+    const services = buildServices();
+    const app = buildApp(services);
+    const res = await app.fetch(
+      new Request('http://localhost/api/tasks', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: 'Override Task',
+          models: { planning: 'opus', run: 'sonnet' },
+          efforts: { planning: 'low', run: 'xhigh' },
+        }),
+      })
+    );
+    expect(res.status).toBe(201);
+    const created = (await res.json()) as {
+      id: number;
+      model_planning: string | null;
+      model_run: string | null;
+      effort_planning: string | null;
+      effort_run: string | null;
+    };
+    // Assert directly on the response body: the route re-fetches the task after
+    // persisting overrides, so the JSON response must reflect the persisted values
+    // (not the stale pre-persist object from ts.createTask).
+    expect(created.model_planning).toBe('opus');
+    expect(created.model_run).toBe('sonnet');
+    expect(created.effort_planning).toBe('low');
+    expect(created.effort_run).toBe('xhigh');
+    const task = services.ts.getTask(created.id)!;
+    expect(task.model_planning).toBe('opus');
+    expect(task.model_run).toBe('sonnet');
+    expect(task.effort_planning).toBe('low');
+    expect(task.effort_run).toBe('xhigh');
+  });
+
+  it('returns 400 for an invalid model alias and does not create the task', async () => {
+    const services = buildServices();
+    const app = buildApp(services);
+    const res = await app.fetch(
+      new Request('http://localhost/api/tasks', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title: 'Bad Model', models: { run: 'gpt-5' } }),
+      })
+    );
+    expect(res.status).toBe(400);
+    const data = (await res.json()) as { error: string };
+    expect(data.error).toMatch(/Invalid model/);
+    expect(services.ts.listTasks()).toHaveLength(0);
+  });
+
+  it('returns 400 for an invalid effort level', async () => {
+    const services = buildServices();
+    const app = buildApp(services);
+    const res = await app.fetch(
+      new Request('http://localhost/api/tasks', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title: 'Bad Effort', efforts: { run: 'ultra' } }),
+      })
+    );
+    expect(res.status).toBe(400);
+    const data = (await res.json()) as { error: string };
+    expect(data.error).toMatch(/Invalid effort level/);
+  });
+
+  it('accepts an empty string override as a clear instruction', async () => {
+    const services = buildServices();
+    const app = buildApp(services);
+    const res = await app.fetch(
+      new Request('http://localhost/api/tasks', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title: 'Cleared', models: { run: '' }, efforts: { run: '' } }),
+      })
+    );
+    expect(res.status).toBe(201);
+    const created = (await res.json()) as { id: number; model_run: string | null; effort_run: string | null };
+    expect(created.model_run).toBeNull();
+    expect(created.effort_run).toBeNull();
+    expect(services.ts.getTask(created.id)!.model_run).toBeNull();
+  });
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -498,6 +582,62 @@ describe('PATCH /api/tasks/:id', () => {
     expect(res.status).toBe(400);
     const data = (await res.json()) as { error: string };
     expect(data.error).toContain('Title');
+  });
+
+  it('updates model and effort overrides', async () => {
+    const services = buildServices();
+    const task = services.ts.createTask({ title: 'Original', status: 'backlog' });
+    const app = buildApp(services);
+    const res = await app.fetch(
+      new Request(`http://localhost/api/tasks/${task.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ models: { run: 'haiku' }, efforts: { planning: 'medium' } }),
+      })
+    );
+    expect(res.status).toBe(200);
+    // Assert directly on the response body: the route re-fetches the task after
+    // persisting overrides, so the JSON response must reflect the persisted values
+    // (not the stale pre-persist object from ts.updateTask).
+    const responseBody = (await res.json()) as { model_run: string | null; effort_planning: string | null };
+    expect(responseBody.model_run).toBe('haiku');
+    expect(responseBody.effort_planning).toBe('medium');
+    const updated = services.ts.getTask(task.id)!;
+    expect(updated.model_run).toBe('haiku');
+    expect(updated.effort_planning).toBe('medium');
+  });
+
+  it('returns 400 for an invalid model alias and leaves the task unchanged', async () => {
+    const services = buildServices();
+    const task = services.ts.createTask({ title: 'Original', status: 'backlog', model_run: 'sonnet' });
+    const app = buildApp(services);
+    const res = await app.fetch(
+      new Request(`http://localhost/api/tasks/${task.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title: 'Renamed', models: { run: 'gpt-5' } }),
+      })
+    );
+    expect(res.status).toBe(400);
+    const unchanged = services.ts.getTask(task.id)!;
+    expect(unchanged.title).toBe('Original');
+    expect(unchanged.model_run).toBe('sonnet');
+  });
+
+  it('returns 400 for an invalid effort level on PATCH', async () => {
+    const services = buildServices();
+    const task = services.ts.createTask({ title: 'Original', status: 'backlog' });
+    const app = buildApp(services);
+    const res = await app.fetch(
+      new Request(`http://localhost/api/tasks/${task.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ efforts: { run: 'ultra' } }),
+      })
+    );
+    expect(res.status).toBe(400);
+    const data = (await res.json()) as { error: string };
+    expect(data.error).toMatch(/Invalid effort level/);
   });
 });
 
