@@ -249,4 +249,47 @@ describe('setupTaskCopyCommand', () => {
       expect(copied?.branch).toBeNull();
     });
   });
+
+  describe('model/effort override fields', () => {
+    it('should copy the four overrides from the original task', async () => {
+      const original = taskService.createTask({
+        title: 'Task with overrides',
+        model_planning: 'opus',
+        model_run: 'sonnet',
+        effort_planning: 'low',
+        effort_run: 'xhigh',
+      });
+
+      const { logs } = await runCommand(program, ['task', 'copy', String(original.id), '--json']);
+      const output = JSON.parse(logs[0]);
+
+      const copied = taskService.getTask(output.task.id);
+      expect(copied?.model_planning).toBe('opus');
+      expect(copied?.model_run).toBe('sonnet');
+      expect(copied?.effort_planning).toBe('low');
+      expect(copied?.effort_run).toBe('xhigh');
+    });
+
+    it('should include the overrides in JSON output when copying', async () => {
+      const original = taskService.createTask({ title: 'Task with overrides', model_run: 'haiku' });
+
+      const { logs } = await runCommand(program, ['task', 'copy', String(original.id), '--json']);
+      const output = JSON.parse(logs[0]);
+
+      expect(output.task.model_run).toBe('haiku');
+    });
+
+    it('should copy null overrides when the original has none', async () => {
+      const original = taskService.createTask({ title: 'Task without overrides' });
+
+      const { logs } = await runCommand(program, ['task', 'copy', String(original.id), '--json']);
+      const output = JSON.parse(logs[0]);
+
+      const copied = taskService.getTask(output.task.id);
+      expect(copied?.model_planning).toBeNull();
+      expect(copied?.model_run).toBeNull();
+      expect(copied?.effort_planning).toBeNull();
+      expect(copied?.effort_run).toBeNull();
+    });
+  });
 });

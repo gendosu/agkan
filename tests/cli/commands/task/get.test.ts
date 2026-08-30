@@ -495,4 +495,70 @@ describe('setupTaskGetCommand', () => {
       expect(output).not.toContain('Branch:');
     });
   });
+
+  describe('model/effort override fields', () => {
+    it('should include the four overrides in JSON output', async () => {
+      const taskService = new TaskService();
+      const task = taskService.createTask({
+        title: 'Override Task',
+        model_planning: 'opus',
+        model_run: 'sonnet',
+        effort_planning: 'low',
+        effort_run: 'xhigh',
+      });
+
+      const { exitCode, logs } = await runCommand(program, ['task', 'get', String(task.id), '--json']);
+      expect(exitCode).toBeUndefined();
+
+      const parsed = JSON.parse(logs[0]);
+      expect(parsed.task.model_planning).toBe('opus');
+      expect(parsed.task.model_run).toBe('sonnet');
+      expect(parsed.task.effort_planning).toBe('low');
+      expect(parsed.task.effort_run).toBe('xhigh');
+    });
+
+    it('should include nulls in JSON output when the overrides are not set', async () => {
+      const taskService = new TaskService();
+      const task = taskService.createTask({ title: 'No Override Task' });
+
+      const { exitCode, logs } = await runCommand(program, ['task', 'get', String(task.id), '--json']);
+      expect(exitCode).toBeUndefined();
+
+      const parsed = JSON.parse(logs[0]);
+      expect(parsed.task.model_planning).toBeNull();
+      expect(parsed.task.model_run).toBeNull();
+      expect(parsed.task.effort_planning).toBeNull();
+      expect(parsed.task.effort_run).toBeNull();
+    });
+
+    it('should display the overrides in plain text output', async () => {
+      const taskService = new TaskService();
+      const task = taskService.createTask({
+        title: 'Override Task',
+        model_run: 'sonnet',
+        effort_run: 'xhigh',
+      });
+
+      const { exitCode, logs } = await runCommand(program, ['task', 'get', String(task.id)]);
+      expect(exitCode).toBeUndefined();
+
+      const output = logs.join('\n');
+      expect(output).toContain('Model (run):');
+      expect(output).toContain('sonnet');
+      expect(output).toContain('Effort (run):');
+      expect(output).toContain('xhigh');
+    });
+
+    it('should not display the overrides in plain text output when not set', async () => {
+      const taskService = new TaskService();
+      const task = taskService.createTask({ title: 'No Override Task' });
+
+      const { exitCode, logs } = await runCommand(program, ['task', 'get', String(task.id)]);
+      expect(exitCode).toBeUndefined();
+
+      const output = logs.join('\n');
+      expect(output).not.toContain('Model (run):');
+      expect(output).not.toContain('Effort (run):');
+    });
+  });
 });
