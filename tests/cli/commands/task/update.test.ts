@@ -935,4 +935,119 @@ describe('setupTaskUpdateCommand', () => {
       expect(updatedTask?.branch).toBe('feature/positional-branch');
     });
   });
+
+  describe('model/effort override options', () => {
+    it('should have the four override options registered', () => {
+      const taskCommand = program.commands.find((cmd) => cmd.name() === 'task');
+      const updateCommand = taskCommand?.commands.find((cmd) => cmd.name() === 'update');
+      const optionNames = updateCommand?.options.map((o) => o.long) ?? [];
+      expect(optionNames).toContain('--model-planning');
+      expect(optionNames).toContain('--model-run');
+      expect(optionNames).toContain('--effort-planning');
+      expect(optionNames).toContain('--effort-run');
+    });
+
+    it('should update all four overrides with flags', async () => {
+      const taskService = new TaskService();
+      const task = taskService.createTask({ title: 'Override test' });
+
+      const { exitCode } = await runCommand(program, [
+        'task',
+        'update',
+        String(task.id),
+        '--model-planning',
+        'opus',
+        '--model-run',
+        'sonnet',
+        '--effort-planning',
+        'low',
+        '--effort-run',
+        'xhigh',
+      ]);
+      expect(exitCode).toBeUndefined();
+
+      const updated = taskService.getTask(task.id);
+      expect(updated?.model_planning).toBe('opus');
+      expect(updated?.model_run).toBe('sonnet');
+      expect(updated?.effort_planning).toBe('low');
+      expect(updated?.effort_run).toBe('xhigh');
+    });
+
+    it('should clear an override when the flag value is an empty string', async () => {
+      const taskService = new TaskService();
+      const task = taskService.createTask({ title: 'Clear test', model_run: 'sonnet', effort_run: 'high' });
+
+      const { exitCode } = await runCommand(program, [
+        'task',
+        'update',
+        String(task.id),
+        '--model-run',
+        '',
+        '--effort-run',
+        '',
+      ]);
+      expect(exitCode).toBeUndefined();
+
+      const updated = taskService.getTask(task.id);
+      expect(updated?.model_run).toBeNull();
+      expect(updated?.effort_run).toBeNull();
+    });
+
+    it('should reject an invalid model alias', async () => {
+      const taskService = new TaskService();
+      const task = taskService.createTask({ title: 'Invalid model test' });
+
+      const { exitCode, errors } = await runCommand(program, [
+        'task',
+        'update',
+        String(task.id),
+        '--model-run',
+        'gpt-5',
+      ]);
+      expect(exitCode).toBe(1);
+      expect(errors.join('\n')).toContain('Invalid model: gpt-5');
+      expect(taskService.getTask(task.id)?.model_run).toBeNull();
+    });
+
+    it('should reject an invalid effort level', async () => {
+      const taskService = new TaskService();
+      const task = taskService.createTask({ title: 'Invalid effort test' });
+
+      const { exitCode, errors } = await runCommand(program, [
+        'task',
+        'update',
+        String(task.id),
+        '--effort-run',
+        'ultra',
+      ]);
+      expect(exitCode).toBe(1);
+      expect(errors.join('\n')).toContain('Invalid effort: ultra');
+      expect(taskService.getTask(task.id)?.effort_run).toBeNull();
+    });
+
+    it('should update an override with positional syntax', async () => {
+      const taskService = new TaskService();
+      const task = taskService.createTask({ title: 'Positional test' });
+
+      const { exitCode } = await runCommand(program, ['task', 'update', String(task.id), 'model_run', 'haiku']);
+      expect(exitCode).toBeUndefined();
+
+      expect(taskService.getTask(task.id)?.model_run).toBe('haiku');
+    });
+
+    it('should reject an invalid value with positional syntax', async () => {
+      const taskService = new TaskService();
+      const task = taskService.createTask({ title: 'Positional invalid test' });
+
+      const { exitCode, errors } = await runCommand(program, [
+        'task',
+        'update',
+        String(task.id),
+        'effort_planning',
+        'ultra',
+      ]);
+      expect(exitCode).toBe(1);
+      expect(errors.join('\n')).toContain('Invalid effort: ultra');
+    });
+  });
 });

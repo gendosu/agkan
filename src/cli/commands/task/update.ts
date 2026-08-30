@@ -19,6 +19,7 @@ import {
   SUPPORTED_FIELDS,
 } from './update-helpers';
 import { notifyBoard } from '../../utils/boardNotify';
+import { MODEL_ALIASES, VALID_EFFORT_LEVELS } from '../../../board/claudePromptBuilder';
 
 function applyTaskUpdate(
   taskService: TaskService,
@@ -36,6 +37,18 @@ function applyTaskUpdate(
     }),
     ...(updateInput.branch !== undefined && {
       branch: updateInput.branch === '' ? null : updateInput.branch,
+    }),
+    ...(updateInput.model_planning !== undefined && {
+      model_planning: updateInput.model_planning === '' ? null : updateInput.model_planning,
+    }),
+    ...(updateInput.model_run !== undefined && {
+      model_run: updateInput.model_run === '' ? null : updateInput.model_run,
+    }),
+    ...(updateInput.effort_planning !== undefined && {
+      effort_planning: updateInput.effort_planning === '' ? null : updateInput.effort_planning,
+    }),
+    ...(updateInput.effort_run !== undefined && {
+      effort_run: updateInput.effort_run === '' ? null : updateInput.effort_run,
     }),
   });
 }
@@ -95,6 +108,16 @@ export function setupTaskUpdateCommand(program: Command): void {
     .option('--assignees <assignees>', 'Update assignees')
     .option('-p, --priority <priority>', 'Update priority (critical, high, medium, low, or empty to clear)')
     .option('--branch <branch>', 'Update git branch name (or empty to clear)')
+    .option('--model-planning <alias>', `Update planning model (${MODEL_ALIASES.join(', ')}, or empty to clear)`)
+    .option('--model-run <alias>', `Update run model (${MODEL_ALIASES.join(', ')}, or empty to clear)`)
+    .option(
+      '--effort-planning <level>',
+      `Update planning reasoning effort (${VALID_EFFORT_LEVELS.join(', ')}, or empty to clear)`
+    )
+    .option(
+      '--effort-run <level>',
+      `Update run reasoning effort (${VALID_EFFORT_LEVELS.join(', ')}, or empty to clear)`
+    )
     .option('--file <path>', 'Read body from file (only valid for body field)')
     .option('--json', 'Output in JSON format')
     .description('Update a task field')
