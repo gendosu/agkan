@@ -38,6 +38,17 @@ export function isValidEffortLevel(effort: string): effort is (typeof VALID_EFFO
   return (VALID_EFFORT_LEVELS as readonly string[]).includes(effort);
 }
 
+/**
+ * Claude model aliases accepted for task-level overrides.
+ * Single source of truth: the board client dropdown and the CLI flags both
+ * validate against this list.
+ */
+export const MODEL_ALIASES = ['fable', 'opus', 'sonnet', 'haiku'] as const;
+
+export function isValidModelAlias(model: string): model is (typeof MODEL_ALIASES)[number] {
+  return (MODEL_ALIASES as readonly string[]).includes(model);
+}
+
 export interface ResolvedModelEffort {
   model?: string;
   effort?: string;

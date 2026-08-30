@@ -18,6 +18,8 @@ import {
   buildClaudePrompt,
   isValidEffortLevel,
   VALID_EFFORT_LEVELS,
+  isValidModelAlias,
+  MODEL_ALIASES,
   resolveModelAndEffort,
 } from '../../src/board/claudePromptBuilder';
 
@@ -87,6 +89,24 @@ describe('isValidEffortLevel / VALID_EFFORT_LEVELS', () => {
   it('rejects unknown levels', () => {
     expect(isValidEffortLevel('ultra')).toBe(false);
     expect(isValidEffortLevel('')).toBe(false);
+  });
+});
+
+describe('isValidModelAlias / MODEL_ALIASES', () => {
+  it('lists exactly the aliases the board dropdown offers', () => {
+    expect([...MODEL_ALIASES]).toEqual(['fable', 'opus', 'sonnet', 'haiku']);
+  });
+
+  it('accepts each documented alias', () => {
+    for (const alias of MODEL_ALIASES) {
+      expect(isValidModelAlias(alias)).toBe(true);
+    }
+  });
+
+  it('rejects unknown aliases', () => {
+    expect(isValidModelAlias('gpt-5')).toBe(false);
+    expect(isValidModelAlias('Opus')).toBe(false);
+    expect(isValidModelAlias('')).toBe(false);
   });
 });
 
