@@ -1,7 +1,6 @@
 import { Hono } from 'hono';
 import { PtySessionService } from '../../terminal/PtySessionService';
 import { TaskService } from '../../services/TaskService';
-import { MetadataService } from '../../services/MetadataService';
 import { BRANCH_AUTO_GENERATE } from '../../models/Task';
 import { ConflictError } from '../../errors';
 import { GitService } from '../GitService';
@@ -18,7 +17,6 @@ export function registerClaudeRoutes(
   app: Hono,
   claudeProcess: PtySessionService,
   ts: TaskService,
-  ms: MetadataService,
   gitService: GitService
 ): void {
   app.post('/api/claude/tasks/:taskId/run', async (c) => {
@@ -41,7 +39,7 @@ export function registerClaudeRoutes(
 
     const prompt = buildClaudePrompt(taskId, command, task.branch);
 
-    const { model, effort } = resolveModelAndEffort(ms, taskId, command);
+    const { model, effort } = resolveModelAndEffort(ts, taskId, command);
     if (effort && !isValidEffortLevel(effort)) {
       return c.json(
         { error: `Invalid effort level "${effort}". Must be one of: ${VALID_EFFORT_LEVELS.join(', ')}` },

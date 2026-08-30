@@ -280,7 +280,7 @@ describe('POST /api/claude/tasks/:taskId/run', () => {
       status: 'backlog',
       branch: 'feature/effort-override',
     });
-    services.ms.setMetadata({ task_id: task.id, key: 'effort:run', value: 'xhigh' });
+    services.ts.updateTask(task.id, { effort_run: 'xhigh' });
     const app = buildApp(services);
 
     const res = await app.fetch(
@@ -306,7 +306,7 @@ describe('POST /api/claude/tasks/:taskId/run', () => {
     const mock = buildMockClaudeProcessService();
     const services = buildServices(mock);
     const task = services.ts.createTask({ title: 'Planning Effort Task', status: 'backlog' });
-    services.ms.setMetadata({ task_id: task.id, key: 'effort:planning', value: 'max' });
+    services.ts.updateTask(task.id, { effort_planning: 'max' });
     const app = buildApp(services);
 
     const res = await app.fetch(
@@ -331,7 +331,7 @@ describe('POST /api/claude/tasks/:taskId/run', () => {
     const mock = buildMockClaudeProcessService();
     const services = buildServices(mock);
     const task = services.ts.createTask({ title: 'Invalid Effort Override Task', status: 'backlog' });
-    services.ms.setMetadata({ task_id: task.id, key: 'effort:run', value: 'ultra' });
+    services.ts.updateTask(task.id, { effort_run: 'ultra' });
     const app = buildApp(services);
 
     const res = await app.fetch(

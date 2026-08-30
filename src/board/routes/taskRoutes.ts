@@ -111,8 +111,8 @@ function registerCreateTaskRoute(app: Hono, ts: TaskService, ms: MetadataService
       tagIds,
     });
     persistTaskMetadata(task.id, body.metadata, ms);
-    persistTaskModelOverrides(task.id, body.models, ms);
-    persistTaskEffortOverrides(task.id, body.efforts, ms);
+    persistTaskModelOverrides(task.id, body.models, ts);
+    persistTaskEffortOverrides(task.id, body.efforts, ts);
     return c.json(task, 201);
   });
 }
@@ -150,7 +150,7 @@ function registerGetTaskRoute(
   });
 }
 
-function registerPatchAndDeleteTaskRoutes(app: Hono, ts: TaskService, ms: MetadataService): void {
+function registerPatchAndDeleteTaskRoutes(app: Hono, ts: TaskService): void {
   app.patch('/api/tasks/:id', async (c) => {
     const id = Number(c.req.param('id'));
     if (isNaN(id)) return c.json({ error: 'Invalid task id' }, 400);
@@ -159,8 +159,8 @@ function registerPatchAndDeleteTaskRoutes(app: Hono, ts: TaskService, ms: Metada
     if (error) return c.json({ error }, 400);
     const task = ts.updateTask(id, input);
     if (!task) return c.json({ error: 'Task not found' }, 404);
-    if (body.models !== undefined) persistTaskModelOverrides(id, body.models, ms);
-    if (body.efforts !== undefined) persistTaskEffortOverrides(id, body.efforts, ms);
+    if (body.models !== undefined) persistTaskModelOverrides(id, body.models, ts);
+    if (body.efforts !== undefined) persistTaskEffortOverrides(id, body.efforts, ts);
     return c.json(task);
   });
   app.delete('/api/tasks/:id', (c) => {
@@ -183,5 +183,5 @@ export function registerTaskCrudRoutes(
   registerListTaskRoute(app, ts);
   registerCreateTaskRoute(app, ts, ms, tags);
   registerGetTaskRoute(app, ts, tts, tbs, ms);
-  registerPatchAndDeleteTaskRoutes(app, ts, ms);
+  registerPatchAndDeleteTaskRoutes(app, ts);
 }
