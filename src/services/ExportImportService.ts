@@ -35,6 +35,14 @@ export interface ExportedTask {
   /** Optional for backward compatibility with export files created before this field existed */
   branch?: string | null;
   /** Optional for backward compatibility with export files created before this field existed */
+  model_planning?: string | null;
+  /** Optional for backward compatibility with export files created before this field existed */
+  model_run?: string | null;
+  /** Optional for backward compatibility with export files created before this field existed */
+  effort_planning?: string | null;
+  /** Optional for backward compatibility with export files created before this field existed */
+  effort_run?: string | null;
+  /** Optional for backward compatibility with export files created before this field existed */
   is_archived?: 0 | 1;
 }
 
@@ -125,6 +133,10 @@ export class ExportImportService {
       blocked_by: blockedByMap.get(task.id) || [],
       priority: task.priority,
       branch: task.branch,
+      model_planning: task.model_planning,
+      model_run: task.model_run,
+      effort_planning: task.effort_planning,
+      effort_run: task.effort_run,
       is_archived: task.is_archived,
     };
   }
@@ -168,6 +180,10 @@ export class ExportImportService {
       parent_id: newParentId,
       priority: exportedTask.priority ?? undefined,
       branch: exportedTask.branch ?? undefined,
+      model_planning: exportedTask.model_planning ?? undefined,
+      model_run: exportedTask.model_run ?? undefined,
+      effort_planning: exportedTask.effort_planning ?? undefined,
+      effort_run: exportedTask.effort_run ?? undefined,
     });
 
     // createTask does not accept is_archived directly; archive before restoring timestamps,

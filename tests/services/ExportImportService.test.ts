@@ -156,6 +156,22 @@ describe('ExportImportService', () => {
       expect(data.tasks[0].branch).toBe('feat/123-test');
     });
 
+    it('should export model and effort overrides', () => {
+      taskService.createTask({
+        title: 'Override Task',
+        model_planning: 'opus',
+        model_run: 'sonnet',
+        effort_planning: 'low',
+        effort_run: 'xhigh',
+      });
+
+      const data = service.exportData();
+      expect(data.tasks[0].model_planning).toBe('opus');
+      expect(data.tasks[0].model_run).toBe('sonnet');
+      expect(data.tasks[0].effort_planning).toBe('low');
+      expect(data.tasks[0].effort_run).toBe('xhigh');
+    });
+
     it('should include archived tasks in export', () => {
       const backend = getStorageBackend();
       const task = taskService.createTask({ title: 'Archived Task' });
@@ -652,6 +668,75 @@ describe('ExportImportService', () => {
       expect(tasks[0].updated_at).toBe('2026-01-01T10:00:00.000Z');
     });
 
+    it('should restore model and effort overrides', () => {
+      const exportData: ExportData = {
+        version: '1.0.0',
+        exported_at: '2026-01-01T00:00:00.000Z',
+        tasks: [
+          {
+            id: 1,
+            title: 'Override Restored Task',
+            body: null,
+            author: null,
+            assignees: null,
+            status: 'backlog',
+            parent_id: null,
+            created_at: '2026-01-01T10:00:00.000Z',
+            updated_at: '2026-01-01T10:00:00.000Z',
+            tags: [],
+            metadata: {},
+            comments: [],
+            blocked_by: [],
+            model_planning: 'fable',
+            model_run: 'haiku',
+            effort_planning: 'medium',
+            effort_run: 'max',
+          },
+        ],
+      };
+
+      service.importData(exportData);
+
+      const tasks = taskService.listTasks();
+      expect(tasks).toHaveLength(1);
+      expect(tasks[0].model_planning).toBe('fable');
+      expect(tasks[0].model_run).toBe('haiku');
+      expect(tasks[0].effort_planning).toBe('medium');
+      expect(tasks[0].effort_run).toBe('max');
+    });
+
+    it('should import an old-format export without model/effort overrides', () => {
+      const exportData: ExportData = {
+        version: '1.0.0',
+        exported_at: '2026-01-01T00:00:00.000Z',
+        tasks: [
+          {
+            id: 1,
+            title: 'Legacy Task',
+            body: null,
+            author: null,
+            assignees: null,
+            status: 'backlog',
+            parent_id: null,
+            created_at: '2026-01-01T10:00:00.000Z',
+            updated_at: '2026-01-01T10:00:00.000Z',
+            tags: [],
+            metadata: {},
+            comments: [],
+            blocked_by: [],
+          },
+        ],
+      };
+
+      service.importData(exportData);
+
+      const tasks = taskService.listTasks();
+      expect(tasks[0].model_planning).toBeNull();
+      expect(tasks[0].model_run).toBeNull();
+      expect(tasks[0].effort_planning).toBeNull();
+      expect(tasks[0].effort_run).toBeNull();
+    });
+
     it('should import tasks from an old-format export without priority/branch/is_archived', () => {
       const exportData: ExportData = {
         version: '1.0.0',
@@ -792,6 +877,31 @@ describe('ExportImportService', () => {
       expect(importedTasks[0].priority).toBe('high');
       expect(importedTasks[0].branch).toBe('feat/99-archived-original');
       expect(importedTasks[0].is_archived).toBe(1);
+    });
+
+    it('should preserve model and effort overrides through export and import cycle', () => {
+      taskService.createTask({
+        title: 'Round Trip Overrides',
+        model_planning: 'opus',
+        model_run: 'sonnet',
+        effort_planning: 'low',
+        effort_run: 'xhigh',
+      });
+
+      const exportedData = service.exportData();
+
+      resetDatabase();
+
+      const newService = new ExportImportService(getStorageBackend());
+      newService.importData(exportedData);
+
+      const newTaskService = new TaskService(getStorageBackend());
+      const importedTasks = newTaskService.listTasks();
+      expect(importedTasks).toHaveLength(1);
+      expect(importedTasks[0].model_planning).toBe('opus');
+      expect(importedTasks[0].model_run).toBe('sonnet');
+      expect(importedTasks[0].effort_planning).toBe('low');
+      expect(importedTasks[0].effort_run).toBe('xhigh');
     });
   });
 });
