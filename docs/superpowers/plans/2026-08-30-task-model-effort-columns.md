@@ -10,6 +10,8 @@
 
 **Spec:** `docs/superpowers/specs/2026-08-30-task-model-effort-columns-design.md`
 
+**Base branch:** `upstream/main`（`gendosu/agkan` の main。v3.20.2 リリース済み、コミット `a9573bd` 時点。Task 0 でここから作業ブランチを作成する）
+
 ## Global Constraints
 
 - 追加するカラムは4本、すべて `TEXT DEFAULT NULL`: `model_planning`, `model_run`, `effort_planning`, `effort_run`
@@ -22,6 +24,25 @@
 - `#724` のプロンプト文字列重複（`exitInstruction` / `branchInstruction`）は解消しない（スコープ外）
 - テストコマンド: `pnpm exec vitest run <path>`。型チェック: `pnpm run type-check`。lint: `pnpm run lint`
 - コミットメッセージは英語、Conventional Commits 形式
+- beta ブランチにのみ存在する multi-agent 対応（`src/db/config.ts` の `resolveModelSettings` など）はベースの upstream/main に存在しない。本計画のコードはそれを一切参照しない
+
+---
+
+### Task 0: 作業ブランチの作成
+
+**Files:** なし（git 操作のみ）
+
+- [ ] **Step 1: upstream/main を取得して作業ブランチを作成する**
+
+```bash
+git fetch upstream
+git checkout -b feat/task-model-effort-columns upstream/main
+```
+
+- [ ] **Step 2: 基点を確認する**
+
+Run: `git log --oneline -1`
+Expected: `a9573bd Merge pull request #393 from gendosu/chore/release-v3.20.2`（またはそれ以降の upstream/main コミット）
 
 ---
 
@@ -641,8 +662,8 @@ git commit -m "feat(board): add MODEL_ALIASES and isValidModelAlias to claudePro
 - Modify: `src/board/boardRoutes.ts:55-56`
 - Test: `tests/board/taskModelOverride.test.ts`（全面書き換え）
 - Test: `tests/board/claudePromptBuilder.test.ts:14-15,28-31,116-148`
-- Test: `tests/board/bulkRunService.test.ts:568-597`
-- Test: `tests/board/claudeRoutes.test.ts:301,331,361` 付近
+- Test: `tests/board/bulkRunService.test.ts:559-596`
+- Test: `tests/board/claudeRoutes.test.ts:274,304,330` 付近
 
 **Interfaces:**
 - Consumes: Task 2 の `Task.model_planning` 他4フィールド、`TaskService.getTask(id): Task | null`（`src/services/TaskService.ts:100`）、`TaskService.updateTask(id, input): Task | null`（`src/services/TaskService.ts:152`）
@@ -912,7 +933,7 @@ export function resolveModelAndEffort(
 ): ResolvedModelEffort {
   const config = loadConfig();
   const overrideKind: ModelOverrideKind = command === 'planning' ? 'planning' : 'run';
-  const rawConfig = resolveModelSettings(config, overrideKind);
+  const rawConfig = command === 'planning' ? config.models?.planning : config.models?.run;
   const model =
     (taskService ? getTaskModelOverride(taskService, taskId, overrideKind) : undefined) ??
     rawConfig?.model?.trim() ??
@@ -1082,7 +1103,7 @@ function buildServices() {
 
 - [ ] **Step 11: 既存テストのセットアップをカラム書き込みに置き換える（bulkRunService）**
 
-`tests/board/bulkRunService.test.ts` の `describe('BulkRunService model/effort override resolution', ...)`（568-597行）を置き換える。
+`tests/board/bulkRunService.test.ts` の `describe('BulkRunService model/effort override resolution', ...)`（559-596行）を置き換える。
 
 ```typescript
 describe('BulkRunService model/effort override resolution', () => {
@@ -1167,19 +1188,19 @@ describe('BulkRunService model/effort override resolution', () => {
 
 `tests/board/claudeRoutes.test.ts` の3箇所の `services.ms.setMetadata(...)` を差し替える。
 
-`it('uses task-level effort override in preference to config', ...)` 内（`tests/board/claudeRoutes.test.ts:310` 付近）:
+`it('uses task-level effort override in preference to config', ...)` 内（`tests/board/claudeRoutes.test.ts:283` 付近）:
 
 ```typescript
     services.ts.updateTask(task.id, { effort_run: 'xhigh' });
 ```
 
-`it('uses task-level effort override for the planning command with the planning config key', ...)` 内（`tests/board/claudeRoutes.test.ts:337` 付近）:
+`it('uses task-level effort override for the planning command with the planning config key', ...)` 内（`tests/board/claudeRoutes.test.ts:309` 付近）:
 
 ```typescript
     services.ts.updateTask(task.id, { effort_planning: 'max' });
 ```
 
-`it('returns 400 when the task-level effort override is invalid', ...)` 内（`tests/board/claudeRoutes.test.ts:361` 付近）:
+`it('returns 400 when the task-level effort override is invalid', ...)` 内（`tests/board/claudeRoutes.test.ts:334` 付近）:
 
 ```typescript
     services.ts.updateTask(task.id, { effort_run: 'ultra' });
@@ -2237,8 +2258,8 @@ git commit -m "feat(cli): add model/effort override flags to task add"
 **Files:**
 - Modify: `src/cli/commands/task/get.ts:18-31,49-64,192-215`
 - Modify: `src/cli/commands/task/copy.ts:60-92`
-- Modify: `CHANGELOG.md:8-15`
-- Modify: `CHANGELOG.ja.md:8-15`
+- Modify: `CHANGELOG.md:8`（`## [Unreleased]` 見出し直下）
+- Modify: `CHANGELOG.ja.md:8`（同上）
 - Test: `tests/cli/commands/task/get.test.ts`（`describe('branch field', ...)`（450行〜）の直後に追加）
 - Test: `tests/cli/commands/task/copy.test.ts`（`describe('branch field', ...)`（218行〜）の直後に追加）
 
@@ -2447,7 +2468,7 @@ Expected: PASS
 
 - [ ] **Step 7: CHANGELOG を更新する**
 
-`CHANGELOG.md` の `## [Unreleased]` 直下、`### Changed` の**前**に `### Added` セクションを挿入する。
+`CHANGELOG.md` の `## [Unreleased]` セクションは現在空（見出しの直後に `## [3.20.2]` が続く）。`## [Unreleased]` の直下に `### Added` と `### Changed` を新設する。
 
 ```markdown
 ## [Unreleased]
@@ -2456,9 +2477,10 @@ Expected: PASS
 - Add `--model-planning`, `--model-run`, `--effort-planning`, and `--effort-run` flags to `agkan task add` and `agkan task update` for setting the Claude model alias (`fable`, `opus`, `sonnet`, `haiku`) and reasoning effort (`low`, `medium`, `high`, `xhigh`, `max`) used when running a task. Pass an empty string to `task update` to clear an override. The values are also exposed in `agkan task get --json`, copied by `agkan task copy`, and included in export/import
 
 ### Changed
+- Move task-level Claude model/effort overrides from `task_metadata` rows (`model:planning` / `model:run` / `effort:planning` / `effort:run`) to dedicated `tasks` table columns. Existing metadata rows are migrated automatically on the next run and then removed
 ```
 
-`CHANGELOG.ja.md` の `## [Unreleased]` 直下、`### 変更` の**前**に `### 追加` セクションを挿入する。
+`CHANGELOG.ja.md` も同様に、`## [Unreleased]`（現在空）の直下に `### 追加` と `### 変更` を新設する。
 
 ```markdown
 ## [Unreleased]
@@ -2466,19 +2488,6 @@ Expected: PASS
 ### 追加
 - `agkan task add` / `agkan task update` に `--model-planning`, `--model-run`, `--effort-planning`, `--effort-run` フラグを追加。タスク実行時に使う Claude のモデルエイリアス（`fable`, `opus`, `sonnet`, `haiku`）と reasoning effort（`low`, `medium`, `high`, `xhigh`, `max`）をタスク単位で指定できる。`task update` で空文字を渡すとクリアされる。値は `agkan task get --json` にも出力され、`agkan task copy` でコピーされ、export/import にも含まれる
 
-### 変更
-```
-
-`### Changed` セクションに、内部保存先の変更を1行追加する。
-
-```markdown
-### Changed
-- Move task-level Claude model/effort overrides from `task_metadata` rows (`model:planning` / `model:run` / `effort:planning` / `effort:run`) to dedicated `tasks` table columns. Existing metadata rows are migrated automatically on the next run and then removed
-```
-
-`CHANGELOG.ja.md` の `### 変更` セクションにも1行追加する。
-
-```markdown
 ### 変更
 - タスク単位の Claude model/effort override の保存先を、`task_metadata` の行（`model:planning` / `model:run` / `effort:planning` / `effort:run`）から `tasks` テーブルの専用カラムへ変更。既存の metadata は次回起動時のマイグレーションで自動的に移行され、元の行は削除される
 ```

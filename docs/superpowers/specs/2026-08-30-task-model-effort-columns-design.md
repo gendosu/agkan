@@ -1,7 +1,9 @@
 # タスク単位 model/effort override のカラム化設計
 
 **日付**: 2026-08-30
-**対象ブランチ**: beta
+**ベースブランチ**: `upstream/main`（`gendosu/agkan` の main。v3.20.2 リリース済み、コミット `a9573bd` 時点。作業ブランチはここから新規に作成する）
+
+> 注: beta ブランチにのみ存在する multi-agent 対応（`src/db/config.ts` の `resolveModelSettings` など）はこのベースには存在しない。本設計・実装計画はそれを一切前提にしない。
 
 ---
 
