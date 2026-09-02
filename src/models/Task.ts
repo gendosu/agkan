@@ -32,6 +32,14 @@ export interface Task {
   parent_id: number | null;
   is_archived: 0 | 1;
   branch: string | null;
+  /** Claude model alias used for planning runs of this task (null = fall back to config) */
+  model_planning: string | null;
+  /** Claude model alias used for pr/run runs of this task (null = fall back to config) */
+  model_run: string | null;
+  /** Reasoning effort used for planning runs of this task (null = fall back to config) */
+  effort_planning: string | null;
+  /** Reasoning effort used for pr/run runs of this task (null = fall back to config) */
+  effort_run: string | null;
 }
 
 /**
@@ -53,6 +61,10 @@ export interface CreateTaskInput {
   priority?: Priority | null;
   parent_id?: number | null;
   branch?: string | null;
+  model_planning?: string | null;
+  model_run?: string | null;
+  effort_planning?: string | null;
+  effort_run?: string | null;
   /** Optional tag IDs to attach atomically with task creation */
   tagIds?: number[];
 }
@@ -76,4 +88,8 @@ export interface UpdateTaskInput {
   priority?: Priority | null;
   parent_id?: number | null;
   branch?: string | null;
+  model_planning?: string | null;
+  model_run?: string | null;
+  effort_planning?: string | null;
+  effort_run?: string | null;
 }

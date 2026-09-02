@@ -14,6 +14,7 @@ import {
   renderRelationsHtml,
   renderMetadataTable,
   renderEditableTextFields,
+  renderModelFields,
   renderDetailPanelHtml,
   renderRunLogsHtml,
   buildDetailPanelHtml,
@@ -571,6 +572,58 @@ describe('renderEditableTextFields', () => {
   });
 });
 
+// ---- renderModelFields ----
+
+describe('renderModelFields', () => {
+  it('pre-selects the model/effort dropdowns from the task columns when overrides are set', () => {
+    const task = {
+      ...makeTaskDetail().task,
+      model_planning: 'opus',
+      model_run: 'sonnet',
+      effort_planning: 'high',
+      effort_run: 'low',
+    };
+    const html = renderModelFields(task);
+    const div = document.createElement('div');
+    div.innerHTML = html;
+
+    expect((div.querySelector('#detail-edit-model-planning') as HTMLSelectElement).value).toBe('opus');
+    expect((div.querySelector('#detail-edit-model-run') as HTMLSelectElement).value).toBe('sonnet');
+    expect((div.querySelector('#detail-edit-effort-planning') as HTMLSelectElement).value).toBe('high');
+    expect((div.querySelector('#detail-edit-effort-run') as HTMLSelectElement).value).toBe('low');
+  });
+
+  it('renders the default/empty option when the task has no overrides (null columns)', () => {
+    const task = {
+      ...makeTaskDetail().task,
+      model_planning: null,
+      model_run: null,
+      effort_planning: null,
+      effort_run: null,
+    };
+    const html = renderModelFields(task);
+    const div = document.createElement('div');
+    div.innerHTML = html;
+
+    expect((div.querySelector('#detail-edit-model-planning') as HTMLSelectElement).value).toBe('');
+    expect((div.querySelector('#detail-edit-model-run') as HTMLSelectElement).value).toBe('');
+    expect((div.querySelector('#detail-edit-effort-planning') as HTMLSelectElement).value).toBe('');
+    expect((div.querySelector('#detail-edit-effort-run') as HTMLSelectElement).value).toBe('');
+  });
+
+  it('renders the default/empty option when the task has no overrides (undefined columns)', () => {
+    const task = { ...makeTaskDetail().task };
+    const html = renderModelFields(task);
+    const div = document.createElement('div');
+    div.innerHTML = html;
+
+    expect((div.querySelector('#detail-edit-model-planning') as HTMLSelectElement).value).toBe('');
+    expect((div.querySelector('#detail-edit-model-run') as HTMLSelectElement).value).toBe('');
+    expect((div.querySelector('#detail-edit-effort-planning') as HTMLSelectElement).value).toBe('');
+    expect((div.querySelector('#detail-edit-effort-run') as HTMLSelectElement).value).toBe('');
+  });
+});
+
 // ---- renderDetailPanelHtml ----
 
 describe('renderDetailPanelHtml', () => {
@@ -667,6 +720,62 @@ describe('renderDetailPanelHtml', () => {
     div.innerHTML = html;
 
     expect(div.querySelector('.detail-meta-table')).toBeNull();
+  });
+
+  it('pre-selects model/effort dropdowns from task columns when overrides are set', () => {
+    const data = makeTaskDetail({
+      task: {
+        ...makeTaskDetail().task,
+        model_planning: 'opus',
+        model_run: 'haiku',
+        effort_planning: 'xhigh',
+        effort_run: 'medium',
+      },
+      // Legacy metadata rows must be ignored now that overrides live on the task columns.
+      metadata: [],
+    });
+    const html = renderDetailPanelHtml(data);
+    const div = document.createElement('div');
+    div.innerHTML = html;
+
+    expect((div.querySelector('#detail-edit-model-planning') as HTMLSelectElement).value).toBe('opus');
+    expect((div.querySelector('#detail-edit-model-run') as HTMLSelectElement).value).toBe('haiku');
+    expect((div.querySelector('#detail-edit-effort-planning') as HTMLSelectElement).value).toBe('xhigh');
+    expect((div.querySelector('#detail-edit-effort-run') as HTMLSelectElement).value).toBe('medium');
+  });
+
+  it('renders default/empty model/effort dropdowns for a task without overrides', () => {
+    const html = renderDetailPanelHtml(makeTaskDetail());
+    const div = document.createElement('div');
+    div.innerHTML = html;
+
+    expect((div.querySelector('#detail-edit-model-planning') as HTMLSelectElement).value).toBe('');
+    expect((div.querySelector('#detail-edit-model-run') as HTMLSelectElement).value).toBe('');
+    expect((div.querySelector('#detail-edit-effort-planning') as HTMLSelectElement).value).toBe('');
+    expect((div.querySelector('#detail-edit-effort-run') as HTMLSelectElement).value).toBe('');
+  });
+
+  it('ignores stale legacy metadata:model/effort rows and reads only the task columns', () => {
+    // Regression guard for the bug where dropdowns were populated by searching a
+    // metadata array for legacy 'model:planning'/'model:run'/'effort:planning'/'effort:run'
+    // keys that the server no longer writes.
+    const data = makeTaskDetail({
+      task: { ...makeTaskDetail().task, model_planning: 'sonnet', effort_run: 'low' },
+      metadata: [
+        { key: 'model:planning', value: 'opus' },
+        { key: 'model:run', value: 'haiku' },
+        { key: 'effort:planning', value: 'max' },
+        { key: 'effort:run', value: 'high' },
+      ],
+    });
+    const html = renderDetailPanelHtml(data);
+    const div = document.createElement('div');
+    div.innerHTML = html;
+
+    expect((div.querySelector('#detail-edit-model-planning') as HTMLSelectElement).value).toBe('sonnet');
+    expect((div.querySelector('#detail-edit-model-run') as HTMLSelectElement).value).toBe('');
+    expect((div.querySelector('#detail-edit-effort-planning') as HTMLSelectElement).value).toBe('');
+    expect((div.querySelector('#detail-edit-effort-run') as HTMLSelectElement).value).toBe('low');
   });
 
   it('handles undefined metadata gracefully', () => {

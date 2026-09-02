@@ -2,39 +2,30 @@
 //
 // Allows a task to specify which Claude model (and reasoning effort) to use for
 // 'planning' and 'run' commands, overriding the values from the config file
-// (.agkan.yml). Overrides are stored as generic task metadata (no schema
-// migration required) under well-known keys.
+// (.agkan.yml). Overrides are stored directly on the tasks table's
+// model_planning/model_run/effort_planning/effort_run columns.
 
-import { MetadataService } from '../services/MetadataService';
+import { TaskService } from '../services/TaskService';
+import type { UpdateTaskInput } from '../models/Task';
 
 export type ModelOverrideKind = 'planning' | 'run';
 type OverrideCategory = 'model' | 'effort';
 
-function taskOverrideMetadataKey(category: OverrideCategory, kind: ModelOverrideKind): string {
-  return `${category}:${kind}`;
+/** tasks table column holding the override for a given category/kind pair */
+type OverrideColumn = 'model_planning' | 'model_run' | 'effort_planning' | 'effort_run';
+
+function overrideColumn(category: OverrideCategory, kind: ModelOverrideKind): OverrideColumn {
+  return `${category}_${kind}` as OverrideColumn;
 }
 
-export function taskModelMetadataKey(kind: ModelOverrideKind): string {
-  return taskOverrideMetadataKey('model', kind);
-}
-
-export function taskEffortMetadataKey(kind: ModelOverrideKind): string {
-  return taskOverrideMetadataKey('effort', kind);
-}
-
-/**
- * Read the task-level override for the given category ('model' | 'effort') and
- * kind ('planning' | 'run'). Returns undefined if no override is set (falls
- * through to config/default).
- */
 function getTaskOverride(
-  ms: MetadataService,
+  taskService: TaskService,
   taskId: number,
   category: OverrideCategory,
   kind: ModelOverrideKind
 ): string | undefined {
-  const meta = ms.getMetadataByKey(taskId, taskOverrideMetadataKey(category, kind));
-  const trimmed = meta?.value?.trim();
+  const task = taskService.getTask(taskId);
+  const trimmed = task?.[overrideColumn(category, kind)]?.trim();
   return trimmed || undefined;
 }
 
@@ -42,8 +33,12 @@ function getTaskOverride(
  * Read the task-level model override for the given kind ('planning' | 'run').
  * Returns undefined if no override is set (falls through to config/default).
  */
-export function getTaskModelOverride(ms: MetadataService, taskId: number, kind: ModelOverrideKind): string | undefined {
-  return getTaskOverride(ms, taskId, 'model', kind);
+export function getTaskModelOverride(
+  taskService: TaskService,
+  taskId: number,
+  kind: ModelOverrideKind
+): string | undefined {
+  return getTaskOverride(taskService, taskId, 'model', kind);
 }
 
 /**
@@ -51,11 +46,11 @@ export function getTaskModelOverride(ms: MetadataService, taskId: number, kind: 
  * Returns undefined if no override is set (falls through to config/default).
  */
 export function getTaskEffortOverride(
-  ms: MetadataService,
+  taskService: TaskService,
   taskId: number,
   kind: ModelOverrideKind
 ): string | undefined {
-  return getTaskOverride(ms, taskId, 'effort', kind);
+  return getTaskOverride(taskService, taskId, 'effort', kind);
 }
 
 export interface TaskModelOverrides {
@@ -76,21 +71,19 @@ export interface TaskEffortOverrides {
 function persistTaskOverrides(
   taskId: number,
   rawValues: unknown,
-  ms: MetadataService,
+  taskService: TaskService,
   category: OverrideCategory
 ): void {
   if (!rawValues || typeof rawValues !== 'object') return;
   const values = rawValues as Record<string, unknown>;
+  const input: UpdateTaskInput = {};
   (['planning', 'run'] as const).forEach((kind) => {
     if (!(kind in values)) return;
     const raw = values[kind];
-    const key = taskOverrideMetadataKey(category, kind);
-    if (typeof raw === 'string' && raw.trim()) {
-      ms.setMetadata({ task_id: taskId, key, value: raw.trim() });
-    } else {
-      ms.deleteMetadata(taskId, key);
-    }
+    input[overrideColumn(category, kind)] = typeof raw === 'string' && raw.trim() ? raw.trim() : null;
   });
+  if (Object.keys(input).length === 0) return;
+  taskService.updateTask(taskId, input);
 }
 
 /**
@@ -98,8 +91,8 @@ function persistTaskOverrides(
  * A non-empty string sets the override; an empty string or null clears it.
  * Unrelated/invalid input is silently ignored.
  */
-export function persistTaskModelOverrides(taskId: number, rawModels: unknown, ms: MetadataService): void {
-  persistTaskOverrides(taskId, rawModels, ms, 'model');
+export function persistTaskModelOverrides(taskId: number, rawModels: unknown, taskService: TaskService): void {
+  persistTaskOverrides(taskId, rawModels, taskService, 'model');
 }
 
 /**
@@ -107,6 +100,6 @@ export function persistTaskModelOverrides(taskId: number, rawModels: unknown, ms
  * A non-empty string sets the override; an empty string or null clears it.
  * Unrelated/invalid input is silently ignored.
  */
-export function persistTaskEffortOverrides(taskId: number, rawEfforts: unknown, ms: MetadataService): void {
-  persistTaskOverrides(taskId, rawEfforts, ms, 'effort');
+export function persistTaskEffortOverrides(taskId: number, rawEfforts: unknown, taskService: TaskService): void {
+  persistTaskOverrides(taskId, rawEfforts, taskService, 'effort');
 }

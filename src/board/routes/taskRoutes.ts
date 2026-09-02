@@ -7,6 +7,7 @@ import { TaskBlockService } from '../../services/TaskBlockService';
 import { TaskStatus, isPriority, Priority } from '../../models';
 import { STATUSES } from '../boardRenderer';
 import { persistTaskModelOverrides, persistTaskEffortOverrides } from '../taskModelOverride';
+import { MODEL_ALIASES, isValidModelAlias, VALID_EFFORT_LEVELS, isValidEffortLevel } from '../claudePromptBuilder';
 
 type BoardTaskStatus = TaskStatus;
 
@@ -81,6 +82,34 @@ function resolveTagIds(rawTags: unknown, tags: TagService): number[] | undefined
   return ids.length > 0 ? ids : undefined;
 }
 
+function validateOverrideValues(
+  rawValues: unknown,
+  isValid: (value: string) => boolean,
+  label: string,
+  validValues: readonly string[]
+): string | undefined {
+  if (!rawValues || typeof rawValues !== 'object') return undefined;
+  const values = rawValues as Record<string, unknown>;
+  for (const kind of ['planning', 'run'] as const) {
+    const raw = values[kind];
+    if (typeof raw !== 'string') continue;
+    const trimmed = raw.trim();
+    // An empty value is the UI's "clear this override" instruction, not a bad value.
+    if (trimmed === '') continue;
+    if (!isValid(trimmed)) {
+      return `Invalid ${label} "${trimmed}". Must be one of: ${validValues.join(', ')}`;
+    }
+  }
+  return undefined;
+}
+
+function validateOverrideBody(body: { models?: unknown; efforts?: unknown }): string | undefined {
+  return (
+    validateOverrideValues(body.models, isValidModelAlias, 'model', MODEL_ALIASES) ??
+    validateOverrideValues(body.efforts, isValidEffortLevel, 'effort level', VALID_EFFORT_LEVELS)
+  );
+}
+
 function persistTaskMetadata(taskId: number, rawMetadata: unknown, ms: MetadataService): void {
   if (!Array.isArray(rawMetadata)) return;
   for (const entry of rawMetadata) {
@@ -98,6 +127,8 @@ function registerCreateTaskRoute(app: Hono, ts: TaskService, ms: MetadataService
     if (!body.title || typeof body.title !== 'string' || !body.title.trim()) {
       return c.json({ error: 'Title is required' }, 400);
     }
+    const overrideError = validateOverrideBody(body);
+    if (overrideError) return c.json({ error: overrideError }, 400);
     const status = body.status && STATUSES.includes(body.status) ? body.status : 'backlog';
     const priority = body.priority && isPriority(body.priority) ? body.priority : undefined;
     const tagIds = resolveTagIds(body.tags, tags);
@@ -111,9 +142,12 @@ function registerCreateTaskRoute(app: Hono, ts: TaskService, ms: MetadataService
       tagIds,
     });
     persistTaskMetadata(task.id, body.metadata, ms);
-    persistTaskModelOverrides(task.id, body.models, ms);
-    persistTaskEffortOverrides(task.id, body.efforts, ms);
-    return c.json(task, 201);
+    persistTaskModelOverrides(task.id, body.models, ts);
+    persistTaskEffortOverrides(task.id, body.efforts, ts);
+    // Re-fetch: persistTaskModelOverrides/persistTaskEffortOverrides write in a
+    // separate call after createTask, so `task` above is stale for the override
+    // columns (e.g. model_run stays null even when body.models.run was set).
+    return c.json(ts.getTask(task.id) ?? task, 201);
   });
 }
 
@@ -150,18 +184,23 @@ function registerGetTaskRoute(
   });
 }
 
-function registerPatchAndDeleteTaskRoutes(app: Hono, ts: TaskService, ms: MetadataService): void {
+function registerPatchAndDeleteTaskRoutes(app: Hono, ts: TaskService): void {
   app.patch('/api/tasks/:id', async (c) => {
     const id = Number(c.req.param('id'));
     if (isNaN(id)) return c.json({ error: 'Invalid task id' }, 400);
     const body = await c.req.json<TaskPatchBody>();
     const { input, error } = buildTaskUpdateInput(body);
     if (error) return c.json({ error }, 400);
+    const overrideError = validateOverrideBody(body);
+    if (overrideError) return c.json({ error: overrideError }, 400);
     const task = ts.updateTask(id, input);
     if (!task) return c.json({ error: 'Task not found' }, 404);
-    if (body.models !== undefined) persistTaskModelOverrides(id, body.models, ms);
-    if (body.efforts !== undefined) persistTaskEffortOverrides(id, body.efforts, ms);
-    return c.json(task);
+    if (body.models !== undefined) persistTaskModelOverrides(id, body.models, ts);
+    if (body.efforts !== undefined) persistTaskEffortOverrides(id, body.efforts, ts);
+    // Re-fetch: persistTaskModelOverrides/persistTaskEffortOverrides write in a
+    // separate call after updateTask, so `task` above is stale for the override
+    // columns when only models/efforts changed.
+    return c.json(ts.getTask(id) ?? task);
   });
   app.delete('/api/tasks/:id', (c) => {
     const id = Number(c.req.param('id'));
@@ -183,5 +222,5 @@ export function registerTaskCrudRoutes(
   registerListTaskRoute(app, ts);
   registerCreateTaskRoute(app, ts, ms, tags);
   registerGetTaskRoute(app, ts, tts, tbs, ms);
-  registerPatchAndDeleteTaskRoutes(app, ts, ms);
+  registerPatchAndDeleteTaskRoutes(app, ts);
 }

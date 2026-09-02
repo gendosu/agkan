@@ -144,8 +144,8 @@ class SQLiteTaskRepository implements TaskRepository {
   create(input: CreateTaskInput & { status: TaskStatus; created_at: string; updated_at: string }): Task {
     const result = this.db
       .prepare(
-        `INSERT INTO tasks (title, body, author, assignees, status, priority, parent_id, branch, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+        `INSERT INTO tasks (title, body, author, assignees, status, priority, parent_id, branch, model_planning, model_run, effort_planning, effort_run, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
       )
       .run(
         input.title,
@@ -156,6 +156,10 @@ class SQLiteTaskRepository implements TaskRepository {
         input.priority !== undefined ? input.priority : null,
         input.parent_id !== undefined ? input.parent_id : null,
         input.branch !== undefined ? input.branch : null,
+        input.model_planning !== undefined ? input.model_planning : null,
+        input.model_run !== undefined ? input.model_run : null,
+        input.effort_planning !== undefined ? input.effort_planning : null,
+        input.effort_run !== undefined ? input.effort_run : null,
         input.created_at,
         input.updated_at
       );
@@ -186,6 +190,10 @@ class SQLiteTaskRepository implements TaskRepository {
       ['priority', 'priority', (v) => v as string | null],
       ['parent_id', 'parent_id', (v) => v as number | null],
       ['branch', 'branch', (v) => v as string | null],
+      ['model_planning', 'model_planning', (v) => v as string | null],
+      ['model_run', 'model_run', (v) => v as string | null],
+      ['effort_planning', 'effort_planning', (v) => v as string | null],
+      ['effort_run', 'effort_run', (v) => v as string | null],
       ['updated_at', 'updated_at', (v) => v as string],
     ];
     const updates: string[] = [];

@@ -52,8 +52,8 @@ export function registerBoardRoutes(app: Hono, services: BoardServices): void {
   registerTaskApiRoutes(app, services, gitService);
   registerConfigApiRoutes(app, configDir);
   if (services.ptySessionService) {
-    registerClaudeRoutes(app, services.ptySessionService, ts, services.ms, gitService);
-    const bulkRunService = new BulkRunService(ts, tbs, services.ptySessionService, services.ms);
+    registerClaudeRoutes(app, services.ptySessionService, ts, gitService);
+    const bulkRunService = new BulkRunService(ts, tbs, services.ptySessionService, ts);
     registerBulkRunRoutes(app, bulkRunService);
   }
 }

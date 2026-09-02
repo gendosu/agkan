@@ -161,6 +161,30 @@ describe('TaskService', () => {
 
       expect(task.branch).toBeNull();
     });
+
+    it('Create task with model/effort overrides specified', () => {
+      const task = taskService.createTask({
+        title: 'Test Task',
+        model_planning: 'opus',
+        model_run: 'sonnet',
+        effort_planning: 'low',
+        effort_run: 'xhigh',
+      });
+
+      expect(task.model_planning).toBe('opus');
+      expect(task.model_run).toBe('sonnet');
+      expect(task.effort_planning).toBe('low');
+      expect(task.effort_run).toBe('xhigh');
+    });
+
+    it('model/effort overrides become null when not specified', () => {
+      const task = taskService.createTask({ title: 'Test Task' });
+
+      expect(task.model_planning).toBeNull();
+      expect(task.model_run).toBeNull();
+      expect(task.effort_planning).toBeNull();
+      expect(task.effort_run).toBeNull();
+    });
   });
 
   describe('getTask', () => {
@@ -1112,6 +1136,44 @@ describe('TaskService', () => {
 
       const retrievedTask = taskService.getTask(createdTask.id);
       expect(retrievedTask!.branch).toBe('feature/updated-branch');
+    });
+
+    it('Can update model/effort overrides', () => {
+      const createdTask = taskService.createTask({ title: 'Test Task' });
+
+      const updatedTask = taskService.updateTask(createdTask.id, {
+        model_planning: 'fable',
+        model_run: 'haiku',
+        effort_planning: 'medium',
+        effort_run: 'max',
+      });
+
+      expect(updatedTask).toBeDefined();
+      expect(updatedTask!.model_planning).toBe('fable');
+      expect(updatedTask!.model_run).toBe('haiku');
+      expect(updatedTask!.effort_planning).toBe('medium');
+      expect(updatedTask!.effort_run).toBe('max');
+
+      const retrievedTask = taskService.getTask(createdTask.id);
+      expect(retrievedTask!.model_run).toBe('haiku');
+    });
+
+    it('Can clear model/effort overrides by setting null', () => {
+      const createdTask = taskService.createTask({ title: 'Test Task', model_run: 'sonnet', effort_run: 'high' });
+
+      const updatedTask = taskService.updateTask(createdTask.id, { model_run: null, effort_run: null });
+
+      expect(updatedTask!.model_run).toBeNull();
+      expect(updatedTask!.effort_run).toBeNull();
+    });
+
+    it('Leaves model/effort overrides untouched when not part of the update', () => {
+      const createdTask = taskService.createTask({ title: 'Test Task', model_run: 'sonnet' });
+
+      const updatedTask = taskService.updateTask(createdTask.id, { title: 'Renamed' });
+
+      expect(updatedTask!.title).toBe('Renamed');
+      expect(updatedTask!.model_run).toBe('sonnet');
     });
   });
 

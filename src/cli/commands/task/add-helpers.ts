@@ -10,6 +10,12 @@ import { parseNumericArray } from '../../utils/error-handler';
 import { getStatusColor, formatDate } from '../../../utils/format';
 import { filterNonNull } from '../../utils/array-utils';
 import { resolveTag } from '../../utils/tag-resolver';
+import {
+  MODEL_ALIASES,
+  isValidModelAlias,
+  VALID_EFFORT_LEVELS,
+  isValidEffortLevel,
+} from '../../../board/claudePromptBuilder';
 
 export function readBodyFromFile(filePath: string): string {
   const fileService = new FileService();
@@ -92,6 +98,33 @@ export function fetchRelatedTasks(
   return { parentTask, blockerTasks, blockedTasks };
 }
 
+export interface ModelEffortOptions {
+  modelPlanning?: string;
+  modelRun?: string;
+  effortPlanning?: string;
+  effortRun?: string;
+}
+
+/**
+ * Validate the four task-level model/effort override flags.
+ * @returns Error message for the first invalid value, or null when all are valid
+ */
+export function validateModelEffortOptions(options: ModelEffortOptions): string | null {
+  const checks: Array<[string, string | undefined, (value: string) => boolean, readonly string[]]> = [
+    ['--model-planning', options.modelPlanning, isValidModelAlias, MODEL_ALIASES],
+    ['--model-run', options.modelRun, isValidModelAlias, MODEL_ALIASES],
+    ['--effort-planning', options.effortPlanning, isValidEffortLevel, VALID_EFFORT_LEVELS],
+    ['--effort-run', options.effortRun, isValidEffortLevel, VALID_EFFORT_LEVELS],
+  ];
+  for (const [flag, value, isValid, validValues] of checks) {
+    if (value === undefined) continue;
+    if (!isValid(value)) {
+      return `Invalid ${flag} value: ${value}. Valid values: ${validValues.join(', ')}`;
+    }
+  }
+  return null;
+}
+
 function taskToJson(task: Task): object {
   return {
     id: task.id,
@@ -103,6 +136,10 @@ function taskToJson(task: Task): object {
     priority: task.priority,
     parent_id: task.parent_id,
     branch: task.branch,
+    model_planning: task.model_planning,
+    model_run: task.model_run,
+    effort_planning: task.effort_planning,
+    effort_run: task.effort_run,
     created_at: task.created_at,
     updated_at: task.updated_at,
   };

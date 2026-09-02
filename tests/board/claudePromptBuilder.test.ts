@@ -11,13 +11,14 @@ import yaml from 'js-yaml';
 import { resetDatabase } from '../../src/db/reset';
 import { getStorageBackend } from '../../src/db/connection';
 import { TaskService } from '../../src/services/TaskService';
-import { MetadataService } from '../../src/services/MetadataService';
 import { persistTaskModelOverrides, persistTaskEffortOverrides } from '../../src/board/taskModelOverride';
 import {
   parseClaudeCommand,
   buildClaudePrompt,
   isValidEffortLevel,
   VALID_EFFORT_LEVELS,
+  isValidModelAlias,
+  MODEL_ALIASES,
   resolveModelAndEffort,
 } from '../../src/board/claudePromptBuilder';
 
@@ -27,7 +28,7 @@ beforeEach(() => {
 
 function buildServices() {
   const db = getStorageBackend();
-  return { ts: new TaskService(db), ms: new MetadataService(db) };
+  return { ts: new TaskService(db) };
 }
 
 describe('parseClaudeCommand', () => {
@@ -90,6 +91,24 @@ describe('isValidEffortLevel / VALID_EFFORT_LEVELS', () => {
   });
 });
 
+describe('isValidModelAlias / MODEL_ALIASES', () => {
+  it('lists exactly the aliases the board dropdown offers', () => {
+    expect([...MODEL_ALIASES]).toEqual(['fable', 'opus', 'sonnet', 'haiku']);
+  });
+
+  it('accepts each documented alias', () => {
+    for (const alias of MODEL_ALIASES) {
+      expect(isValidModelAlias(alias)).toBe(true);
+    }
+  });
+
+  it('rejects unknown aliases', () => {
+    expect(isValidModelAlias('gpt-5')).toBe(false);
+    expect(isValidModelAlias('Opus')).toBe(false);
+    expect(isValidModelAlias('')).toBe(false);
+  });
+});
+
 describe('resolveModelAndEffort', () => {
   // loadConfig() reads '<cwd>/.agkan-test.yml'. Other test files (e.g.
   // claudeRoutes.test.ts) write that same repo-root path, and vitest runs
@@ -114,36 +133,45 @@ describe('resolveModelAndEffort', () => {
   }
 
   it('returns undefined for both when no config or override is set', () => {
-    const { ts, ms } = buildServices();
+    const { ts } = buildServices();
     const task = ts.createTask({ title: 'Task', status: 'backlog' });
-    expect(resolveModelAndEffort(ms, task.id, 'run')).toEqual({ model: undefined, effort: undefined });
+    expect(resolveModelAndEffort(ts, task.id, 'run')).toEqual({ model: undefined, effort: undefined });
   });
 
   it('falls back to the run config for both pr and run commands', () => {
-    const { ts, ms } = buildServices();
+    const { ts } = buildServices();
     const task = ts.createTask({ title: 'Task', status: 'backlog' });
     writeConfig({ models: { run: { model: 'claude-sonnet-4-6', effort: 'high' } } });
 
-    expect(resolveModelAndEffort(ms, task.id, 'run')).toEqual({ model: 'claude-sonnet-4-6', effort: 'high' });
-    expect(resolveModelAndEffort(ms, task.id, 'pr')).toEqual({ model: 'claude-sonnet-4-6', effort: 'high' });
+    expect(resolveModelAndEffort(ts, task.id, 'run')).toEqual({ model: 'claude-sonnet-4-6', effort: 'high' });
+    expect(resolveModelAndEffort(ts, task.id, 'pr')).toEqual({ model: 'claude-sonnet-4-6', effort: 'high' });
   });
 
   it('uses the planning config only for the planning command', () => {
-    const { ts, ms } = buildServices();
+    const { ts } = buildServices();
     const task = ts.createTask({ title: 'Task', status: 'backlog' });
     writeConfig({ models: { planning: { effort: 'low' } } });
 
-    expect(resolveModelAndEffort(ms, task.id, 'planning')).toEqual({ model: undefined, effort: 'low' });
-    expect(resolveModelAndEffort(ms, task.id, 'run')).toEqual({ model: undefined, effort: undefined });
+    expect(resolveModelAndEffort(ts, task.id, 'planning')).toEqual({ model: undefined, effort: 'low' });
+    expect(resolveModelAndEffort(ts, task.id, 'run')).toEqual({ model: undefined, effort: undefined });
   });
 
   it('prefers a task-level override over the config file', () => {
-    const { ts, ms } = buildServices();
+    const { ts } = buildServices();
     const task = ts.createTask({ title: 'Task', status: 'backlog' });
     writeConfig({ models: { run: { effort: 'high' } } });
-    persistTaskEffortOverrides(task.id, { run: 'xhigh' }, ms);
-    persistTaskModelOverrides(task.id, { run: 'opus' }, ms);
+    persistTaskEffortOverrides(task.id, { run: 'xhigh' }, ts);
+    persistTaskModelOverrides(task.id, { run: 'opus' }, ts);
 
-    expect(resolveModelAndEffort(ms, task.id, 'run')).toEqual({ model: 'opus', effort: 'xhigh' });
+    expect(resolveModelAndEffort(ts, task.id, 'run')).toEqual({ model: 'opus', effort: 'xhigh' });
+  });
+
+  it('skips task-level overrides when no task service is supplied', () => {
+    const { ts } = buildServices();
+    const task = ts.createTask({ title: 'Task', status: 'backlog' });
+    writeConfig({ models: { run: { effort: 'high' } } });
+    persistTaskEffortOverrides(task.id, { run: 'xhigh' }, ts);
+
+    expect(resolveModelAndEffort(undefined, task.id, 'run')).toEqual({ model: undefined, effort: 'high' });
   });
 });

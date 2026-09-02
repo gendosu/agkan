@@ -126,11 +126,11 @@ function renderEffortSelect(id: string, currentValue: string): string {
   return html;
 }
 
-export function renderModelFields(metadata: Array<{ key: string; value: string }>): string {
-  const planningValue = metadata.find((m) => m.key === MODEL_PLANNING_METADATA_KEY)?.value ?? '';
-  const runValue = metadata.find((m) => m.key === MODEL_RUN_METADATA_KEY)?.value ?? '';
-  const planningEffort = metadata.find((m) => m.key === EFFORT_PLANNING_METADATA_KEY)?.value ?? '';
-  const runEffort = metadata.find((m) => m.key === EFFORT_RUN_METADATA_KEY)?.value ?? '';
+export function renderModelFields(task: TaskDetail['task']): string {
+  const planningValue = task.model_planning ?? '';
+  const runValue = task.model_run ?? '';
+  const planningEffort = task.effort_planning ?? '';
+  const runEffort = task.effort_run ?? '';
 
   let html = '<div class="detail-field">';
   html += '<div class="detail-field-label">Planning Model</div>';
@@ -258,7 +258,7 @@ export function renderDetailPanelHtml(data: TaskDetail): string {
   html += renderStatusField(task.status, allStatuses, statusLabels);
   html += renderPriorityField(task.priority, allPriorities);
   html += renderBranchField(task.branch);
-  html += renderModelFields(metadata);
+  html += renderModelFields(task);
   html += '<div class="detail-field"><div class="detail-field-label">Tags</div>';
   html += '<div id="detail-tags-container"></div></div>';
 

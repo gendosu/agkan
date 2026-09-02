@@ -26,6 +26,10 @@ interface TaskOutputData {
   parent_id: number | null;
   is_archived: number;
   branch: string | null;
+  model_planning: string | null;
+  model_run: string | null;
+  effort_planning: string | null;
+  effort_run: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -58,6 +62,10 @@ function formatTaskOutput(task: Task): TaskOutputData {
     parent_id: task.parent_id,
     is_archived: task.is_archived,
     branch: task.branch,
+    model_planning: task.model_planning,
+    model_run: task.model_run,
+    effort_planning: task.effort_planning,
+    effort_run: task.effort_run,
     created_at: task.created_at,
     updated_at: task.updated_at,
   };
@@ -209,6 +217,18 @@ function renderTaskHeader(task: Task): void {
   }
   if (task.branch) {
     console.log(`${chalk.bold('Branch:')} ${task.branch}`);
+  }
+  if (task.model_planning) {
+    console.log(`${chalk.bold('Model (planning):')} ${task.model_planning}`);
+  }
+  if (task.model_run) {
+    console.log(`${chalk.bold('Model (run):')} ${task.model_run}`);
+  }
+  if (task.effort_planning) {
+    console.log(`${chalk.bold('Effort (planning):')} ${task.effort_planning}`);
+  }
+  if (task.effort_run) {
+    console.log(`${chalk.bold('Effort (run):')} ${task.effort_run}`);
   }
   console.log(`${chalk.bold('Created:')} ${formatDate(task.created_at)}`);
   console.log(`${chalk.bold('Updated:')} ${formatDate(task.updated_at)}`);

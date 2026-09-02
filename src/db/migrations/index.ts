@@ -5,6 +5,7 @@ import { up as initialSchema } from './20260328000000_initial_schema';
 import { up as addSessionId } from './20260329000000_add_session_id_to_task_run_logs';
 import { up as addIsArchived } from './20260412000000_add_is_archived_to_tasks';
 import { up as addBranchToTasks } from './20260516000000_add_branch_to_tasks';
+import { up as addModelEffortOverridesToTasks } from './20260830000000_add_model_effort_overrides_to_tasks';
 
 export const migrations: Migration[] = [
   {
@@ -26,5 +27,10 @@ export const migrations: Migration[] = [
     version: '20260516000000',
     description: 'add_branch_to_tasks',
     up: addBranchToTasks,
+  },
+  {
+    version: '20260830000000',
+    description: 'add_model_effort_overrides_to_tasks',
+    up: addModelEffortOverridesToTasks,
   },
 ];

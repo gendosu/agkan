@@ -65,6 +65,10 @@ export function setupTaskCopyCommand(program: Command): void {
           priority: original.priority ?? undefined,
           parent_id: original.parent_id ?? undefined,
           branch: original.branch ?? undefined,
+          model_planning: original.model_planning ?? undefined,
+          model_run: original.model_run ?? undefined,
+          effort_planning: original.effort_planning ?? undefined,
+          effort_run: original.effort_run ?? undefined,
           status: options.status as TaskStatus,
         });
 
@@ -87,6 +91,10 @@ export function setupTaskCopyCommand(program: Command): void {
               priority: copied.priority,
               parent_id: copied.parent_id,
               branch: copied.branch,
+              model_planning: copied.model_planning,
+              model_run: copied.model_run,
+              effort_planning: copied.effort_planning,
+              effort_run: copied.effort_run,
               created_at: copied.created_at,
               updated_at: copied.updated_at,
             },

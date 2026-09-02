@@ -7,6 +7,12 @@ import { isPriority } from '../../../models/Priority';
 import { validateTaskStatus } from '../../utils/validators';
 import { OutputFormatter } from '../../utils/output-formatter';
 import { readBodyFromFile } from './add-helpers';
+import {
+  MODEL_ALIASES,
+  isValidModelAlias,
+  VALID_EFFORT_LEVELS,
+  isValidEffortLevel,
+} from '../../../board/claudePromptBuilder';
 
 export interface UpdateOptions {
   title?: string;
@@ -16,6 +22,10 @@ export interface UpdateOptions {
   assignees?: string;
   priority?: string;
   branch?: string;
+  modelPlanning?: string;
+  modelRun?: string;
+  effortPlanning?: string;
+  effortRun?: string;
   file?: string;
   json?: boolean;
 }
@@ -32,6 +42,10 @@ export function isFlagMode(options: UpdateOptions, field: string | undefined): b
     options.assignees,
     options.priority,
     options.branch,
+    options.modelPlanning,
+    options.modelRun,
+    options.effortPlanning,
+    options.effortRun,
   ];
   return flagFields.some((v) => v !== undefined) || (!!options.file && !field);
 }
@@ -64,6 +78,35 @@ export function validatePriority(val: string, formatter: OutputFormatter): boole
 }
 
 /**
+ * Validates a Claude model alias and exits on failure.
+ * An empty string is accepted: it is the "clear this override" value.
+ */
+export function validateModelAlias(val: string, formatter: OutputFormatter): boolean {
+  if (val === '' || isValidModelAlias(val)) return true;
+  formatter.error(`Invalid model: ${val}. Valid models: ${MODEL_ALIASES.join(', ')}`, () => {
+    console.error(chalk.red(`\nInvalid model: ${val}`));
+    console.error(`Valid models: ${MODEL_ALIASES.join(', ')}\n`);
+  });
+  return false;
+}
+
+/**
+ * Validates a reasoning effort level and exits on failure.
+ * An empty string is accepted: it is the "clear this override" value.
+ */
+export function validateEffortLevel(val: string, formatter: OutputFormatter): boolean {
+  if (val === '' || isValidEffortLevel(val)) return true;
+  formatter.error(`Invalid effort: ${val}. Valid efforts: ${VALID_EFFORT_LEVELS.join(', ')}`, () => {
+    console.error(chalk.red(`\nInvalid effort: ${val}`));
+    console.error(`Valid efforts: ${VALID_EFFORT_LEVELS.join(', ')}\n`);
+  });
+  return false;
+}
+
+const MODEL_FIELDS = ['model_planning', 'model_run'];
+const EFFORT_FIELDS = ['effort_planning', 'effort_run'];
+
+/**
  * Reads the body from a file, returning the content or null on error.
  * Reports the error via formatter on failure.
  */
@@ -92,6 +135,10 @@ export function buildFlagModeInput(options: UpdateOptions, formatter: OutputForm
     assignees: options.assignees,
     priority: options.priority,
     branch: options.branch,
+    model_planning: options.modelPlanning,
+    model_run: options.modelRun,
+    effort_planning: options.effortPlanning,
+    effort_run: options.effortRun,
   };
 
   if (options.file) {
@@ -111,15 +158,30 @@ export function buildFlagModeInput(options: UpdateOptions, formatter: OutputForm
     if (val === undefined) continue;
     if (key === 'status' && !validateStatus(val, formatter)) return null;
     if (key === 'priority' && !validatePriority(val, formatter)) return null;
+    if (MODEL_FIELDS.includes(key) && !validateModelAlias(val, formatter)) return null;
+    if (EFFORT_FIELDS.includes(key) && !validateEffortLevel(val, formatter)) return null;
     updateInput[key] = val;
   }
   return updateInput;
 }
 
-export const SUPPORTED_FIELDS = ['status', 'title', 'body', 'author', 'assignees', 'priority', 'branch'] as const;
+export const SUPPORTED_FIELDS = [
+  'status',
+  'title',
+  'body',
+  'author',
+  'assignees',
+  'priority',
+  'branch',
+  'model_planning',
+  'model_run',
+  'effort_planning',
+  'effort_run',
+] as const;
 type SupportedField = (typeof SUPPORTED_FIELDS)[number];
 
-const SUPPORTED_FLAGS = SUPPORTED_FIELDS.map((field) => `--${field}`).join(', ');
+// Field names use snake_case but the flags they map to are kebab-case (--model-planning).
+const SUPPORTED_FLAGS = SUPPORTED_FIELDS.map((field) => `--${field.replace(/_/g, '-')}`).join(', ');
 
 function validateFieldName(field: string | undefined, formatter: OutputFormatter): field is SupportedField {
   if (!field) {
@@ -186,5 +248,7 @@ export function buildPositionalModeInput(
   if (resolvedValue === null) return null;
   if (field === 'status' && !validateStatus(resolvedValue, formatter)) return null;
   if (field === 'priority' && !validatePriority(resolvedValue, formatter)) return null;
+  if (MODEL_FIELDS.includes(field) && !validateModelAlias(resolvedValue, formatter)) return null;
+  if (EFFORT_FIELDS.includes(field) && !validateEffortLevel(resolvedValue, formatter)) return null;
   return { [field]: resolvedValue };
 }

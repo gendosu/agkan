@@ -635,6 +635,84 @@ describe('setupTaskAddCommand', () => {
     });
   });
 
+  describe('model/effort override options', () => {
+    it('should have the four override options registered', () => {
+      const taskCommand = program.commands.find((cmd) => cmd.name() === 'task');
+      const addCommand = taskCommand?.commands.find((cmd) => cmd.name() === 'add');
+      const optionNames = addCommand?.options.map((o) => o.long) ?? [];
+      expect(optionNames).toContain('--model-planning');
+      expect(optionNames).toContain('--model-run');
+      expect(optionNames).toContain('--effort-planning');
+      expect(optionNames).toContain('--effort-run');
+    });
+
+    it('should create a task with all four overrides', async () => {
+      const { logs } = await runCommand(program, [
+        'task',
+        'add',
+        'Override Task',
+        '--model-planning',
+        'opus',
+        '--model-run',
+        'sonnet',
+        '--effort-planning',
+        'low',
+        '--effort-run',
+        'xhigh',
+        '--json',
+      ]);
+
+      const output = JSON.parse(logs[0]);
+      expect(output.task.model_planning).toBe('opus');
+      expect(output.task.model_run).toBe('sonnet');
+      expect(output.task.effort_planning).toBe('low');
+      expect(output.task.effort_run).toBe('xhigh');
+    });
+
+    it('should persist the overrides in the database', async () => {
+      await runCommand(program, ['task', 'add', 'Persisted Overrides', '--model-run', 'haiku']);
+
+      const taskService = new TaskService();
+      const tasks = taskService.listTasks();
+      expect(tasks[0].model_run).toBe('haiku');
+    });
+
+    it('should default the overrides to null when the flags are omitted', async () => {
+      await runCommand(program, ['task', 'add', 'No Overrides']);
+
+      const taskService = new TaskService();
+      const tasks = taskService.listTasks();
+      expect(tasks[0].model_planning).toBeNull();
+      expect(tasks[0].model_run).toBeNull();
+      expect(tasks[0].effort_planning).toBeNull();
+      expect(tasks[0].effort_run).toBeNull();
+    });
+
+    it('should reject an invalid model alias and not create the task', async () => {
+      const { exitCode, errors } = await runCommand(program, ['task', 'add', 'Bad Model', '--model-run', 'gpt-5']);
+      expect(exitCode).toBe(1);
+      expect(errors.join('\n')).toContain('--model-run');
+
+      const taskService = new TaskService();
+      expect(taskService.listTasks()).toHaveLength(0);
+    });
+
+    it('should reject an invalid effort level and not create the task', async () => {
+      const { exitCode, errors } = await runCommand(program, [
+        'task',
+        'add',
+        'Bad Effort',
+        '--effort-planning',
+        'ultra',
+      ]);
+      expect(exitCode).toBe(1);
+      expect(errors.join('\n')).toContain('--effort-planning');
+
+      const taskService = new TaskService();
+      expect(taskService.listTasks()).toHaveLength(0);
+    });
+  });
+
   describe('--tag option', () => {
     it('should attach a tag specified by name', async () => {
       const tagService = new TagService();

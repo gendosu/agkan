@@ -23,6 +23,10 @@ export interface TaskData {
   created_at?: string;
   updated_at?: string;
   branch?: string | null;
+  model_planning?: string | null;
+  model_run?: string | null;
+  effort_planning?: string | null;
+  effort_run?: string | null;
 }
 
 export interface TaskDetail {

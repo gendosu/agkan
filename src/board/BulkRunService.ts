@@ -1,10 +1,8 @@
 import { TaskService } from '../services/TaskService';
 import { TaskBlockService } from '../services/TaskBlockService';
-import { MetadataService } from '../services/MetadataService';
 import { PtySessionService } from '../terminal/PtySessionService';
-import { loadConfig } from '../db/config';
 import { PRIORITY_ORDER } from '../models';
-import { getTaskModelOverride, getTaskEffortOverride } from './taskModelOverride';
+import { resolveModelAndEffort } from './claudePromptBuilder';
 
 export type BulkRunCommand = 'direct' | 'pr';
 type BulkRunState = 'idle' | 'running';
@@ -30,7 +28,7 @@ export class BulkRunService {
     private ts: TaskService,
     private tbs: TaskBlockService,
     private claudeProcess: PtySessionService,
-    private ms?: MetadataService
+    private taskService?: TaskService
   ) {}
 
   getStatus(): BulkRunStatus {
@@ -151,12 +149,7 @@ export class BulkRunService {
       command === 'pr'
         ? `Task ID: ${taskId}\n/agkan-subtask${exitInstruction}`
         : `Task ID: ${taskId}\n/agkan-subtask-direct${exitInstruction}`;
-    const rawConfig = loadConfig().models?.run;
-    // Priority: task-level override (UI selection) > config file > default
-    const model =
-      (this.ms ? getTaskModelOverride(this.ms, taskId, 'run') : undefined) ?? rawConfig?.model?.trim() ?? undefined;
-    const effort =
-      (this.ms ? getTaskEffortOverride(this.ms, taskId, 'run') : undefined) ?? rawConfig?.effort?.trim() ?? undefined;
+    const { model, effort } = resolveModelAndEffort(this.taskService, taskId, 'run');
     return {
       prompt,
       ptyCommand,

@@ -561,37 +561,75 @@ describe('BulkRunService model/effort override resolution', () => {
     const db = getStorageBackend();
     const ts = new TaskService(db);
     const tbs = new TaskBlockService(db);
-    const { MetadataService } = await import('../../src/services/MetadataService');
-    const ms = new MetadataService(db);
 
     const task = ts.createTask({ title: 'Effort Task', status: 'ready', priority: 'high' });
-    ms.setMetadata({ task_id: task.id, key: 'effort:run', value: 'xhigh' });
+    ts.updateTask(task.id, { effort_run: 'xhigh' });
 
     const startProcess = vi.fn().mockResolvedValue(undefined);
     const pty = buildMockPty({ startProcess });
-    const service = new BulkRunService(ts, tbs, pty, ms);
+    const service = new BulkRunService(ts, tbs, pty, ts);
 
     await service.start('direct');
 
     expect(startProcess).toHaveBeenCalledWith(task.id, expect.any(String), 'run', undefined, 'xhigh');
+
+    service.stop();
+  });
+
+  it('uses task-level model override in preference to config', async () => {
+    const db = getStorageBackend();
+    const ts = new TaskService(db);
+    const tbs = new TaskBlockService(db);
+
+    const task = ts.createTask({ title: 'Model Task', status: 'ready', priority: 'high' });
+    ts.updateTask(task.id, { model_run: 'opus' });
+
+    const startProcess = vi.fn().mockResolvedValue(undefined);
+    const pty = buildMockPty({ startProcess });
+    const service = new BulkRunService(ts, tbs, pty, ts);
+
+    await service.start('direct');
+
+    expect(startProcess).toHaveBeenCalledWith(task.id, expect.any(String), 'run', 'opus', undefined);
+
+    service.stop();
   });
 
   it('falls back to no effort when no override or config is set', async () => {
     const db = getStorageBackend();
     const ts = new TaskService(db);
     const tbs = new TaskBlockService(db);
-    const { MetadataService } = await import('../../src/services/MetadataService');
-    const ms = new MetadataService(db);
 
     const task = ts.createTask({ title: 'No Effort Task', status: 'ready', priority: 'high' });
 
     const startProcess = vi.fn().mockResolvedValue(undefined);
     const pty = buildMockPty({ startProcess });
-    const service = new BulkRunService(ts, tbs, pty, ms);
+    const service = new BulkRunService(ts, tbs, pty, ts);
 
     await service.start('direct');
 
     expect(startProcess).toHaveBeenCalledWith(task.id, expect.any(String), 'run', undefined, undefined);
+
+    service.stop();
+  });
+
+  it('ignores task-level overrides when constructed without a task service', async () => {
+    const db = getStorageBackend();
+    const ts = new TaskService(db);
+    const tbs = new TaskBlockService(db);
+
+    const task = ts.createTask({ title: 'Ignored Override Task', status: 'ready', priority: 'high' });
+    ts.updateTask(task.id, { effort_run: 'xhigh' });
+
+    const startProcess = vi.fn().mockResolvedValue(undefined);
+    const pty = buildMockPty({ startProcess });
+    const service = new BulkRunService(ts, tbs, pty);
+
+    await service.start('direct');
+
+    expect(startProcess).toHaveBeenCalledWith(task.id, expect.any(String), 'run', undefined, undefined);
+
+    service.stop();
   });
 });
 
