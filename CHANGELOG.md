@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.21.0] - 2026-09-02
+
 ### Added
 - Add `--model-planning`, `--model-run`, `--effort-planning`, and `--effort-run` flags to `agkan task add` and `agkan task update` for setting the Claude model alias (`fable`, `opus`, `sonnet`, `haiku`) and reasoning effort (`low`, `medium`, `high`, `xhigh`, `max`) used when running a task. Pass an empty string to `task update` to clear an override. The values are also exposed in `agkan task get --json`, copied by `agkan task copy`, and included in export/import
 

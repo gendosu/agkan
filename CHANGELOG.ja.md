@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.21.0] - 2026-09-02
+
 ### 追加
 - `agkan task add` / `agkan task update` に `--model-planning`, `--model-run`, `--effort-planning`, `--effort-run` フラグを追加。タスク実行時に使う Claude のモデルエイリアス（`fable`, `opus`, `sonnet`, `haiku`）と reasoning effort（`low`, `medium`, `high`, `xhigh`, `max`）をタスク単位で指定できる。`task update` で空文字を渡すとクリアされる。値は `agkan task get --json` にも出力され、`agkan task copy` でコピーされ、export/import にも含まれる
 
