@@ -680,6 +680,35 @@ describe('PtySessionService - model/effort/boardApiUrl args', () => {
     expect(args[args.indexOf('--effort') + 1]).toBe('high');
   });
 
+  it('spawns the agent passed as the trailing argument instead of the configured one', async () => {
+    vi.mocked(configModule.loadConfig).mockReturnValue({});
+    const svc = new PtySessionService();
+    await svc.startProcess(1, 'Task ID: 1', 'run', 'gpt-5.6-sol', 'high', 'codex');
+
+    expect(spawnMock.mock.calls[0][0]).toBe('codex');
+    const args = spawnMock.mock.calls[0][1] as string[];
+    expect(args).toEqual([
+      '--model',
+      'gpt-5.6-sol',
+      '--config',
+      'model_reasoning_effort="high"',
+      '--ask-for-approval',
+      'on-request',
+      '--sandbox',
+      'workspace-write',
+      '--',
+      'Task ID: 1',
+    ]);
+  });
+
+  it('falls back to the configured agent when the trailing argument is omitted', async () => {
+    vi.mocked(configModule.loadConfig).mockReturnValue({ agent: 'codex' });
+    const svc = new PtySessionService();
+    await svc.startProcess(1, 'prompt', 'run', 'gpt-5.6-sol', 'high');
+
+    expect(spawnMock.mock.calls[0][0]).toBe('codex');
+  });
+
   it('starts Codex with model, reasoning effort, permissions, and positional prompt', async () => {
     vi.mocked(configModule.loadConfig).mockReturnValue({ agent: 'codex' });
     const svc = new PtySessionService();

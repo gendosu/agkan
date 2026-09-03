@@ -445,13 +445,22 @@ export class PtySessionService {
     scheduleCheck();
   }
 
-  async startProcess(taskId: number, prompt: string, command = 'run', model?: string, effort?: string): Promise<void> {
+  async startProcess(
+    taskId: number,
+    prompt: string,
+    command = 'run',
+    model?: string,
+    effort?: string,
+    agentOverride?: AgentTool
+  ): Promise<void> {
     if (this.sessions.has(taskId)) {
       throw new ConflictError(`Process for taskId ${taskId} is already running`);
     }
 
     const config = loadConfig();
-    const agent = resolveAgentTool(config);
+    // A task whose model override selects another cli passes it explicitly;
+    // without one the project-wide `agent:` setting applies.
+    const agent = agentOverride ?? resolveAgentTool(config);
 
     // Board hooks use Claude Code's settings format and are not passed to Codex.
     if (agent === 'claude' && this.hookSettingsDataDir !== null && this.hookSettingsPath === null) {
