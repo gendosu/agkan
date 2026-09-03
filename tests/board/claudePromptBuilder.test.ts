@@ -20,6 +20,8 @@ import {
   isValidModelAlias,
   MODEL_ALIASES,
   resolveModelAndEffort,
+  resolveLaunchSettings,
+  LaunchSettingsError,
 } from '../../src/board/claudePromptBuilder';
 
 beforeEach(() => {
@@ -173,5 +175,153 @@ describe('resolveModelAndEffort', () => {
     persistTaskEffortOverrides(task.id, { run: 'xhigh' }, ts);
 
     expect(resolveModelAndEffort(undefined, task.id, 'run')).toEqual({ model: undefined, effort: 'high' });
+  });
+});
+
+describe('resolveLaunchSettings', () => {
+  // loadConfig() reads '<cwd>/.agkan-test.yml'; isolate by mocking process.cwd()
+  // to a private tmp dir, matching the resolveModelAndEffort describe above.
+  let tmpCwd: string;
+  let cwdSpy: ReturnType<typeof vi.spyOn>;
+
+  beforeEach(() => {
+    tmpCwd = fs.mkdtempSync(path.join(os.tmpdir(), 'agkan-launch-settings-test-'));
+    cwdSpy = vi.spyOn(process, 'cwd').mockReturnValue(tmpCwd);
+  });
+
+  afterEach(() => {
+    cwdSpy.mockRestore();
+    fs.rmSync(tmpCwd, { recursive: true, force: true });
+  });
+
+  function writeConfig(config: unknown): void {
+    fs.writeFileSync(path.join(tmpCwd, '.agkan-test.yml'), yaml.dump(config));
+  }
+
+  it('defaults to the claude agent with no model or effort', () => {
+    const { ts } = buildServices();
+    const task = ts.createTask({ title: 'Task', status: 'backlog' });
+    expect(resolveLaunchSettings(ts, task.id, 'run')).toEqual({
+      agent: 'claude',
+      model: undefined,
+      effort: undefined,
+    });
+  });
+
+  it('takes the agent from the catalog row of the task-level model override', () => {
+    const { ts } = buildServices();
+    const task = ts.createTask({ title: 'Task', status: 'backlog' });
+    ts.updateTask(task.id, { model_run: 'gpt-5.6-sol' });
+
+    expect(resolveLaunchSettings(ts, task.id, 'run')).toEqual({
+      agent: 'codex',
+      model: 'gpt-5.6-sol',
+      effort: undefined,
+    });
+  });
+
+  it('throws when the task-level model is not in the catalog', () => {
+    const { ts } = buildServices();
+    const task = ts.createTask({ title: 'Task', status: 'backlog' });
+    ts.updateTask(task.id, { model_run: 'gpt-5' });
+
+    expect(() => resolveLaunchSettings(ts, task.id, 'run')).toThrow(LaunchSettingsError);
+    expect(() => resolveLaunchSettings(ts, task.id, 'run')).toThrow(
+      'Task model "gpt-5" is not in modelCatalog. Must be one of: fable, opus, sonnet, haiku, gpt-5.6-sol'
+    );
+  });
+
+  it('uses the configured agent and its models block when the task has no model override', () => {
+    const { ts } = buildServices();
+    const task = ts.createTask({ title: 'Task', status: 'backlog' });
+    writeConfig({
+      agent: 'codex',
+      models: { claude: { run: { model: 'sonnet' } }, codex: { run: { model: 'gpt-5.6-sol', effort: 'none' } } },
+    });
+
+    expect(resolveLaunchSettings(ts, task.id, 'run')).toEqual({
+      agent: 'codex',
+      model: 'gpt-5.6-sol',
+      effort: 'none',
+    });
+  });
+
+  it('validates the effort against the catalog row of the task-level model', () => {
+    const { ts } = buildServices();
+    const task = ts.createTask({ title: 'Task', status: 'backlog' });
+    ts.updateTask(task.id, { model_run: 'opus', effort_run: 'none' });
+
+    expect(() => resolveLaunchSettings(ts, task.id, 'run')).toThrow(
+      'Effort "none" is not allowed for model "opus". Must be one of: low, medium, high, xhigh, max'
+    );
+  });
+
+  it('validates a config effort when the config model resolves to a catalog row', () => {
+    const { ts } = buildServices();
+    const task = ts.createTask({ title: 'Task', status: 'backlog' });
+    writeConfig({ models: { run: { model: 'opus', effort: 'none' } } });
+
+    expect(() => resolveLaunchSettings(ts, task.id, 'run')).toThrow(
+      'Effort "none" is not allowed for model "opus". Must be one of: low, medium, high, xhigh, max'
+    );
+  });
+
+  it('passes a config effort through unvalidated when the config model is not in the catalog', () => {
+    const { ts } = buildServices();
+    const task = ts.createTask({ title: 'Task', status: 'backlog' });
+    writeConfig({ models: { run: { model: 'claude-sonnet-4-6', effort: 'ultra' } } });
+
+    expect(resolveLaunchSettings(ts, task.id, 'run')).toEqual({
+      agent: 'claude',
+      model: 'claude-sonnet-4-6',
+      effort: 'ultra',
+    });
+  });
+
+  it('ignores a catalog row that belongs to another cli when resolving the config model', () => {
+    const { ts } = buildServices();
+    const task = ts.createTask({ title: 'Task', status: 'backlog' });
+    // gpt-5.6-sol is a codex row; with agent: claude it must not be used to
+    // validate the effort, so the unknown effort passes through.
+    writeConfig({ models: { claude: { run: { model: 'gpt-5.6-sol', effort: 'ultra' } } } });
+
+    expect(resolveLaunchSettings(ts, task.id, 'run')).toEqual({
+      agent: 'claude',
+      model: 'gpt-5.6-sol',
+      effort: 'ultra',
+    });
+  });
+
+  it('uses the planning config only for the planning command', () => {
+    const { ts } = buildServices();
+    const task = ts.createTask({ title: 'Task', status: 'backlog' });
+    writeConfig({ models: { planning: { effort: 'low' }, run: { effort: 'high' } } });
+
+    expect(resolveLaunchSettings(ts, task.id, 'planning').effort).toBe('low');
+    expect(resolveLaunchSettings(ts, task.id, 'run').effort).toBe('high');
+    expect(resolveLaunchSettings(ts, task.id, 'pr').effort).toBe('high');
+  });
+
+  it('skips task-level overrides when no task service is supplied', () => {
+    const { ts } = buildServices();
+    const task = ts.createTask({ title: 'Task', status: 'backlog' });
+    ts.updateTask(task.id, { model_run: 'gpt-5.6-sol' });
+
+    expect(resolveLaunchSettings(undefined, task.id, 'run')).toEqual({
+      agent: 'claude',
+      model: undefined,
+      effort: undefined,
+    });
+  });
+
+  it('throws a plain Error (not LaunchSettingsError) when the configured catalog is invalid', () => {
+    const { ts } = buildServices();
+    const task = ts.createTask({ title: 'Task', status: 'backlog' });
+    writeConfig({ modelCatalog: 'claude' });
+
+    expect(() => resolveLaunchSettings(ts, task.id, 'run')).toThrow(
+      'Invalid modelCatalog: must be an array of { cli, model, efforts } entries'
+    );
+    expect(() => resolveLaunchSettings(ts, task.id, 'run')).not.toThrow(LaunchSettingsError);
   });
 });
