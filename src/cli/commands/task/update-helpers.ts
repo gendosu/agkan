@@ -81,12 +81,12 @@ export function validatePriority(val: string, formatter: OutputFormatter): boole
  * the task. A kind neither field of which is touched is left unvalidated, so a
  * previously stored override that a later config/catalog change made invalid
  * never blocks an update that doesn't touch it (e.g. `--status done`).
+ * Config/catalog resolution is likewise deferred until a touched pair exists,
+ * so an update that never touches model/effort fields succeeds even when
+ * `.agkan.yml` itself is unparseable (e.g. a malformed `modelCatalog`).
  * @returns Error message for the first invalid pair, or null when all are valid
  */
 export function validateModelEffortUpdate(updateInput: Record<string, string>, stored: Task): string | null {
-  const config = loadConfig();
-  const catalog = resolveModelCatalog(config);
-  const defaultCli = resolveAgentTool(config);
   const kinds = [
     {
       model: 'model_planning',
@@ -96,13 +96,26 @@ export function validateModelEffortUpdate(updateInput: Record<string, string>, s
     },
     { model: 'model_run', effort: 'effort_run', storedModel: stored.model_run, storedEffort: stored.effort_run },
   ] as const;
-  for (const kind of kinds) {
-    const modelTouched = kind.model in updateInput;
-    const effortTouched = kind.effort in updateInput;
-    if (!modelTouched && !effortTouched) continue;
-    const model = modelTouched ? updateInput[kind.model] : kind.storedModel;
-    const effort = effortTouched ? updateInput[kind.effort] : kind.storedEffort;
-    const error = validateOverridePair(catalog, defaultCli, model, effort);
+
+  const touchedPairs = kinds
+    .map((kind) => {
+      const modelTouched = kind.model in updateInput;
+      const effortTouched = kind.effort in updateInput;
+      if (!modelTouched && !effortTouched) return undefined;
+      return {
+        model: modelTouched ? updateInput[kind.model] : kind.storedModel,
+        effort: effortTouched ? updateInput[kind.effort] : kind.storedEffort,
+      };
+    })
+    .filter((pair): pair is { model: string | null; effort: string | null } => pair !== undefined);
+
+  if (touchedPairs.length === 0) return null;
+
+  const config = loadConfig();
+  const catalog = resolveModelCatalog(config);
+  const defaultCli = resolveAgentTool(config);
+  for (const pair of touchedPairs) {
+    const error = validateOverridePair(catalog, defaultCli, pair.model, pair.effort);
     if (error) return error;
   }
   return null;

@@ -5,6 +5,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { Hono } from 'hono';
 import fs from 'fs';
+import os from 'os';
 import path from 'path';
 import yaml from 'js-yaml';
 import { execSync } from 'child_process';
@@ -744,6 +745,64 @@ describe('PATCH /api/tasks/:id', () => {
     );
     expect(res.status).toBe(200);
     expect(services.ts.getTask(task.id)!.status).toBe('in_progress');
+  });
+
+  // The two tests below write their own '.agkan-test.yml' under a mocked cwd
+  // rather than TEST_AGKAN_CONFIG (the shared repo-root path other tests in
+  // this file use): unlike those tests, an *unparseable* modelCatalog would
+  // otherwise break every route in the file that happens to run while this
+  // config is on disk (vitest runs test files concurrently across forks, and
+  // even within this file, other `it`s could observe it between this test's
+  // write and its own afterEach unlink). Isolate by mocking process.cwd() to
+  // a private tmp dir per test, matching tests/board/claudePromptBuilder.test.ts
+  // (resolveLaunchSettings) and tests/db/config.test.ts.
+  it('returns 200 for a status-only PATCH even when modelCatalog itself is unparseable', async () => {
+    const services = buildServices();
+    const task = services.ts.createTask({ title: 'Untouched catalog', status: 'backlog' });
+    const app = buildApp(services);
+    const tmpCwd = fs.mkdtempSync(path.join(os.tmpdir(), 'agkan-board-routes-test-'));
+    const cwdSpy = vi.spyOn(process, 'cwd').mockReturnValue(tmpCwd);
+    try {
+      // A string instead of an array: resolveModelCatalog() throws on this.
+      fs.writeFileSync(path.join(tmpCwd, '.agkan-test.yml'), yaml.dump({ modelCatalog: 'claude' }));
+      const res = await app.fetch(
+        new Request(`http://localhost/api/tasks/${task.id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status: 'in_progress' }),
+        })
+      );
+      expect(res.status).toBe(200);
+      expect(services.ts.getTask(task.id)!.status).toBe('in_progress');
+    } finally {
+      cwdSpy.mockRestore();
+      fs.rmSync(tmpCwd, { recursive: true, force: true });
+    }
+  });
+
+  it('fails an override write when modelCatalog itself is unparseable', async () => {
+    const services = buildServices();
+    const task = services.ts.createTask({ title: 'Broken catalog write', status: 'backlog' });
+    const app = buildApp(services);
+    const tmpCwd = fs.mkdtempSync(path.join(os.tmpdir(), 'agkan-board-routes-test-'));
+    const cwdSpy = vi.spyOn(process, 'cwd').mockReturnValue(tmpCwd);
+    try {
+      fs.writeFileSync(path.join(tmpCwd, '.agkan-test.yml'), yaml.dump({ modelCatalog: 'claude' }));
+      const res = await app.fetch(
+        new Request(`http://localhost/api/tasks/${task.id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ models: { run: 'haiku' } }),
+        })
+      );
+      // The route has no try/catch around resolveModelCatalog(), so the parse
+      // error propagates to Hono's default handler as an uncaught exception.
+      expect(res.status).toBe(500);
+      expect(services.ts.getTask(task.id)!.model_run).toBeNull();
+    } finally {
+      cwdSpy.mockRestore();
+      fs.rmSync(tmpCwd, { recursive: true, force: true });
+    }
   });
 });
 

@@ -130,17 +130,23 @@ function resolveOverridePair(
 /**
  * Validate the effective model/effort pair for each kind touched by the write.
  * `stored` supplies the current values for PATCH; omit it for POST.
+ * Config/catalog resolution is deferred until at least one kind is touched, so
+ * a write that touches neither `models` nor `efforts` succeeds even when
+ * `.agkan.yml` itself is unparseable (e.g. a malformed `modelCatalog`).
  */
 function validateOverrideBody(
   body: { models?: unknown; efforts?: unknown },
   stored?: StoredOverrides
 ): string | undefined {
+  const pairs = (['planning', 'run'] as const)
+    .map((kind) => resolveOverridePair(body, stored, kind))
+    .filter((pair): pair is { model: string | null; effort: string | null } => pair !== undefined);
+  if (pairs.length === 0) return undefined;
+
   const config = loadConfig();
   const catalog = resolveModelCatalog(config);
   const defaultCli = resolveAgentTool(config);
-  for (const kind of ['planning', 'run'] as const) {
-    const pair = resolveOverridePair(body, stored, kind);
-    if (!pair) continue;
+  for (const pair of pairs) {
     const error = validateOverridePair(catalog, defaultCli, pair.model, pair.effort);
     if (error) return error;
   }

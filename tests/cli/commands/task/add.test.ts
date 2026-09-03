@@ -4,6 +4,10 @@
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { Command } from 'commander';
+import fs from 'fs';
+import os from 'os';
+import path from 'path';
+import yaml from 'js-yaml';
 import { setupTaskAddCommand } from '../../../../src/cli/commands/task/add';
 import { getDatabase } from '../../../../src/db/connection';
 import { TaskService, TagService } from '../../../../src/services';
@@ -745,6 +749,53 @@ describe('setupTaskAddCommand', () => {
 
       const taskService = new TaskService();
       expect(taskService.listTasks()).toHaveLength(0);
+    });
+
+    // loadConfig() reads '<cwd>/.agkan-test.yml' in test mode. Other test files
+    // (e.g. boardRoutes.test.ts, claudeRoutes.test.ts) write that same
+    // repo-root path, and vitest runs test files concurrently across forks
+    // (vitest.config.ts: pool: 'forks'), so writing there too would race with
+    // their beforeEach/afterEach unlinking it mid-test. Isolate by mocking
+    // process.cwd() to a private tmp dir per test, matching the pattern in
+    // tests/board/claudePromptBuilder.test.ts (resolveLaunchSettings) and
+    // tests/db/config.test.ts.
+    describe('with an unparseable modelCatalog config', () => {
+      let tmpCwd: string;
+      let cwdSpy: ReturnType<typeof vi.spyOn>;
+
+      beforeEach(() => {
+        tmpCwd = fs.mkdtempSync(path.join(os.tmpdir(), 'agkan-task-add-test-'));
+        cwdSpy = vi.spyOn(process, 'cwd').mockReturnValue(tmpCwd);
+        // A string instead of an array: resolveModelCatalog() throws on this.
+        fs.writeFileSync(path.join(tmpCwd, '.agkan-test.yml'), yaml.dump({ modelCatalog: 'claude' }));
+      });
+
+      afterEach(() => {
+        cwdSpy.mockRestore();
+        fs.rmSync(tmpCwd, { recursive: true, force: true });
+      });
+
+      it('creates the task when no model/effort flags are given', async () => {
+        const { exitCode } = await runCommand(program, ['task', 'add', 'No Overrides, Broken Catalog Config']);
+        expect(exitCode).toBeUndefined();
+
+        const taskService = new TaskService();
+        expect(taskService.listTasks()).toHaveLength(1);
+      });
+
+      it('fails when a model/effort flag is given', async () => {
+        const { exitCode } = await runCommand(program, [
+          'task',
+          'add',
+          'Broken Catalog Config, Override Given',
+          '--model-run',
+          'haiku',
+        ]);
+        expect(exitCode).toBe(1);
+
+        const taskService = new TaskService();
+        expect(taskService.listTasks()).toHaveLength(0);
+      });
     });
   });
 

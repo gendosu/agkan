@@ -131,9 +131,19 @@ export function modelEffortHelpText(): { models: string; efforts: string } {
  * Validate the four task-level model/effort override flags against the model catalog.
  * planning and run are checked as pairs: the effort must belong to the row the
  * model selects, or to the default cli's union when no model was given.
+ * Config/catalog resolution is deferred until at least one of the four flags is
+ * given, so `task add` with none of them succeeds even when `.agkan.yml` itself
+ * is unparseable (e.g. a malformed `modelCatalog`).
  * @returns Error message for the first invalid pair, or null when all are valid
  */
 export function validateModelEffortOptions(options: ModelEffortOptions): string | null {
+  const touched =
+    options.modelPlanning !== undefined ||
+    options.modelRun !== undefined ||
+    options.effortPlanning !== undefined ||
+    options.effortRun !== undefined;
+  if (!touched) return null;
+
   const config = loadConfig();
   const catalog = resolveModelCatalog(config);
   const defaultCli = resolveAgentTool(config);

@@ -2,18 +2,16 @@
  * Tests for task update command handler
  */
 
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { Command } from 'commander';
 import fs from 'fs';
+import os from 'os';
 import path from 'path';
 import yaml from 'js-yaml';
 import { setupTaskUpdateCommand } from '../../../../src/cli/commands/task/update';
 import { resetDatabase } from '../../../../src/db/reset';
 import { TaskService } from '../../../../src/services';
 import { createProgram, runCommand } from '../../../helpers/command-test-utils';
-
-// loadConfig() reads '<cwd>/.agkan-test.yml' in test mode (NODE_ENV=test).
-const TEST_AGKAN_CONFIG = path.join(process.cwd(), '.agkan-test.yml');
 
 describe('setupTaskUpdateCommand', () => {
   let program: Command;
@@ -29,9 +27,7 @@ describe('setupTaskUpdateCommand', () => {
   });
 
   afterEach(() => {
-    if (fs.existsSync(TEST_AGKAN_CONFIG)) {
-      fs.unlinkSync(TEST_AGKAN_CONFIG);
-    }
+    // cleanup if needed
   });
 
   it('should register the update command', () => {
@@ -1049,6 +1045,21 @@ describe('setupTaskUpdateCommand', () => {
       expect(taskService.getTask(task.id)?.model_run).toBeNull();
     });
 
+    it('should validate a new effort against the stored model', async () => {
+      const taskService = new TaskService();
+      const task = taskService.createTask({ title: 'Stored model test', model_run: 'opus' });
+
+      const { exitCode, errors } = await runCommand(program, [
+        'task',
+        'update',
+        String(task.id),
+        '--effort-run',
+        'none',
+      ]);
+      expect(exitCode).toBe(1);
+      expect(errors.join('\n')).toContain('Invalid effort "none" for model "opus"');
+    });
+
     it('should accept a model/effort swap sent in one command', async () => {
       const taskService = new TaskService();
       const task = taskService.createTask({ title: 'Swap test', model_run: 'opus', effort_run: 'max' });
@@ -1094,17 +1105,65 @@ describe('setupTaskUpdateCommand', () => {
       expect(errors.join('\n')).toContain('Invalid effort "ultra"');
     });
 
-    it('does not validate a stored override that a later config change made invalid when the update touches neither its model nor effort flag', async () => {
-      const taskService = new TaskService();
-      // 'max' is valid for the default 'claude' cli at creation time.
-      const task = taskService.createTask({ title: 'Drifted', effort_run: 'max' });
-      // Switching the default cli to 'codex' makes the stored effort_run
-      // ('max') invalid: 'max' is not one of CODEX_EFFORTS.
-      fs.writeFileSync(TEST_AGKAN_CONFIG, yaml.dump({ agent: 'codex' }));
+    // loadConfig() reads '<cwd>/.agkan-test.yml' in test mode. Other test files
+    // (e.g. boardRoutes.test.ts, claudeRoutes.test.ts) write that same
+    // repo-root path, and vitest runs test files concurrently across forks
+    // (vitest.config.ts: pool: 'forks'), so writing there too would race with
+    // their beforeEach/afterEach unlinking it mid-test. Isolate by mocking
+    // process.cwd() to a private tmp dir per test, matching the pattern in
+    // tests/board/claudePromptBuilder.test.ts (resolveLaunchSettings) and
+    // tests/db/config.test.ts.
+    describe('with a config written to an isolated cwd', () => {
+      let tmpCwd: string;
+      let cwdSpy: ReturnType<typeof vi.spyOn>;
 
-      const { exitCode } = await runCommand(program, ['task', 'update', String(task.id), '--status', 'done']);
-      expect(exitCode).toBeUndefined();
-      expect(taskService.getTask(task.id)?.status).toBe('done');
+      beforeEach(() => {
+        tmpCwd = fs.mkdtempSync(path.join(os.tmpdir(), 'agkan-task-update-test-'));
+        cwdSpy = vi.spyOn(process, 'cwd').mockReturnValue(tmpCwd);
+      });
+
+      afterEach(() => {
+        cwdSpy.mockRestore();
+        fs.rmSync(tmpCwd, { recursive: true, force: true });
+      });
+
+      function writeConfig(config: unknown): void {
+        fs.writeFileSync(path.join(tmpCwd, '.agkan-test.yml'), yaml.dump(config));
+      }
+
+      it('does not validate a stored override that a later config change made invalid when the update touches neither its model nor effort flag', async () => {
+        const taskService = new TaskService();
+        // 'max' is valid for the default 'claude' cli at creation time.
+        const task = taskService.createTask({ title: 'Drifted', effort_run: 'max' });
+        // Switching the default cli to 'codex' makes the stored effort_run
+        // ('max') invalid: 'max' is not one of CODEX_EFFORTS.
+        writeConfig({ agent: 'codex' });
+
+        const { exitCode } = await runCommand(program, ['task', 'update', String(task.id), '--status', 'done']);
+        expect(exitCode).toBeUndefined();
+        expect(taskService.getTask(task.id)?.status).toBe('done');
+      });
+
+      it('succeeds on a status-only update even when modelCatalog itself is unparseable', async () => {
+        const taskService = new TaskService();
+        const task = taskService.createTask({ title: 'Broken catalog config' });
+        // A string instead of an array: resolveModelCatalog() throws on this.
+        writeConfig({ modelCatalog: 'claude' });
+
+        const { exitCode } = await runCommand(program, ['task', 'update', String(task.id), '--status', 'done']);
+        expect(exitCode).toBeUndefined();
+        expect(taskService.getTask(task.id)?.status).toBe('done');
+      });
+
+      it('fails when a model/effort flag is touched and modelCatalog itself is unparseable', async () => {
+        const taskService = new TaskService();
+        const task = taskService.createTask({ title: 'Broken catalog config, override write' });
+        writeConfig({ modelCatalog: 'claude' });
+
+        const { exitCode } = await runCommand(program, ['task', 'update', String(task.id), '--model-run', 'haiku']);
+        expect(exitCode).toBe(1);
+        expect(taskService.getTask(task.id)?.model_run).toBeNull();
+      });
     });
   });
 });
