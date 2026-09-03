@@ -1,6 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import yaml from 'js-yaml';
+import type { ModelCatalogEntry } from './modelCatalog';
 
 export type AgentTool = 'claude' | 'codex';
 export type ModelSettings = { model?: string; effort?: string };
@@ -23,6 +24,7 @@ export interface Config {
     claude?: AgentModelSettings;
     codex?: AgentModelSettings;
   };
+  modelCatalog?: ModelCatalogEntry[];
   permissionMode?: string;
 }
 
