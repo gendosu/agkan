@@ -7,7 +7,8 @@ import { TaskBlockService } from '../../services/TaskBlockService';
 import { TaskStatus, isPriority, Priority } from '../../models';
 import { STATUSES } from '../boardRenderer';
 import { persistTaskModelOverrides, persistTaskEffortOverrides } from '../taskModelOverride';
-import { MODEL_ALIASES, isValidModelAlias, VALID_EFFORT_LEVELS, isValidEffortLevel } from '../claudePromptBuilder';
+import { loadConfig, resolveAgentTool } from '../../db/config';
+import { resolveModelCatalog, validateOverridePair } from '../../db/modelCatalog';
 
 type BoardTaskStatus = TaskStatus;
 
@@ -82,32 +83,52 @@ function resolveTagIds(rawTags: unknown, tags: TagService): number[] | undefined
   return ids.length > 0 ? ids : undefined;
 }
 
-function validateOverrideValues(
-  rawValues: unknown,
-  isValid: (value: string) => boolean,
-  label: string,
-  validValues: readonly string[]
-): string | undefined {
+type StoredOverrides = {
+  model_planning?: string | null;
+  model_run?: string | null;
+  effort_planning?: string | null;
+  effort_run?: string | null;
+};
+
+/**
+ * Read one override value out of a request body's `models` / `efforts` object.
+ * Returns undefined when the key is absent (fall back to the stored value);
+ * an empty string when present but empty or non-string (the "clear" instruction).
+ */
+function readOverride(rawValues: unknown, kind: 'planning' | 'run'): string | undefined {
   if (!rawValues || typeof rawValues !== 'object') return undefined;
   const values = rawValues as Record<string, unknown>;
-  for (const kind of ['planning', 'run'] as const) {
-    const raw = values[kind];
-    if (typeof raw !== 'string') continue;
-    const trimmed = raw.trim();
-    // An empty value is the UI's "clear this override" instruction, not a bad value.
-    if (trimmed === '') continue;
-    if (!isValid(trimmed)) {
-      return `Invalid ${label} "${trimmed}". Must be one of: ${validValues.join(', ')}`;
-    }
-  }
-  return undefined;
+  if (!(kind in values)) return undefined;
+  const raw = values[kind];
+  return typeof raw === 'string' ? raw.trim() : '';
 }
 
-function validateOverrideBody(body: { models?: unknown; efforts?: unknown }): string | undefined {
-  return (
-    validateOverrideValues(body.models, isValidModelAlias, 'model', MODEL_ALIASES) ??
-    validateOverrideValues(body.efforts, isValidEffortLevel, 'effort level', VALID_EFFORT_LEVELS)
-  );
+/**
+ * Validate the effective model/effort pair for each kind after the write.
+ * `stored` supplies the current values for PATCH; omit it for POST.
+ */
+function validateOverrideBody(
+  body: { models?: unknown; efforts?: unknown },
+  stored?: StoredOverrides
+): string | undefined {
+  const config = loadConfig();
+  const catalog = resolveModelCatalog(config);
+  const defaultCli = resolveAgentTool(config);
+  const pairs = [
+    {
+      model: readOverride(body.models, 'planning') ?? stored?.model_planning ?? null,
+      effort: readOverride(body.efforts, 'planning') ?? stored?.effort_planning ?? null,
+    },
+    {
+      model: readOverride(body.models, 'run') ?? stored?.model_run ?? null,
+      effort: readOverride(body.efforts, 'run') ?? stored?.effort_run ?? null,
+    },
+  ];
+  for (const pair of pairs) {
+    const error = validateOverridePair(catalog, defaultCli, pair.model, pair.effort);
+    if (error) return error;
+  }
+  return undefined;
 }
 
 function persistTaskMetadata(taskId: number, rawMetadata: unknown, ms: MetadataService): void {
@@ -191,7 +212,9 @@ function registerPatchAndDeleteTaskRoutes(app: Hono, ts: TaskService): void {
     const body = await c.req.json<TaskPatchBody>();
     const { input, error } = buildTaskUpdateInput(body);
     if (error) return c.json({ error }, 400);
-    const overrideError = validateOverrideBody(body);
+    const stored = ts.getTask(id);
+    if (!stored) return c.json({ error: 'Task not found' }, 404);
+    const overrideError = validateOverrideBody(body, stored);
     if (overrideError) return c.json({ error: overrideError }, 400);
     const task = ts.updateTask(id, input);
     if (!task) return c.json({ error: 'Task not found' }, 404);

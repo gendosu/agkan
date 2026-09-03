@@ -374,7 +374,7 @@ describe('POST /api/tasks', () => {
     );
     expect(res.status).toBe(400);
     const data = (await res.json()) as { error: string };
-    expect(data.error).toMatch(/Invalid effort level/);
+    expect(data.error).toMatch(/Invalid effort "ultra"/);
   });
 
   it('accepts an empty string override as a clear instruction', async () => {
@@ -392,6 +392,38 @@ describe('POST /api/tasks', () => {
     expect(created.model_run).toBeNull();
     expect(created.effort_run).toBeNull();
     expect(services.ts.getTask(created.id)!.model_run).toBeNull();
+  });
+
+  it('accepts a codex model from the catalog together with a codex-only effort', async () => {
+    const services = buildServices();
+    const app = buildApp(services);
+    const res = await app.fetch(
+      new Request('http://localhost/api/tasks', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title: 'Codex Task', models: { run: 'gpt-5.6-sol' }, efforts: { run: 'none' } }),
+      })
+    );
+    expect(res.status).toBe(201);
+    const created = (await res.json()) as { model_run: string | null; effort_run: string | null };
+    expect(created.model_run).toBe('gpt-5.6-sol');
+    expect(created.effort_run).toBe('none');
+  });
+
+  it('returns 400 when the effort does not belong to the selected model row', async () => {
+    const services = buildServices();
+    const app = buildApp(services);
+    const res = await app.fetch(
+      new Request('http://localhost/api/tasks', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title: 'Mismatched', models: { run: 'opus' }, efforts: { run: 'none' } }),
+      })
+    );
+    expect(res.status).toBe(400);
+    const data = (await res.json()) as { error: string };
+    expect(data.error).toMatch(/Invalid effort "none" for model "opus"/);
+    expect(services.ts.listTasks()).toHaveLength(0);
   });
 });
 
@@ -637,7 +669,57 @@ describe('PATCH /api/tasks/:id', () => {
     );
     expect(res.status).toBe(400);
     const data = (await res.json()) as { error: string };
-    expect(data.error).toMatch(/Invalid effort level/);
+    expect(data.error).toMatch(/Invalid effort "ultra"/);
+  });
+
+  it('validates a new model against the stored effort', async () => {
+    const services = buildServices();
+    const task = services.ts.createTask({ title: 'Stored Effort', status: 'backlog', effort_run: 'max' });
+    const app = buildApp(services);
+    const res = await app.fetch(
+      new Request(`http://localhost/api/tasks/${task.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ models: { run: 'gpt-5.6-sol' } }),
+      })
+    );
+    expect(res.status).toBe(400);
+    const data = (await res.json()) as { error: string };
+    expect(data.error).toMatch(/Invalid effort "max" for model "gpt-5.6-sol"/);
+    expect(services.ts.getTask(task.id)!.model_run).toBeNull();
+  });
+
+  it('validates a new effort against the stored model', async () => {
+    const services = buildServices();
+    const task = services.ts.createTask({ title: 'Stored Model', status: 'backlog', model_run: 'opus' });
+    const app = buildApp(services);
+    const res = await app.fetch(
+      new Request(`http://localhost/api/tasks/${task.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ efforts: { run: 'none' } }),
+      })
+    );
+    expect(res.status).toBe(400);
+    const data = (await res.json()) as { error: string };
+    expect(data.error).toMatch(/Invalid effort "none" for model "opus"/);
+  });
+
+  it('accepts a new model/effort pair that clears the stored effort in the same request', async () => {
+    const services = buildServices();
+    const task = services.ts.createTask({ title: 'Swap', status: 'backlog', model_run: 'opus', effort_run: 'max' });
+    const app = buildApp(services);
+    const res = await app.fetch(
+      new Request(`http://localhost/api/tasks/${task.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ models: { run: 'gpt-5.6-sol' }, efforts: { run: '' } }),
+      })
+    );
+    expect(res.status).toBe(200);
+    const updated = services.ts.getTask(task.id)!;
+    expect(updated.model_run).toBe('gpt-5.6-sol');
+    expect(updated.effort_run).toBeNull();
   });
 });
 
