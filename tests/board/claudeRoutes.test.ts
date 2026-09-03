@@ -5,6 +5,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { Hono } from 'hono';
 import fs from 'fs';
+import os from 'os';
 import path from 'path';
 import yaml from 'js-yaml';
 import { resetDatabase } from '../../src/db/reset';
@@ -451,23 +452,35 @@ describe('POST /api/claude/tasks/:taskId/run', () => {
   });
 
   it('returns 500 when the configured modelCatalog is invalid', async () => {
-    fs.writeFileSync(TEST_AGKAN_CONFIG, yaml.dump({ modelCatalog: 'claude' }));
     const mock = buildMockClaudeProcessService();
     const services = buildServices(mock);
     const task = services.ts.createTask({ title: 'Broken Catalog Task', status: 'backlog' });
     const app = buildApp(services);
 
-    const res = await app.fetch(
-      new Request(`http://localhost/api/claude/tasks/${task.id}/run`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ command: 'run' }),
-      })
-    );
+    // Isolate the write to a private tmp dir (mocked process.cwd()) rather
+    // than the shared repo-root TEST_AGKAN_CONFIG: vitest runs test files
+    // concurrently across forks (vitest.config.ts pool: 'forks'), so other
+    // test files' loadConfig() calls could observe this invalid catalog
+    // mid-test and fail for the wrong reason.
+    const tmpCwd = fs.mkdtempSync(path.join(os.tmpdir(), 'agkan-claude-routes-test-'));
+    const cwdSpy = vi.spyOn(process, 'cwd').mockReturnValue(tmpCwd);
+    try {
+      fs.writeFileSync(path.join(tmpCwd, '.agkan-test.yml'), yaml.dump({ modelCatalog: 'claude' }));
+      const res = await app.fetch(
+        new Request(`http://localhost/api/claude/tasks/${task.id}/run`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ command: 'run' }),
+        })
+      );
 
-    expect(res.status).toBe(500);
-    const data = (await res.json()) as { error: string };
-    expect(data.error).toMatch(/Invalid modelCatalog/);
+      expect(res.status).toBe(500);
+      const data = (await res.json()) as { error: string };
+      expect(data.error).toMatch(/Invalid modelCatalog/);
+    } finally {
+      cwdSpy.mockRestore();
+      fs.rmSync(tmpCwd, { recursive: true, force: true });
+    }
   });
 
   it('returns 404 when ptySessionService is not configured', async () => {

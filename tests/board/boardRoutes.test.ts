@@ -732,31 +732,42 @@ describe('PATCH /api/tasks/:id', () => {
     const services = buildServices();
     // 'max' is valid for the default 'claude' cli at creation time.
     const task = services.ts.createTask({ title: 'Drifted', status: 'backlog', effort_run: 'max' });
-    // Switching the default cli to 'codex' makes the stored effort_run
-    // ('max') invalid: 'max' is not one of CODEX_EFFORTS.
-    fs.writeFileSync(TEST_AGKAN_CONFIG, yaml.dump({ agent: 'codex' }));
     const app = buildApp(services);
-    const res = await app.fetch(
-      new Request(`http://localhost/api/tasks/${task.id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: 'in_progress' }),
-      })
-    );
-    expect(res.status).toBe(200);
-    expect(services.ts.getTask(task.id)!.status).toBe('in_progress');
+    // Switching the default cli to 'codex' makes the stored effort_run
+    // ('max') invalid: 'max' is not one of CODEX_EFFORTS. Isolate the write
+    // to a private tmp dir (mocked process.cwd()) rather than the shared
+    // repo-root '.agkan-test.yml': vitest runs test files concurrently
+    // across forks, and other tests in this file default the agent to
+    // 'claude' and would break if they observed 'codex' mid-run.
+    const tmpCwd = fs.mkdtempSync(path.join(os.tmpdir(), 'agkan-board-routes-test-'));
+    const cwdSpy = vi.spyOn(process, 'cwd').mockReturnValue(tmpCwd);
+    try {
+      fs.writeFileSync(path.join(tmpCwd, '.agkan-test.yml'), yaml.dump({ agent: 'codex' }));
+      const res = await app.fetch(
+        new Request(`http://localhost/api/tasks/${task.id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status: 'in_progress' }),
+        })
+      );
+      expect(res.status).toBe(200);
+      expect(services.ts.getTask(task.id)!.status).toBe('in_progress');
+    } finally {
+      cwdSpy.mockRestore();
+      fs.rmSync(tmpCwd, { recursive: true, force: true });
+    }
   });
 
   // The two tests below write their own '.agkan-test.yml' under a mocked cwd
   // rather than TEST_AGKAN_CONFIG (the shared repo-root path other tests in
-  // this file use): unlike those tests, an *unparseable* modelCatalog would
+  // this file use): unlike those tests, an *invalid* modelCatalog would
   // otherwise break every route in the file that happens to run while this
   // config is on disk (vitest runs test files concurrently across forks, and
   // even within this file, other `it`s could observe it between this test's
   // write and its own afterEach unlink). Isolate by mocking process.cwd() to
   // a private tmp dir per test, matching tests/board/claudePromptBuilder.test.ts
   // (resolveLaunchSettings) and tests/db/config.test.ts.
-  it('returns 200 for a status-only PATCH even when modelCatalog itself is unparseable', async () => {
+  it('returns 200 for a status-only PATCH even when modelCatalog itself is invalid', async () => {
     const services = buildServices();
     const task = services.ts.createTask({ title: 'Untouched catalog', status: 'backlog' });
     const app = buildApp(services);
@@ -780,7 +791,7 @@ describe('PATCH /api/tasks/:id', () => {
     }
   });
 
-  it('fails an override write when modelCatalog itself is unparseable', async () => {
+  it('fails an override write when modelCatalog itself is invalid', async () => {
     const services = buildServices();
     const task = services.ts.createTask({ title: 'Broken catalog write', status: 'backlog' });
     const app = buildApp(services);
@@ -1589,7 +1600,7 @@ describe('GET /', () => {
   // Isolate by mocking process.cwd() to a private tmp dir, matching the
   // modelCatalog isolation pattern used above (PATCH /api/tasks/:id tests
   // "returns 200 for a status-only PATCH..." / "fails an override write...")
-  // so an unparseable modelCatalog written here cannot leak into other tests
+  // so an invalid modelCatalog written here cannot leak into other tests
   // in this concurrently-run file.
   it('returns 500 when the configured catalog is invalid', async () => {
     const services = buildServices();

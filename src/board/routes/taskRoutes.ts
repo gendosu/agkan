@@ -132,7 +132,7 @@ function resolveOverridePair(
  * `stored` supplies the current values for PATCH; omit it for POST.
  * Config/catalog resolution is deferred until at least one kind is touched, so
  * a write that touches neither `models` nor `efforts` succeeds even when
- * `.agkan.yml` itself is unparseable (e.g. a malformed `modelCatalog`).
+ * `.agkan.yml` has an invalid `modelCatalog` value.
  */
 function validateOverrideBody(
   body: { models?: unknown; efforts?: unknown },

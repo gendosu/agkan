@@ -635,6 +635,17 @@ describe('renderModelFields', () => {
     expect(effortSelect.selectedOptions[0].textContent).toBe('(not in catalog) ultra');
   });
 
+  it('escapes a stored value that breaks out of the option value attribute', () => {
+    // agkan import writes model_run without catalog validation
+    // (src/services/ExportImportService.ts), so a stale value reaching this
+    // attribute sink must not be able to inject markup.
+    const task = { ...makeTaskDetail().task, model_run: 'x"><img src=x onerror=alert(1)>' };
+    const html = renderModelFields(task);
+
+    expect(html).not.toContain('"><img');
+    expect(html).toContain('x&quot;&gt;&lt;img src=x onerror=alert(1)&gt;');
+  });
+
   it('renders the default/empty option when the task has no overrides (null columns)', () => {
     const task = {
       ...makeTaskDetail().task,

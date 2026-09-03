@@ -759,7 +759,7 @@ describe('setupTaskAddCommand', () => {
     // process.cwd() to a private tmp dir per test, matching the pattern in
     // tests/board/claudePromptBuilder.test.ts (resolveLaunchSettings) and
     // tests/db/config.test.ts.
-    describe('with an unparseable modelCatalog config', () => {
+    describe('with an invalid modelCatalog config', () => {
       let tmpCwd: string;
       let cwdSpy: ReturnType<typeof vi.spyOn>;
 

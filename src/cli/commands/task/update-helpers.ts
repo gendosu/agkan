@@ -83,7 +83,7 @@ export function validatePriority(val: string, formatter: OutputFormatter): boole
  * never blocks an update that doesn't touch it (e.g. `--status done`).
  * Config/catalog resolution is likewise deferred until a touched pair exists,
  * so an update that never touches model/effort fields succeeds even when
- * `.agkan.yml` itself is unparseable (e.g. a malformed `modelCatalog`).
+ * `.agkan.yml` has an invalid `modelCatalog` value.
  * @returns Error message for the first invalid pair, or null when all are valid
  */
 export function validateModelEffortUpdate(updateInput: Record<string, string>, stored: Task): string | null {

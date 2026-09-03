@@ -1144,7 +1144,7 @@ describe('setupTaskUpdateCommand', () => {
         expect(taskService.getTask(task.id)?.status).toBe('done');
       });
 
-      it('succeeds on a status-only update even when modelCatalog itself is unparseable', async () => {
+      it('succeeds on a status-only update even when modelCatalog itself is invalid', async () => {
         const taskService = new TaskService();
         const task = taskService.createTask({ title: 'Broken catalog config' });
         // A string instead of an array: resolveModelCatalog() throws on this.
@@ -1155,7 +1155,7 @@ describe('setupTaskUpdateCommand', () => {
         expect(taskService.getTask(task.id)?.status).toBe('done');
       });
 
-      it('fails when a model/effort flag is touched and modelCatalog itself is unparseable', async () => {
+      it('fails when a model/effort flag is touched and modelCatalog itself is invalid', async () => {
         const taskService = new TaskService();
         const task = taskService.createTask({ title: 'Broken catalog config, override write' });
         writeConfig({ modelCatalog: 'claude' });
