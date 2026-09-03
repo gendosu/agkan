@@ -14,7 +14,9 @@ const DEFAULT_CONFIG_CONTENT = `# agkan configuration file
 # This file controls the behavior of agkan (Agent Kanban).
 # Uncomment and modify the settings below to customize your agkan instance.
 
-# AI coding agent used by the board
+# Default AI coding agent used by the board
+# Applies to tasks with no model override. A task that selects a model from
+# modelCatalog runs on that row's cli instead.
 # Valid values: claude | codex
 # Default: claude
 agent: claude
@@ -39,7 +41,7 @@ agent: claude
 # Model configuration
 # Model used when executing planning and run commands via the board.
 # The value is passed to the selected agent CLI.
-# Valid effort values: low | medium | high | xhigh | max
+# Valid effort values come from the model's modelCatalog row (see below).
 # If omitted for claude, the Claude CLI's own default model is used.
 # If omitted for codex, agkan defaults to gpt-5.6-sol instead of the Codex CLI's own default.
 # models:
@@ -57,6 +59,28 @@ agent: claude
 #     run:
 #       model: gpt-5.1-codex
 #       effort: high
+
+# Model catalog
+# Rows of cli + model + selectable efforts. Selecting a model on a task also
+# selects the cli that runs it. Setting this key replaces the built-in catalog
+# entirely (no per-row merge), and each model name may appear only once, even
+# across cli values. The block below is the built-in default.
+# modelCatalog:
+#   - cli: claude
+#     model: fable
+#     efforts: [low, medium, high, xhigh, max]
+#   - cli: claude
+#     model: opus
+#     efforts: [low, medium, high, xhigh, max]
+#   - cli: claude
+#     model: sonnet
+#     efforts: [low, medium, high, xhigh, max]
+#   - cli: claude
+#     model: haiku
+#     efforts: [low, medium, high, xhigh, max]
+#   - cli: codex
+#     model: gpt-5.6-sol
+#     efforts: [none, low, medium, high, xhigh]
 
 # Permission mode configuration
 # Controls permission prompts for the selected agent CLI.

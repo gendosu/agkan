@@ -86,6 +86,7 @@ describe('setupInitCommand', () => {
     expect(content).toContain('agent: claude');
     expect(content).toContain('  claude:');
     expect(content).toContain('  codex:');
+    expect(content).toContain('# modelCatalog:');
   });
 
   it('should display success messages after creation', async () => {

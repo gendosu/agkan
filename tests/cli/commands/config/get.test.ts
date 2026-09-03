@@ -50,6 +50,47 @@ describe('setupConfigGetCommand', () => {
     expect(parsed.config.path).toBe('/fake/path/data.db');
   });
 
+  it('includes the resolved model catalog in the JSON output', async () => {
+    vi.spyOn(configModule, 'loadConfig').mockReturnValue({});
+    vi.spyOn(configModule, 'resolveDatabasePath').mockReturnValue('/fake/data.db');
+
+    await program.parseAsync(['node', 'agkan', 'config', 'get', '--json']);
+
+    const output = consoleLogSpy.mock.calls.map((c) => c[0]).join('');
+    const parsed = JSON.parse(output);
+    expect(parsed.config.modelCatalog).toEqual([
+      { cli: 'claude', model: 'fable', efforts: ['low', 'medium', 'high', 'xhigh', 'max'] },
+      { cli: 'claude', model: 'opus', efforts: ['low', 'medium', 'high', 'xhigh', 'max'] },
+      { cli: 'claude', model: 'sonnet', efforts: ['low', 'medium', 'high', 'xhigh', 'max'] },
+      { cli: 'claude', model: 'haiku', efforts: ['low', 'medium', 'high', 'xhigh', 'max'] },
+      { cli: 'codex', model: 'gpt-5.6-sol', efforts: ['none', 'low', 'medium', 'high', 'xhigh'] },
+    ]);
+  });
+
+  it('resolves the configured model catalog by dot notation', async () => {
+    vi.spyOn(configModule, 'loadConfig').mockReturnValue({
+      modelCatalog: [{ cli: 'codex', model: 'gpt-5.6-sol', efforts: ['low'] }],
+    });
+    vi.spyOn(configModule, 'resolveDatabasePath').mockReturnValue('/fake/data.db');
+
+    await program.parseAsync(['node', 'agkan', 'config', 'get', 'modelCatalog', '--json']);
+
+    const output = consoleLogSpy.mock.calls.map((c) => c[0]).join('');
+    expect(JSON.parse(output).value).toEqual([{ cli: 'codex', model: 'gpt-5.6-sol', efforts: ['low'] }]);
+  });
+
+  it('prints one text line per catalog row', async () => {
+    vi.spyOn(configModule, 'loadConfig').mockReturnValue({
+      modelCatalog: [{ cli: 'codex', model: 'gpt-5.6-sol', efforts: ['none', 'low'] }],
+    });
+    vi.spyOn(configModule, 'resolveDatabasePath').mockReturnValue('/fake/data.db');
+
+    await program.parseAsync(['node', 'agkan', 'config', 'get']);
+
+    const output = consoleLogSpy.mock.calls.map((c) => c[0]).join('\n');
+    expect(output).toContain('modelCatalog: codex gpt-5.6-sol (none, low)');
+  });
+
   it('should apply default board port when not specified', async () => {
     vi.spyOn(configModule, 'loadConfig').mockReturnValue({});
     vi.spyOn(configModule, 'resolveDatabasePath').mockReturnValue('/default/path/data.db');

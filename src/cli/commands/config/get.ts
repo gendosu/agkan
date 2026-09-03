@@ -9,6 +9,7 @@ import {
 } from '../../../db/config';
 import { createFormatter } from '../../utils/output-formatter';
 import { DEFAULT_BOARD_PORT } from '../../utils/constants';
+import { resolveModelCatalog, type ModelCatalogEntry } from '../../../db/modelCatalog';
 
 export { DEFAULT_BOARD_PORT };
 
@@ -25,6 +26,7 @@ type ResolvedConfig = {
     claude: AgentModelSettings | undefined;
     codex: AgentModelSettings | undefined;
   };
+  modelCatalog: ModelCatalogEntry[];
 };
 
 function buildResolvedConfig(): ResolvedConfig {
@@ -42,6 +44,7 @@ function buildResolvedConfig(): ResolvedConfig {
       claude: config.models?.claude,
       codex: config.models?.codex,
     },
+    modelCatalog: resolveModelCatalog(config),
   };
 }
 
@@ -108,6 +111,9 @@ export function setupConfigGetCommand(program: Command): void {
                 if (resolved.models.run.model) console.log(`models.run.model: ${resolved.models.run.model}`);
                 if (resolved.models.run.effort) console.log(`models.run.effort: ${resolved.models.run.effort}`);
               }
+              resolved.modelCatalog.forEach((entry) => {
+                console.log(`modelCatalog: ${entry.cli} ${entry.model} (${entry.efforts.join(', ')})`);
+              });
               console.log('');
             }
           );
