@@ -75,6 +75,13 @@ Markdownファイルからタスク作成:
 agkan task add "設計書レビュー" --file ./design-doc.md --status backlog
 ```
 
+タスク単位でモデルと reasoning effort を指定して作成:
+```bash
+agkan task add "パーサーのリファクタ" --model-run sonnet --effort-run high
+```
+
+`--model-planning` / `--model-run` に指定できるのは[モデルカタログ](configuration.ja.md#モデルカタログ)の `model` 名です。モデルを選ぶと、そのタスクを実行する cli も決まります。`--effort-planning` / `--effort-run` に指定できるのはそのモデルの `efforts`（モデル未指定なら既定の `agent:` に属する行の和集合）です。解決後のカタログは `agkan config get modelCatalog --json` で確認できます。
+
 タグ付きでタスク作成（カンマ区切りのタグ名またはID、同じコマンドで付与）:
 ```bash
 agkan task add "ログイン機能の実装" --tag "frontend,urgent"
@@ -256,6 +263,14 @@ agkan task update 1 body "新しい説明文"
 ```bash
 agkan task update 1 author "new-author"
 ```
+
+モデルと effort を変更（空文字でクリア）:
+```bash
+agkan task update 1 --model-run gpt-5.6-sol --effort-run none
+agkan task update 1 --model-run "" --effort-run ""
+```
+
+値は[モデルカタログ](configuration.ja.md#モデルカタログ)に対してペアで検証されます。指定しなかった側は、タスクに保存済みの値が使われます。
 
 ### 親子関係の管理
 
@@ -602,6 +617,11 @@ agkan config get --json       # JSON出力
 
 path: /workspace/.agkan/data.db
 board.port: 8080
+modelCatalog: claude fable (low, medium, high, xhigh, max)
+modelCatalog: claude opus (low, medium, high, xhigh, max)
+modelCatalog: claude sonnet (low, medium, high, xhigh, max)
+modelCatalog: claude haiku (low, medium, high, xhigh, max)
+modelCatalog: codex gpt-5.6-sol (none, low, medium, high, xhigh)
 ```
 
 ### ヘルプの表示

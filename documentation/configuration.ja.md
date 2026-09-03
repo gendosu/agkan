@@ -12,6 +12,7 @@
   - [プロジェクトごとの管理](#プロジェクトごとの管理)
 - [ボード設定](#ボード設定)
 - [エージェント設定](#エージェント設定)
+- [モデルカタログ](#モデルカタログ)
 - [モデル設定](#モデル設定)
 - [パーミッションモード設定](#パーミッションモード設定)
 
@@ -175,7 +176,7 @@ board:
 
 ## エージェント設定
 
-`.agkan.yml` の `agent` フィールドで、ボードがタスク実行に使用するAIコーディングエージェントを選択します。
+`.agkan.yml` の `agent` フィールドで、ボードがタスク実行に使用する既定のAIコーディングエージェントを選択します。これはタスク側にモデル指定がない場合に使われます。[モデルカタログ](#モデルカタログ)の行からモデルを選んだタスクは、その行の cli で実行されます。
 
 ### 利用可能な値
 
@@ -195,6 +196,56 @@ agent: codex
 
 各エージェントCLIは別途インストールと認証が必要です。`agent` にこれら以外の値を設定するとエラーになります: `Invalid agent "<value>". Must be one of: claude, codex`。
 
+## モデルカタログ
+
+`.agkan.yml` の `modelCatalog` は、タスクが選択できるモデル・そのモデルを実行する cli・そのモデルで選べる effort を定義します。`agkan task add` / `agkan task update` のフラグ検証、`POST` / `PATCH /api/tasks` の検証、Board のモデル/effortドロップダウンは、すべてこのカタログを唯一の正として参照します。
+
+### 形式
+
+```yaml
+modelCatalog:
+  - cli: claude
+    model: fable
+    efforts: [low, medium, high, xhigh, max]
+  - cli: codex
+    model: gpt-5.6-sol
+    efforts: [none, low, medium, high, xhigh]
+```
+
+| フィールド | 型 | 説明 |
+|----------|-----|------|
+| `cli` | string | `claude` または `codex`。このモデルを選んだタスクを実行する cli |
+| `model` | string | cli の `--model` にそのまま渡す値。表示は `cli[model]` |
+| `efforts` | string[] | このモデルで選べる effort。空配列可（その行では effort を指定できない） |
+
+### 組み込みの既定
+
+`modelCatalog` を省略した場合は次のカタログが使われます。
+
+| cli | model | efforts |
+|-----|-------|---------|
+| claude | `fable` | `low`, `medium`, `high`, `xhigh`, `max` |
+| claude | `opus` | `low`, `medium`, `high`, `xhigh`, `max` |
+| claude | `sonnet` | `low`, `medium`, `high`, `xhigh`, `max` |
+| claude | `haiku` | `low`, `medium`, `high`, `xhigh`, `max` |
+| codex | `gpt-5.6-sol` | `none`, `low`, `medium`, `high`, `xhigh` |
+
+### 検証
+
+`modelCatalog` を設定すると、組み込みの既定は**丸ごと置き換わります**（行単位のマージはしません）。空配列も有効で、その場合タスク単位のオーバーライドは一切選べません。次の場合はエラーになります。
+
+- `modelCatalog` が配列でない
+- 行の `cli` が `claude` / `codex` のいずれでもない
+- 行の `model` が空、または `efforts` が「空でない文字列の配列」でない
+- 同じ `model` 名が 2 行以上に現れる（cli が異なっていても不可。モデル名だけで cli を一意に引くため）
+
+### タスクからの使われ方
+
+- タスクでモデルを選ぶと、そのタスクを実行する cli も決まります（そのタスクに限り `agent:` を上書きします）。
+- effort は、選択したモデルの行の `efforts` に含まれる場合のみ有効です。モデル未選択のときは、既定の `agent:` に属する全行の efforts の和集合が候補になります。
+- 保存済みのモデルがカタログから消えている場合、実行は既定 cli にフォールバックせず 400 で失敗します。Board の詳細パネルはその値を `(not in catalog) <model>` として表示し、修正できるようにします。
+- `models.<agent>.<kind>.model` の値はカタログで検証しません。その effort は、モデルが同じ cli のカタログ行に一致するときだけ検証されます。
+
 ## モデル設定
 
 `.agkan.yml` の `models` セクションでは、ボード経由でplanningおよびrunコマンドを実行する際に、選択したエージェントが使用するモデルとeffortレベルを指定できます。
@@ -204,9 +255,9 @@ agent: codex
 | フィールド | 型 | デフォルト値 | 説明 |
 |----------|-----|------------|------|
 | `models.<agent>.planning.model` | string | claude: 選択したCLIのデフォルト / codex: `gpt-5.6-sol` | planningコマンド実行時に使用するモデル |
-| `models.<agent>.planning.effort` | string | (選択したCLIのデフォルト) | planningコマンドのeffortレベル（`low`, `medium`, `high`, `xhigh`, `max`） |
+| `models.<agent>.planning.effort` | string | (選択したCLIのデフォルト) | planningコマンドのeffortレベル（[モデルカタログ](#モデルカタログ)を参照） |
 | `models.<agent>.run.model` | string | claude: 選択したCLIのデフォルト / codex: `gpt-5.6-sol` | run/prコマンド実行時に使用するモデル |
-| `models.<agent>.run.effort` | string | (選択したCLIのデフォルト) | run/prコマンドのeffortレベル（`low`, `medium`, `high`, `xhigh`, `max`） |
+| `models.<agent>.run.effort` | string | (選択したCLIのデフォルト) | run/prコマンドのeffortレベル（[モデルカタログ](#モデルカタログ)を参照） |
 
 `<agent>` は `claude` または `codex` です。`models.claude` と `models.codex` の両方を同時に定義でき、`agent` で選択した側の設定のみが使用されます。`model` と `effort` はいずれも省略可能です。
 

@@ -9,10 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### 追加
 - `agkan task add` / `agkan task update` に `--model-planning`, `--model-run`, `--effort-planning`, `--effort-run` フラグを追加。タスク実行時に使う Claude のモデルエイリアス（`fable`, `opus`, `sonnet`, `haiku`）と reasoning effort（`low`, `medium`, `high`, `xhigh`, `max`）をタスク単位で指定できる。`task update` で空文字を渡すとクリアされる。値は `agkan task get --json` にも出力され、`agkan task copy` でコピーされ、export/import にも含まれる
+- `.agkan.yml` に `modelCatalog` 設定を追加。タスクが選択できるモデル・そのモデルを実行する cli（`claude` / `codex`）・そのモデルで選べる reasoning effort を定義する。タスクでモデルを選ぶと、そのタスクを実行する cli も決まるようになり、`agent:` は「タスクにモデル指定がないときの既定 cli」になった。カタログは `agkan config get` にも出力され、`agkan init` のテンプレートにコメントとして書き出される
 
 ### 変更
 - タスク単位の Claude model/effort override の保存先を、`task_metadata` の行（`model:planning` / `model:run` / `effort:planning` / `effort:run`）から `tasks` テーブルの専用カラムへ変更。既存の metadata は次回起動時のマイグレーションで自動的に移行され、元の行は削除される
 - Codex エージェントのデフォルトモデルを変更。タスク単位のオーバーライドや `.agkan.yml` でモデルが未指定（または空文字に解決される場合）、Codex CLI自身のデフォルトに委ねる代わりに `gpt-5.6-sol` を使用するようにした。**破壊的変更**: agkanは今後常に `--model` をCodexに渡す。Codex CLI自身のデフォルトを使い続けたい場合は `models.codex.planning.model` / `models.codex.run.model` を明示的に設定すること (#14)
+- タスク単位の model / effort の検証を、固定の Claude エイリアス表（`fable`, `opus`, `sonnet`, `haiku`）と effort 表（`low`, `medium`, `high`, `xhigh`, `max`）から `modelCatalog` 基準に変更。planning / run それぞれについて model と effort をペアで検証し、effort は選択したモデルの行に含まれること（モデル未選択なら既定 cli の和集合に含まれること）を要求する。`agkan task update` と `PATCH /api/tasks/:id` では、指定しなかった側にタスクの保存済みの値を使って検証する
+- Board のモデル表示を `claude[Fable]` から `claude[fable]` に変更（`cli[model]` をそのまま表示し、先頭大文字化をやめた）。カタログから消えたモデル / effort が保存されている場合は、詳細パネルで `(not in catalog) <値>` と表示し、既定と区別できるようにした
+- タスクの model が `modelCatalog` にない状態での実行を、既定 cli での起動ではなく失敗にした（`POST /api/claude/tasks/:id/run` は 400、Bulk Run はそのタスクをスキップして続行）
 
 ## [3.20.2] - 2026-08-29
 

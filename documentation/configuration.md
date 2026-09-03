@@ -12,6 +12,7 @@ Full configuration reference for agkan, covering `.agkan.yml` fields, database p
   - [Per-Project Management](#per-project-management)
 - [Board Settings](#board-settings)
 - [Agent Settings](#agent-settings)
+- [Model Catalog](#model-catalog)
 - [Models Settings](#models-settings)
 - [Permission Mode Settings](#permission-mode-settings)
 
@@ -188,7 +189,7 @@ board:
 
 ## Agent Settings
 
-The `agent` field in `.agkan.yml` selects which AI coding agent the board launches to execute tasks.
+The `agent` field in `.agkan.yml` selects the default AI coding agent the board launches to execute tasks. It applies to tasks with no model override; a task that selects a model from the [Model Catalog](#model-catalog) runs on that row's cli instead.
 
 ### Available Values
 
@@ -208,6 +209,56 @@ agent: codex
 
 Each agent CLI must be installed and authenticated separately. Setting `agent` to any other value raises an error: `Invalid agent "<value>". Must be one of: claude, codex`.
 
+## Model Catalog
+
+The `modelCatalog` list in `.agkan.yml` defines which model a task may select, which cli runs it, and which effort values that model accepts. It is the single source of truth for the `agkan task add` / `agkan task update` flags, the `POST` / `PATCH /api/tasks` validation, and the Board's model/effort dropdowns.
+
+### Format
+
+```yaml
+modelCatalog:
+  - cli: claude
+    model: fable
+    efforts: [low, medium, high, xhigh, max]
+  - cli: codex
+    model: gpt-5.6-sol
+    efforts: [none, low, medium, high, xhigh]
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `cli` | string | `claude` or `codex`. The cli that runs a task which selects this model |
+| `model` | string | Value passed through to the cli's `--model` flag. Displayed as `cli[model]` |
+| `efforts` | string[] | Effort values selectable for this model. May be empty (no effort override for that row) |
+
+### Built-in Default
+
+Omitting `modelCatalog` uses this catalog:
+
+| cli | model | efforts |
+|-----|-------|---------|
+| claude | `fable` | `low`, `medium`, `high`, `xhigh`, `max` |
+| claude | `opus` | `low`, `medium`, `high`, `xhigh`, `max` |
+| claude | `sonnet` | `low`, `medium`, `high`, `xhigh`, `max` |
+| claude | `haiku` | `low`, `medium`, `high`, `xhigh`, `max` |
+| codex | `gpt-5.6-sol` | `none`, `low`, `medium`, `high`, `xhigh` |
+
+### Validation
+
+Setting `modelCatalog` **replaces the built-in catalog entirely** — rows are not merged. An empty list is valid and means no task-level override can be selected. agkan raises an error when:
+
+- `modelCatalog` is not a list
+- a row's `cli` is neither `claude` nor `codex`
+- a row's `model` is empty, or `efforts` is not a list of non-empty strings
+- the same `model` name appears in more than one row, even across different `cli` values (a model name must identify its cli unambiguously)
+
+### How a task uses the catalog
+
+- Selecting a model on a task also selects the cli that runs it, overriding `agent:` for that task only.
+- An effort is valid only if it appears in the `efforts` of the selected model's row. With no model selected, the candidates are the union of every row belonging to the default `agent:`.
+- Running a task whose stored model is no longer in the catalog fails with a 400 rather than falling back to the default cli. The Board's detail panel shows such a value as `(not in catalog) <model>` so it can be corrected.
+- Model names coming from `models.<agent>.<kind>.model` are not validated against the catalog; their effort is validated only when the model matches a catalog row for that cli.
+
 ## Models Settings
 
 The `models` section in `.agkan.yml` specifies the model and effort level used by the selected agent when executing planning and run commands via the board.
@@ -217,9 +268,9 @@ The `models` section in `.agkan.yml` specifies the model and effort level used b
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
 | `models.<agent>.planning.model` | string | claude: selected CLI default; codex: `gpt-5.6-sol` | Model used for planning command execution |
-| `models.<agent>.planning.effort` | string | (selected CLI default) | Effort level for planning command (`low`, `medium`, `high`, `xhigh`, `max`) |
+| `models.<agent>.planning.effort` | string | (selected CLI default) | Effort level for planning command (see [Model Catalog](#model-catalog)) |
 | `models.<agent>.run.model` | string | claude: selected CLI default; codex: `gpt-5.6-sol` | Model used for run/pr command execution |
-| `models.<agent>.run.effort` | string | (selected CLI default) | Effort level for run/pr command (`low`, `medium`, `high`, `xhigh`, `max`) |
+| `models.<agent>.run.effort` | string | (selected CLI default) | Effort level for run/pr command (see [Model Catalog](#model-catalog)) |
 
 `<agent>` is `claude` or `codex`. Both `models.claude` and `models.codex` can be configured at the same time; only the profile matching the selected `agent` is used. Both `model` and `effort` are optional within each entry.
 
