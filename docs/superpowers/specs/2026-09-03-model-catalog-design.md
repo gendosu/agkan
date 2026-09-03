@@ -157,7 +157,7 @@ export function resolveLaunchSettings(taskService, taskId, command): LaunchSetti
 ### 呼び出し側
 
 - `src/board/routes/claudeRoutes.ts:42-48`: `resolveLaunchSettings` を呼び、throw されたら 400 でメッセージを返す。既存の effort 再検証ブロックは削除（resolve 側に吸収）
-- `src/board/BulkRunService.ts:138-158`: `buildLaunchParams` が `agent` も返す。resolve が throw した場合はそのタスクを失敗扱いにして次へ進む（`startProcess` 失敗時と同じ `advance()` 経路。`src/board/BulkRunService.ts:173-177`）
+- `src/board/BulkRunService.ts:138-158`: `buildLaunchParams` が `agent` も返す。resolve が throw した場合はそのタスク ID を `skippedTaskIds`（`Set<number>`、`start()` でクリア）に記録して `selectNextTask` の候補から除外し、次へ進む。除外しないと `selectNextTask`（`src/board/BulkRunService.ts:75-104`）が `status: 'ready'` のまま残る同じタスクを選び続けて無限ループになる
 - `src/terminal/PtySessionService.ts:448`: `startProcess(taskId, prompt, command = 'run', model?, effort?, agent?)` に末尾引数 `agent` を追加。`agent` 未指定時は現状どおり `resolveAgentTool(config)`。それ以外の分岐（hooks 注入の claude 限定、`buildAgentArgs`、bin 選択、prompt 注入方式）は既存の `agent` 変数を使うだけなので変更なし
 
 ---
@@ -206,7 +206,7 @@ var defaultAgent = 'claude';
 |---|---|
 | yml の `modelCatalog` が不正 | `resolveModelCatalog` が throw。CLI はメッセージを表示して exit 1、board は起動時（描画時）に 500 とログ |
 | 書き込み時に model / effort が不正 | CLI: メッセージ + exit 1。API: 400 + `{ error }` |
-| 実行時にタスクの model がカタログにない | `/api/claude/tasks/:id/run` は 400。BulkRun はそのタスクをスキップして続行 |
+| 実行時にタスクの model がカタログにない | `/api/claude/tasks/:id/run` は 400。BulkRun はそのタスク ID を `skippedTaskIds` に入れて以降の選択から除外し、続行 |
 | 実行時に effort が行の efforts にない | 同上 |
 | config の model がカタログにない | 検証しない（現状どおり素通し） |
 
@@ -246,3 +246,4 @@ var defaultAgent = 'claude';
 | `agent_planning` / `agent_run` カラムを追加 | カラム・フラグ・API・UI が増え、「model を選べば cli が決まる」方針と合わない |
 | 行が見つからないとき既定 cli で起動する | codex の model 名を claude に渡すなど誤った起動になる。明示的に失敗させる方が安全 |
 | effort を全行の和集合で検証する | 既定 cli が claude のとき codex 専用の `none` が選べてしまい、CLI 側で失敗する |
+| BulkRun で resolve 失敗タスクを `advance()` するだけにする | `selectNextTask` が ready のまま残る同じタスクを選び続けて無限ループになる |
