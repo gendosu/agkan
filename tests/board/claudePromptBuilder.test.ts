@@ -11,7 +11,6 @@ import yaml from 'js-yaml';
 import { resetDatabase } from '../../src/db/reset';
 import { getStorageBackend } from '../../src/db/connection';
 import { TaskService } from '../../src/services/TaskService';
-import { persistTaskModelOverrides, persistTaskEffortOverrides } from '../../src/board/taskModelOverride';
 import {
   parseClaudeCommand,
   buildClaudePrompt,
@@ -19,7 +18,6 @@ import {
   VALID_EFFORT_LEVELS,
   isValidModelAlias,
   MODEL_ALIASES,
-  resolveModelAndEffort,
   resolveLaunchSettings,
   LaunchSettingsError,
 } from '../../src/board/claudePromptBuilder';
@@ -111,76 +109,12 @@ describe('isValidModelAlias / MODEL_ALIASES', () => {
   });
 });
 
-describe('resolveModelAndEffort', () => {
+describe('resolveLaunchSettings', () => {
   // loadConfig() reads '<cwd>/.agkan-test.yml'. Other test files (e.g.
   // claudeRoutes.test.ts) write that same repo-root path, and vitest runs
   // test files concurrently across forks, so writing there too would race.
   // Isolate by mocking process.cwd() to a private tmp dir per test, matching
   // the pattern in tests/db/config.test.ts.
-  let tmpCwd: string;
-  let cwdSpy: ReturnType<typeof vi.spyOn>;
-
-  beforeEach(() => {
-    tmpCwd = fs.mkdtempSync(path.join(os.tmpdir(), 'agkan-prompt-builder-test-'));
-    cwdSpy = vi.spyOn(process, 'cwd').mockReturnValue(tmpCwd);
-  });
-
-  afterEach(() => {
-    cwdSpy.mockRestore();
-    fs.rmSync(tmpCwd, { recursive: true, force: true });
-  });
-
-  function writeConfig(config: unknown): void {
-    fs.writeFileSync(path.join(tmpCwd, '.agkan-test.yml'), yaml.dump(config));
-  }
-
-  it('returns undefined for both when no config or override is set', () => {
-    const { ts } = buildServices();
-    const task = ts.createTask({ title: 'Task', status: 'backlog' });
-    expect(resolveModelAndEffort(ts, task.id, 'run')).toEqual({ model: undefined, effort: undefined });
-  });
-
-  it('falls back to the run config for both pr and run commands', () => {
-    const { ts } = buildServices();
-    const task = ts.createTask({ title: 'Task', status: 'backlog' });
-    writeConfig({ models: { run: { model: 'claude-sonnet-4-6', effort: 'high' } } });
-
-    expect(resolveModelAndEffort(ts, task.id, 'run')).toEqual({ model: 'claude-sonnet-4-6', effort: 'high' });
-    expect(resolveModelAndEffort(ts, task.id, 'pr')).toEqual({ model: 'claude-sonnet-4-6', effort: 'high' });
-  });
-
-  it('uses the planning config only for the planning command', () => {
-    const { ts } = buildServices();
-    const task = ts.createTask({ title: 'Task', status: 'backlog' });
-    writeConfig({ models: { planning: { effort: 'low' } } });
-
-    expect(resolveModelAndEffort(ts, task.id, 'planning')).toEqual({ model: undefined, effort: 'low' });
-    expect(resolveModelAndEffort(ts, task.id, 'run')).toEqual({ model: undefined, effort: undefined });
-  });
-
-  it('prefers a task-level override over the config file', () => {
-    const { ts } = buildServices();
-    const task = ts.createTask({ title: 'Task', status: 'backlog' });
-    writeConfig({ models: { run: { effort: 'high' } } });
-    persistTaskEffortOverrides(task.id, { run: 'xhigh' }, ts);
-    persistTaskModelOverrides(task.id, { run: 'opus' }, ts);
-
-    expect(resolveModelAndEffort(ts, task.id, 'run')).toEqual({ model: 'opus', effort: 'xhigh' });
-  });
-
-  it('skips task-level overrides when no task service is supplied', () => {
-    const { ts } = buildServices();
-    const task = ts.createTask({ title: 'Task', status: 'backlog' });
-    writeConfig({ models: { run: { effort: 'high' } } });
-    persistTaskEffortOverrides(task.id, { run: 'xhigh' }, ts);
-
-    expect(resolveModelAndEffort(undefined, task.id, 'run')).toEqual({ model: undefined, effort: 'high' });
-  });
-});
-
-describe('resolveLaunchSettings', () => {
-  // loadConfig() reads '<cwd>/.agkan-test.yml'; isolate by mocking process.cwd()
-  // to a private tmp dir, matching the resolveModelAndEffort describe above.
   let tmpCwd: string;
   let cwdSpy: ReturnType<typeof vi.spyOn>;
 

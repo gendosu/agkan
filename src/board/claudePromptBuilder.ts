@@ -50,37 +50,6 @@ export function isValidModelAlias(model: string): model is (typeof MODEL_ALIASES
   return (MODEL_ALIASES as readonly string[]).includes(model);
 }
 
-export interface ResolvedModelEffort {
-  model?: string;
-  effort?: string;
-}
-
-/**
- * Resolve the model/effort to use for a Claude run.
- * Priority: task-level override (UI selection) > config file > default.
- * 'pr' and 'run' commands both use the 'run' model configuration.
- * `taskService` is optional so callers that intentionally skip task-level
- * overrides (BulkRunService constructed without one) share the same code path.
- */
-export function resolveModelAndEffort(
-  taskService: TaskService | undefined,
-  taskId: number,
-  command: ClaudeCommand
-): ResolvedModelEffort {
-  const config = loadConfig();
-  const overrideKind: ModelOverrideKind = command === 'planning' ? 'planning' : 'run';
-  const rawConfig = resolveModelSettings(config, overrideKind);
-  const model =
-    (taskService ? getTaskModelOverride(taskService, taskId, overrideKind) : undefined) ??
-    rawConfig?.model?.trim() ??
-    undefined;
-  const effort =
-    (taskService ? getTaskEffortOverride(taskService, taskId, overrideKind) : undefined) ??
-    rawConfig?.effort?.trim() ??
-    undefined;
-  return { model, effort };
-}
-
 /** Thrown when a task's model/effort cannot be resolved against the model catalog. */
 export class LaunchSettingsError extends Error {}
 

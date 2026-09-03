@@ -47,7 +47,7 @@ describe('BulkRunService task selection', () => {
     const service = new BulkRunService(ts, tbs, pty);
     await service.start('direct');
 
-    expect(startProcess).toHaveBeenCalledWith(high.id, expect.any(String), 'run', undefined, undefined);
+    expect(startProcess).toHaveBeenCalledWith(high.id, expect.any(String), 'run', undefined, undefined, 'claude');
   });
 
   it('excludes tasks with unresolved blockers', async () => {
@@ -67,13 +67,14 @@ describe('BulkRunService task selection', () => {
     await service.start('direct');
 
     // Should pick the free task (not the blocked one, even though it has higher priority)
-    expect(startProcess).toHaveBeenCalledWith(free.id, expect.any(String), 'run', undefined, undefined);
+    expect(startProcess).toHaveBeenCalledWith(free.id, expect.any(String), 'run', undefined, undefined, 'claude');
     expect(startProcess).not.toHaveBeenCalledWith(
       blocked.id,
       expect.any(String),
       expect.any(String),
       undefined,
-      undefined
+      undefined,
+      'claude'
     );
   });
 
@@ -92,7 +93,7 @@ describe('BulkRunService task selection', () => {
     const service = new BulkRunService(ts, tbs, pty);
     await service.start('direct');
 
-    expect(startProcess).toHaveBeenCalledWith(blocked.id, expect.any(String), 'run', undefined, undefined);
+    expect(startProcess).toHaveBeenCalledWith(blocked.id, expect.any(String), 'run', undefined, undefined, 'claude');
   });
 
   it('includes tasks whose blockers are in review', async () => {
@@ -110,7 +111,7 @@ describe('BulkRunService task selection', () => {
     const service = new BulkRunService(ts, tbs, pty);
     await service.start('direct');
 
-    expect(startProcess).toHaveBeenCalledWith(blocked.id, expect.any(String), 'run', undefined, undefined);
+    expect(startProcess).toHaveBeenCalledWith(blocked.id, expect.any(String), 'run', undefined, undefined, 'claude');
   });
 
   it('stays running and polls when no ready tasks remain', async () => {
@@ -152,7 +153,7 @@ describe('BulkRunService task selection', () => {
 
     await vi.advanceTimersByTimeAsync(3000);
 
-    expect(startProcess).toHaveBeenCalledWith(newTask.id, expect.any(String), 'run', undefined, undefined);
+    expect(startProcess).toHaveBeenCalledWith(newTask.id, expect.any(String), 'run', undefined, undefined, 'claude');
 
     vi.useRealTimers();
     service.stop();
@@ -236,7 +237,8 @@ describe('BulkRunService task selection', () => {
       expect.stringContaining('/agkan-subtask'),
       'pr',
       undefined,
-      undefined
+      undefined,
+      'claude'
     );
   });
 
@@ -300,21 +302,21 @@ describe('BulkRunService - Run all loop continuity regression', () => {
     await service.start('direct');
 
     // task1 should have started
-    expect(startProcess).toHaveBeenCalledWith(task1.id, expect.any(String), 'run', undefined, undefined);
+    expect(startProcess).toHaveBeenCalledWith(task1.id, expect.any(String), 'run', undefined, undefined, 'claude');
 
     // Simulate task1 completing
     outputCallbacks.get(task1.id)?.({ kind: 'done', exitCode: 0 });
     await Promise.resolve(); // flush micro-tasks
 
     // task2 should have started
-    expect(startProcess).toHaveBeenCalledWith(task2.id, expect.any(String), 'run', undefined, undefined);
+    expect(startProcess).toHaveBeenCalledWith(task2.id, expect.any(String), 'run', undefined, undefined, 'claude');
 
     // Simulate task2 completing
     outputCallbacks.get(task2.id)?.({ kind: 'done', exitCode: 0 });
     await Promise.resolve();
 
     // task3 should have started
-    expect(startProcess).toHaveBeenCalledWith(task3.id, expect.any(String), 'run', undefined, undefined);
+    expect(startProcess).toHaveBeenCalledWith(task3.id, expect.any(String), 'run', undefined, undefined, 'claude');
 
     // Simulate task3 completing
     outputCallbacks.get(task3.id)?.({ kind: 'done', exitCode: 0 });
@@ -354,8 +356,8 @@ describe('BulkRunService - Run all loop continuity regression', () => {
     await Promise.resolve();
 
     // Both tasks must have been launched despite the immediate error
-    expect(startProcess).toHaveBeenCalledWith(task1.id, expect.any(String), 'run', undefined, undefined);
-    expect(startProcess).toHaveBeenCalledWith(task2.id, expect.any(String), 'run', undefined, undefined);
+    expect(startProcess).toHaveBeenCalledWith(task1.id, expect.any(String), 'run', undefined, undefined, 'claude');
+    expect(startProcess).toHaveBeenCalledWith(task2.id, expect.any(String), 'run', undefined, undefined, 'claude');
 
     service.stop();
   });
@@ -394,7 +396,7 @@ describe('BulkRunService - Run all loop continuity regression', () => {
     await service.start('direct');
 
     // task1 should have started
-    expect(startProcess).toHaveBeenCalledWith(task1.id, expect.any(String), 'run', undefined, undefined);
+    expect(startProcess).toHaveBeenCalledWith(task1.id, expect.any(String), 'run', undefined, undefined, 'claude');
     expect(outputCallbacks.has(task1.id)).toBe(true);
 
     // User stops task1 — this must fire the done callback and allow the loop to advance
@@ -402,7 +404,7 @@ describe('BulkRunService - Run all loop continuity regression', () => {
     await Promise.resolve();
 
     // task2 should now have started
-    expect(startProcess).toHaveBeenCalledWith(task2.id, expect.any(String), 'run', undefined, undefined);
+    expect(startProcess).toHaveBeenCalledWith(task2.id, expect.any(String), 'run', undefined, undefined, 'claude');
 
     // Simulate task2 completing normally
     outputCallbacks.get(task2.id)?.({ kind: 'done', exitCode: 0 });
@@ -571,7 +573,7 @@ describe('BulkRunService model/effort override resolution', () => {
 
     await service.start('direct');
 
-    expect(startProcess).toHaveBeenCalledWith(task.id, expect.any(String), 'run', undefined, 'xhigh');
+    expect(startProcess).toHaveBeenCalledWith(task.id, expect.any(String), 'run', undefined, 'xhigh', 'claude');
 
     service.stop();
   });
@@ -590,7 +592,7 @@ describe('BulkRunService model/effort override resolution', () => {
 
     await service.start('direct');
 
-    expect(startProcess).toHaveBeenCalledWith(task.id, expect.any(String), 'run', 'opus', undefined);
+    expect(startProcess).toHaveBeenCalledWith(task.id, expect.any(String), 'run', 'opus', undefined, 'claude');
 
     service.stop();
   });
@@ -608,7 +610,7 @@ describe('BulkRunService model/effort override resolution', () => {
 
     await service.start('direct');
 
-    expect(startProcess).toHaveBeenCalledWith(task.id, expect.any(String), 'run', undefined, undefined);
+    expect(startProcess).toHaveBeenCalledWith(task.id, expect.any(String), 'run', undefined, undefined, 'claude');
 
     service.stop();
   });
@@ -627,7 +629,47 @@ describe('BulkRunService model/effort override resolution', () => {
 
     await service.start('direct');
 
-    expect(startProcess).toHaveBeenCalledWith(task.id, expect.any(String), 'run', undefined, undefined);
+    expect(startProcess).toHaveBeenCalledWith(task.id, expect.any(String), 'run', undefined, undefined, 'claude');
+
+    service.stop();
+  });
+
+  it('passes the cli of the task-level model row to startProcess', async () => {
+    const db = getStorageBackend();
+    const ts = new TaskService(db);
+    const tbs = new TaskBlockService(db);
+
+    const task = ts.createTask({ title: 'Codex Task', status: 'ready', priority: 'high' });
+    ts.updateTask(task.id, { model_run: 'gpt-5.6-sol', effort_run: 'none' });
+
+    const startProcess = vi.fn().mockResolvedValue(undefined);
+    const pty = buildMockPty({ startProcess });
+    const service = new BulkRunService(ts, tbs, pty, ts);
+
+    await service.start('direct');
+
+    expect(startProcess).toHaveBeenCalledWith(task.id, expect.any(String), 'run', 'gpt-5.6-sol', 'none', 'codex');
+
+    service.stop();
+  });
+
+  it('skips a task whose model is not in the catalog and moves on to the next one', async () => {
+    const db = getStorageBackend();
+    const ts = new TaskService(db);
+    const tbs = new TaskBlockService(db);
+
+    const broken = ts.createTask({ title: 'Broken Model Task', status: 'ready', priority: 'critical' });
+    ts.updateTask(broken.id, { model_run: 'gpt-5' });
+    const healthy = ts.createTask({ title: 'Healthy Task', status: 'ready', priority: 'high' });
+
+    const startProcess = vi.fn().mockResolvedValue(undefined);
+    const pty = buildMockPty({ startProcess });
+    const service = new BulkRunService(ts, tbs, pty, ts);
+
+    await service.start('direct');
+
+    expect(startProcess).toHaveBeenCalledTimes(1);
+    expect(startProcess).toHaveBeenCalledWith(healthy.id, expect.any(String), 'run', undefined, undefined, 'claude');
 
     service.stop();
   });
