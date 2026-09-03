@@ -280,7 +280,7 @@ If `models.codex.planning.model` / `models.codex.run.model` is not set, agkan de
 
 For backward compatibility, the legacy flat `models.planning` / `models.run` form (without an agent key) is still supported as a fallback: if `models.<agent>.planning` (or `.run`) is not set, agkan falls back to `models.planning` (or `.run`). Agent-specific settings always take priority over the legacy flat form.
 
-Model names are passed through as-is to the selected agent's CLI (`--model` for both `claude` and `codex`). Claude CLI aliases such as `opus`, `sonnet`, and `haiku` are resolved by the Claude CLI itself, not by agkan; agkan does not resolve or validate model aliases for either agent. For Codex, `effort` is passed via `--config model_reasoning_effort=<effort>` instead of a `--effort` flag.
+Model names are passed through as-is to the selected agent's CLI (`--model` for both `claude` and `codex`). Claude CLI aliases such as `opus`, `sonnet`, and `haiku` are resolved by the Claude CLI itself, not by agkan; agkan does not resolve or validate config-level (`models.<agent>`) model values for either agent. For Codex, `effort` is passed via `--config model_reasoning_effort=<effort>` instead of a `--effort` flag.
 
 ### Configuration Example
 

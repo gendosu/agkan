@@ -8,7 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### 追加
-- `agkan task add` / `agkan task update` に `--model-planning`, `--model-run`, `--effort-planning`, `--effort-run` フラグを追加。タスク実行時に使う Claude のモデルエイリアス（`fable`, `opus`, `sonnet`, `haiku`）と reasoning effort（`low`, `medium`, `high`, `xhigh`, `max`）をタスク単位で指定できる。`task update` で空文字を渡すとクリアされる。値は `agkan task get --json` にも出力され、`agkan task copy` でコピーされ、export/import にも含まれる
+- `agkan task add` / `agkan task update` に `--model-planning`, `--model-run`, `--effort-planning`, `--effort-run` フラグを追加。タスク実行時に使うモデルと reasoning effort をタスク単位で指定できる。有効な値は `modelCatalog` 設定（後述）で決まる。`task update` で空文字を渡すとクリアされる。値は `agkan task get --json` にも出力され、`agkan task copy` でコピーされ、export/import にも含まれる
 - `.agkan.yml` に `modelCatalog` 設定を追加。タスクが選択できるモデル・そのモデルを実行する cli（`claude` / `codex`）・そのモデルで選べる reasoning effort を定義する。タスクでモデルを選ぶと、そのタスクを実行する cli も決まるようになり、`agent:` は「タスクにモデル指定がないときの既定 cli」になった。カタログは `agkan config get` にも出力され、`agkan init` のテンプレートにコメントとして書き出される
 
 ### 変更
