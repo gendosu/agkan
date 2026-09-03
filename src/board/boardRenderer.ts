@@ -3,6 +3,8 @@ import { Tag } from '../models/Tag';
 import { StorageBackend } from '../db/types/repository';
 import { BOARD_STYLES } from './boardStyles';
 import { BOARD_FAVICON_BASE64 } from './boardFavicon';
+import { loadConfig, resolveAgentTool, type AgentTool } from '../db/config';
+import { resolveModelCatalog, effortsForDefaultCli, type ModelCatalogEntry } from '../db/modelCatalog';
 
 type BoardStatus = TaskStatus;
 export const STATUSES: BoardStatus[] = ['icebox', 'backlog', 'ready', 'in_progress', 'review', 'done', 'closed'];
@@ -105,21 +107,21 @@ const BOARD_PRIORITY_OPTIONS = PRIORITIES.map(
   (p) => `<option value="${p}"${p === 'medium' ? ' selected' : ''}>${p.charAt(0).toUpperCase() + p.slice(1)}</option>`
 ).join('\n        ');
 
-// Keep in sync with MODEL_ALIAS_OPTIONS in src/board/client/detailPanelHtml.ts
-// (duplicated because the client bundle is compiled as a separate TS project).
-const MODEL_ALIAS_OPTIONS = ['fable', 'opus', 'sonnet', 'haiku'];
-const BOARD_MODEL_OPTIONS = MODEL_ALIAS_OPTIONS.map(
-  (m) => `<option value="${m}">claude[${m.charAt(0).toUpperCase() + m.slice(1)}]</option>`
-).join('\n          ');
+function buildModelOptions(catalog: ModelCatalogEntry[]): string {
+  return catalog
+    .map((entry) => `<option value="${escapeHtml(entry.model)}">${escapeHtml(`${entry.cli}[${entry.model}]`)}</option>`)
+    .join('\n          ');
+}
 
-// Keep in sync with EFFORT_OPTIONS in src/board/client/detailPanelHtml.ts
-// (duplicated because the client bundle is compiled as a separate TS project).
-const EFFORT_OPTIONS = ['low', 'medium', 'high', 'xhigh', 'max'];
-const BOARD_EFFORT_OPTIONS = EFFORT_OPTIONS.map(
-  (e) => `<option value="${e}">${e.charAt(0).toUpperCase() + e.slice(1)}</option>`
-).join('\n          ');
+function buildEffortOptions(efforts: string[]): string {
+  return efforts.map((e) => `<option value="${escapeHtml(e)}">${escapeHtml(e)}</option>`).join('\n          ');
+}
 
-function getAddTaskModal(): string {
+function getAddTaskModal(catalog: ModelCatalogEntry[], defaultAgent: AgentTool): string {
+  const modelOptions = buildModelOptions(catalog);
+  // The model select starts on "Default (config)", so the initial effort list is
+  // the union for the default cli. rebuildEffortOptions narrows it client-side.
+  const effortOptions = buildEffortOptions(effortsForDefaultCli(catalog, defaultAgent));
   return `
   <div class="modal-overlay" id="add-modal">
     <div class="modal">
@@ -145,22 +147,22 @@ function getAddTaskModal(): string {
       <div class="model-effort-row">
         <select id="add-model-planning">
           <option value="">Default (config)</option>
-          ${BOARD_MODEL_OPTIONS}
+          ${modelOptions}
         </select>
         <select id="add-effort-planning">
           <option value="">Effort: default</option>
-          ${BOARD_EFFORT_OPTIONS}
+          ${effortOptions}
         </select>
       </div>
       <label for="add-model-run">Run Model</label>
       <div class="model-effort-row">
         <select id="add-model-run">
           <option value="">Default (config)</option>
-          ${BOARD_MODEL_OPTIONS}
+          ${modelOptions}
         </select>
         <select id="add-effort-run">
           <option value="">Effort: default</option>
-          ${BOARD_EFFORT_OPTIONS}
+          ${effortOptions}
         </select>
       </div>
       <label>Tags</label>
@@ -255,13 +257,15 @@ function getPurgeAndVersionModals(): string {
   return `${getPurgeModal()}${getArchiveModal()}${getImportModal()}${getVersionInfoModal()}`;
 }
 
-function getBoardBodyStatic(): string {
+function getBoardBodyStatic(catalog: ModelCatalogEntry[], defaultAgent: AgentTool): string {
   const configScript = `var statusColors = ${JSON.stringify(STATUS_COLORS)};
     var allStatuses = ${JSON.stringify(STATUSES)};
     var statusLabels = ${JSON.stringify(STATUS_LABELS)};
-    var allPriorities = ${JSON.stringify(PRIORITIES)};`;
+    var allPriorities = ${JSON.stringify(PRIORITIES)};
+    var modelCatalog = ${JSON.stringify(catalog)};
+    var defaultAgent = ${JSON.stringify(defaultAgent)};`;
 
-  return `${getAddTaskModal()}${getContextMenuAndToast()}${getPurgeAndVersionModals()}
+  return `${getAddTaskModal(catalog, defaultAgent)}${getContextMenuAndToast()}${getPurgeAndVersionModals()}
   <script>${configScript}
   </script>
   <link rel="stylesheet" href="/static/main.css">
@@ -305,6 +309,9 @@ export function renderBoard(
   theme?: string,
   blockMap: Map<number, { blockedBy: number[]; blocking: number[] }> = new Map()
 ): string {
+  const config = loadConfig();
+  const catalog = resolveModelCatalog(config);
+  const defaultAgent = resolveAgentTool(config);
   const columns = STATUSES.map((status) =>
     renderColumn(status, tasksByStatus.get(status) || [], tagMap, blockMap)
   ).join('');
@@ -324,7 +331,7 @@ export function renderBoard(
   ${renderBoardHeader(boardTitle)}
   ${renderFilterBar()}
   <div class="board-container">
-    <div class="board">${columns}</div>${getBoardBodyStatic()}
+    <div class="board">${columns}</div>${getBoardBodyStatic(catalog, defaultAgent)}
   </div>
 </body>
 </html>`;
