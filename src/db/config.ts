@@ -43,9 +43,14 @@ export function resolveAgentTool(config: Config): AgentTool {
 /**
  * Resolve model settings for the selected agent. Agent-specific settings take
  * precedence over the legacy flat planning/run settings.
+ * Pass `agent` to resolve for a cli other than the configured default (a task
+ * whose model override selects a different cli).
  */
-export function resolveModelSettings(config: Config, command: 'planning' | 'run'): ModelSettings | undefined {
-  const agent = resolveAgentTool(config);
+export function resolveModelSettings(
+  config: Config,
+  command: 'planning' | 'run',
+  agent: AgentTool = resolveAgentTool(config)
+): ModelSettings | undefined {
   return config.models?.[agent]?.[command] ?? config.models?.[command];
 }
 

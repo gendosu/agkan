@@ -56,6 +56,27 @@ describe('Agent tool resolution', () => {
     });
   });
 
+  it('uses the explicitly passed agent instead of the configured one', () => {
+    const config = {
+      agent: 'codex' as const,
+      models: {
+        claude: { run: { model: 'claude-sonnet', effort: 'low' } },
+        codex: { run: { model: 'gpt-codex', effort: 'high' } },
+      },
+    };
+
+    expect(resolveModelSettings(config, 'run', 'claude')).toEqual({ model: 'claude-sonnet', effort: 'low' });
+  });
+
+  it('falls back to the legacy flat settings for the explicitly passed agent', () => {
+    const config = {
+      agent: 'claude' as const,
+      models: { run: { model: 'legacy-model' } },
+    };
+
+    expect(resolveModelSettings(config, 'run', 'codex')).toEqual({ model: 'legacy-model' });
+  });
+
   it('rejects unsupported values loaded from YAML', () => {
     expect(() => resolveAgentTool({ agent: 'other' as 'claude' })).toThrow(
       'Invalid agent "other". Must be one of: claude, codex'
