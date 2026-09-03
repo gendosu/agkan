@@ -257,13 +257,21 @@ function getPurgeAndVersionModals(): string {
   return `${getPurgeModal()}${getArchiveModal()}${getImportModal()}${getVersionInfoModal()}`;
 }
 
+// JSON.stringify() does not escape "<", so a catalog model name containing
+// the literal "</script>" would otherwise close the surrounding <script>
+// element early. Escaping "<" to its unicode escape keeps the value inert
+// for the HTML parser while remaining valid JS/JSON for the browser to parse.
+function jsonForScript(value: unknown): string {
+  return JSON.stringify(value).replace(/</g, '\\u003c');
+}
+
 function getBoardBodyStatic(catalog: ModelCatalogEntry[], defaultAgent: AgentTool): string {
   const configScript = `var statusColors = ${JSON.stringify(STATUS_COLORS)};
     var allStatuses = ${JSON.stringify(STATUSES)};
     var statusLabels = ${JSON.stringify(STATUS_LABELS)};
     var allPriorities = ${JSON.stringify(PRIORITIES)};
-    var modelCatalog = ${JSON.stringify(catalog)};
-    var defaultAgent = ${JSON.stringify(defaultAgent)};`;
+    var modelCatalog = ${jsonForScript(catalog)};
+    var defaultAgent = ${jsonForScript(defaultAgent)};`;
 
   return `${getAddTaskModal(catalog, defaultAgent)}${getContextMenuAndToast()}${getPurgeAndVersionModals()}
   <script>${configScript}

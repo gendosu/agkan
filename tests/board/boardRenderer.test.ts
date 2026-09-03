@@ -429,4 +429,13 @@ describe('renderBoard model catalog wiring', () => {
     expect(html).toContain('<option value="only-one">claude[only-one]</option>');
     expect(html).not.toContain('claude[fable]');
   });
+
+  it('escapes </script> sequences in the embedded catalog so a model name cannot close the config script early', () => {
+    vi.mocked(configModule.loadConfig).mockReturnValue({
+      modelCatalog: [{ cli: 'claude', model: '</script><script>alert(1)</script>', efforts: ['high'] }],
+    });
+    const html = render();
+    expect(html).not.toContain('</script><script>alert(1)</script>');
+    expect(html).toContain('</script');
+  });
 });

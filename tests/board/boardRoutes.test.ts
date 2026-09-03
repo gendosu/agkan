@@ -1585,6 +1585,29 @@ describe('GET /', () => {
     expect(html).not.toContain('agkan-theme');
     expect(html).not.toContain('localStorage');
   });
+
+  // Isolate by mocking process.cwd() to a private tmp dir, matching the
+  // modelCatalog isolation pattern used above (PATCH /api/tasks/:id tests
+  // "returns 200 for a status-only PATCH..." / "fails an override write...")
+  // so an unparseable modelCatalog written here cannot leak into other tests
+  // in this concurrently-run file.
+  it('returns 500 when the configured catalog is invalid', async () => {
+    const services = buildServices();
+    const app = buildApp(services);
+    const tmpCwd = fs.mkdtempSync(path.join(os.tmpdir(), 'agkan-board-routes-test-'));
+    const cwdSpy = vi.spyOn(process, 'cwd').mockReturnValue(tmpCwd);
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    try {
+      // A string instead of an array: resolveModelCatalog() throws on this.
+      fs.writeFileSync(path.join(tmpCwd, '.agkan-test.yml'), yaml.dump({ modelCatalog: 'claude' }));
+      const res = await app.fetch(new Request('http://localhost/'));
+      expect(res.status).toBe(500);
+    } finally {
+      errorSpy.mockRestore();
+      cwdSpy.mockRestore();
+      fs.rmSync(tmpCwd, { recursive: true, force: true });
+    }
+  });
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
