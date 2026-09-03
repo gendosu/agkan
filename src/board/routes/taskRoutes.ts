@@ -104,7 +104,31 @@ function readOverride(rawValues: unknown, kind: 'planning' | 'run'): string | un
 }
 
 /**
- * Validate the effective model/effort pair for each kind after the write.
+ * Resolve the effective model/effort pair for one kind (planning/run), merging
+ * the body's override with the stored value on the untouched side.
+ * Returns undefined when the body touches neither side of this kind — the pair
+ * is then left unvalidated, so stored values that predate a config/catalog
+ * change (e.g. `.agkan.yml` drops a model) don't block edits that never touch
+ * models/efforts.
+ */
+function resolveOverridePair(
+  body: { models?: unknown; efforts?: unknown },
+  stored: StoredOverrides | undefined,
+  kind: 'planning' | 'run'
+): { model: string | null; effort: string | null } | undefined {
+  const model = readOverride(body.models, kind);
+  const effort = readOverride(body.efforts, kind);
+  if (model === undefined && effort === undefined) return undefined;
+  const storedModel = kind === 'planning' ? stored?.model_planning : stored?.model_run;
+  const storedEffort = kind === 'planning' ? stored?.effort_planning : stored?.effort_run;
+  return {
+    model: model ?? storedModel ?? null,
+    effort: effort ?? storedEffort ?? null,
+  };
+}
+
+/**
+ * Validate the effective model/effort pair for each kind touched by the write.
  * `stored` supplies the current values for PATCH; omit it for POST.
  */
 function validateOverrideBody(
@@ -114,17 +138,9 @@ function validateOverrideBody(
   const config = loadConfig();
   const catalog = resolveModelCatalog(config);
   const defaultCli = resolveAgentTool(config);
-  const pairs = [
-    {
-      model: readOverride(body.models, 'planning') ?? stored?.model_planning ?? null,
-      effort: readOverride(body.efforts, 'planning') ?? stored?.effort_planning ?? null,
-    },
-    {
-      model: readOverride(body.models, 'run') ?? stored?.model_run ?? null,
-      effort: readOverride(body.efforts, 'run') ?? stored?.effort_run ?? null,
-    },
-  ];
-  for (const pair of pairs) {
+  for (const kind of ['planning', 'run'] as const) {
+    const pair = resolveOverridePair(body, stored, kind);
+    if (!pair) continue;
     const error = validateOverridePair(catalog, defaultCli, pair.model, pair.effort);
     if (error) return error;
   }
@@ -217,7 +233,6 @@ function registerPatchAndDeleteTaskRoutes(app: Hono, ts: TaskService): void {
     const overrideError = validateOverrideBody(body, stored);
     if (overrideError) return c.json({ error: overrideError }, 400);
     const task = ts.updateTask(id, input);
-    if (!task) return c.json({ error: 'Task not found' }, 404);
     if (body.models !== undefined) persistTaskModelOverrides(id, body.models, ts);
     if (body.efforts !== undefined) persistTaskEffortOverrides(id, body.efforts, ts);
     // Re-fetch: persistTaskModelOverrides/persistTaskEffortOverrides write in a

@@ -6,6 +6,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { Hono } from 'hono';
 import fs from 'fs';
 import path from 'path';
+import yaml from 'js-yaml';
 import { execSync } from 'child_process';
 
 vi.mock('child_process', async (importOriginal) => {
@@ -31,6 +32,7 @@ import { getHookToken } from '../../src/utils/hookToken';
 import { DETAIL_PANE_MAX_WIDTH } from '../../src/board/boardConfig';
 
 const TEST_CONFIG_DIR = path.join(process.cwd(), '.agkan-test-routes-' + process.pid);
+const TEST_AGKAN_CONFIG = path.join(process.cwd(), '.agkan-test.yml');
 
 function buildServices(): BoardServices {
   const database = getStorageBackend();
@@ -62,6 +64,9 @@ beforeEach(() => {
 afterEach(() => {
   if (fs.existsSync(TEST_CONFIG_DIR)) {
     fs.rmSync(TEST_CONFIG_DIR, { recursive: true });
+  }
+  if (fs.existsSync(TEST_AGKAN_CONFIG)) {
+    fs.unlinkSync(TEST_AGKAN_CONFIG);
   }
 });
 
@@ -720,6 +725,25 @@ describe('PATCH /api/tasks/:id', () => {
     const updated = services.ts.getTask(task.id)!;
     expect(updated.model_run).toBe('gpt-5.6-sol');
     expect(updated.effort_run).toBeNull();
+  });
+
+  it('does not validate a stored pair that a later config change made invalid when the request touches neither models nor efforts', async () => {
+    const services = buildServices();
+    // 'max' is valid for the default 'claude' cli at creation time.
+    const task = services.ts.createTask({ title: 'Drifted', status: 'backlog', effort_run: 'max' });
+    // Switching the default cli to 'codex' makes the stored effort_run
+    // ('max') invalid: 'max' is not one of CODEX_EFFORTS.
+    fs.writeFileSync(TEST_AGKAN_CONFIG, yaml.dump({ agent: 'codex' }));
+    const app = buildApp(services);
+    const res = await app.fetch(
+      new Request(`http://localhost/api/tasks/${task.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'in_progress' }),
+      })
+    );
+    expect(res.status).toBe(200);
+    expect(services.ts.getTask(task.id)!.status).toBe('in_progress');
   });
 });
 
