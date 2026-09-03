@@ -8,9 +8,9 @@ import { runTargetStatus } from '../../utils/runTargetStatus';
 import {
   parseClaudeCommand,
   buildClaudePrompt,
-  resolveModelAndEffort,
-  isValidEffortLevel,
-  VALID_EFFORT_LEVELS,
+  resolveLaunchSettings,
+  LaunchSettingsError,
+  type LaunchSettings,
 } from '../claudePromptBuilder';
 
 export function registerClaudeRoutes(
@@ -39,16 +39,21 @@ export function registerClaudeRoutes(
 
     const prompt = buildClaudePrompt(taskId, command, task.branch);
 
-    const { model, effort } = resolveModelAndEffort(ts, taskId, command);
-    if (effort && !isValidEffortLevel(effort)) {
-      return c.json(
-        { error: `Invalid effort level "${effort}". Must be one of: ${VALID_EFFORT_LEVELS.join(', ')}` },
-        400
-      );
+    let agent: LaunchSettings['agent'];
+    let model: string | undefined;
+    let effort: string | undefined;
+    try {
+      ({ agent, model, effort } = resolveLaunchSettings(ts, taskId, command));
+    } catch (e) {
+      if (e instanceof LaunchSettingsError) {
+        return c.json({ error: e.message }, 400);
+      }
+      console.error(`[boardRoutes] failed to resolve launch settings for taskId=${taskId}:`, e);
+      return c.json({ error: e instanceof Error ? e.message : 'Failed to resolve launch settings' }, 500);
     }
 
     try {
-      await claudeProcess.startProcess(taskId, prompt, command, model, effort);
+      await claudeProcess.startProcess(taskId, prompt, command, model, effort, agent);
     } catch (e) {
       if (e instanceof ConflictError) {
         console.error(

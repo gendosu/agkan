@@ -113,7 +113,8 @@ describe('POST /api/claude/tasks/:taskId/run', () => {
       `Task ID: ${task.id}\n/agkan-subtask-direct\n\nWhen you have completed this task, send 'exit' as a prompt (not as a bash command) to end this session.`,
       'run',
       undefined,
-      undefined
+      undefined,
+      'claude'
     );
   });
 
@@ -137,7 +138,8 @@ describe('POST /api/claude/tasks/:taskId/run', () => {
       `Task ID: ${task.id}\n/agkan-planning-subtask\n\nWhen you have completed this task, send 'exit' as a prompt (not as a bash command) to end this session.`,
       'planning',
       undefined,
-      undefined
+      undefined,
+      'claude'
     );
   });
 
@@ -161,7 +163,8 @@ describe('POST /api/claude/tasks/:taskId/run', () => {
       `Task ID: ${task.id}\n/agkan-subtask-direct\n\nWhen you have completed this task, send 'exit' as a prompt (not as a bash command) to end this session.`,
       'run',
       undefined,
-      undefined
+      undefined,
+      'claude'
     );
   });
 
@@ -242,7 +245,8 @@ describe('POST /api/claude/tasks/:taskId/run', () => {
       `Task ID: ${task.id}\n/agkan-subtask-direct\n\nWhen you have completed this task, send 'exit' as a prompt (not as a bash command) to end this session.`,
       'run',
       'claude-sonnet-4-6',
-      'high'
+      'high',
+      'claude'
     );
   });
 
@@ -270,7 +274,7 @@ describe('POST /api/claude/tasks/:taskId/run', () => {
       })
     );
 
-    expect(mock.startProcess).toHaveBeenCalledWith(task.id, expect.any(String), 'run', 'gpt-codex', 'high');
+    expect(mock.startProcess).toHaveBeenCalledWith(task.id, expect.any(String), 'run', 'gpt-codex', 'high', 'codex');
   });
 
   it('passes effort only (no model) from config to startProcess', async () => {
@@ -294,7 +298,8 @@ describe('POST /api/claude/tasks/:taskId/run', () => {
       `Task ID: ${task.id}\n/agkan-subtask-direct\n\nWhen you have completed this task, send 'exit' as a prompt (not as a bash command) to end this session.`,
       'run',
       undefined,
-      'max'
+      'max',
+      'claude'
     );
   });
 
@@ -324,7 +329,8 @@ describe('POST /api/claude/tasks/:taskId/run', () => {
       `Task ID: ${task.id}\n/agkan-subtask-direct\n\nWhen you have completed this task, send 'exit' as a prompt (not as a bash command) to end this session.`,
       'run',
       undefined,
-      'xhigh'
+      'xhigh',
+      'claude'
     );
   });
 
@@ -350,15 +356,16 @@ describe('POST /api/claude/tasks/:taskId/run', () => {
       `Task ID: ${task.id}\n/agkan-planning-subtask\n\nWhen you have completed this task, send 'exit' as a prompt (not as a bash command) to end this session.`,
       'planning',
       undefined,
-      'max'
+      'max',
+      'claude'
     );
   });
 
-  it('returns 400 when the task-level effort override is invalid', async () => {
+  it('returns 400 when the task-level model is not in the catalog', async () => {
     const mock = buildMockClaudeProcessService();
     const services = buildServices(mock);
-    const task = services.ts.createTask({ title: 'Invalid Effort Override Task', status: 'backlog' });
-    services.ts.updateTask(task.id, { effort_run: 'ultra' });
+    const task = services.ts.createTask({ title: 'Unknown Model Task', status: 'backlog' });
+    services.ts.updateTask(task.id, { model_run: 'gpt-5' });
     const app = buildApp(services);
 
     const res = await app.fetch(
@@ -371,14 +378,15 @@ describe('POST /api/claude/tasks/:taskId/run', () => {
 
     expect(res.status).toBe(400);
     const data = (await res.json()) as { error: string };
-    expect(data.error).toMatch(/Invalid effort level/);
+    expect(data.error).toMatch(/is not in modelCatalog/);
+    expect(mock.startProcess).not.toHaveBeenCalled();
   });
 
-  it('returns 400 when effort is an invalid value', async () => {
-    fs.writeFileSync(TEST_AGKAN_CONFIG, yaml.dump({ models: { run: { effort: 'ultra' } } }));
+  it('returns 400 when the task-level effort is not allowed for the task-level model', async () => {
     const mock = buildMockClaudeProcessService();
     const services = buildServices(mock);
-    const task = services.ts.createTask({ title: 'Invalid Effort Task', status: 'backlog' });
+    const task = services.ts.createTask({ title: 'Bad Effort Pair Task', status: 'backlog' });
+    services.ts.updateTask(task.id, { model_run: 'opus', effort_run: 'none' });
     const app = buildApp(services);
 
     const res = await app.fetch(
@@ -391,7 +399,75 @@ describe('POST /api/claude/tasks/:taskId/run', () => {
 
     expect(res.status).toBe(400);
     const data = (await res.json()) as { error: string };
-    expect(data.error).toMatch(/Invalid effort level/);
+    expect(data.error).toMatch(/is not allowed for model "opus"/);
+  });
+
+  it('passes a config effort through unvalidated when the config model is not in the catalog', async () => {
+    fs.writeFileSync(
+      TEST_AGKAN_CONFIG,
+      yaml.dump({ models: { run: { model: 'claude-sonnet-4-6', effort: 'ultra' } } })
+    );
+    const mock = buildMockClaudeProcessService();
+    const services = buildServices(mock);
+    const task = services.ts.createTask({ title: 'Passthrough Effort Task', status: 'backlog' });
+    const app = buildApp(services);
+
+    const res = await app.fetch(
+      new Request(`http://localhost/api/claude/tasks/${task.id}/run`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ command: 'run' }),
+      })
+    );
+
+    expect(res.status).toBe(201);
+    expect(mock.startProcess).toHaveBeenCalledWith(
+      task.id,
+      expect.any(String),
+      'run',
+      'claude-sonnet-4-6',
+      'ultra',
+      'claude'
+    );
+  });
+
+  it('passes the cli of the task-level model row to startProcess', async () => {
+    const mock = buildMockClaudeProcessService();
+    const services = buildServices(mock);
+    const task = services.ts.createTask({ title: 'Codex Model Task', status: 'backlog' });
+    services.ts.updateTask(task.id, { model_run: 'gpt-5.6-sol', effort_run: 'none' });
+    const app = buildApp(services);
+
+    const res = await app.fetch(
+      new Request(`http://localhost/api/claude/tasks/${task.id}/run`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ command: 'run' }),
+      })
+    );
+
+    expect(res.status).toBe(201);
+    expect(mock.startProcess).toHaveBeenCalledWith(task.id, expect.any(String), 'run', 'gpt-5.6-sol', 'none', 'codex');
+  });
+
+  it('returns 500 when the configured modelCatalog is invalid', async () => {
+    fs.writeFileSync(TEST_AGKAN_CONFIG, yaml.dump({ modelCatalog: 'claude' }));
+    const mock = buildMockClaudeProcessService();
+    const services = buildServices(mock);
+    const task = services.ts.createTask({ title: 'Broken Catalog Task', status: 'backlog' });
+    const app = buildApp(services);
+
+    const res = await app.fetch(
+      new Request(`http://localhost/api/claude/tasks/${task.id}/run`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ command: 'run' }),
+      })
+    );
+
+    expect(res.status).toBe(500);
+    const data = (await res.json()) as { error: string };
+    expect(data.error).toMatch(/Invalid modelCatalog/);
   });
 
   it('returns 404 when ptySessionService is not configured', async () => {
