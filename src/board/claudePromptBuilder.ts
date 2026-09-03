@@ -33,23 +33,6 @@ export function buildClaudePrompt(taskId: number, command: ClaudeCommand, branch
       : `Task ID: ${taskId}\n/agkan-subtask-direct${branchInstruction}${exitInstruction}`;
 }
 
-export const VALID_EFFORT_LEVELS = ['low', 'medium', 'high', 'xhigh', 'max'] as const;
-
-export function isValidEffortLevel(effort: string): effort is (typeof VALID_EFFORT_LEVELS)[number] {
-  return (VALID_EFFORT_LEVELS as readonly string[]).includes(effort);
-}
-
-/**
- * Claude model aliases accepted for task-level overrides.
- * Single source of truth: the board client dropdown and the CLI flags both
- * validate against this list.
- */
-export const MODEL_ALIASES = ['fable', 'opus', 'sonnet', 'haiku'] as const;
-
-export function isValidModelAlias(model: string): model is (typeof MODEL_ALIASES)[number] {
-  return (MODEL_ALIASES as readonly string[]).includes(model);
-}
-
 /** Thrown when a task's model/effort cannot be resolved against the model catalog. */
 export class LaunchSettingsError extends Error {}
 

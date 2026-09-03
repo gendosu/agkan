@@ -7,12 +7,9 @@ import { isPriority } from '../../../models/Priority';
 import { validateTaskStatus } from '../../utils/validators';
 import { OutputFormatter } from '../../utils/output-formatter';
 import { readBodyFromFile } from './add-helpers';
-import {
-  MODEL_ALIASES,
-  isValidModelAlias,
-  VALID_EFFORT_LEVELS,
-  isValidEffortLevel,
-} from '../../../board/claudePromptBuilder';
+import type { Task } from '../../../models';
+import { loadConfig, resolveAgentTool } from '../../../db/config';
+import { resolveModelCatalog, validateOverridePair } from '../../../db/modelCatalog';
 
 export interface UpdateOptions {
   title?: string;
@@ -78,33 +75,38 @@ export function validatePriority(val: string, formatter: OutputFormatter): boole
 }
 
 /**
- * Validates a Claude model alias and exits on failure.
- * An empty string is accepted: it is the "clear this override" value.
+ * Validate the effective model/effort pairs after this update is applied.
+ * Each kind (planning/run) is checked only when the update touches at least one
+ * of its two fields; the untouched side falls back to what is already stored on
+ * the task. A kind neither field of which is touched is left unvalidated, so a
+ * previously stored override that a later config/catalog change made invalid
+ * never blocks an update that doesn't touch it (e.g. `--status done`).
+ * @returns Error message for the first invalid pair, or null when all are valid
  */
-export function validateModelAlias(val: string, formatter: OutputFormatter): boolean {
-  if (val === '' || isValidModelAlias(val)) return true;
-  formatter.error(`Invalid model: ${val}. Valid models: ${MODEL_ALIASES.join(', ')}`, () => {
-    console.error(chalk.red(`\nInvalid model: ${val}`));
-    console.error(`Valid models: ${MODEL_ALIASES.join(', ')}\n`);
-  });
-  return false;
+export function validateModelEffortUpdate(updateInput: Record<string, string>, stored: Task): string | null {
+  const config = loadConfig();
+  const catalog = resolveModelCatalog(config);
+  const defaultCli = resolveAgentTool(config);
+  const kinds = [
+    {
+      model: 'model_planning',
+      effort: 'effort_planning',
+      storedModel: stored.model_planning,
+      storedEffort: stored.effort_planning,
+    },
+    { model: 'model_run', effort: 'effort_run', storedModel: stored.model_run, storedEffort: stored.effort_run },
+  ] as const;
+  for (const kind of kinds) {
+    const modelTouched = kind.model in updateInput;
+    const effortTouched = kind.effort in updateInput;
+    if (!modelTouched && !effortTouched) continue;
+    const model = modelTouched ? updateInput[kind.model] : kind.storedModel;
+    const effort = effortTouched ? updateInput[kind.effort] : kind.storedEffort;
+    const error = validateOverridePair(catalog, defaultCli, model, effort);
+    if (error) return error;
+  }
+  return null;
 }
-
-/**
- * Validates a reasoning effort level and exits on failure.
- * An empty string is accepted: it is the "clear this override" value.
- */
-export function validateEffortLevel(val: string, formatter: OutputFormatter): boolean {
-  if (val === '' || isValidEffortLevel(val)) return true;
-  formatter.error(`Invalid effort: ${val}. Valid efforts: ${VALID_EFFORT_LEVELS.join(', ')}`, () => {
-    console.error(chalk.red(`\nInvalid effort: ${val}`));
-    console.error(`Valid efforts: ${VALID_EFFORT_LEVELS.join(', ')}\n`);
-  });
-  return false;
-}
-
-const MODEL_FIELDS = ['model_planning', 'model_run'];
-const EFFORT_FIELDS = ['effort_planning', 'effort_run'];
 
 /**
  * Reads the body from a file, returning the content or null on error.
@@ -158,8 +160,6 @@ export function buildFlagModeInput(options: UpdateOptions, formatter: OutputForm
     if (val === undefined) continue;
     if (key === 'status' && !validateStatus(val, formatter)) return null;
     if (key === 'priority' && !validatePriority(val, formatter)) return null;
-    if (MODEL_FIELDS.includes(key) && !validateModelAlias(val, formatter)) return null;
-    if (EFFORT_FIELDS.includes(key) && !validateEffortLevel(val, formatter)) return null;
     updateInput[key] = val;
   }
   return updateInput;
@@ -248,7 +248,5 @@ export function buildPositionalModeInput(
   if (resolvedValue === null) return null;
   if (field === 'status' && !validateStatus(resolvedValue, formatter)) return null;
   if (field === 'priority' && !validatePriority(resolvedValue, formatter)) return null;
-  if (MODEL_FIELDS.includes(field) && !validateModelAlias(resolvedValue, formatter)) return null;
-  if (EFFORT_FIELDS.includes(field) && !validateEffortLevel(resolvedValue, formatter)) return null;
   return { [field]: resolvedValue };
 }

@@ -10,12 +10,13 @@ import { parseNumericArray } from '../../utils/error-handler';
 import { getStatusColor, formatDate } from '../../../utils/format';
 import { filterNonNull } from '../../utils/array-utils';
 import { resolveTag } from '../../utils/tag-resolver';
+import { loadConfig, resolveAgentTool } from '../../../db/config';
 import {
-  MODEL_ALIASES,
-  isValidModelAlias,
-  VALID_EFFORT_LEVELS,
-  isValidEffortLevel,
-} from '../../../board/claudePromptBuilder';
+  DEFAULT_MODEL_CATALOG,
+  resolveModelCatalog,
+  effortsForDefaultCli,
+  validateOverridePair,
+} from '../../../db/modelCatalog';
 
 export function readBodyFromFile(filePath: string): string {
   const fileService = new FileService();
@@ -106,23 +107,41 @@ export interface ModelEffortOptions {
 }
 
 /**
- * Validate the four task-level model/effort override flags.
- * @returns Error message for the first invalid value, or null when all are valid
+ * Values used in the --model-* / --effort-* help strings.
+ * Falls back to the built-in catalog when .agkan.yml cannot be resolved, so a
+ * broken config never stops the whole CLI from registering its commands.
+ */
+export function modelEffortHelpText(): { models: string; efforts: string } {
+  try {
+    const config = loadConfig();
+    const catalog = resolveModelCatalog(config);
+    return {
+      models: catalog.map((entry) => entry.model).join(', '),
+      efforts: effortsForDefaultCli(catalog, resolveAgentTool(config)).join(', '),
+    };
+  } catch {
+    return {
+      models: DEFAULT_MODEL_CATALOG.map((entry) => entry.model).join(', '),
+      efforts: effortsForDefaultCli(DEFAULT_MODEL_CATALOG, 'claude').join(', '),
+    };
+  }
+}
+
+/**
+ * Validate the four task-level model/effort override flags against the model catalog.
+ * planning and run are checked as pairs: the effort must belong to the row the
+ * model selects, or to the default cli's union when no model was given.
+ * @returns Error message for the first invalid pair, or null when all are valid
  */
 export function validateModelEffortOptions(options: ModelEffortOptions): string | null {
-  const checks: Array<[string, string | undefined, (value: string) => boolean, readonly string[]]> = [
-    ['--model-planning', options.modelPlanning, isValidModelAlias, MODEL_ALIASES],
-    ['--model-run', options.modelRun, isValidModelAlias, MODEL_ALIASES],
-    ['--effort-planning', options.effortPlanning, isValidEffortLevel, VALID_EFFORT_LEVELS],
-    ['--effort-run', options.effortRun, isValidEffortLevel, VALID_EFFORT_LEVELS],
-  ];
-  for (const [flag, value, isValid, validValues] of checks) {
-    if (value === undefined) continue;
-    if (!isValid(value)) {
-      return `Invalid ${flag} value: ${value}. Valid values: ${validValues.join(', ')}`;
-    }
-  }
-  return null;
+  const config = loadConfig();
+  const catalog = resolveModelCatalog(config);
+  const defaultCli = resolveAgentTool(config);
+  return (
+    validateOverridePair(catalog, defaultCli, options.modelPlanning, options.effortPlanning) ??
+    validateOverridePair(catalog, defaultCli, options.modelRun, options.effortRun) ??
+    null
+  );
 }
 
 function taskToJson(task: Task): object {

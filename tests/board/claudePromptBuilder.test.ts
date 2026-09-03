@@ -14,10 +14,6 @@ import { TaskService } from '../../src/services/TaskService';
 import {
   parseClaudeCommand,
   buildClaudePrompt,
-  isValidEffortLevel,
-  VALID_EFFORT_LEVELS,
-  isValidModelAlias,
-  MODEL_ALIASES,
   resolveLaunchSettings,
   LaunchSettingsError,
 } from '../../src/board/claudePromptBuilder';
@@ -75,37 +71,6 @@ describe('buildClaudePrompt', () => {
   it('omits the branch-generation instruction once a branch is set', () => {
     const prompt = buildClaudePrompt(3, 'run', 'feature/bar');
     expect(prompt).not.toContain('No branch specified');
-  });
-});
-
-describe('isValidEffortLevel / VALID_EFFORT_LEVELS', () => {
-  it('accepts each documented level', () => {
-    for (const level of VALID_EFFORT_LEVELS) {
-      expect(isValidEffortLevel(level)).toBe(true);
-    }
-  });
-
-  it('rejects unknown levels', () => {
-    expect(isValidEffortLevel('ultra')).toBe(false);
-    expect(isValidEffortLevel('')).toBe(false);
-  });
-});
-
-describe('isValidModelAlias / MODEL_ALIASES', () => {
-  it('lists exactly the aliases the board dropdown offers', () => {
-    expect([...MODEL_ALIASES]).toEqual(['fable', 'opus', 'sonnet', 'haiku']);
-  });
-
-  it('accepts each documented alias', () => {
-    for (const alias of MODEL_ALIASES) {
-      expect(isValidModelAlias(alias)).toBe(true);
-    }
-  });
-
-  it('rejects unknown aliases', () => {
-    expect(isValidModelAlias('gpt-5')).toBe(false);
-    expect(isValidModelAlias('Opus')).toBe(false);
-    expect(isValidModelAlias('')).toBe(false);
   });
 });
 

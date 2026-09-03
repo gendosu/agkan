@@ -691,7 +691,7 @@ describe('setupTaskAddCommand', () => {
     it('should reject an invalid model alias and not create the task', async () => {
       const { exitCode, errors } = await runCommand(program, ['task', 'add', 'Bad Model', '--model-run', 'gpt-5']);
       expect(exitCode).toBe(1);
-      expect(errors.join('\n')).toContain('--model-run');
+      expect(errors.join('\n')).toContain('Invalid model "gpt-5"');
 
       const taskService = new TaskService();
       expect(taskService.listTasks()).toHaveLength(0);
@@ -706,7 +706,42 @@ describe('setupTaskAddCommand', () => {
         'ultra',
       ]);
       expect(exitCode).toBe(1);
-      expect(errors.join('\n')).toContain('--effort-planning');
+      expect(errors.join('\n')).toContain('Invalid effort "ultra"');
+
+      const taskService = new TaskService();
+      expect(taskService.listTasks()).toHaveLength(0);
+    });
+
+    it('should accept a codex model from the catalog with a codex-only effort', async () => {
+      const { exitCode } = await runCommand(program, [
+        'task',
+        'add',
+        'Codex Task',
+        '--model-run',
+        'gpt-5.6-sol',
+        '--effort-run',
+        'none',
+      ]);
+      expect(exitCode).toBeUndefined();
+
+      const taskService = new TaskService();
+      const tasks = taskService.listTasks();
+      expect(tasks[0].model_run).toBe('gpt-5.6-sol');
+      expect(tasks[0].effort_run).toBe('none');
+    });
+
+    it('should reject an effort that does not belong to the selected model row', async () => {
+      const { exitCode, errors } = await runCommand(program, [
+        'task',
+        'add',
+        'Mismatched',
+        '--model-run',
+        'opus',
+        '--effort-run',
+        'none',
+      ]);
+      expect(exitCode).toBe(1);
+      expect(errors.join('\n')).toContain('Invalid effort "none" for model "opus"');
 
       const taskService = new TaskService();
       expect(taskService.listTasks()).toHaveLength(0);

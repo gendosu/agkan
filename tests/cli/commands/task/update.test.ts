@@ -4,10 +4,16 @@
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { Command } from 'commander';
+import fs from 'fs';
+import path from 'path';
+import yaml from 'js-yaml';
 import { setupTaskUpdateCommand } from '../../../../src/cli/commands/task/update';
 import { resetDatabase } from '../../../../src/db/reset';
 import { TaskService } from '../../../../src/services';
 import { createProgram, runCommand } from '../../../helpers/command-test-utils';
+
+// loadConfig() reads '<cwd>/.agkan-test.yml' in test mode (NODE_ENV=test).
+const TEST_AGKAN_CONFIG = path.join(process.cwd(), '.agkan-test.yml');
 
 describe('setupTaskUpdateCommand', () => {
   let program: Command;
@@ -23,7 +29,9 @@ describe('setupTaskUpdateCommand', () => {
   });
 
   afterEach(() => {
-    // cleanup if needed
+    if (fs.existsSync(TEST_AGKAN_CONFIG)) {
+      fs.unlinkSync(TEST_AGKAN_CONFIG);
+    }
   });
 
   it('should register the update command', () => {
@@ -1005,7 +1013,7 @@ describe('setupTaskUpdateCommand', () => {
         'gpt-5',
       ]);
       expect(exitCode).toBe(1);
-      expect(errors.join('\n')).toContain('Invalid model: gpt-5');
+      expect(errors.join('\n')).toContain('Invalid model "gpt-5"');
       expect(taskService.getTask(task.id)?.model_run).toBeNull();
     });
 
@@ -1021,8 +1029,44 @@ describe('setupTaskUpdateCommand', () => {
         'ultra',
       ]);
       expect(exitCode).toBe(1);
-      expect(errors.join('\n')).toContain('Invalid effort: ultra');
+      expect(errors.join('\n')).toContain('Invalid effort "ultra"');
       expect(taskService.getTask(task.id)?.effort_run).toBeNull();
+    });
+
+    it('should validate a new model against the stored effort', async () => {
+      const taskService = new TaskService();
+      const task = taskService.createTask({ title: 'Stored effort test', effort_run: 'max' });
+
+      const { exitCode, errors } = await runCommand(program, [
+        'task',
+        'update',
+        String(task.id),
+        '--model-run',
+        'gpt-5.6-sol',
+      ]);
+      expect(exitCode).toBe(1);
+      expect(errors.join('\n')).toContain('Invalid effort "max" for model "gpt-5.6-sol"');
+      expect(taskService.getTask(task.id)?.model_run).toBeNull();
+    });
+
+    it('should accept a model/effort swap sent in one command', async () => {
+      const taskService = new TaskService();
+      const task = taskService.createTask({ title: 'Swap test', model_run: 'opus', effort_run: 'max' });
+
+      const { exitCode } = await runCommand(program, [
+        'task',
+        'update',
+        String(task.id),
+        '--model-run',
+        'gpt-5.6-sol',
+        '--effort-run',
+        'none',
+      ]);
+      expect(exitCode).toBeUndefined();
+
+      const updated = taskService.getTask(task.id);
+      expect(updated?.model_run).toBe('gpt-5.6-sol');
+      expect(updated?.effort_run).toBe('none');
     });
 
     it('should update an override with positional syntax', async () => {
@@ -1047,7 +1091,20 @@ describe('setupTaskUpdateCommand', () => {
         'ultra',
       ]);
       expect(exitCode).toBe(1);
-      expect(errors.join('\n')).toContain('Invalid effort: ultra');
+      expect(errors.join('\n')).toContain('Invalid effort "ultra"');
+    });
+
+    it('does not validate a stored override that a later config change made invalid when the update touches neither its model nor effort flag', async () => {
+      const taskService = new TaskService();
+      // 'max' is valid for the default 'claude' cli at creation time.
+      const task = taskService.createTask({ title: 'Drifted', effort_run: 'max' });
+      // Switching the default cli to 'codex' makes the stored effort_run
+      // ('max') invalid: 'max' is not one of CODEX_EFFORTS.
+      fs.writeFileSync(TEST_AGKAN_CONFIG, yaml.dump({ agent: 'codex' }));
+
+      const { exitCode } = await runCommand(program, ['task', 'update', String(task.id), '--status', 'done']);
+      expect(exitCode).toBeUndefined();
+      expect(taskService.getTask(task.id)?.status).toBe('done');
     });
   });
 });
