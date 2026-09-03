@@ -32,6 +32,11 @@ function setupWindowGlobals(): void {
     done: 'Done',
   };
   (window as unknown as Record<string, unknown>).allPriorities = ['low', 'medium', 'high'];
+  (window as unknown as Record<string, unknown>).modelCatalog = [
+    { cli: 'claude', model: 'opus', efforts: ['low', 'high', 'max'] },
+    { cli: 'codex', model: 'gpt-5.6-sol', efforts: ['none', 'low'] },
+  ];
+  (window as unknown as Record<string, unknown>).defaultAgent = 'claude';
 }
 
 function makeTaskDetail(overrides: Record<string, unknown> = {}) {
@@ -575,22 +580,59 @@ describe('renderEditableTextFields', () => {
 // ---- renderModelFields ----
 
 describe('renderModelFields', () => {
+  beforeEach(setupWindowGlobals);
+
   it('pre-selects the model/effort dropdowns from the task columns when overrides are set', () => {
     const task = {
       ...makeTaskDetail().task,
       model_planning: 'opus',
-      model_run: 'sonnet',
+      model_run: 'gpt-5.6-sol',
       effort_planning: 'high',
-      effort_run: 'low',
+      effort_run: 'none',
     };
     const html = renderModelFields(task);
     const div = document.createElement('div');
     div.innerHTML = html;
 
     expect((div.querySelector('#detail-edit-model-planning') as HTMLSelectElement).value).toBe('opus');
-    expect((div.querySelector('#detail-edit-model-run') as HTMLSelectElement).value).toBe('sonnet');
+    expect((div.querySelector('#detail-edit-model-run') as HTMLSelectElement).value).toBe('gpt-5.6-sol');
     expect((div.querySelector('#detail-edit-effort-planning') as HTMLSelectElement).value).toBe('high');
-    expect((div.querySelector('#detail-edit-effort-run') as HTMLSelectElement).value).toBe('low');
+    expect((div.querySelector('#detail-edit-effort-run') as HTMLSelectElement).value).toBe('none');
+  });
+
+  it('labels every model option as cli[model]', () => {
+    const html = renderModelFields({ ...makeTaskDetail().task });
+    const div = document.createElement('div');
+    div.innerHTML = html;
+
+    const labels = [...div.querySelectorAll('#detail-edit-model-run option')].map((o) => o.textContent);
+    expect(labels).toEqual(['Default (config)', 'claude[opus]', 'codex[gpt-5.6-sol]']);
+  });
+
+  it('scopes the effort options to the selected model row', () => {
+    const task = { ...makeTaskDetail().task, model_run: 'gpt-5.6-sol' };
+    const html = renderModelFields(task);
+    const div = document.createElement('div');
+    div.innerHTML = html;
+
+    const values = [...div.querySelectorAll('#detail-edit-effort-run option')].map(
+      (o) => (o as HTMLOptionElement).value
+    );
+    expect(values).toEqual(['', 'none', 'low']);
+  });
+
+  it('keeps a stored model that is not in the catalog visible and selected', () => {
+    const task = { ...makeTaskDetail().task, model_run: 'sonnet', effort_run: 'ultra' };
+    const html = renderModelFields(task);
+    const div = document.createElement('div');
+    div.innerHTML = html;
+
+    const modelSelect = div.querySelector('#detail-edit-model-run') as HTMLSelectElement;
+    const effortSelect = div.querySelector('#detail-edit-effort-run') as HTMLSelectElement;
+    expect(modelSelect.value).toBe('sonnet');
+    expect(modelSelect.selectedOptions[0].textContent).toBe('(not in catalog) sonnet');
+    expect(effortSelect.value).toBe('ultra');
+    expect(effortSelect.selectedOptions[0].textContent).toBe('(not in catalog) ultra');
   });
 
   it('renders the default/empty option when the task has no overrides (null columns)', () => {

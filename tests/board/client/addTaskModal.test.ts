@@ -685,3 +685,39 @@ describe('initAddTaskModal - create new tag option', () => {
     expect(pill!.textContent).toContain('newfeature');
   });
 });
+
+describe('add modal model/effort linkage', () => {
+  beforeEach(() => {
+    setupAddModalDOM();
+    (window as unknown as Record<string, unknown>).modelCatalog = [
+      { cli: 'claude', model: 'opus', efforts: ['low', 'max'] },
+      { cli: 'codex', model: 'gpt-5.6-sol', efforts: ['none', 'low'] },
+    ];
+    (window as unknown as Record<string, unknown>).defaultAgent = 'claude';
+    vi.spyOn(tagsModule, 'loadAllTags').mockResolvedValue(undefined);
+    initAddTaskModal();
+  });
+
+  it('rebuilds the run effort options when the run model changes', () => {
+    const modelSelect = document.getElementById('add-model-run') as HTMLSelectElement;
+    modelSelect.innerHTML = '<option value=""></option><option value="gpt-5.6-sol">codex[gpt-5.6-sol]</option>';
+    modelSelect.value = 'gpt-5.6-sol';
+    modelSelect.dispatchEvent(new Event('change'));
+
+    const effortSelect = document.getElementById('add-effort-run') as HTMLSelectElement;
+    expect([...effortSelect.options].map((o) => o.value)).toEqual(['', 'none', 'low']);
+  });
+
+  it('restores the default cli effort union when the modal is reopened', () => {
+    const modelSelect = document.getElementById('add-model-run') as HTMLSelectElement;
+    modelSelect.innerHTML = '<option value=""></option><option value="gpt-5.6-sol">codex[gpt-5.6-sol]</option>';
+    modelSelect.value = 'gpt-5.6-sol';
+    modelSelect.dispatchEvent(new Event('change'));
+
+    (document.querySelector('.add-btn') as HTMLButtonElement).click();
+
+    const effortSelect = document.getElementById('add-effort-run') as HTMLSelectElement;
+    expect([...effortSelect.options].map((o) => o.value)).toEqual(['', 'low', 'max']);
+    expect(effortSelect.value).toBe('');
+  });
+});
