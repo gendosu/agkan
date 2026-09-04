@@ -54,10 +54,10 @@ agent: claude
 #       effort: high
 #   codex:
 #     planning:
-#       model: gpt-5.1-codex
+#       model: gpt-5.6-sol
 #       effort: high
 #     run:
-#       model: gpt-5.1-codex
+#       model: gpt-5.6-sol
 #       effort: high
 
 # Model catalog
