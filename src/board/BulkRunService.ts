@@ -2,7 +2,8 @@ import { TaskService } from '../services/TaskService';
 import { TaskBlockService } from '../services/TaskBlockService';
 import { PtySessionService } from '../terminal/PtySessionService';
 import { PRIORITY_ORDER } from '../models';
-import { resolveModelAndEffort } from './claudePromptBuilder';
+import { resolveLaunchSettings } from './claudePromptBuilder';
+import type { AgentTool } from '../db/config';
 
 export type BulkRunCommand = 'direct' | 'pr';
 type BulkRunState = 'idle' | 'running';
@@ -16,6 +17,14 @@ type StateChangeCallback = (status: BulkRunStatus) => void;
 
 const POLL_INTERVAL_MS = 3000;
 
+interface LaunchParams {
+  prompt: string;
+  ptyCommand: 'pr' | 'run';
+  model: string | undefined;
+  effort: string | undefined;
+  agent: AgentTool;
+}
+
 export class BulkRunService {
   private mode: BulkRunState = 'idle';
   private command: BulkRunCommand | null = null;
@@ -23,6 +32,9 @@ export class BulkRunService {
   private stateChangeSubscribers: Set<StateChangeCallback> = new Set();
   private runningChangeUnsub: (() => void) | null = null;
   private pollTimer: ReturnType<typeof setTimeout> | null = null;
+  // Tasks whose launch settings could not be resolved. Without this the loop
+  // would re-select the same still-'ready' task forever.
+  private skippedTaskIds = new Set<number>();
 
   constructor(
     private ts: TaskService,
@@ -52,6 +64,7 @@ export class BulkRunService {
     this.mode = 'running';
     this.command = command;
     this.stopRequested = false;
+    this.skippedTaskIds.clear();
     this.notifyStateChange();
     void this.runNext();
     return {};
@@ -86,6 +99,7 @@ export class BulkRunService {
     }
 
     const available = tasks.filter((task) => {
+      if (this.skippedTaskIds.has(task.id)) return false;
       const blockerIds = blockedByMap.get(task.id) ?? [];
       return blockerIds.every((bid) => {
         const blocker = this.ts.getTask(bid);
@@ -135,12 +149,7 @@ export class BulkRunService {
     });
   }
 
-  private buildLaunchParams(taskId: number): {
-    prompt: string;
-    ptyCommand: 'pr' | 'run';
-    model: string | undefined;
-    effort: string | undefined;
-  } {
+  private buildLaunchParams(taskId: number): LaunchParams {
     const command = this.command!;
     const ptyCommand: 'pr' | 'run' = command === 'pr' ? 'pr' : 'run';
     const exitInstruction =
@@ -149,18 +158,11 @@ export class BulkRunService {
       command === 'pr'
         ? `Task ID: ${taskId}\n/agkan-subtask${exitInstruction}`
         : `Task ID: ${taskId}\n/agkan-subtask-direct${exitInstruction}`;
-    const { model, effort } = resolveModelAndEffort(this.taskService, taskId, 'run');
-    return {
-      prompt,
-      ptyCommand,
-      model,
-      effort,
-    };
+    const { agent, model, effort } = resolveLaunchSettings(this.taskService, taskId, 'run');
+    return { prompt, ptyCommand, model, effort, agent };
   }
 
   private async launchTask(taskId: number): Promise<void> {
-    const { prompt, ptyCommand, model, effort } = this.buildLaunchParams(taskId);
-
     // Track whether runNext has already been called to prevent duplicate invocations.
     let advanced = false;
     const advance = (): void => {
@@ -170,8 +172,19 @@ export class BulkRunService {
       }
     };
 
+    let params: LaunchParams;
     try {
-      await this.claudeProcess.startProcess(taskId, prompt, ptyCommand, model, effort);
+      params = this.buildLaunchParams(taskId);
+    } catch (e) {
+      console.error(`[BulkRunService] skipping taskId=${taskId}: ${e instanceof Error ? e.message : String(e)}`);
+      this.skippedTaskIds.add(taskId);
+      advance();
+      return;
+    }
+    const { prompt, ptyCommand, model, effort, agent } = params;
+
+    try {
+      await this.claudeProcess.startProcess(taskId, prompt, ptyCommand, model, effort, agent);
     } catch {
       advance();
       return;
