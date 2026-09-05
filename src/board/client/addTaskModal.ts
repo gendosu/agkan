@@ -5,6 +5,7 @@ import { allAvailableTags } from './tags';
 import type { Tag } from './types';
 import { refreshBoardCards } from './boardPolling';
 import { initBranchSelector, type BranchSelector } from './branchSelector';
+import { rebuildEffortOptions, wireModelEffortSync } from './modelOptions';
 
 interface AddModalElements {
   addModal: HTMLElement;
@@ -246,6 +247,10 @@ function resetAddModal(elements: AddModalElements): void {
   elements.addModelRun.value = '';
   elements.addEffortPlanning.value = '';
   elements.addEffortRun.value = '';
+  // Model is back on "Default (config)", so the effort lists go back to the
+  // default cli union (and lose any effort left over from the previous model).
+  rebuildEffortOptions(elements.addModelPlanning, elements.addEffortPlanning);
+  rebuildEffortOptions(elements.addModelRun, elements.addEffortRun);
   // Reset tags
   selectedTags = [];
   tagInputValue = '';
@@ -326,6 +331,9 @@ export function initAddTaskModal(): void {
     addEffortPlanning: document.getElementById('add-effort-planning') as HTMLSelectElement,
     addEffortRun: document.getElementById('add-effort-run') as HTMLSelectElement,
   };
+
+  wireModelEffortSync('add-model-planning', 'add-effort-planning');
+  wireModelEffortSync('add-model-run', 'add-effort-run');
 
   initAddTagSelector();
 
