@@ -30,6 +30,7 @@ import {
 import { fitTerminal, stopTerminal, getCurrentTerminalTaskId, attachTerminalToTab } from './claudeTerminalModal';
 import { getRunningTaskIds } from './claudeButton';
 import { initBranchSelector, type BranchSelector } from './branchSelector';
+import { wireModelEffortSync } from './modelOptions';
 
 // State
 let detailTaskId: number | null = null;
@@ -445,6 +446,10 @@ export function renderDetailPanel(data: TaskDetail): void {
       });
     });
   }
+
+  // Elements are rebuilt on every render, so re-wire the model -> effort linkage.
+  wireModelEffortSync('detail-edit-model-planning', 'detail-edit-effort-planning');
+  wireModelEffortSync('detail-edit-model-run', 'detail-edit-effort-run');
 
   // Wire branch field interactions (elements are rebuilt above, so re-init each render)
   branchSelector = initBranchSelector({
