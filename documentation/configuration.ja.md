@@ -211,7 +211,7 @@ modelCatalog:
 
 | フィールド | 型 | 説明 |
 |----------|-----|------|
-| `cli` | string | `claude`。このモデルを選んだタスクを実行する cli |
+| `cli` | string | `claude` または `codex`。このモデルを選んだタスクを実行する cli |
 | `model` | string | cli の `--model` にそのまま渡す値。表示は `cli[model]` |
 | `efforts` | string[] | このモデルで選べる effort。空配列可（その行では effort を指定できない） |
 
@@ -225,6 +225,10 @@ modelCatalog:
 | claude | `opus` | `low`, `medium`, `high`, `xhigh`, `max` |
 | claude | `sonnet` | `low`, `medium`, `high`, `xhigh`, `max` |
 | claude | `haiku` | `low`, `medium`, `high`, `xhigh`, `max` |
+| codex | `gpt-6-astra` | `low`, `medium`, `high`, `xhigh`, `max`, `ultra` |
+| codex | `gpt-5.6-sol` | `low`, `medium`, `high`, `xhigh`, `max`, `ultra` |
+| codex | `gpt-5.6-terra` | `low`, `medium`, `high`, `xhigh`, `max`, `ultra` |
+| codex | `gpt-5.6-luna` | `low`, `medium`, `high`, `xhigh`, `max` |
 
 ### 検証
 

@@ -224,7 +224,7 @@ modelCatalog:
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `cli` | string | `claude`. The cli that runs a task which selects this model |
+| `cli` | string | `claude` or `codex`. The cli that runs a task which selects this model |
 | `model` | string | Value passed through to the cli's `--model` flag. Displayed as `cli[model]` |
 | `efforts` | string[] | Effort values selectable for this model. May be empty (no effort override for that row) |
 
@@ -238,6 +238,10 @@ Omitting `modelCatalog` uses this catalog:
 | claude | `opus` | `low`, `medium`, `high`, `xhigh`, `max` |
 | claude | `sonnet` | `low`, `medium`, `high`, `xhigh`, `max` |
 | claude | `haiku` | `low`, `medium`, `high`, `xhigh`, `max` |
+| codex | `gpt-6-astra` | `low`, `medium`, `high`, `xhigh`, `max`, `ultra` |
+| codex | `gpt-5.6-sol` | `low`, `medium`, `high`, `xhigh`, `max`, `ultra` |
+| codex | `gpt-5.6-terra` | `low`, `medium`, `high`, `xhigh`, `max`, `ultra` |
+| codex | `gpt-5.6-luna` | `low`, `medium`, `high`, `xhigh`, `max` |
 
 ### Validation
 
