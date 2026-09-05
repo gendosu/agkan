@@ -63,9 +63,10 @@ git checkout beta -- src/ tests/ documentation/ CHANGELOG.md CHANGELOG.ja.md
 | # | 種別 | 内容 |
 |---|---|---|
 | 1 | `feat` | multi-agent 基盤と modelCatalog 本体。`src/db/config.ts` `src/db/modelCatalog.ts` `src/terminal/PtySessionService.ts` `src/board/**` `src/cli/**` と対応する `tests/**`。診断ログは含めない |
-| 2 | `feat` | `DEFAULT_MODEL_CATALOG` から Codex 行を削除し、期待値がずれるテストを調整 |
-| 3 | `docs` | `documentation/` と `src/cli/commands/init.ts` から Codex 記述を削除 |
-| 4 | `docs` | `CHANGELOG.md` / `CHANGELOG.ja.md` を `## [Unreleased]` 節に書き直し |
+| 2 | `test` | 組み込みカタログの Codex 行に依存している 14 件のテストを、テスト自身がカタログを設定する形へ移す（挙動は変わらない） |
+| 3 | `feat` | `DEFAULT_MODEL_CATALOG` から Codex 行を削除し、`tests/db/modelCatalog.test.ts` の期待値を直す |
+| 4 | `docs` | `documentation/` と `src/cli/commands/init.ts` から Codex 記述を削除 |
+| 5 | `docs` | `CHANGELOG.md` / `CHANGELOG.ja.md` を `## [Unreleased]` 節に書き直し |
 
 各コミットの時点でビルドと型チェックが通ることを条件とする。コミット 1 の時点ではカタログに Codex 行が残っているため、テストは `beta` と同じ内容で通る。
 
@@ -126,26 +127,32 @@ git checkout beta -- src/ tests/ documentation/ CHANGELOG.md CHANGELOG.ja.md
 
 ## 5. テスト調整
 
-`tests/` 配下で `codex` / `gpt-5.6-sol` に触れるのは 15 ファイル・109 箇所。
+`tests/` 配下で `codex` / `gpt-5.6-sol` に触れるのは 15 ファイル・109 箇所。組み込みカタログから Codex 行を外して実測したところ、**23 件が失敗する**。
 
-### 残す（multi-agent 機能そのものの検証）
+### 失敗しない（Codex 行に依存していない）
 
-- `tests/terminal/PtySessionService.test.ts`（18 箇所）— Codex CLI 起動、`--` センチネル、`agent` 引数の優先
-- `tests/db/config.test.ts`（10 箇所）— `resolveAgentTool` / `buildCodexPermissionArgs` / `resolveModelSettings`
+`tests/terminal/PtySessionService.test.ts`（Codex CLI 起動 18 箇所）、`tests/db/config.test.ts`（`resolveAgentTool` / `buildCodexPermissionArgs` 10 箇所）、`tests/board/client/` 一式（`modelOptions.test.ts` / `addTaskModal.test.ts` / `detailPanelHtml.test.ts`）、`tests/cli/commands/init.test.ts`。これらはテスト内で定義したカタログを渡すか、`agent: codex` 設定だけを使っている。
 
-### 調整する（組み込みカタログの内容に依存）
+### 自前カタログへ移す（14 件）
 
-- `tests/db/modelCatalog.test.ts`（17 箇所）— 既定カタログの中身、cli 検証
-- `tests/board/client/modelOptions.test.ts`（9 箇所）— UI の選択肢生成
-- `tests/cli/commands/config/get.test.ts`（12 箇所）— `config get` の出力
-- `tests/cli/commands/init.test.ts`（1 箇所）— テンプレート内容
-- `tests/board/boardRenderer.test.ts`（4 箇所）、`tests/board/client/addTaskModal.test.ts`（5 箇所）、`tests/board/client/detailPanelHtml.test.ts`（5 箇所）— サーバー描画とクライアント描画の選択肢
+「別 cli の model を選ぶと cli も切り替わる」「effort リストが異なる行どうしのペア検証」を見ており、Codex 行そのものが必要。テストが `.agkan-test.yml`（または `loadConfig` のモック）で Codex 行入りのカタログを与える形に移す。
 
-### 要確認（カタログ由来か機能由来か実装時に判別）
+| ファイル | 失敗テスト |
+|---|---|
+| `tests/board/boardRenderer.test.ts` | `:400` `:406` `:420` の 3 件 |
+| `tests/board/boardRoutes.test.ts` | `:413` `:694` `:725` の 3 件 |
+| `tests/board/claudePromptBuilder.test.ts` | `:115` `:128` の 2 件 |
+| `tests/board/claudeRoutes.test.ts` | `:450` の 1 件 |
+| `tests/board/bulkRunService.test.ts` | `:651` の 1 件 |
+| `tests/cli/commands/task/add.test.ts` | `:729` の 1 件 |
+| `tests/cli/commands/task/update.test.ts` | `:1044` `:1076` の 2 件 |
+| `tests/cli/commands/config/get.test.ts` | `:61` の 1 件（期待値から Codex 行を落とすだけ） |
 
-- `tests/board/boardRoutes.test.ts`（10 箇所）、`tests/board/claudePromptBuilder.test.ts`（12 箇所）、`tests/board/claudeRoutes.test.ts`（5 箇所）、`tests/board/bulkRunService.test.ts`（2 箇所）、`tests/cli/commands/task/add.test.ts`（3 箇所）、`tests/cli/commands/task/update.test.ts`（6 箇所）
+`loadConfig()` はテストモードで `<cwd>/.agkan-test.yml` を読む。vitest は fork プールでテストファイルを並列実行するため、リポジトリ直下の共有 `.agkan-test.yml` に書くと他ファイルと競合する。既存テストはこれを避けるために `process.cwd()` を一時ディレクトリにモックするパターンを使っており（`tests/board/boardRoutes.test.ts:742-758`、`tests/board/claudeRoutes.test.ts:465-479`、`tests/cli/commands/task/add.test.ts:762-777`、`tests/cli/commands/task/update.test.ts:1116-1132`）、本作業でも同じパターンに揃える。
 
-カタログにない model を扱うケースの検証で `gpt-5.6-sol` を使っているテストは、Codex 行の削除後もそのまま「カタログにない model」の例として成立する可能性がある。実装時にテストを走らせて実際に失敗するものだけを直す。
+### 期待値を書き換える（9 件）
+
+`tests/db/modelCatalog.test.ts` の 9 件（`:16` `:32` `:111` `:116` `:127` `:145` `:149` `:155` `:166`）。組み込みカタログそのものを検証しているテストは Claude 4 行の期待に直し、Codex 行を必要とするものはファイル内のローカルカタログ定数を参照させる。
 
 ## 6. `beta` 側の後処理
 
