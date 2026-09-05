@@ -2,7 +2,7 @@
  * Tests for boardRenderer module
  */
 
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import {
   STATUSES,
   STATUS_LABELS,
@@ -16,6 +16,23 @@ import {
 } from '../../src/board/boardRenderer';
 import { Task, TaskStatus } from '../../src/models';
 import { Tag } from '../../src/models/Tag';
+
+vi.mock('../../src/db/config', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../src/db/config')>();
+  return { ...actual, loadConfig: vi.fn(() => ({})) };
+});
+
+import * as configModule from '../../src/db/config';
+import { renderBoard } from '../../src/board/boardRenderer';
+import type { ModelCatalogEntry } from '../../src/db/modelCatalog';
+
+const CATALOG_WITH_CODEX: ModelCatalogEntry[] = [
+  { cli: 'claude', model: 'fable', efforts: ['low', 'medium', 'high', 'xhigh', 'max'] },
+  { cli: 'claude', model: 'opus', efforts: ['low', 'medium', 'high', 'xhigh', 'max'] },
+  { cli: 'claude', model: 'sonnet', efforts: ['low', 'medium', 'high', 'xhigh', 'max'] },
+  { cli: 'claude', model: 'haiku', efforts: ['low', 'medium', 'high', 'xhigh', 'max'] },
+  { cli: 'codex', model: 'gpt-5.6-sol', efforts: ['none', 'low', 'medium', 'high', 'xhigh'] },
+];
 
 function makeTask(overrides: Partial<Task> = {}): Task {
   return {
@@ -374,5 +391,60 @@ describe('getBoardUpdatedAt', () => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const result = getBoardUpdatedAt(db as any);
     expect(result).toBe('2026-01-01T00:00:00.000Z|2026-01-02T00:00:00.000Z|3');
+  });
+});
+
+describe('renderBoard model catalog wiring', () => {
+  beforeEach(() => {
+    vi.mocked(configModule.loadConfig).mockReturnValue({ modelCatalog: CATALOG_WITH_CODEX });
+  });
+
+  function render(): string {
+    return renderBoard(buildTasksByStatus([]), new Map());
+  }
+
+  it('embeds the resolved catalog and default agent for the client bundle', () => {
+    const html = render();
+    expect(html).toContain('var defaultAgent = "claude";');
+    expect(html).toContain('{"cli":"codex","model":"gpt-5.6-sol"');
+  });
+
+  it('renders one add-modal model option per catalog row, labelled cli[model]', () => {
+    const html = render();
+    expect(html).toContain('<option value="fable">claude[fable]</option>');
+    expect(html).toContain('<option value="gpt-5.6-sol">codex[gpt-5.6-sol]</option>');
+    expect(html).not.toContain('claude[Fable]');
+  });
+
+  it('seeds the add-modal effort options from the default cli union', () => {
+    const html = render();
+    expect(html).toContain('<option value="max">max</option>');
+    expect(html).not.toContain('<option value="none">none</option>');
+  });
+
+  it('follows the configured agent when seeding the effort options', () => {
+    vi.mocked(configModule.loadConfig).mockReturnValue({ agent: 'codex', modelCatalog: CATALOG_WITH_CODEX });
+    const html = render();
+    expect(html).toContain('var defaultAgent = "codex";');
+    expect(html).toContain('<option value="none">none</option>');
+    expect(html).not.toContain('<option value="max">max</option>');
+  });
+
+  it('uses the configured catalog when one is set', () => {
+    vi.mocked(configModule.loadConfig).mockReturnValue({
+      modelCatalog: [{ cli: 'claude', model: 'only-one', efforts: ['high'] }],
+    });
+    const html = render();
+    expect(html).toContain('<option value="only-one">claude[only-one]</option>');
+    expect(html).not.toContain('claude[fable]');
+  });
+
+  it('escapes </script> sequences in the embedded catalog so a model name cannot close the config script early', () => {
+    vi.mocked(configModule.loadConfig).mockReturnValue({
+      modelCatalog: [{ cli: 'claude', model: '</script><script>alert(1)</script>', efforts: ['high'] }],
+    });
+    const html = render();
+    expect(html).not.toContain('</script><script>alert(1)</script>');
+    expect(html).toContain('</script');
   });
 });
