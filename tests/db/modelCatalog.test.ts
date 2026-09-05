@@ -9,20 +9,22 @@ import {
 } from '../../src/db/modelCatalog';
 
 const CLAUDE_EFFORTS = ['low', 'medium', 'high', 'xhigh', 'max'];
-const CODEX_EFFORTS = ['none', 'low', 'medium', 'high', 'xhigh'];
+const CODEX_EFFORTS = ['low', 'medium', 'high', 'xhigh', 'max', 'ultra'];
 
-const CATALOG_WITH_CODEX: ModelCatalogEntry[] = [
-  ...DEFAULT_MODEL_CATALOG.map((e) => ({ ...e, efforts: [...e.efforts] })),
-  { cli: 'codex', model: 'gpt-5.6-sol', efforts: CODEX_EFFORTS },
-];
+// The built-in default already carries codex rows, so a plain copy is a mixed-cli catalog.
+const CATALOG_WITH_CODEX: ModelCatalogEntry[] = DEFAULT_MODEL_CATALOG.map((e) => ({ ...e, efforts: [...e.efforts] }));
 
 describe('DEFAULT_MODEL_CATALOG', () => {
-  it('lists the four claude models', () => {
+  it('lists the four claude models followed by the four codex models', () => {
     expect(DEFAULT_MODEL_CATALOG.map((e) => `${e.cli}[${e.model}]`)).toEqual([
       'claude[fable]',
       'claude[opus]',
       'claude[sonnet]',
       'claude[haiku]',
+      'codex[gpt-6-astra]',
+      'codex[gpt-5.6-sol]',
+      'codex[gpt-5.6-terra]',
+      'codex[gpt-5.6-luna]',
     ]);
   });
 
@@ -30,6 +32,18 @@ describe('DEFAULT_MODEL_CATALOG', () => {
     for (const entry of DEFAULT_MODEL_CATALOG.filter((e) => e.cli === 'claude')) {
       expect(entry.efforts).toEqual(CLAUDE_EFFORTS);
     }
+  });
+
+  it('gives each codex row the efforts its model accepts', () => {
+    const codexEfforts = Object.fromEntries(
+      DEFAULT_MODEL_CATALOG.filter((e) => e.cli === 'codex').map((e) => [e.model, e.efforts])
+    );
+    expect(codexEfforts).toEqual({
+      'gpt-6-astra': CODEX_EFFORTS,
+      'gpt-5.6-sol': CODEX_EFFORTS,
+      'gpt-5.6-terra': CODEX_EFFORTS,
+      'gpt-5.6-luna': ['low', 'medium', 'high', 'xhigh', 'max'],
+    });
   });
 });
 
@@ -147,23 +161,26 @@ describe('validateOverridePair', () => {
 
   it('rejects a model that is not in the catalog', () => {
     expect(validateOverridePair(catalog, 'claude', 'gpt-5', undefined)).toBe(
-      'Invalid model "gpt-5". Must be one of: fable, opus, sonnet, haiku, gpt-5.6-sol'
+      'Invalid model "gpt-5". Must be one of: fable, opus, sonnet, haiku, gpt-6-astra, gpt-5.6-sol, gpt-5.6-terra, gpt-5.6-luna'
     );
   });
 
   it('validates the effort against the selected model row', () => {
-    expect(validateOverridePair(catalog, 'claude', 'gpt-5.6-sol', 'none')).toBeUndefined();
-    expect(validateOverridePair(catalog, 'claude', 'opus', 'none')).toBe(
-      'Invalid effort "none" for model "opus". Must be one of: low, medium, high, xhigh, max'
+    expect(validateOverridePair(catalog, 'claude', 'gpt-5.6-sol', 'ultra')).toBeUndefined();
+    expect(validateOverridePair(catalog, 'claude', 'gpt-5.6-luna', 'ultra')).toBe(
+      'Invalid effort "ultra" for model "gpt-5.6-luna". Must be one of: low, medium, high, xhigh, max'
+    );
+    expect(validateOverridePair(catalog, 'claude', 'opus', 'ultra')).toBe(
+      'Invalid effort "ultra" for model "opus". Must be one of: low, medium, high, xhigh, max'
     );
   });
 
   it('validates the effort against the default cli union when no model is given', () => {
     expect(validateOverridePair(catalog, 'claude', '', 'max')).toBeUndefined();
-    expect(validateOverridePair(catalog, 'claude', '', 'none')).toBe(
-      'Invalid effort "none" for default cli "claude". Must be one of: low, medium, high, xhigh, max'
+    expect(validateOverridePair(catalog, 'claude', '', 'ultra')).toBe(
+      'Invalid effort "ultra" for default cli "claude". Must be one of: low, medium, high, xhigh, max'
     );
-    expect(validateOverridePair(catalog, 'codex', '', 'none')).toBeUndefined();
+    expect(validateOverridePair(catalog, 'codex', '', 'ultra')).toBeUndefined();
   });
 
   it('reports that a row accepts no effort override when its efforts list is empty', () => {

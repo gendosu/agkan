@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### 追加
 - `.agkan.yml` に `modelCatalog` 設定を追加。タスクが選択できるモデルと、そのモデルで選べる reasoning effort を定義する。このキーを設定すると組み込みのカタログを丸ごと置き換える（行単位のマージはしない）。同じモデル名は 1 度しか書けない。カタログは `agkan config get` にも出力され、`agkan init` のテンプレートにコメントとして書き出される
+- 組み込みの `modelCatalog` に codex の行を追加。claude の 4 行の後に `gpt-6-astra`, `gpt-5.6-sol`, `gpt-5.6-terra`（effort は `low`, `medium`, `high`, `xhigh`, `max`, `ultra`）と `gpt-5.6-luna`（同じ一覧から `ultra` を除いたもの）が並ぶ。`.agkan.yml` で `modelCatalog` を設定しなくてもタスクで codex のモデルを選べるようになった
 
 ### 変更
 - タスク単位の model / effort の検証を、固定のエイリアス表（`fable`, `opus`, `sonnet`, `haiku`）と effort 表（`low`, `medium`, `high`, `xhigh`, `max`）から `modelCatalog` 基準に変更。planning / run それぞれについて model と effort をペアで検証し、effort は選択したモデルの行に含まれること（モデル未選択ならカタログの effort の和集合に含まれること）を要求する。`agkan task update` と `PATCH /api/tasks/:id` では、指定しなかった側にタスクの保存済みの値を使って検証する
@@ -22,6 +23,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### 変更
 - タスク単位の Claude model/effort override の保存先を、`task_metadata` の行（`model:planning` / `model:run` / `effort:planning` / `effort:run`）から `tasks` テーブルの専用カラムへ変更。既存の metadata は次回起動時のマイグレーションで自動的に移行され、元の行は削除される
+- Codex エージェントのデフォルトモデルを変更。タスク単位のオーバーライドや `.agkan.yml` でモデルが未指定（または空文字に解決される場合）、Codex CLI自身のデフォルトに委ねる代わりに `gpt-5.6-sol` を使用するようにした。**破壊的変更**: agkanは今後常に `--model` をCodexに渡す。Codex CLI自身のデフォルトを使い続けたい場合は `models.codex.planning.model` / `models.codex.run.model` を明示的に設定すること (#14)
+- `agkan init` テンプレートおよび `documentation/configuration.md` / `documentation/configuration.ja.md` の codex 設定例のモデル名を `gpt-5.1-codex` から `gpt-5.6-sol` に更新し、ランタイムの既定値と揃えた (#735)
+- タスク単位の model / effort の検証を、固定の Claude エイリアス表（`fable`, `opus`, `sonnet`, `haiku`）と effort 表（`low`, `medium`, `high`, `xhigh`, `max`）から `modelCatalog` 基準に変更。planning / run それぞれについて model と effort をペアで検証し、effort は選択したモデルの行に含まれること（モデル未選択なら既定 cli の和集合に含まれること）を要求する。`agkan task update` と `PATCH /api/tasks/:id` では、指定しなかった側にタスクの保存済みの値を使って検証する
+- Board のモデル表示を `claude[Fable]` から `claude[fable]` に変更（`cli[model]` をそのまま表示し、先頭大文字化をやめた）。カタログから消えたモデル / effort が保存されている場合は、詳細パネルで `(not in catalog) <値>` と表示し、既定と区別できるようにした
+- タスクの model が `modelCatalog` にない状態での実行を、既定 cli での起動ではなく失敗にした（`POST /api/claude/tasks/:id/run` は 400、Bulk Run はそのタスクをスキップして続行）
 
 ## [3.20.2] - 2026-08-29
 

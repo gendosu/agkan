@@ -11,6 +11,7 @@ Full configuration reference for agkan, covering `.agkan.yml` fields, database p
   - [Default Behavior](#default-behavior)
   - [Per-Project Management](#per-project-management)
 - [Board Settings](#board-settings)
+- [Agent Settings](#agent-settings)
 - [Model Catalog](#model-catalog)
 - [Models Settings](#models-settings)
 - [Permission Mode Settings](#permission-mode-settings)
@@ -186,6 +187,28 @@ board:
     title: "My Project Board"
   ```
 
+## Agent Settings
+
+The `agent` field in `.agkan.yml` selects which AI coding agent the board launches to execute tasks.
+
+### Available Values
+
+| Value | Description |
+|-------|-------------|
+| (not set) | Defaults to `claude` |
+| `claude` | Use Claude Code CLI |
+| `codex` | Use OpenAI Codex CLI |
+
+```yaml
+# Default
+agent: claude
+
+# Use OpenAI Codex CLI
+agent: codex
+```
+
+Each agent CLI must be installed and authenticated separately. Setting `agent` to any other value raises an error: `Invalid agent "<value>". Must be one of: claude, codex`.
+
 ## Model Catalog
 
 The `modelCatalog` list in `.agkan.yml` defines which model a task may select, which cli runs it, and which effort values that model accepts. It is the single source of truth for the `agkan task add` / `agkan task update` flags, the `POST` / `PATCH /api/tasks` validation, and the Board's model/effort dropdowns.
@@ -201,7 +224,7 @@ modelCatalog:
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `cli` | string | `claude`. The cli that runs a task which selects this model |
+| `cli` | string | `claude` or `codex`. The cli that runs a task which selects this model |
 | `model` | string | Value passed through to the cli's `--model` flag. Displayed as `cli[model]` |
 | `efforts` | string[] | Effort values selectable for this model. May be empty (no effort override for that row) |
 
@@ -215,13 +238,17 @@ Omitting `modelCatalog` uses this catalog:
 | claude | `opus` | `low`, `medium`, `high`, `xhigh`, `max` |
 | claude | `sonnet` | `low`, `medium`, `high`, `xhigh`, `max` |
 | claude | `haiku` | `low`, `medium`, `high`, `xhigh`, `max` |
+| codex | `gpt-6-astra` | `low`, `medium`, `high`, `xhigh`, `max`, `ultra` |
+| codex | `gpt-5.6-sol` | `low`, `medium`, `high`, `xhigh`, `max`, `ultra` |
+| codex | `gpt-5.6-terra` | `low`, `medium`, `high`, `xhigh`, `max`, `ultra` |
+| codex | `gpt-5.6-luna` | `low`, `medium`, `high`, `xhigh`, `max` |
 
 ### Validation
 
 Setting `modelCatalog` **replaces the built-in catalog entirely** — rows are not merged. An empty list is valid and means no task-level override can be selected. agkan raises an error when:
 
 - `modelCatalog` is not a list
-- a row's `cli` is not `claude`
+- a row's `cli` is not `claude` or `codex`
 - a row's `model` is empty, or `efforts` is not a list of non-empty strings
 - the same `model` name appears in more than one row, even across different `cli` values (a model name must identify its cli unambiguously)
 
@@ -240,18 +267,20 @@ The `models` section in `.agkan.yml` specifies the model and effort level used b
 
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
-| `models.<agent>.planning.model` | string | Selected CLI default | Model used for planning command execution |
+| `models.<agent>.planning.model` | string | claude: selected CLI default; codex: `gpt-5.6-sol` | Model used for planning command execution |
 | `models.<agent>.planning.effort` | string | (selected CLI default) | Effort level for planning command (see [Model Catalog](#model-catalog)) |
-| `models.<agent>.run.model` | string | Selected CLI default | Model used for run/pr command execution |
+| `models.<agent>.run.model` | string | claude: selected CLI default; codex: `gpt-5.6-sol` | Model used for run/pr command execution |
 | `models.<agent>.run.effort` | string | (selected CLI default) | Effort level for run/pr command (see [Model Catalog](#model-catalog)) |
 
-`<agent>` is `claude`. Both `model` and `effort` are optional within each entry.
+`<agent>` is `claude` or `codex`. Both `models.claude` and `models.codex` can be configured at the same time; only the profile matching the selected `agent` is used. Both `model` and `effort` are optional within each entry.
 
-If `models.claude.planning.model` / `models.claude.run.model` is not set, the Claude CLI's own default model is used.
+If `models.codex.planning.model` / `models.codex.run.model` is not set, agkan defaults to `gpt-5.6-sol` rather than deferring to the Codex CLI's own default. `claude` has no such agkan-side default; if unset, the Claude CLI's own default model is used.
+
+> **Breaking Change**: Prior to this default, an unset Codex model omitted `--model` entirely and deferred to the Codex CLI's own default model. agkan now always passes `--model`, defaulting to `gpt-5.6-sol` when unset. If you rely on the Codex CLI's own default, set `models.codex.planning.model` / `models.codex.run.model` explicitly to that model name.
 
 For backward compatibility, the legacy flat `models.planning` / `models.run` form (without an agent key) is still supported as a fallback: if `models.<agent>.planning` (or `.run`) is not set, agkan falls back to `models.planning` (or `.run`). Agent-specific settings always take priority over the legacy flat form.
 
-Model names are passed through as-is to the Claude CLI's `--model` flag. Aliases such as `opus`, `sonnet`, and `haiku` are resolved by the Claude CLI itself, not by agkan; agkan does not resolve or validate config-level (`models.<agent>`) model values.
+Model names are passed through as-is to the selected agent's CLI (`--model` for both `claude` and `codex`). Claude CLI aliases such as `opus`, `sonnet`, and `haiku` are resolved by the Claude CLI itself, not by agkan; agkan does not resolve or validate model aliases for either agent. For Codex, `effort` is passed via `--config model_reasoning_effort=<effort>` instead of a `--effort` flag.
 
 ### Configuration Example
 
@@ -260,6 +289,7 @@ Model names are passed through as-is to the Claude CLI's `--model` flag. Aliases
 path: ./.agkan/data.db
 
 # Model settings
+agent: codex
 models:
   claude:
     planning:
@@ -268,6 +298,13 @@ models:
     run:
       model: claude-sonnet-4-6
       effort: low
+  codex:
+    planning:
+      model: gpt-5.6-sol
+      effort: high
+    run:
+      model: gpt-5.6-sol
+      effort: high
 ```
 
 ### Using Aliases
@@ -284,7 +321,7 @@ models:
       model: sonnet
 ```
 
-Supported aliases: `opus`, `sonnet`, `haiku` (resolved by the Claude CLI)
+Supported aliases: `opus`, `sonnet`, `haiku` (resolved by the Claude CLI; agkan does not resolve aliases for Codex)
 
 ### Field Details
 

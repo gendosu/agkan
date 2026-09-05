@@ -146,13 +146,13 @@ describe('resolveLaunchSettings', () => {
     const task = ts.createTask({ title: 'Task', status: 'backlog' });
     writeConfig({
       agent: 'codex',
-      models: { claude: { run: { model: 'sonnet' } }, codex: { run: { model: 'gpt-5.6-sol', effort: 'none' } } },
+      models: { claude: { run: { model: 'sonnet' } }, codex: { run: { model: 'gpt-5.6-sol', effort: 'ultra' } } },
     });
 
     expect(resolveLaunchSettings(ts, task.id, 'run')).toEqual({
       agent: 'codex',
       model: 'gpt-5.6-sol',
-      effort: 'none',
+      effort: 'ultra',
     });
   });
 
