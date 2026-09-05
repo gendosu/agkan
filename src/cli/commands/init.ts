@@ -78,6 +78,18 @@ agent: claude
 #   - cli: claude
 #     model: haiku
 #     efforts: [low, medium, high, xhigh, max]
+#   - cli: codex
+#     model: gpt-6-astra
+#     efforts: [low, medium, high, xhigh, max, ultra]
+#   - cli: codex
+#     model: gpt-5.6-sol
+#     efforts: [low, medium, high, xhigh, max, ultra]
+#   - cli: codex
+#     model: gpt-5.6-terra
+#     efforts: [low, medium, high, xhigh, max, ultra]
+#   - cli: codex
+#     model: gpt-5.6-luna
+#     efforts: [low, medium, high, xhigh, max]
 
 # Permission mode configuration
 # Controls permission prompts for the selected agent CLI.
