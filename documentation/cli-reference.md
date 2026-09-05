@@ -75,6 +75,17 @@ Create from Markdown file:
 agkan task add "Design review" --file ./design-doc.md --status backlog
 ```
 
+Create with a per-task model and reasoning effort:
+```bash
+agkan task add "Refactor the parser" --model-run sonnet --effort-run high
+```
+
+Valid `--model-planning` / `--model-run` values are the `model` names in the
+[model catalog](configuration.md#model-catalog); selecting one also selects the cli
+that runs the task. Valid `--effort-planning` / `--effort-run` values are that
+model's `efforts` (or, with no model given, the union for the default `agent:`).
+Run `agkan config get modelCatalog --json` to see the resolved catalog.
+
 Create with tags (comma-separated names or IDs, attached in the same command):
 ```bash
 agkan task add "Implement login feature" --tag "frontend,urgent"
@@ -256,6 +267,15 @@ Change author:
 ```bash
 agkan task update 1 author "new-author"
 ```
+
+Change the model and effort (empty string clears an override):
+```bash
+agkan task update 1 --model-run haiku --effort-run low
+agkan task update 1 --model-run "" --effort-run ""
+```
+
+The values are validated as a pair against the [model catalog](configuration.md#model-catalog):
+a flag you omit is checked against the value already stored on the task.
 
 ### Manage Parent-Child Relationships
 
@@ -602,6 +622,10 @@ Example output:
 
 path: /workspace/.agkan/data.db
 board.port: 8080
+modelCatalog: claude fable (low, medium, high, xhigh, max)
+modelCatalog: claude opus (low, medium, high, xhigh, max)
+modelCatalog: claude sonnet (low, medium, high, xhigh, max)
+modelCatalog: claude haiku (low, medium, high, xhigh, max)
 ```
 
 ### Display Help
