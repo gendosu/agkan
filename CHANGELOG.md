@@ -16,6 +16,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Change the Board's model labels from `claude[Fable]` to `claude[fable]`: the label is now `cli[model]` verbatim, with no capitalization. A stored model or effort that is no longer in the catalog is shown in the detail panel as `(not in catalog) <value>` instead of silently reading as the default
 - Fail a run whose task-level model is not in `modelCatalog` (`POST /api/claude/tasks/:id/run` returns 400; Bulk Run skips the task and continues) instead of launching it with the default model
 
+### Fixed
+- Fix Board sessions launched with the `codex` cli never terminating on their own after the agent finished (the TUI stayed open until stopped manually). Codex has no Stop hook, so the Board now passes its `notify` setting (`--config notify=["node","<hook-codex-notify.mjs>"]`) and the new hook reports `agent-turn-complete` to `/api/internal/hooks/stop`, applying the same target-status check as the Claude Stop hook (#738)
+
 ## [3.21.0] - 2026-09-02
 
 ### Added
