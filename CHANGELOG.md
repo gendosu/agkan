@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Add a `modelCatalog` setting to `.agkan.yml` listing which model a task may select and which reasoning efforts that model accepts. Setting this key replaces the built-in catalog entirely (no per-row merge), and each model name may appear only once. The catalog is also reported by `agkan config get` and commented into the `agkan init` template
+
+### Changed
+- Validate task-level model and effort values against `modelCatalog` instead of the fixed alias list (`fable`, `opus`, `sonnet`, `haiku`) and effort list (`low`, `medium`, `high`, `xhigh`, `max`). The model and effort of each of planning/run are now checked as a pair: an effort must belong to the selected model's row, or to the union of the catalog's efforts when no model is selected. `agkan task update` and `PATCH /api/tasks/:id` validate a flag you omit against the value already stored on the task
+- Change the Board's model labels from `claude[Fable]` to `claude[fable]`: the label is now `cli[model]` verbatim, with no capitalization. A stored model or effort that is no longer in the catalog is shown in the detail panel as `(not in catalog) <value>` instead of silently reading as the default
+- Fail a run whose task-level model is not in `modelCatalog` (`POST /api/claude/tasks/:id/run` returns 400; Bulk Run skips the task and continues) instead of launching it with the default model
+
 ## [3.21.0] - 2026-09-02
 
 ### Added
