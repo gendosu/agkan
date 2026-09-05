@@ -110,13 +110,24 @@ describe('hook-codex-notify.mjs', () => {
     expect(svr.captured.length).toBe(before);
   });
 
-  it('does NOT post when the argv payload is missing or not JSON', async () => {
+  it('does NOT post when the argv payload is not JSON', async () => {
     const before = svr.captured.length;
     expect(await runHook('not json', baseEnv)).toBe(0);
+    expect(svr.captured.length).toBe(before);
+  });
+
+  it('does NOT post when the argv payload is missing', async () => {
+    const before = svr.captured.length;
     const proc = spawn('node', [SCRIPT], { env: buildHookEnv(baseEnv) });
     proc.stdin.end();
     const code = await new Promise<number>((r) => proc.on('exit', (c) => r(c ?? 0)));
     expect(code).toBe(0);
+    expect(svr.captured.length).toBe(before);
+  });
+
+  it('does NOT post when BOARD_TASK_ID is not numeric', async () => {
+    const before = svr.captured.length;
+    expect(await runHook(JSON.stringify(turnComplete), { ...baseEnv, BOARD_TASK_ID: 'abc' })).toBe(0);
     expect(svr.captured.length).toBe(before);
   });
 

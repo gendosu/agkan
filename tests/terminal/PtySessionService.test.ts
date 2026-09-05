@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { PtySessionService, detectClaudeScreenStatus, stripAnsi } from '../../src/terminal/PtySessionService';
 import { AttentionStateService } from '../../src/services/AttentionStateService';
 import { ConflictError } from '../../src/errors';
+import { existsSync } from 'fs';
 
 describe('stripAnsi', () => {
   it('removes basic SGR color codes', () => {
@@ -1440,6 +1441,9 @@ describe('PtySessionService - codex notify hook', () => {
     expect(parsed[0]).toBe('node');
     expect(parsed[1]).toMatch(/[\\/]hook-codex-notify\.mjs$/);
     expect(parsed[1]).toMatch(/^[\\/]|^[A-Za-z]:[\\/]/);
+    // A missing script fails silently inside codex (its notify stderr is swallowed), which
+    // would reproduce the very bug this hook fixes — so assert the file really exists.
+    expect(existsSync(parsed[1])).toBe(true);
     // The prompt stays last, behind the end-of-options sentinel.
     expect(args.slice(-2)).toEqual(['--', 'Task ID: 1']);
     expect(args).not.toContain('--settings');
