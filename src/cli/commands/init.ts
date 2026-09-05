@@ -14,6 +14,13 @@ const DEFAULT_CONFIG_CONTENT = `# agkan configuration file
 # This file controls the behavior of agkan (Agent Kanban).
 # Uncomment and modify the settings below to customize your agkan instance.
 
+# Default AI coding agent used by the board
+# Applies to tasks with no model override. A task that selects a model from
+# modelCatalog runs on that row's cli instead.
+# Valid values: claude
+# Default: claude
+agent: claude
+
 # Database path
 # Location where agkan stores task data.
 # Default: .agkan/data.db
@@ -32,24 +39,44 @@ const DEFAULT_CONFIG_CONTENT = `# agkan configuration file
 #   title: Agent Kanban
 
 # Model configuration
-# Claude model used when executing planning and run commands via the board.
-# Accepts full model names (e.g. claude-opus-4-7) or aliases (e.g. opus, sonnet, haiku).
-# Valid effort values: low | medium | high | xhigh | max
-# If omitted, the Claude CLI's default model is used.
+# Model used when executing planning and run commands via the board.
+# The value is passed to the selected agent CLI.
+# Valid effort values come from the model's modelCatalog row (see below).
+# If omitted for claude, the Claude CLI's own default model is used.
 # models:
-#   planning:
+#   claude:
+#     planning:
+#       model: opus
+#       effort: high
+#     run:
+#       model: sonnet
+#       effort: high
+
+# Model catalog
+# Rows of cli + model + selectable efforts. Selecting a model on a task also
+# selects the cli that runs it. Setting this key replaces the built-in catalog
+# entirely (no per-row merge), and each model name may appear only once. The
+# block below is the built-in default.
+# modelCatalog:
+#   - cli: claude
+#     model: fable
+#     efforts: [low, medium, high, xhigh, max]
+#   - cli: claude
 #     model: opus
-#     effort: low
-#   run:
+#     efforts: [low, medium, high, xhigh, max]
+#   - cli: claude
 #     model: sonnet
-#     effort: low
+#     efforts: [low, medium, high, xhigh, max]
+#   - cli: claude
+#     model: haiku
+#     efforts: [low, medium, high, xhigh, max]
 
 # Permission mode configuration
-# Controls how Claude CLI handles permission prompts when running agents.
+# Controls permission prompts for the selected agent CLI.
 # Default: auto
 # Valid values: auto | acceptEdits | bypassPermissions | default | dontAsk | plan | skipPermissions
-# Note: skipPermissions maps to --dangerously-skip-permissions (legacy behavior).
-#       All other values use --permission-mode <value>.
+# Permission values are translated to the selected CLI's flags.
+# Note: skipPermissions bypasses permission checks for both agents.
 # Example: permissionMode: auto
 # permissionMode: auto
 `;
