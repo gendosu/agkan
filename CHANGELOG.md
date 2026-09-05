@@ -17,7 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fail a run whose task-level model is not in `modelCatalog` (`POST /api/claude/tasks/:id/run` returns 400; Bulk Run skips the task and continues) instead of launching it with the default model
 
 ### Fixed
-- Fix Board sessions launched with the `codex` cli never terminating on their own after the agent finished (the TUI stayed open until stopped manually). Codex has no Stop hook, so the Board now passes its `notify` setting (`--config notify=["node","<hook-codex-notify.mjs>"]`) and the new hook reports `agent-turn-complete` to `/api/internal/hooks/stop`, applying the same target-status check as the Claude Stop hook (#738)
+- Fix Board sessions launched with the `codex` cli never terminating on their own after the agent finished (the TUI stayed open until stopped manually). Codex has no Stop hook, so the Board now passes its `notify` setting (`--config notify=["node","<hook-codex-notify.mjs>"]`) and the new hook reports `agent-turn-complete` to `/api/internal/hooks/stop`, applying the same target-status check as the Claude Stop hook. While a Board session runs, this replaces any `notify` command configured in the user's `~/.codex/config.toml` (#738)
 
 ## [3.21.0] - 2026-09-02
 
