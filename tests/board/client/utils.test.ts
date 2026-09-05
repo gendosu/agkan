@@ -36,11 +36,16 @@ describe('escapeHtmlClient', () => {
     expect(result).toContain('&amp;');
   });
 
-  it('preserves double quotes (DOM textContent does not escape them)', () => {
-    // The jsdom implementation uses div.textContent + innerHTML which escapes
-    // <, >, & but NOT double quotes (browsers keep them as-is in text nodes)
+  it('escapes double quotes', () => {
+    // div.textContent -> innerHTML escapes <, >, & but not " (browsers keep
+    // it as-is in text nodes), so it is replaced separately: value="..."
+    // sinks that interpolate unvalidated stored values need it escaped too.
     const result = escapeHtmlClient('"quoted"');
-    expect(result).toContain('"quoted"');
+    expect(result).toBe('&quot;quoted&quot;');
+  });
+
+  it('escapes a mix of &, <, >, and " in one pass', () => {
+    expect(escapeHtmlClient('a"b<c>&')).toBe('a&quot;b&lt;c&gt;&amp;');
   });
 });
 

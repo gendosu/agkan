@@ -1,12 +1,20 @@
 import { Command } from 'commander';
 import chalk from 'chalk';
-import { loadConfig, resolveDatabasePath } from '../../../db/config';
+import {
+  loadConfig,
+  resolveAgentTool,
+  resolveDatabasePath,
+  resolveModelSettings,
+  type AgentModelSettings,
+} from '../../../db/config';
 import { createFormatter } from '../../utils/output-formatter';
 import { DEFAULT_BOARD_PORT } from '../../utils/constants';
+import { resolveModelCatalog, type ModelCatalogEntry } from '../../../db/modelCatalog';
 
 export { DEFAULT_BOARD_PORT };
 
 type ResolvedConfig = {
+  agent: 'claude' | 'codex';
   path: string;
   board: {
     port: number;
@@ -15,21 +23,28 @@ type ResolvedConfig = {
   models: {
     planning: { model?: string; effort?: string } | undefined;
     run: { model?: string; effort?: string } | undefined;
+    claude: AgentModelSettings | undefined;
+    codex: AgentModelSettings | undefined;
   };
+  modelCatalog: ModelCatalogEntry[];
 };
 
 function buildResolvedConfig(): ResolvedConfig {
   const config = loadConfig();
   return {
+    agent: resolveAgentTool(config),
     path: resolveDatabasePath(),
     board: {
       port: config.board?.port ?? DEFAULT_BOARD_PORT,
       title: config.board?.title,
     },
     models: {
-      planning: config.models?.planning,
-      run: config.models?.run,
+      planning: resolveModelSettings(config, 'planning'),
+      run: resolveModelSettings(config, 'run'),
+      claude: config.models?.claude,
+      codex: config.models?.codex,
     },
+    modelCatalog: resolveModelCatalog(config),
   };
 }
 
@@ -80,7 +95,8 @@ export function setupConfigGetCommand(program: Command): void {
             () => ({ success: true, config: resolved }),
             () => {
               console.log(chalk.green('\n✓ Resolved config\n'));
-              console.log(`path: ${resolved.path}`);
+              console.log('agent: ' + resolved.agent);
+              console.log('path: ' + resolved.path);
               console.log(`board.port: ${resolved.board.port}`);
               if (resolved.board.title !== undefined) {
                 console.log(`board.title: ${resolved.board.title}`);
@@ -95,6 +111,9 @@ export function setupConfigGetCommand(program: Command): void {
                 if (resolved.models.run.model) console.log(`models.run.model: ${resolved.models.run.model}`);
                 if (resolved.models.run.effort) console.log(`models.run.effort: ${resolved.models.run.effort}`);
               }
+              resolved.modelCatalog.forEach((entry) => {
+                console.log(`modelCatalog: ${entry.cli} ${entry.model} (${entry.efforts.join(', ')})`);
+              });
               console.log('');
             }
           );

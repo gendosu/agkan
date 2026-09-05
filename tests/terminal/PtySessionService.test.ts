@@ -663,6 +663,7 @@ describe('PtySessionService - model/effort/boardApiUrl args', () => {
     const pty = await import('node-pty');
     spawnMock = pty.spawn as unknown as ReturnType<typeof vi.fn>;
     spawnMock.mockClear();
+    vi.mocked(configModule.loadConfig).mockReturnValue({});
   });
 
   afterEach(() => {
@@ -679,7 +680,102 @@ describe('PtySessionService - model/effort/boardApiUrl args', () => {
     expect(args[args.indexOf('--effort') + 1]).toBe('high');
   });
 
-  it('does not pass --model or --effort when not provided', async () => {
+  it('spawns the agent passed as the trailing argument instead of the configured one', async () => {
+    vi.mocked(configModule.loadConfig).mockReturnValue({});
+    const svc = new PtySessionService();
+    await svc.startProcess(1, 'Task ID: 1', 'run', 'gpt-5.6-sol', 'high', 'codex');
+
+    expect(spawnMock.mock.calls[0][0]).toBe('codex');
+    const args = spawnMock.mock.calls[0][1] as string[];
+    expect(args).toEqual([
+      '--model',
+      'gpt-5.6-sol',
+      '--config',
+      'model_reasoning_effort="high"',
+      '--ask-for-approval',
+      'on-request',
+      '--sandbox',
+      'workspace-write',
+      '--',
+      'Task ID: 1',
+    ]);
+  });
+
+  it('falls back to the configured agent when the trailing argument is omitted', async () => {
+    vi.mocked(configModule.loadConfig).mockReturnValue({ agent: 'codex' });
+    const svc = new PtySessionService();
+    await svc.startProcess(1, 'prompt', 'run', 'gpt-5.6-sol', 'high');
+
+    expect(spawnMock.mock.calls[0][0]).toBe('codex');
+  });
+
+  it('starts Codex with model, reasoning effort, permissions, and positional prompt', async () => {
+    vi.mocked(configModule.loadConfig).mockReturnValue({ agent: 'codex' });
+    const svc = new PtySessionService();
+    await svc.startProcess(1, 'Task ID: 1', 'run', 'gpt-5.1-codex', 'high');
+
+    expect(spawnMock.mock.calls[0][0]).toBe('codex');
+    const args = spawnMock.mock.calls[0][1] as string[];
+    expect(args).toEqual([
+      '--model',
+      'gpt-5.1-codex',
+      '--config',
+      'model_reasoning_effort="high"',
+      '--ask-for-approval',
+      'on-request',
+      '--sandbox',
+      'workspace-write',
+      '--',
+      'Task ID: 1',
+    ]);
+    expect(mockWrite).not.toHaveBeenCalled();
+  });
+
+  it('shields a flag-like Codex prompt behind the -- end-of-options sentinel', async () => {
+    vi.mocked(configModule.loadConfig).mockReturnValue({ agent: 'codex' });
+    const svc = new PtySessionService();
+    await svc.startProcess(1, '--dangerously-bypass-approvals-and-sandbox', 'run');
+
+    const args = spawnMock.mock.calls[0][1] as string[];
+    expect(args.indexOf('--')).toBeGreaterThan(-1);
+    expect(args.indexOf('--')).toBeLessThan(args.indexOf('--dangerously-bypass-approvals-and-sandbox'));
+    expect(args[args.length - 1]).toBe('--dangerously-bypass-approvals-and-sandbox');
+  });
+
+  it('defaults Codex model to gpt-5.6-sol when model is not provided', async () => {
+    vi.mocked(configModule.loadConfig).mockReturnValue({ agent: 'codex' });
+    const svc = new PtySessionService();
+    await svc.startProcess(1, 'prompt', 'run');
+
+    const args = spawnMock.mock.calls[0][1] as string[];
+    expect(args).toContain('--model');
+    expect(args[args.indexOf('--model') + 1]).toBe('gpt-5.6-sol');
+  });
+
+  it('falls back to gpt-5.6-sol for Codex when model resolves to an empty string', async () => {
+    vi.mocked(configModule.loadConfig).mockReturnValue({ agent: 'codex' });
+    const svc = new PtySessionService();
+    await svc.startProcess(1, 'prompt', 'run', '');
+
+    const args = spawnMock.mock.calls[0][1] as string[];
+    expect(args).toContain('--model');
+    expect(args[args.indexOf('--model') + 1]).toBe('gpt-5.6-sol');
+  });
+
+  it('maps Codex bypass permission mode to its unsafe bypass flag', async () => {
+    vi.mocked(configModule.loadConfig).mockReturnValue({
+      agent: 'codex',
+      permissionMode: 'skipPermissions',
+    });
+    const svc = new PtySessionService();
+    await svc.startProcess(1, 'prompt', 'run');
+
+    const args = spawnMock.mock.calls[0][1] as string[];
+    expect(args).toContain('--dangerously-bypass-approvals-and-sandbox');
+    expect(args).not.toContain('--permission-mode');
+  });
+
+  it('does not pass --model or --effort for the default (claude) agent when not provided', async () => {
     const svc = new PtySessionService();
     await svc.startProcess(1, 'prompt', 'run');
     const args = spawnMock.mock.calls[0][1] as string[];

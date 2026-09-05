@@ -15,11 +15,12 @@ import {
   isFlagMode,
   buildFlagModeInput,
   buildPositionalModeInput,
+  validateModelEffortUpdate,
   UpdateOptions,
   SUPPORTED_FIELDS,
 } from './update-helpers';
 import { notifyBoard } from '../../utils/boardNotify';
-import { MODEL_ALIASES, VALID_EFFORT_LEVELS } from '../../../board/claudePromptBuilder';
+import { modelEffortHelpText } from './add-helpers';
 
 function applyTaskUpdate(
   taskService: TaskService,
@@ -70,6 +71,17 @@ async function handleUpdateAction(id: string, field: string, value: string, opti
     if (updateInput === null) {
       process.exit(1);
     }
+    const stored = taskService.getTask(taskId);
+    if (stored) {
+      const overrideError = validateModelEffortUpdate(updateInput, stored);
+      if (overrideError) {
+        formatter.error(overrideError, () => {
+          console.error(chalk.red(`\n${overrideError}\n`));
+        });
+        process.exit(1);
+        return;
+      }
+    }
     const task = applyTaskUpdate(taskService, taskId, updateInput);
     if (!task) {
       formatter.error(`Task with ID ${id} not found`, () => {
@@ -96,6 +108,7 @@ export function setupTaskUpdateCommand(program: Command): void {
   if (!taskCommand) {
     throw new Error('Task command not found');
   }
+  const help = modelEffortHelpText();
   taskCommand
     .command('update')
     .argument('<id>', 'Task ID')
@@ -108,16 +121,10 @@ export function setupTaskUpdateCommand(program: Command): void {
     .option('--assignees <assignees>', 'Update assignees')
     .option('-p, --priority <priority>', 'Update priority (critical, high, medium, low, or empty to clear)')
     .option('--branch <branch>', 'Update git branch name (or empty to clear)')
-    .option('--model-planning <alias>', `Update planning model (${MODEL_ALIASES.join(', ')}, or empty to clear)`)
-    .option('--model-run <alias>', `Update run model (${MODEL_ALIASES.join(', ')}, or empty to clear)`)
-    .option(
-      '--effort-planning <level>',
-      `Update planning reasoning effort (${VALID_EFFORT_LEVELS.join(', ')}, or empty to clear)`
-    )
-    .option(
-      '--effort-run <level>',
-      `Update run reasoning effort (${VALID_EFFORT_LEVELS.join(', ')}, or empty to clear)`
-    )
+    .option('--model-planning <model>', `Update planning model (${help.models}, or empty to clear)`)
+    .option('--model-run <model>', `Update run model (${help.models}, or empty to clear)`)
+    .option('--effort-planning <level>', `Update planning reasoning effort (${help.efforts}, or empty to clear)`)
+    .option('--effort-run <level>', `Update run reasoning effort (${help.efforts}, or empty to clear)`)
     .option('--file <path>', 'Read body from file (only valid for body field)')
     .option('--json', 'Output in JSON format')
     .description('Update a task field')

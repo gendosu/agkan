@@ -4,10 +4,23 @@
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { Command } from 'commander';
+import fs from 'fs';
+import os from 'os';
+import path from 'path';
+import yaml from 'js-yaml';
 import { setupTaskAddCommand } from '../../../../src/cli/commands/task/add';
 import { getDatabase } from '../../../../src/db/connection';
 import { TaskService, TagService } from '../../../../src/services';
 import { createProgram, runCommand } from '../../../helpers/command-test-utils';
+import type { ModelCatalogEntry } from '../../../../src/db/modelCatalog';
+
+const CATALOG_WITH_CODEX: ModelCatalogEntry[] = [
+  { cli: 'claude', model: 'fable', efforts: ['low', 'medium', 'high', 'xhigh', 'max'] },
+  { cli: 'claude', model: 'opus', efforts: ['low', 'medium', 'high', 'xhigh', 'max'] },
+  { cli: 'claude', model: 'sonnet', efforts: ['low', 'medium', 'high', 'xhigh', 'max'] },
+  { cli: 'claude', model: 'haiku', efforts: ['low', 'medium', 'high', 'xhigh', 'max'] },
+  { cli: 'codex', model: 'gpt-5.6-sol', efforts: ['none', 'low', 'medium', 'high', 'xhigh'] },
+];
 
 describe('setupTaskAddCommand', () => {
   let program: Command;
@@ -691,7 +704,7 @@ describe('setupTaskAddCommand', () => {
     it('should reject an invalid model alias and not create the task', async () => {
       const { exitCode, errors } = await runCommand(program, ['task', 'add', 'Bad Model', '--model-run', 'gpt-5']);
       expect(exitCode).toBe(1);
-      expect(errors.join('\n')).toContain('--model-run');
+      expect(errors.join('\n')).toContain('Invalid model "gpt-5"');
 
       const taskService = new TaskService();
       expect(taskService.listTasks()).toHaveLength(0);
@@ -706,10 +719,100 @@ describe('setupTaskAddCommand', () => {
         'ultra',
       ]);
       expect(exitCode).toBe(1);
-      expect(errors.join('\n')).toContain('--effort-planning');
+      expect(errors.join('\n')).toContain('Invalid effort "ultra"');
 
       const taskService = new TaskService();
       expect(taskService.listTasks()).toHaveLength(0);
+    });
+
+    it('should accept a codex model from the catalog with a codex-only effort', async () => {
+      const tmpCwd = fs.mkdtempSync(path.join(os.tmpdir(), 'agkan-task-add-test-'));
+      const cwdSpy = vi.spyOn(process, 'cwd').mockReturnValue(tmpCwd);
+      try {
+        fs.writeFileSync(path.join(tmpCwd, '.agkan-test.yml'), yaml.dump({ modelCatalog: CATALOG_WITH_CODEX }));
+        const { exitCode } = await runCommand(program, [
+          'task',
+          'add',
+          'Codex Task',
+          '--model-run',
+          'gpt-5.6-sol',
+          '--effort-run',
+          'none',
+        ]);
+        expect(exitCode).toBeUndefined();
+
+        const taskService = new TaskService();
+        const tasks = taskService.listTasks();
+        expect(tasks[0].model_run).toBe('gpt-5.6-sol');
+        expect(tasks[0].effort_run).toBe('none');
+      } finally {
+        cwdSpy.mockRestore();
+        fs.rmSync(tmpCwd, { recursive: true, force: true });
+      }
+    });
+
+    it('should reject an effort that does not belong to the selected model row', async () => {
+      const { exitCode, errors } = await runCommand(program, [
+        'task',
+        'add',
+        'Mismatched',
+        '--model-run',
+        'opus',
+        '--effort-run',
+        'none',
+      ]);
+      expect(exitCode).toBe(1);
+      expect(errors.join('\n')).toContain('Invalid effort "none" for model "opus"');
+
+      const taskService = new TaskService();
+      expect(taskService.listTasks()).toHaveLength(0);
+    });
+
+    // loadConfig() reads '<cwd>/.agkan-test.yml' in test mode. Other test files
+    // (e.g. boardRoutes.test.ts, claudeRoutes.test.ts) write that same
+    // repo-root path, and vitest runs test files concurrently across forks
+    // (vitest.config.ts: pool: 'forks'), so writing there too would race with
+    // their beforeEach/afterEach unlinking it mid-test. Isolate by mocking
+    // process.cwd() to a private tmp dir per test, matching the pattern in
+    // tests/board/claudePromptBuilder.test.ts (resolveLaunchSettings) and
+    // tests/db/config.test.ts.
+    describe('with an invalid modelCatalog config', () => {
+      let tmpCwd: string;
+      let cwdSpy: ReturnType<typeof vi.spyOn>;
+
+      beforeEach(() => {
+        tmpCwd = fs.mkdtempSync(path.join(os.tmpdir(), 'agkan-task-add-test-'));
+        cwdSpy = vi.spyOn(process, 'cwd').mockReturnValue(tmpCwd);
+        // A string instead of an array: resolveModelCatalog() throws on this.
+        fs.writeFileSync(path.join(tmpCwd, '.agkan-test.yml'), yaml.dump({ modelCatalog: 'claude' }));
+      });
+
+      afterEach(() => {
+        cwdSpy.mockRestore();
+        fs.rmSync(tmpCwd, { recursive: true, force: true });
+      });
+
+      it('creates the task when no model/effort flags are given', async () => {
+        const { exitCode } = await runCommand(program, ['task', 'add', 'No Overrides, Broken Catalog Config']);
+        expect(exitCode).toBeUndefined();
+
+        const taskService = new TaskService();
+        expect(taskService.listTasks()).toHaveLength(1);
+      });
+
+      it('fails when a model/effort flag is given', async () => {
+        const { exitCode } = await runCommand(program, [
+          'task',
+          'add',
+          'Broken Catalog Config, Override Given',
+          '--model-run',
+          'haiku',
+        ]);
+        expect(exitCode).toBe(1);
+
+        const taskService = new TaskService();
+        expect(taskService.listTasks()).toHaveLength(0);
+      });
     });
   });
 

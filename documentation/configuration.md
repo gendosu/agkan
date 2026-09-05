@@ -11,6 +11,7 @@ Full configuration reference for agkan, covering `.agkan.yml` fields, database p
   - [Default Behavior](#default-behavior)
   - [Per-Project Management](#per-project-management)
 - [Board Settings](#board-settings)
+- [Model Catalog](#model-catalog)
 - [Models Settings](#models-settings)
 - [Permission Mode Settings](#permission-mode-settings)
 
@@ -185,20 +186,72 @@ board:
     title: "My Project Board"
   ```
 
+## Model Catalog
+
+The `modelCatalog` list in `.agkan.yml` defines which model a task may select, which cli runs it, and which effort values that model accepts. It is the single source of truth for the `agkan task add` / `agkan task update` flags, the `POST` / `PATCH /api/tasks` validation, and the Board's model/effort dropdowns.
+
+### Format
+
+```yaml
+modelCatalog:
+  - cli: claude
+    model: fable
+    efforts: [low, medium, high, xhigh, max]
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `cli` | string | `claude`. The cli that runs a task which selects this model |
+| `model` | string | Value passed through to the cli's `--model` flag. Displayed as `cli[model]` |
+| `efforts` | string[] | Effort values selectable for this model. May be empty (no effort override for that row) |
+
+### Built-in Default
+
+Omitting `modelCatalog` uses this catalog:
+
+| cli | model | efforts |
+|-----|-------|---------|
+| claude | `fable` | `low`, `medium`, `high`, `xhigh`, `max` |
+| claude | `opus` | `low`, `medium`, `high`, `xhigh`, `max` |
+| claude | `sonnet` | `low`, `medium`, `high`, `xhigh`, `max` |
+| claude | `haiku` | `low`, `medium`, `high`, `xhigh`, `max` |
+
+### Validation
+
+Setting `modelCatalog` **replaces the built-in catalog entirely** — rows are not merged. An empty list is valid and means no task-level override can be selected. agkan raises an error when:
+
+- `modelCatalog` is not a list
+- a row's `cli` is not `claude`
+- a row's `model` is empty, or `efforts` is not a list of non-empty strings
+- the same `model` name appears in more than one row, even across different `cli` values (a model name must identify its cli unambiguously)
+
+### How a task uses the catalog
+
+- Selecting a model on a task also selects the cli that runs it, overriding `agent:` for that task only.
+- An effort is valid only if it appears in the `efforts` of the selected model's row. With no model selected, the candidates are the union of every row belonging to the default `agent:`.
+- Running a task whose stored model is no longer in the catalog fails with a 400 rather than falling back to the default cli. The Board's detail panel shows such a value as `(not in catalog) <model>` so it can be corrected.
+- Model names coming from `models.<agent>.<kind>.model` are not validated against the catalog; their effort is validated only when the model matches a catalog row for that cli.
+
 ## Models Settings
 
-The `models` section in `.agkan.yml` allows you to specify the Claude model and effort level used when executing planning and run commands via the board.
+The `models` section in `.agkan.yml` specifies the model and effort level used by the selected agent when executing planning and run commands via the board.
 
 ### Available Fields
 
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
-| `models.planning.model` | string | (Claude CLI default) | Model used for planning command execution |
-| `models.planning.effort` | string | (Claude CLI default) | Effort level for planning command (`low`, `medium`, `high`, `xhigh`, `max`) |
-| `models.run.model` | string | (Claude CLI default) | Model used for run/pr command execution |
-| `models.run.effort` | string | (Claude CLI default) | Effort level for run/pr command (`low`, `medium`, `high`, `xhigh`, `max`) |
+| `models.<agent>.planning.model` | string | Selected CLI default | Model used for planning command execution |
+| `models.<agent>.planning.effort` | string | (selected CLI default) | Effort level for planning command (see [Model Catalog](#model-catalog)) |
+| `models.<agent>.run.model` | string | Selected CLI default | Model used for run/pr command execution |
+| `models.<agent>.run.effort` | string | (selected CLI default) | Effort level for run/pr command (see [Model Catalog](#model-catalog)) |
 
-Both full model names and Claude CLI aliases are supported. Both `model` and `effort` are optional within each entry.
+`<agent>` is `claude`. Both `model` and `effort` are optional within each entry.
+
+If `models.claude.planning.model` / `models.claude.run.model` is not set, the Claude CLI's own default model is used.
+
+For backward compatibility, the legacy flat `models.planning` / `models.run` form (without an agent key) is still supported as a fallback: if `models.<agent>.planning` (or `.run`) is not set, agkan falls back to `models.planning` (or `.run`). Agent-specific settings always take priority over the legacy flat form.
+
+Model names are passed through as-is to the Claude CLI's `--model` flag. Aliases such as `opus`, `sonnet`, and `haiku` are resolved by the Claude CLI itself, not by agkan; agkan does not resolve or validate config-level (`models.<agent>`) model values.
 
 ### Configuration Example
 
@@ -208,45 +261,49 @@ path: ./.agkan/data.db
 
 # Model settings
 models:
-  planning:
-    model: claude-opus-4-7
-    effort: high
-  run:
-    model: claude-sonnet-4-6
-    effort: low
+  claude:
+    planning:
+      model: claude-opus-4-7
+      effort: high
+    run:
+      model: claude-sonnet-4-6
+      effort: low
 ```
 
 ### Using Aliases
 
-You can use short aliases instead of full model names:
+You can use short aliases instead of full model names when `agent: claude` is selected:
 
 ```yaml
 models:
-  planning:
-    model: opus
-    effort: high
-  run:
-    model: sonnet
+  claude:
+    planning:
+      model: opus
+      effort: high
+    run:
+      model: sonnet
 ```
 
 Supported aliases: `opus`, `sonnet`, `haiku` (resolved by the Claude CLI)
 
 ### Field Details
 
-- **`models.planning`**: Specifies the Claude model and effort level used when the board executes planning tasks. Recommended to use a high-capability model and effort level such as `opus` with `high`.
+- **`models.<agent>.planning`**: Specifies the model and effort level used by the target agent for planning tasks. Recommended to use a high-capability model and effort level such as `opus` with `high` for `claude`.
   ```yaml
   models:
-    planning:
-      model: opus
-      effort: high
+    claude:
+      planning:
+        model: opus
+        effort: high
   ```
 
-- **`models.run`**: Specifies the Claude model and effort level used when the board executes run or pr commands. The `pr` command also uses this value.
+- **`models.<agent>.run`**: Specifies the model and effort level used by the target agent for run or pr commands. The `pr` command also uses this value.
   ```yaml
   models:
-    run:
-      model: sonnet
-      effort: low
+    claude:
+      run:
+        model: sonnet
+        effort: low
   ```
 
 ## Permission Mode Settings

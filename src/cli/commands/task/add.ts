@@ -22,8 +22,8 @@ import {
   buildTaskJsonData,
   printTaskCreated,
   validateModelEffortOptions,
+  modelEffortHelpText,
 } from './add-helpers';
-import { MODEL_ALIASES, VALID_EFFORT_LEVELS } from '../../../board/claudePromptBuilder';
 
 /** Marker error used to distinguish block-relationship failures from other errors thrown within the transaction */
 class BlockRelationshipError extends Error {}
@@ -33,6 +33,8 @@ export function setupTaskAddCommand(program: Command): void {
   if (!taskCommand) {
     throw new Error('Task command not found');
   }
+
+  const help = modelEffortHelpText();
 
   taskCommand
     .command('add')
@@ -49,10 +51,10 @@ export function setupTaskAddCommand(program: Command): void {
     .option('--parent <id>', 'Parent task ID')
     .option('--file <path>', 'Read body from markdown file')
     .option('--branch <branch>', 'Git branch name for the task')
-    .option('--model-planning <alias>', `Claude model for planning runs (${MODEL_ALIASES.join(', ')})`)
-    .option('--model-run <alias>', `Claude model for implementation runs (${MODEL_ALIASES.join(', ')})`)
-    .option('--effort-planning <level>', `Reasoning effort for planning runs (${VALID_EFFORT_LEVELS.join(', ')})`)
-    .option('--effort-run <level>', `Reasoning effort for implementation runs (${VALID_EFFORT_LEVELS.join(', ')})`)
+    .option('--model-planning <model>', `Model for planning runs (${help.models})`)
+    .option('--model-run <model>', `Model for implementation runs (${help.models})`)
+    .option('--effort-planning <level>', `Reasoning effort for planning runs (${help.efforts})`)
+    .option('--effort-run <level>', `Reasoning effort for implementation runs (${help.efforts})`)
     .option('--blocked-by <ids>', 'Comma-separated task IDs that block this task')
     .option('--blocks <ids>', 'Comma-separated task IDs that this task blocks')
     .option('--tag <names-or-ids>', 'Comma-separated tag names or IDs to attach')

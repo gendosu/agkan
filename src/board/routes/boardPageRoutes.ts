@@ -55,7 +55,12 @@ export function registerBoardPageRoutes(app: Hono, services: BoardServices): voi
     const tasksByStatus = buildTasksByStatus(ts.listTasks({ status: NON_ARCHIVE_STATUSES }, 'id', 'asc'));
     const boardConfig = readBoardConfig(configDir);
     const blockMap = buildBlockMap(tbs.getAllBlocks());
-    return c.html(renderBoard(tasksByStatus, tts.getAllTaskTags(), boardTitle, boardConfig.theme, blockMap));
+    try {
+      return c.html(renderBoard(tasksByStatus, tts.getAllTaskTags(), boardTitle, boardConfig.theme, blockMap));
+    } catch (e) {
+      console.error('[boardPageRoutes] failed to render the board:', e);
+      return c.text(e instanceof Error ? e.message : 'Failed to render the board', 500);
+    }
   });
 
   app.get('/api/board/stream', (c) => {
