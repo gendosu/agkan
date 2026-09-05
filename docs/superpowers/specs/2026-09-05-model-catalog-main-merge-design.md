@@ -53,7 +53,7 @@ git checkout beta -- src/ tests/ documentation/ CHANGELOG.md CHANGELOG.ja.md
 | 対象 | 扱い |
 |---|---|
 | `src/` `tests/` `documentation/` | `beta` の内容を取り込む |
-| `CHANGELOG.md` `CHANGELOG.ja.md` | 取り込んだうえで第 4 章のとおり書き直す |
+| `CHANGELOG.md` `CHANGELOG.ja.md` | 取り込まない。`beta` 側がリリース済みの 3.21.0 節を書き換えているため、取り込むと履歴に残る。第 4 章のとおり `main` の内容の上に Unreleased 節を書き足す |
 | `README.md` `README.ja.md` | 取り込まない（`beta` の差分は「agent selection（Claude/Codex）」の文言追加のみで、Codex を隠す方針と矛盾する） |
 | `docs/superpowers/` | 取り込まない（spec 4 件・plan 4 件、計約 5,360 行。board status transition / fable-issue-hunt skill / board run session termination など未実装トピックを含む） |
 | 診断ログ | 取り込み後に戻す。`9699eba` が `src/board/routes/claudeRoutes.ts` に 5 行、`src/terminal/PtySessionService.ts` に 13 行追加（1 行削除）したもの |
@@ -133,7 +133,7 @@ git checkout beta -- src/ tests/ documentation/ CHANGELOG.md CHANGELOG.ja.md
 
 `tests/terminal/PtySessionService.test.ts`（Codex CLI 起動 18 箇所）、`tests/db/config.test.ts`（`resolveAgentTool` / `buildCodexPermissionArgs` 10 箇所）、`tests/board/client/` 一式（`modelOptions.test.ts` / `addTaskModal.test.ts` / `detailPanelHtml.test.ts`）、`tests/cli/commands/init.test.ts`。これらはテスト内で定義したカタログを渡すか、`agent: codex` 設定だけを使っている。
 
-### 自前カタログへ移す（14 件）
+### 自前カタログへ移す（13 件）
 
 「別 cli の model を選ぶと cli も切り替わる」「effort リストが異なる行どうしのペア検証」を見ており、Codex 行そのものが必要。テストが `.agkan-test.yml`（または `loadConfig` のモック）で Codex 行入りのカタログを与える形に移す。
 
@@ -146,13 +146,12 @@ git checkout beta -- src/ tests/ documentation/ CHANGELOG.md CHANGELOG.ja.md
 | `tests/board/bulkRunService.test.ts` | `:651` の 1 件 |
 | `tests/cli/commands/task/add.test.ts` | `:729` の 1 件 |
 | `tests/cli/commands/task/update.test.ts` | `:1044` `:1076` の 2 件 |
-| `tests/cli/commands/config/get.test.ts` | `:61` の 1 件（期待値から Codex 行を落とすだけ） |
 
 `loadConfig()` はテストモードで `<cwd>/.agkan-test.yml` を読む。vitest は fork プールでテストファイルを並列実行するため、リポジトリ直下の共有 `.agkan-test.yml` に書くと他ファイルと競合する。既存テストはこれを避けるために `process.cwd()` を一時ディレクトリにモックするパターンを使っており（`tests/board/boardRoutes.test.ts:742-758`、`tests/board/claudeRoutes.test.ts:465-479`、`tests/cli/commands/task/add.test.ts:762-777`、`tests/cli/commands/task/update.test.ts:1116-1132`）、本作業でも同じパターンに揃える。
 
-### 期待値を書き換える（9 件）
+### 期待値を書き換える（10 件）
 
-`tests/db/modelCatalog.test.ts` の 9 件（`:16` `:32` `:111` `:116` `:127` `:145` `:149` `:155` `:166`）。組み込みカタログそのものを検証しているテストは Claude 4 行の期待に直し、Codex 行を必要とするものはファイル内のローカルカタログ定数を参照させる。
+`tests/db/modelCatalog.test.ts` の 9 件（`:16` `:32` `:111` `:116` `:127` `:145` `:149` `:155` `:166`）と `tests/cli/commands/config/get.test.ts` の 1 件（`:61`）。組み込みカタログそのものを検証しているテストは Claude 4 行の期待に直し、Codex 行を必要とするものはファイル内のローカルカタログ定数を参照させる。
 
 ## 6. `beta` 側の後処理
 

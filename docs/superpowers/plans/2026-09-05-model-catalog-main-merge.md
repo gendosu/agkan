@@ -48,11 +48,13 @@ git checkout -b feat/model-catalog-main
 - [ ] **Step 2: beta からファイル単位で取り込む**
 
 ```bash
-git checkout beta -- src/ tests/ documentation/ CHANGELOG.md CHANGELOG.ja.md
+git checkout beta -- src/ tests/ documentation/
 git status --short | head -60
 ```
 
-`docs/` と `README.md` / `README.ja.md` が一覧に出ていないことを目視で確認する。
+`docs/`、`README.md` / `README.ja.md`、`CHANGELOG.md` / `CHANGELOG.ja.md` が一覧に出ていないことを目視で確認する。
+
+CHANGELOG を `beta` から取り込まないのは、`beta` 側がリリース済みの `## [3.21.0] - 2026-09-02` 節を書き換えており、取り込むとこのブランチの履歴に「3.21.0 節に触れたコミット」が残るためである（Global Constraints に反する）。Unreleased 節は Task 5 でゼロから書く。
 
 - [ ] **Step 3: 診断ログ 1／3 を戻す（claudeRoutes.ts）**
 
@@ -150,7 +152,7 @@ MSG
 
 ### Task 2: 既定カタログの Codex 行に依存するテストを自前カタログへ移す
 
-既定カタログから Codex 行を落とすと 23 件のテストが落ちる（実測値）。うち 14 件は「別 cli の model を選ぶと cli も切り替わる」「effort リストが異なる行どうしのペア検証」という multi-agent の挙動を検証しており、Codex 行そのものが必要である。これらを **テストが自分でカタログを設定する** 形に移し、既定カタログから独立させる。このタスクの時点では挙動は一切変わらず、テストは通ったままになる。
+既定カタログから Codex 行を落とすと 23 件のテストが落ちる（実測値）。うち 13 件は「別 cli の model を選ぶと cli も切り替わる」「effort リストが異なる行どうしのペア検証」という multi-agent の挙動を検証しており、Codex 行そのものが必要である。本タスクではこの 13 件を **テストが自分でカタログを設定する** 形に移し、既定カタログから独立させる。残る 10 件（`tests/db/modelCatalog.test.ts` の 9 件と `tests/cli/commands/config/get.test.ts` の 1 件）は期待値を書き換えるだけなので Task 3 で扱う。このタスクの時点では挙動は一切変わらず、テストは通ったままになる。
 
 `loadConfig()` はテストモードで `<cwd>/.agkan-test.yml` を読む。テストファイルは vitest の fork プールで並列実行されるため、リポジトリ直下の共有 `.agkan-test.yml` に書くと他ファイルと競合する。既存テストはこれを避けるために `process.cwd()` を一時ディレクトリにモックするパターンを使っており（`tests/board/boardRoutes.test.ts:742-758`、`tests/board/claudeRoutes.test.ts:465-479`、`tests/cli/commands/task/add.test.ts:762-777`、`tests/cli/commands/task/update.test.ts:1116-1132`）、本タスクでも同じパターンに揃える。
 
@@ -1105,14 +1107,15 @@ MSG
 - Consumes: Task 3・Task 4 の成果（Claude 専用のカタログとドキュメント）
 - Produces: リリース済み 3.21.0 節が `main` と同一のまま、`## [Unreleased]` に今回の変更が記載された CHANGELOG
 
-- [ ] **Step 1: 3.21.0 節を main の内容に戻す**
+- [ ] **Step 1: CHANGELOG が main のままであることを確認**
 
-Task 1 で `beta` から取り込んだ `CHANGELOG.md` は 3.21.0 節を書き換えている。まず `main` の内容に戻す。
+Task 1 は CHANGELOG を `beta` から取り込んでいないので、この時点の 2 ファイルは `main` と同一のはずである。先に確かめる。
 
 ```bash
-git checkout main -- CHANGELOG.md CHANGELOG.ja.md
 git diff main -- CHANGELOG.md CHANGELOG.ja.md   # 空であること
 ```
+
+空でない場合は Task 1 が誤って取り込んでいる。`git checkout main -- CHANGELOG.md CHANGELOG.ja.md` で戻してから次へ進む。
 
 - [ ] **Step 2: CHANGELOG.md の Unreleased 節を書く**
 
@@ -1196,8 +1199,8 @@ Expected: `claude` の 4 行のみ
 
 - [ ] **Step 5: 3.21.0 節が無傷であることの確認**
 
-Run: `git diff main -- CHANGELOG.md CHANGELOG.ja.md | grep -c "^-"`
-Expected: `0`（削除行がない = 既存内容に手を入れていない）
+Run: `git diff main -- CHANGELOG.md CHANGELOG.ja.md | grep "^-" | grep -v "^---"`
+Expected: 出力なし（削除行がない = 既存内容に手を入れていない）。`^---` を除くのは、diff のファイルヘッダ `--- a/CHANGELOG.md` が `-` で始まるためである
 
 - [ ] **Step 6: フルチェックを走らせる**
 
