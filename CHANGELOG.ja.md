@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### 追加
 - `.agkan.yml` に `modelCatalog` 設定を追加。タスクが選択できるモデルと、そのモデルで選べる reasoning effort を定義する。このキーを設定すると組み込みのカタログを丸ごと置き換える（行単位のマージはしない）。同じモデル名は 1 度しか書けない。カタログは `agkan config get` にも出力され、`agkan init` のテンプレートにコメントとして書き出される
+- 組み込みの `modelCatalog` に codex の行を追加。claude の 4 行の後に `gpt-6-astra`, `gpt-5.6-sol`, `gpt-5.6-terra`（effort は `low`, `medium`, `high`, `xhigh`, `max`, `ultra`）と `gpt-5.6-luna`（同じ一覧から `ultra` を除いたもの）が並ぶ。`.agkan.yml` で `modelCatalog` を設定しなくてもタスクで codex のモデルを選べるようになった
 
 ### 変更
 - タスク単位の model / effort の検証を、固定のエイリアス表（`fable`, `opus`, `sonnet`, `haiku`）と effort 表（`low`, `medium`, `high`, `xhigh`, `max`）から `modelCatalog` 基準に変更。planning / run それぞれについて model と effort をペアで検証し、effort は選択したモデルの行に含まれること（モデル未選択ならカタログの effort の和集合に含まれること）を要求する。`agkan task update` と `PATCH /api/tasks/:id` では、指定しなかった側にタスクの保存済みの値を使って検証する

@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - Add a `modelCatalog` setting to `.agkan.yml` listing which model a task may select and which reasoning efforts that model accepts. Setting this key replaces the built-in catalog entirely (no per-row merge), and each model name may appear only once. The catalog is also reported by `agkan config get` and commented into the `agkan init` template
+- Add codex rows to the built-in `modelCatalog`: `gpt-6-astra`, `gpt-5.6-sol`, `gpt-5.6-terra` (efforts `low`, `medium`, `high`, `xhigh`, `max`, `ultra`) and `gpt-5.6-luna` (same list without `ultra`), after the four claude rows. A task can now select a codex model without configuring `modelCatalog` in `.agkan.yml`
 
 ### Changed
 - Validate task-level model and effort values against `modelCatalog` instead of the fixed alias list (`fable`, `opus`, `sonnet`, `haiku`) and effort list (`low`, `medium`, `high`, `xhigh`, `max`). The model and effort of each of planning/run are now checked as a pair: an effort must belong to the selected model's row, or to the union of the catalog's efforts when no model is selected. `agkan task update` and `PATCH /api/tasks/:id` validate a flag you omit against the value already stored on the task
