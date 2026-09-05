@@ -11,6 +11,7 @@
   - [デフォルトの動作](#デフォルトの動作)
   - [プロジェクトごとの管理](#プロジェクトごとの管理)
 - [ボード設定](#ボード設定)
+- [モデルカタログ](#モデルカタログ)
 - [モデル設定](#モデル設定)
 - [パーミッションモード設定](#パーミッションモード設定)
 
@@ -172,20 +173,72 @@ board:
     title: "マイプロジェクトボード"
   ```
 
+## モデルカタログ
+
+`.agkan.yml` の `modelCatalog` は、タスクが選択できるモデル・そのモデルを実行する cli・そのモデルで選べる effort を定義します。`agkan task add` / `agkan task update` のフラグ検証、`POST` / `PATCH /api/tasks` の検証、Board のモデル/effortドロップダウンは、すべてこのカタログを唯一の正として参照します。
+
+### 形式
+
+```yaml
+modelCatalog:
+  - cli: claude
+    model: fable
+    efforts: [low, medium, high, xhigh, max]
+```
+
+| フィールド | 型 | 説明 |
+|----------|-----|------|
+| `cli` | string | `claude`。このモデルを選んだタスクを実行する cli |
+| `model` | string | cli の `--model` にそのまま渡す値。表示は `cli[model]` |
+| `efforts` | string[] | このモデルで選べる effort。空配列可（その行では effort を指定できない） |
+
+### 組み込みの既定
+
+`modelCatalog` を省略した場合は次のカタログが使われます。
+
+| cli | model | efforts |
+|-----|-------|---------|
+| claude | `fable` | `low`, `medium`, `high`, `xhigh`, `max` |
+| claude | `opus` | `low`, `medium`, `high`, `xhigh`, `max` |
+| claude | `sonnet` | `low`, `medium`, `high`, `xhigh`, `max` |
+| claude | `haiku` | `low`, `medium`, `high`, `xhigh`, `max` |
+
+### 検証
+
+`modelCatalog` を設定すると、組み込みの既定は**丸ごと置き換わります**（行単位のマージはしません）。空配列も有効で、その場合タスク単位のオーバーライドは一切選べません。次の場合はエラーになります。
+
+- `modelCatalog` が配列でない
+- 行の `cli` が `claude` でない
+- 行の `model` が空、または `efforts` が「空でない文字列の配列」でない
+- 同じ `model` 名が 2 行以上に現れる
+
+### タスクからの使われ方
+
+- タスクでモデルを選ぶと、そのタスクを実行する cli も決まります（そのタスクに限り `agent:` を上書きします）。
+- effort は、選択したモデルの行の `efforts` に含まれる場合のみ有効です。モデル未選択のときは、既定の `agent:` に属する全行の efforts の和集合が候補になります。
+- 保存済みのモデルがカタログから消えている場合、実行は既定 cli にフォールバックせず 400 で失敗します。Board の詳細パネルはその値を `(not in catalog) <model>` として表示し、修正できるようにします。
+- `models.<agent>.<kind>.model` の値はカタログで検証しません。その effort は、モデルが同じ cli のカタログ行に一致するときだけ検証されます。
+
 ## モデル設定
 
-`.agkan.yml` の `models` セクションでは、ボード経由でplanningおよびrunコマンドを実行する際に使用するClaudeモデルとeffortレベルを指定できます。
+`.agkan.yml` の `models` セクションでは、ボード経由でplanningおよびrunコマンドを実行する際に、選択したエージェントが使用するモデルとeffortレベルを指定できます。
 
 ### 利用可能なフィールド
 
 | フィールド | 型 | デフォルト値 | 説明 |
 |----------|-----|------------|------|
-| `models.planning.model` | string | (Claude CLIのデフォルト) | planningコマンド実行時に使用するモデル |
-| `models.planning.effort` | string | (Claude CLIのデフォルト) | planningコマンドのeffortレベル（`low`, `medium`, `high`, `xhigh`, `max`） |
-| `models.run.model` | string | (Claude CLIのデフォルト) | run/prコマンド実行時に使用するモデル |
-| `models.run.effort` | string | (Claude CLIのデフォルト) | run/prコマンドのeffortレベル（`low`, `medium`, `high`, `xhigh`, `max`） |
+| `models.<agent>.planning.model` | string | (選択したCLIのデフォルト) | planningコマンド実行時に使用するモデル |
+| `models.<agent>.planning.effort` | string | (選択したCLIのデフォルト) | planningコマンドのeffortレベル（[モデルカタログ](#モデルカタログ)を参照） |
+| `models.<agent>.run.model` | string | (選択したCLIのデフォルト) | run/prコマンド実行時に使用するモデル |
+| `models.<agent>.run.effort` | string | (選択したCLIのデフォルト) | run/prコマンドのeffortレベル（[モデルカタログ](#モデルカタログ)を参照） |
 
-フルモデル名とClaude CLIのエイリアスの両方が使用できます。`model` と `effort` はいずれも省略可能です。
+`<agent>` は `claude` です。`model` と `effort` はいずれも省略可能です。
+
+`models.claude.planning.model` / `models.claude.run.model` が未設定の場合、Claude CLI自身のデフォルトモデルが使用されます。
+
+後方互換のため、エージェントキーを持たない従来のフラット形式 `models.planning` / `models.run` も引き続きフォールバックとしてサポートされます: `models.<agent>.planning`（または `.run`）が未設定の場合、`models.planning`（または `.run`）にフォールバックします。エージェント固有の設定は常に従来のフラット形式より優先されます。
+
+モデル名はClaude CLIの `--model` フラグにそのまま渡されます。`opus`、`sonnet`、`haiku` などのエイリアスは、agkanではなくClaude CLI自身が解決します。agkanは設定ファイルの `models.<agent>` の値に対するモデルのエイリアス解決やバリデーションは行いません。
 
 ### 設定例
 
@@ -195,45 +248,49 @@ path: ./.agkan/data.db
 
 # モデル設定
 models:
-  planning:
-    model: claude-opus-4-7
-    effort: high
-  run:
-    model: claude-sonnet-4-6
-    effort: low
+  claude:
+    planning:
+      model: claude-opus-4-7
+      effort: high
+    run:
+      model: claude-sonnet-4-6
+      effort: low
 ```
 
 ### エイリアスの使用
 
-フルモデル名の代わりに短いエイリアスを使用できます：
+`agent: claude` を選択している場合、フルモデル名の代わりに短いエイリアスを使用できます：
 
 ```yaml
 models:
-  planning:
-    model: opus
-    effort: high
-  run:
-    model: sonnet
+  claude:
+    planning:
+      model: opus
+      effort: high
+    run:
+      model: sonnet
 ```
 
 使用可能なエイリアス: `opus`、`sonnet`、`haiku`（Claude CLIが解決します）
 
 ### フィールドの詳細
 
-- **`models.planning`**: ボードがplanningタスクを実行する際に使用するClaudeモデルとeffortレベルを指定します。`opus` や `claude-opus-4-7` など高性能なモデルと高いeffortレベルの使用を推奨します。
+- **`models.<agent>.planning`**: ボードがplanningタスクを実行する際に、対象エージェントが使用するモデルとeffortレベルを指定します。`claude` の場合は `opus` など高性能なモデルと高いeffortレベルの使用を推奨します。
   ```yaml
   models:
-    planning:
-      model: opus
-      effort: high
+    claude:
+      planning:
+        model: opus
+        effort: high
   ```
 
-- **`models.run`**: ボードがrunまたはprコマンドを実行する際に使用するClaudeモデルとeffortレベルを指定します。`pr` コマンドもこの値を使用します。
+- **`models.<agent>.run`**: ボードがrunまたはprコマンドを実行する際に、対象エージェントが使用するモデルとeffortレベルを指定します。`pr` コマンドもこの値を使用します。
   ```yaml
   models:
-    run:
-      model: sonnet
-      effort: low
+    claude:
+      run:
+        model: sonnet
+        effort: low
   ```
 
 ## パーミッションモード設定
