@@ -3,6 +3,7 @@
 import type { TaskDetail } from './types';
 import { escapeHtmlClient, relativeTime } from './utils';
 import { BRANCH_AUTO_GENERATE, BRANCH_AUTO_GENERATE_DISPLAY } from './branchSelector';
+import { getModelCatalog, effortsForModel } from './modelOptions';
 
 export function renderCommentItemHtml(
   comment: { id: number; content: string; author?: string | null; created_at?: string },
@@ -91,37 +92,53 @@ export function renderPriorityField(currentPriority: string | null | undefined, 
   return html;
 }
 
-// Keep in sync with BOARD_MODEL_OPTIONS/MODEL_ALIAS_OPTIONS in src/board/boardRenderer.ts
-// (duplicated because the client bundle is compiled as a separate TS project).
-const MODEL_ALIAS_OPTIONS = ['fable', 'opus', 'sonnet', 'haiku'];
-
-// Keep in sync with BOARD_EFFORT_OPTIONS/EFFORT_OPTIONS in src/board/boardRenderer.ts
-// (duplicated because the client bundle is compiled as a separate TS project).
-const EFFORT_OPTIONS = ['low', 'medium', 'high', 'xhigh', 'max'];
-
 export const MODEL_PLANNING_METADATA_KEY = 'model:planning';
 export const MODEL_RUN_METADATA_KEY = 'model:run';
 export const EFFORT_PLANNING_METADATA_KEY = 'effort:planning';
 export const EFFORT_RUN_METADATA_KEY = 'effort:run';
 
+function renderStaleOption(value: string): string {
+  return (
+    '<option value="' + escapeHtmlClient(value) + '" selected>(not in catalog) ' + escapeHtmlClient(value) + '</option>'
+  );
+}
+
 function renderModelSelect(id: string, currentValue: string): string {
+  const catalog = getModelCatalog();
   let html = '<select id="' + id + '" class="detail-edit-select">';
   html += '<option value="">Default (config)</option>';
-  MODEL_ALIAS_OPTIONS.forEach((m) => {
-    const selected = m === currentValue ? ' selected' : '';
-    html += '<option value="' + m + '"' + selected + '>' + m.charAt(0).toUpperCase() + m.slice(1) + '</option>';
+  catalog.forEach((entry) => {
+    const selected = entry.model === currentValue ? ' selected' : '';
+    html +=
+      '<option value="' +
+      escapeHtmlClient(entry.model) +
+      '"' +
+      selected +
+      '>' +
+      escapeHtmlClient(entry.cli + '[' + entry.model + ']') +
+      '</option>';
   });
+  // A value stored before a catalog change must stay visible and editable
+  // rather than silently reading as "Default (config)".
+  if (currentValue && !catalog.some((entry) => entry.model === currentValue)) {
+    html += renderStaleOption(currentValue);
+  }
   html += '</select>';
   return html;
 }
 
-function renderEffortSelect(id: string, currentValue: string): string {
+function renderEffortSelect(id: string, currentValue: string, modelValue: string): string {
+  const efforts = effortsForModel(modelValue);
   let html = '<select id="' + id + '" class="detail-edit-select">';
   html += '<option value="">Effort: default</option>';
-  EFFORT_OPTIONS.forEach((e) => {
-    const selected = e === currentValue ? ' selected' : '';
-    html += '<option value="' + e + '"' + selected + '>' + e.charAt(0).toUpperCase() + e.slice(1) + '</option>';
+  efforts.forEach((effort) => {
+    const selected = effort === currentValue ? ' selected' : '';
+    html +=
+      '<option value="' + escapeHtmlClient(effort) + '"' + selected + '>' + escapeHtmlClient(effort) + '</option>';
   });
+  if (currentValue && efforts.indexOf(currentValue) === -1) {
+    html += renderStaleOption(currentValue);
+  }
   html += '</select>';
   return html;
 }
@@ -136,14 +153,14 @@ export function renderModelFields(task: TaskDetail['task']): string {
   html += '<div class="detail-field-label">Planning Model</div>';
   html += '<div class="detail-field-row">';
   html += renderModelSelect('detail-edit-model-planning', planningValue);
-  html += renderEffortSelect('detail-edit-effort-planning', planningEffort);
+  html += renderEffortSelect('detail-edit-effort-planning', planningEffort, planningValue);
   html += '</div>';
   html += '</div>';
   html += '<div class="detail-field">';
   html += '<div class="detail-field-label">Run Model</div>';
   html += '<div class="detail-field-row">';
   html += renderModelSelect('detail-edit-model-run', runValue);
-  html += renderEffortSelect('detail-edit-effort-run', runEffort);
+  html += renderEffortSelect('detail-edit-effort-run', runEffort, runValue);
   html += '</div>';
   html += '</div>';
   return html;
