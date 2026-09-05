@@ -1028,6 +1028,32 @@ describe('POST /api/claude/tasks/:taskId/run - branch checkout', () => {
     const data = (await res.json()) as { error: string };
     expect(data.error).toContain('feature/fail-branch');
   });
+
+  it('returns 500 without invoking git when the branch name starts with a dash', async () => {
+    const { execFileSync } = await import('child_process');
+    const execFileSyncMock = vi.mocked(execFileSync);
+
+    const mock = buildMockClaudeProcessService();
+    const services = buildServices(mock);
+    const task = services.ts.createTask({
+      title: 'Argument Injection Task',
+      status: 'backlog',
+      branch: '--force',
+    });
+    const app = buildApp(services);
+
+    const res = await app.fetch(
+      new Request(`http://localhost/api/claude/tasks/${task.id}/run`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ command: 'run' }),
+      })
+    );
+
+    expect(res.status).toBe(500);
+    expect(execFileSyncMock).not.toHaveBeenCalled();
+    expect(mock.startProcess).not.toHaveBeenCalled();
+  });
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
