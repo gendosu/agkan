@@ -1399,3 +1399,68 @@ describe('PtySessionService - hook integration', () => {
     expect(attention.getAttention(456)).toBe(false);
   });
 });
+
+describe('PtySessionService - codex notify hook', () => {
+  let spawnMock: ReturnType<typeof vi.fn>;
+
+  beforeEach(async () => {
+    vi.useFakeTimers();
+    mockWrite.mockClear();
+    mockOnDataHandler = null;
+    mockOnExitHandler = null;
+    const pty = await import('node-pty');
+    spawnMock = pty.spawn as unknown as ReturnType<typeof vi.fn>;
+    spawnMock.mockClear();
+    vi.mocked(configModule.loadConfig).mockReturnValue({ agent: 'codex' });
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  function newService(boardApiUrl: string | null): PtySessionService {
+    return new PtySessionService(undefined, {
+      boardApiUrl,
+      attentionStateService: new AttentionStateService(),
+      hookSettingsDataDir: '/tmp/test-hooks-' + process.pid,
+    });
+  }
+
+  it('passes --config notify=[node, hook-codex-notify.mjs] to codex when board hooks are enabled', async () => {
+    const svc = newService('http://127.0.0.1:9999');
+    await svc.startProcess(1, 'Task ID: 1', 'run', 'gpt-5.6-sol', 'high');
+
+    expect(spawnMock.mock.calls[0][0]).toBe('codex');
+    const args = spawnMock.mock.calls[0][1] as string[];
+    const notifyArg = args.find((a) => a.startsWith('notify='));
+    expect(notifyArg).toBeDefined();
+    expect(args[args.indexOf(notifyArg as string) - 1]).toBe('--config');
+    // The value must be a TOML array literal: JSON.stringify of a string[] is valid TOML.
+    const parsed = JSON.parse((notifyArg as string).slice('notify='.length)) as string[];
+    expect(parsed[0]).toBe('node');
+    expect(parsed[1]).toMatch(/[\\/]hook-codex-notify\.mjs$/);
+    expect(parsed[1]).toMatch(/^[\\/]|^[A-Za-z]:[\\/]/);
+    // The prompt stays last, behind the end-of-options sentinel.
+    expect(args.slice(-2)).toEqual(['--', 'Task ID: 1']);
+    expect(args).not.toContain('--settings');
+  });
+
+  it('does not pass notify to codex when board hooks are disabled', async () => {
+    const svc = newService(null);
+    await svc.startProcess(1, 'Task ID: 1', 'run');
+
+    const args = spawnMock.mock.calls[0][1] as string[];
+    expect(args.some((a) => a.startsWith('notify='))).toBe(false);
+  });
+
+  it('does not pass notify to claude', async () => {
+    vi.mocked(configModule.loadConfig).mockReturnValue({});
+    const svc = newService('http://127.0.0.1:9999');
+    await svc.startProcess(1, 'prompt', 'run');
+
+    expect(spawnMock.mock.calls[0][0]).not.toBe('codex');
+    const args = spawnMock.mock.calls[0][1] as string[];
+    expect(args.some((a) => a.startsWith('notify='))).toBe(false);
+    expect(args).toContain('--settings');
+  });
+});
