@@ -4,46 +4,9 @@
 // emits is `agent-turn-complete`. This is the Codex counterpart of hook-stop.mjs — Codex has
 // no Stop hook, so without it a Board-launched Codex session never terminates on its own.
 
-// Same contract as hook-stop.mjs: reached = current status matches target, or has advanced
-// to a terminal status (review/done/closed). On fetch failure or non-200, returns false.
-async function isTargetStatusReached(apiUrl, token, taskId, targetStatus) {
-  try {
-    const res = await fetch(`${apiUrl}/api/internal/tasks/${taskId}/status`, {
-      method: 'GET',
-      headers: { 'x-hook-token': token },
-    });
-    if (!res.ok) return false;
-    const data = await res.json();
-    const status = data && data.status;
-    return status === targetStatus || status === 'review' || status === 'done' || status === 'closed';
-  } catch (err) {
-    process.stderr.write(`hook-codex-notify: status check failed: ${(err && err.message) || err}\n`);
-    return false;
-  }
-}
+import { isTargetStatusReached, postStopComplete } from './board-stop-client.mjs';
 
-async function notifyComplete(apiUrl, token, taskId) {
-  try {
-    const res = await fetch(`${apiUrl}/api/internal/hooks/stop`, {
-      method: 'POST',
-      headers: {
-        'content-type': 'application/json',
-        'x-hook-token': token,
-      },
-      body: JSON.stringify({ taskId, reason: 'complete' }),
-    });
-    if (!res.ok) {
-      process.stderr.write(`hook-codex-notify: API responded ${res.status}\n`);
-    } else {
-      const data = await res.json().catch(() => null);
-      if (data && data.ok === false) {
-        process.stderr.write(`hook-codex-notify: server skipped stop (reason=${data.reason ?? 'unknown'})\n`);
-      }
-    }
-  } catch (err) {
-    process.stderr.write(`hook-codex-notify: ${(err && err.message) || err}\n`);
-  }
-}
+const LOG_PREFIX = 'hook-codex-notify';
 
 async function main() {
   const taskIdRaw = process.env.BOARD_TASK_ID;
@@ -69,12 +32,15 @@ async function main() {
   // the board and can be stopped manually.
   const targetStatus = process.env.BOARD_TARGET_STATUS;
   if (targetStatus) {
-    const reached = await isTargetStatusReached(apiUrl, token, taskId, targetStatus);
-    if (reached) await notifyComplete(apiUrl, token, taskId);
+    const reached = await isTargetStatusReached(apiUrl, token, taskId, targetStatus, LOG_PREFIX);
+    if (reached) await postStopComplete(apiUrl, token, taskId, LOG_PREFIX);
     return;
   }
 
-  await notifyComplete(apiUrl, token, taskId);
+  // No target status (planning session): complete unconditionally, as hook-stop.mjs does.
+  // Unlike Claude Code there is no AskUserQuestion/transcript to inspect, so a Codex turn
+  // that ends by asking the user a question also ends the session here.
+  await postStopComplete(apiUrl, token, taskId, LOG_PREFIX);
 }
 
 await main();
