@@ -1,11 +1,19 @@
 // Shared types for client-side board code
 
+export interface ModelCatalogEntry {
+  cli: string;
+  model: string;
+  efforts: string[];
+}
+
 declare global {
   interface Window {
     statusColors: Record<string, string>;
     allStatuses: string[];
     statusLabels: Record<string, string>;
     allPriorities: string[];
+    modelCatalog: ModelCatalogEntry[];
+    defaultAgent: string;
   }
 }
 
