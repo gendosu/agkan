@@ -4,7 +4,9 @@ export function escapeHtmlClient(str: string | null | undefined): string {
   if (!str) return '';
   const div = document.createElement('div');
   div.textContent = String(str);
-  return div.innerHTML;
+  // textContent -> innerHTML escapes &, <, > but not ", which is unsafe in
+  // value="..." attribute sinks (e.g. stale model/effort options).
+  return div.innerHTML.replace(/"/g, '&quot;');
 }
 
 export function relativeTime(isoStr: string | null | undefined): string {
