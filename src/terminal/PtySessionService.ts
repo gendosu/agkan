@@ -7,7 +7,13 @@ import { ensureBoardHookSettings } from '../hooks/claudeHookSettings';
 import { buildHookEnv } from './buildHookEnv';
 import { ensureSpawnHelperExecutable } from './ensureSpawnHelperExecutable';
 import { AttentionStateService } from '../services/AttentionStateService';
-import { loadConfig, buildPermissionArgs } from '../db/config';
+import {
+  loadConfig,
+  buildPermissionArgs,
+  buildCodexPermissionArgs,
+  resolveAgentTool,
+  type AgentTool,
+} from '../db/config';
 
 export function stripAnsi(text: string): string {
   return (
@@ -32,6 +38,8 @@ function resolveClaudePath(): string {
 }
 
 const CLAUDE_BIN = resolveClaudePath();
+const CODEX_BIN = 'codex';
+const DEFAULT_CODEX_MODEL = 'gpt-5.6-sol';
 const PROMPT_FALLBACK_DELAY_MS = 10000;
 const PROMPT_ENTER_DELAY_MS = 200;
 const ENTER_RETRY_INTERVAL_MS = 2000;
@@ -311,6 +319,27 @@ export function detectClaudeScreenStatus(outputBuffer: string): ClaudeScreenStat
   return 'unknown';
 }
 
+function buildAgentArgs(
+  agent: AgentTool,
+  config: ReturnType<typeof loadConfig>,
+  prompt: string,
+  model?: string,
+  effort?: string,
+  hookSettingsPath?: string | null
+): string[] {
+  if (agent === 'codex') {
+    const modelArgs = ['--model', model || DEFAULT_CODEX_MODEL];
+    const effortArgs = effort ? ['--config', 'model_reasoning_effort=' + JSON.stringify(effort)] : [];
+    // '--' keeps a flag-like or subcommand-like prompt from being parsed as codex options.
+    return [...modelArgs, ...effortArgs, ...buildCodexPermissionArgs(config), '--', prompt];
+  }
+
+  const modelArgs = model ? ['--model', model] : [];
+  const effortArgs = effort ? ['--effort', effort] : [];
+  const settingsArgs = hookSettingsPath ? ['--settings', hookSettingsPath] : [];
+  return [...settingsArgs, ...modelArgs, ...effortArgs, ...buildPermissionArgs(config)];
+}
+
 export interface PtySessionServiceOptions {
   boardApiUrl: string | null;
   attentionStateService: AttentionStateService;
@@ -416,27 +445,36 @@ export class PtySessionService {
     scheduleCheck();
   }
 
-  async startProcess(taskId: number, prompt: string, command = 'run', model?: string, effort?: string): Promise<void> {
+  async startProcess(
+    taskId: number,
+    prompt: string,
+    command = 'run',
+    model?: string,
+    effort?: string,
+    agentOverride?: AgentTool
+  ): Promise<void> {
     if (this.sessions.has(taskId)) {
       throw new ConflictError(`Process for taskId ${taskId} is already running`);
     }
 
-    // Ensure hook settings file exists if hook integration is configured
-    if (this.hookSettingsDataDir !== null && this.hookSettingsPath === null) {
+    const config = loadConfig();
+    // A task whose model override selects another cli passes it explicitly;
+    // without one the project-wide `agent:` setting applies.
+    const agent = agentOverride ?? resolveAgentTool(config);
+
+    // Board hooks use Claude Code's settings format and are not passed to Codex.
+    if (agent === 'claude' && this.hookSettingsDataDir !== null && this.hookSettingsPath === null) {
       this.hookSettingsPath = await ensureBoardHookSettings(this.hookSettingsDataDir);
     }
 
-    const modelArgs = model ? ['--model', model] : [];
-    const effortArgs = effort ? ['--effort', effort] : [];
-    const settingsArgs = this.hookSettingsPath ? ['--settings', this.hookSettingsPath] : [];
-    const permissionArgs = buildPermissionArgs(loadConfig());
-    const args = [...settingsArgs, ...modelArgs, ...effortArgs, ...permissionArgs];
+    const args = buildAgentArgs(agent, config, prompt, model, effort, this.hookSettingsPath);
 
     const hookEnv = buildHookEnv(taskId, this.boardApiUrl, command);
 
+    const agentBin = agent === 'codex' ? CODEX_BIN : CLAUDE_BIN;
     let ptyProcess: pty.IPty;
     try {
-      ptyProcess = pty.spawn(CLAUDE_BIN, args, {
+      ptyProcess = pty.spawn(agentBin, args, {
         name: 'xterm-256color',
         cols: 220,
         rows: 50,
@@ -450,7 +488,7 @@ export class PtySessionService {
       });
     } catch (e) {
       console.error(
-        `[pty][spawn-error] taskId=${taskId} command=${command} bin=${CLAUDE_BIN} error=${e instanceof Error ? e.message : String(e)}`
+        `[pty][spawn-error] taskId=${taskId} command=${command} agent=${agent} bin=${agentBin} error=${e instanceof Error ? e.message : String(e)}`
       );
       throw e;
     }
@@ -466,7 +504,7 @@ export class PtySessionService {
       rawOutputSubscribers: new Set(),
       outputUpdateSubscribers: new Set(),
       runLogId: null,
-      pendingPrompt: prompt,
+      pendingPrompt: agent === 'claude' ? prompt : null,
       promptTimer: null,
       enterWatchdogTimer: null,
       deferredHookStopTimer: null,
@@ -481,20 +519,24 @@ export class PtySessionService {
       info.runLogId = this.db.runLogs.create(taskId, info.startedAt.toISOString());
     }
 
-    // Fallback: send prompt if ready signal never detected within timeout
-    info.promptTimer = setTimeout(() => {
-      info.promptTimer = null;
-      if (info.pendingPrompt !== null && this.sessions.has(taskId)) {
-        const fallbackPrompt = info.pendingPrompt;
-        info.pendingPrompt = null;
-        ptyProcess.write(fallbackPrompt);
-        setTimeout(() => {
-          if (this.sessions.has(taskId)) {
-            this.sendEnterWithRetry(taskId, info);
-          }
-        }, PROMPT_ENTER_DELAY_MS);
-      }
-    }, PROMPT_FALLBACK_DELAY_MS);
+    // Claude starts without a positional prompt, so inject it once the TUI is
+    // ready. Codex receives the prompt as its final CLI argument.
+    // Fallback: send prompt if ready signal never detected within timeout.
+    if (agent === 'claude') {
+      info.promptTimer = setTimeout(() => {
+        info.promptTimer = null;
+        if (info.pendingPrompt !== null && this.sessions.has(taskId)) {
+          const fallbackPrompt = info.pendingPrompt;
+          info.pendingPrompt = null;
+          ptyProcess.write(fallbackPrompt);
+          setTimeout(() => {
+            if (this.sessions.has(taskId)) {
+              this.sendEnterWithRetry(taskId, info);
+            }
+          }, PROMPT_ENTER_DELAY_MS);
+        }
+      }, PROMPT_FALLBACK_DELAY_MS);
+    }
 
     ptyProcess.onData((data: string) => {
       info.outputBuffer += data;
