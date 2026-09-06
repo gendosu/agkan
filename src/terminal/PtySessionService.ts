@@ -4,6 +4,7 @@ import type { StorageBackend, RunLogRow } from '../db/types/repository';
 import type { RunLog, OutputEvent as ClaudeOutputEvent, CompletionConfirmCallback } from '../services/types';
 import { ConflictError } from '../errors';
 import { ensureBoardHookSettings } from '../hooks/claudeHookSettings';
+import { buildCodexNotifyArgs } from '../hooks/codexNotifyArgs';
 import { buildHookEnv } from './buildHookEnv';
 import { ensureSpawnHelperExecutable } from './ensureSpawnHelperExecutable';
 import { AttentionStateService } from '../services/AttentionStateService';
@@ -325,13 +326,17 @@ function buildAgentArgs(
   prompt: string,
   model?: string,
   effort?: string,
-  hookSettingsPath?: string | null
+  hookSettingsPath?: string | null,
+  boardHooksEnabled = false
 ): string[] {
   if (agent === 'codex') {
     const modelArgs = ['--model', model || DEFAULT_CODEX_MODEL];
     const effortArgs = effort ? ['--config', 'model_reasoning_effort=' + JSON.stringify(effort)] : [];
+    // Codex has no Stop hook; its `notify` command is the only way the board learns that a
+    // turn finished, so a Codex session would otherwise never terminate on its own.
+    const notifyArgs = boardHooksEnabled ? buildCodexNotifyArgs() : [];
     // '--' keeps a flag-like or subcommand-like prompt from being parsed as codex options.
-    return [...modelArgs, ...effortArgs, ...buildCodexPermissionArgs(config), '--', prompt];
+    return [...modelArgs, ...effortArgs, ...notifyArgs, ...buildCodexPermissionArgs(config), '--', prompt];
   }
 
   const modelArgs = model ? ['--model', model] : [];
@@ -462,14 +467,15 @@ export class PtySessionService {
     // without one the project-wide `agent:` setting applies.
     const agent = agentOverride ?? resolveAgentTool(config);
 
-    // Board hooks use Claude Code's settings format and are not passed to Codex.
+    // Board hooks use Claude Code's settings format and are not passed to Codex; Codex gets
+    // the equivalent completion signal through its `notify` config instead (buildAgentArgs).
     if (agent === 'claude' && this.hookSettingsDataDir !== null && this.hookSettingsPath === null) {
       this.hookSettingsPath = await ensureBoardHookSettings(this.hookSettingsDataDir);
     }
 
-    const args = buildAgentArgs(agent, config, prompt, model, effort, this.hookSettingsPath);
-
     const hookEnv = buildHookEnv(taskId, this.boardApiUrl, command);
+    const boardHooksEnabled = Object.keys(hookEnv).length > 0;
+    const args = buildAgentArgs(agent, config, prompt, model, effort, this.hookSettingsPath, boardHooksEnabled);
 
     const agentBin = agent === 'codex' ? CODEX_BIN : CLAUDE_BIN;
     let ptyProcess: pty.IPty;

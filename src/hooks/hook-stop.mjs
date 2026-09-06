@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import { promises as fs } from 'fs';
 import { getSessionMarkerPath } from './session-marker.mjs';
+import { isTargetStatusReached, postStopComplete } from './board-stop-client.mjs';
 
 async function readStdin() {
   const chunks = [];
@@ -147,56 +148,11 @@ function hasFinalAgentToolResult(entries, toolUseId) {
   return false;
 }
 
-// Fetches the current task status from the board and checks whether it has reached the
-// run's target status. Reached = current status matches target, or has advanced to a
-// terminal status (review/done/closed) — review means a PR was created and the agent's
-// work has been handed off, which is a valid completion signal even for run/direct
-// sessions whose target is 'done'. On fetch failure or non-200, returns false so the
-// caller falls through to the normal guard checks instead of overriding them.
-async function isTargetStatusReached(apiUrl, token, taskId, targetStatus) {
-  try {
-    const res = await fetch(`${apiUrl}/api/internal/tasks/${taskId}/status`, {
-      method: 'GET',
-      headers: { 'x-hook-token': token },
-    });
-    if (!res.ok) return false;
-    const data = await res.json();
-    const status = data && data.status;
-    return status === targetStatus || status === 'review' || status === 'done' || status === 'closed';
-  } catch (err) {
-    process.stderr.write(`hook-stop: status check failed: ${(err && err.message) || err}\n`);
-    return false;
-  }
-}
-
 // Notifies the board of completion. Unlinks the main session's session file first, then
 // POSTs the completion — the file is only removed once completion is actually reported.
 async function notifyComplete(apiUrl, token, taskId, sessionFile) {
   await fs.unlink(sessionFile).catch(() => {});
-  try {
-    const res = await fetch(`${apiUrl}/api/internal/hooks/stop`, {
-      method: 'POST',
-      headers: {
-        'content-type': 'application/json',
-        'x-hook-token': token,
-      },
-      body: JSON.stringify({ taskId, reason: 'complete' }),
-    });
-    if (!res.ok) {
-      process.stderr.write(`hook-stop: API responded ${res.status}\n`);
-    } else {
-      // A 200 response can still carry ok:false when the server's screen-status guard
-      // skipped termination. This is not retried here — the server itself schedules a
-      // delayed re-evaluation and guarantees eventual termination — but it is logged so
-      // guard-skip cases are observable instead of silently looking identical to success.
-      const data = await res.json().catch(() => null);
-      if (data && data.ok === false) {
-        process.stderr.write(`hook-stop: server skipped stop (reason=${data.reason ?? 'unknown'})\n`);
-      }
-    }
-  } catch (err) {
-    process.stderr.write(`hook-stop: ${(err && err.message) || err}\n`);
-  }
+  await postStopComplete(apiUrl, token, taskId, 'hook-stop');
 }
 
 async function main() {
@@ -293,7 +249,7 @@ async function main() {
   // leave the session running: it stays visible on the board and can be stopped manually,
   // which is recoverable, unlike a kill-in-flight that destroys unsaved progress.
   if (targetStatus) {
-    const reached = await isTargetStatusReached(apiUrl, token, taskId, targetStatus);
+    const reached = await isTargetStatusReached(apiUrl, token, taskId, targetStatus, 'hook-stop');
     if (reached) {
       await notifyComplete(apiUrl, token, taskId, sessionFile);
     }
