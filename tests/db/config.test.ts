@@ -106,8 +106,18 @@ describe('buildAgyPermissionArgs', () => {
     expect(buildAgyPermissionArgs({ permissionMode: 'plan' })).toEqual(['--mode', 'plan']);
   });
 
-  it('passes no flags for the default permission mode', () => {
-    expect(buildAgyPermissionArgs({})).toEqual([]);
+  // agy has no equivalent of claude's "auto" mode, so the non-interactive default is
+  // approximated with its skip-permissions flag.
+  it('maps auto to the dangerous skip flag', () => {
+    expect(buildAgyPermissionArgs({ permissionMode: 'auto' })).toEqual(['--dangerously-skip-permissions']);
+  });
+
+  it('maps an unset permission mode to the dangerous skip flag', () => {
+    expect(buildAgyPermissionArgs({})).toEqual(['--dangerously-skip-permissions']);
+  });
+
+  it('passes no flags for the default (interactive) permission mode', () => {
+    expect(buildAgyPermissionArgs({ permissionMode: 'default' })).toEqual([]);
   });
 });
 

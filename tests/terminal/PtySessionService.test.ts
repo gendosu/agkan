@@ -793,7 +793,15 @@ describe('PtySessionService - model/effort/boardApiUrl args', () => {
 
     expect(spawnMock.mock.calls[0][0]).toBe('agy');
     const args = spawnMock.mock.calls[0][1] as string[];
-    expect(args).toEqual(['--model', 'gemini-3.8-flash-high', '--effort', 'high', '-i', 'Task ID: 1']);
+    expect(args).toEqual([
+      '--model',
+      'gemini-3.8-flash-high',
+      '--effort',
+      'high',
+      '--dangerously-skip-permissions',
+      '-i',
+      'Task ID: 1',
+    ]);
   });
 
   it('spawns agy when passed as the trailing agent argument', async () => {
@@ -811,6 +819,14 @@ describe('PtySessionService - model/effort/boardApiUrl args', () => {
     const args = spawnMock.mock.calls[0][1] as string[];
     expect(args).not.toContain('--model');
     expect(args).not.toContain('--effort');
+    expect(args).toEqual(['--dangerously-skip-permissions', '-i', 'prompt']);
+  });
+
+  it('passes no permission flag to agy for the interactive default mode', async () => {
+    vi.mocked(configModule.loadConfig).mockReturnValue({ agent: 'agy', permissionMode: 'default' });
+    const svc = new PtySessionService();
+    await svc.startProcess(1, 'prompt', 'run');
+    const args = spawnMock.mock.calls[0][1] as string[];
     expect(args).toEqual(['-i', 'prompt']);
   });
 

@@ -90,11 +90,15 @@ export function buildCodexPermissionArgs(config: Config): string[] {
 
 /**
  * Build agy CLI permission/mode arguments from the existing permission setting.
- * Modes without a direct agy equivalent use agy's own interactive default
- * (request-review), which already pauses for approval like claude's "auto".
+ * agy has no equivalent of claude's "auto" mode, so "auto" (and the unset
+ * default, which means "auto") is approximated with --dangerously-skip-permissions
+ * to keep board runs non-interactive. Other modes without a direct agy
+ * equivalent use agy's own interactive default (request-review).
  */
 export function buildAgyPermissionArgs(config: Config): string[] {
   switch (config.permissionMode) {
+    case undefined:
+    case 'auto':
     case 'skipPermissions':
     case 'bypassPermissions':
       return ['--dangerously-skip-permissions'];
