@@ -198,6 +198,7 @@ The `agent` field in `.agkan.yml` selects which AI coding agent the board launch
 | (not set) | Defaults to `claude` |
 | `claude` | Use Claude Code CLI |
 | `codex` | Use OpenAI Codex CLI |
+| `agy` | Use agy CLI |
 
 ```yaml
 # Default
@@ -205,9 +206,12 @@ agent: claude
 
 # Use OpenAI Codex CLI
 agent: codex
+
+# Use agy CLI
+agent: agy
 ```
 
-Each agent CLI must be installed and authenticated separately. Setting `agent` to any other value raises an error: `Invalid agent "<value>". Must be one of: claude, codex`.
+Each agent CLI must be installed and authenticated separately. Setting `agent` to any other value raises an error: `Invalid agent "<value>". Must be one of: claude, codex, agy`.
 
 ## Model Catalog
 
@@ -224,7 +228,7 @@ modelCatalog:
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `cli` | string | `claude` or `codex`. The cli that runs a task which selects this model |
+| `cli` | string | `claude`, `codex`, or `agy`. The cli that runs a task which selects this model |
 | `model` | string | Value passed through to the cli's `--model` flag. Displayed as `cli[model]` |
 | `efforts` | string[] | Effort values selectable for this model. May be empty (no effort override for that row) |
 
@@ -242,13 +246,29 @@ Omitting `modelCatalog` uses this catalog:
 | codex | `gpt-5.6-sol` | `low`, `medium`, `high`, `xhigh`, `max`, `ultra` |
 | codex | `gpt-5.6-terra` | `low`, `medium`, `high`, `xhigh`, `max`, `ultra` |
 | codex | `gpt-5.6-luna` | `low`, `medium`, `high`, `xhigh`, `max` |
+| agy | `gemini-3.8-flash-high` | (none) |
+| agy | `gemini-3.8-flash-medium` | (none) |
+| agy | `gemini-3.8-flash-low` | (none) |
+| agy | `gemini-3.7-flash-high` | (none) |
+| agy | `gemini-3.7-flash-medium` | (none) |
+| agy | `gemini-3.7-flash-low` | (none) |
+| agy | `gemini-3.6-flash-high` | (none) |
+| agy | `gemini-3.6-flash-medium` | (none) |
+| agy | `gemini-3.6-flash-low` | (none) |
+| agy | `gemini-3.1-pro-high` | (none) |
+| agy | `gemini-3.1-pro-low` | (none) |
+| agy | `claude-sonnet-4-6` | (none) |
+| agy | `claude-opus-4-6-thinking` | (none) |
+| agy | `gpt-oss-120b-medium` | (none) |
+
+Each agy row lists effort already baked into its model id (e.g. `-high`/`-medium`/`-low`), rather than as a separate effort dimension, so none of the built-in agy rows accept an effort override. A project can still define its own agy rows with efforts in `.agkan.yml`; agy's generic `--effort low|medium|high` flag is passed through when one is selected.
 
 ### Validation
 
 Setting `modelCatalog` **replaces the built-in catalog entirely** — rows are not merged. An empty list is valid and means no task-level override can be selected. agkan raises an error when:
 
 - `modelCatalog` is not a list
-- a row's `cli` is not `claude` or `codex`
+- a row's `cli` is not `claude`, `codex`, or `agy`
 - a row's `model` is empty, or `efforts` is not a list of non-empty strings
 - the same `model` name appears in more than one row, even across different `cli` values (a model name must identify its cli unambiguously)
 
@@ -267,20 +287,20 @@ The `models` section in `.agkan.yml` specifies the model and effort level used b
 
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
-| `models.<agent>.planning.model` | string | claude: selected CLI default; codex: `gpt-5.6-sol` | Model used for planning command execution |
+| `models.<agent>.planning.model` | string | claude: selected CLI default; codex: `gpt-5.6-sol`; agy: selected CLI default | Model used for planning command execution |
 | `models.<agent>.planning.effort` | string | (selected CLI default) | Effort level for planning command (see [Model Catalog](#model-catalog)) |
-| `models.<agent>.run.model` | string | claude: selected CLI default; codex: `gpt-5.6-sol` | Model used for run/pr command execution |
+| `models.<agent>.run.model` | string | claude: selected CLI default; codex: `gpt-5.6-sol`; agy: selected CLI default | Model used for run/pr command execution |
 | `models.<agent>.run.effort` | string | (selected CLI default) | Effort level for run/pr command (see [Model Catalog](#model-catalog)) |
 
-`<agent>` is `claude` or `codex`. Both `models.claude` and `models.codex` can be configured at the same time; only the profile matching the selected `agent` is used. Both `model` and `effort` are optional within each entry.
+`<agent>` is `claude`, `codex`, or `agy`. `models.claude`, `models.codex`, and `models.agy` can all be configured at the same time; only the profile matching the selected `agent` is used. Both `model` and `effort` are optional within each entry.
 
-If `models.codex.planning.model` / `models.codex.run.model` is not set, agkan defaults to `gpt-5.6-sol` rather than deferring to the Codex CLI's own default. `claude` has no such agkan-side default; if unset, the Claude CLI's own default model is used.
+If `models.codex.planning.model` / `models.codex.run.model` is not set, agkan defaults to `gpt-5.6-sol` rather than deferring to the Codex CLI's own default. `claude` and `agy` have no such agkan-side default; if unset, the CLI's own default model is used.
 
 > **Breaking Change**: Prior to this default, an unset Codex model omitted `--model` entirely and deferred to the Codex CLI's own default model. agkan now always passes `--model`, defaulting to `gpt-5.6-sol` when unset. If you rely on the Codex CLI's own default, set `models.codex.planning.model` / `models.codex.run.model` explicitly to that model name.
 
 For backward compatibility, the legacy flat `models.planning` / `models.run` form (without an agent key) is still supported as a fallback: if `models.<agent>.planning` (or `.run`) is not set, agkan falls back to `models.planning` (or `.run`). Agent-specific settings always take priority over the legacy flat form.
 
-Model names are passed through as-is to the selected agent's CLI (`--model` for both `claude` and `codex`). Claude CLI aliases such as `opus`, `sonnet`, and `haiku` are resolved by the Claude CLI itself, not by agkan; agkan does not resolve or validate model aliases for either agent. For Codex, `effort` is passed via `--config model_reasoning_effort=<effort>` instead of a `--effort` flag.
+Model names are passed through as-is to the selected agent's CLI (`--model` for `claude`, `codex`, and `agy`). Claude CLI aliases such as `opus`, `sonnet`, and `haiku` are resolved by the Claude CLI itself, not by agkan; agkan does not resolve or validate model aliases for any agent. For Codex, `effort` is passed via `--config model_reasoning_effort=<effort>` instead of a `--effort` flag; for agy, `effort` is passed via a plain `--effort` flag.
 
 ### Configuration Example
 
@@ -305,6 +325,11 @@ models:
     run:
       model: gpt-5.6-sol
       effort: high
+  agy:
+    planning:
+      model: gemini-3.8-flash-high
+    run:
+      model: gemini-3.8-flash-high
 ```
 
 ### Using Aliases
