@@ -42,6 +42,10 @@ export interface TaskFilter {
   searchId?: number;
   /** If true, include archived tasks (is_archived=1). Default: false (exclude archived) */
   includeArchived?: boolean;
+  /** Filter by metadata key=value pairs (all must match, AND logic) */
+  metadata?: Array<{ key: string; value: string }>;
+  /** If true, filter for unblocked tasks (tasks with no unresolved blockers) */
+  unblocked?: boolean;
 }
 
 /** Sort options for task listing */

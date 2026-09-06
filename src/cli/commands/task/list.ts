@@ -222,6 +222,19 @@ function getTreeRootTasks(displayTasks: TaskRecord[], taskById: TaskByIdMap): Ta
 }
 
 /**
+ * Extract normalized meta array for JSON output filters echo.
+ */
+function getFiltersMeta(options: { meta?: unknown }): string[] {
+  if (Array.isArray(options.meta)) {
+    return options.meta as string[];
+  }
+  if (typeof options.meta === 'string') {
+    return [options.meta];
+  }
+  return [];
+}
+
+/**
  * Build the JSON output object for the tree view.
  */
 function buildTreeJsonOutput(
@@ -235,6 +248,8 @@ function buildTreeJsonOutput(
     sort?: string;
     order?: string;
     priority?: string;
+    meta?: unknown;
+    unblocked?: boolean;
   },
   tagIds: number[] | undefined,
   childrenByParentId: ChildrenMap,
@@ -255,6 +270,8 @@ function buildTreeJsonOutput(
       rootOnly: options.rootOnly || false,
       all: options.all || false,
       priority: options.priority || null,
+      meta: getFiltersMeta(options),
+      unblocked: options.unblocked || false,
     },
     sort: options.sort || 'created_at',
     order: options.order || 'desc',
@@ -275,6 +292,8 @@ function buildListJsonOutput(
     sort?: string;
     order?: string;
     priority?: string;
+    meta?: unknown;
+    unblocked?: boolean;
   },
   tagIds: number[] | undefined,
   taskById: TaskByIdMap,
@@ -294,6 +313,8 @@ function buildListJsonOutput(
       tagIds: tagIds || [],
       rootOnly: options.rootOnly || false,
       priority: options.priority || null,
+      meta: getFiltersMeta(options),
+      unblocked: options.unblocked || false,
     },
     sort: options.sort || 'created_at',
     order: options.order || 'desc',
@@ -451,7 +472,15 @@ function buildDepTreeNode(
  */
 function buildDepTreeJsonOutput(
   displayTasks: TaskRecord[],
-  options: { status?: string; author?: string; rootOnly?: boolean; all?: boolean; priority?: string },
+  options: {
+    status?: string;
+    author?: string;
+    rootOnly?: boolean;
+    all?: boolean;
+    priority?: string;
+    meta?: unknown;
+    unblocked?: boolean;
+  },
   tagIds: number[] | undefined,
   taskById: TaskByIdMap,
   blockMap: BlockMap,
@@ -471,6 +500,8 @@ function buildDepTreeJsonOutput(
       rootOnly: options.rootOnly || false,
       all: options.all || false,
       priority: options.priority || null,
+      meta: getFiltersMeta(options),
+      unblocked: options.unblocked || false,
     },
     tasks: rootTasks.map((task) =>
       buildDepTreeNode(task, taskById, blockMap, allTaskTags, allTasksMetadata, new Set())
@@ -741,6 +772,37 @@ function resolveTagIds(tagOption: string | undefined, tagService: TagService): n
 }
 
 /**
+ * Parse and validate metadata filter options.
+ * Each option must be in key=value format.
+ * Throws TaskListValidationError if format is invalid (e.g. missing '=').
+ */
+function parseMetaFilter(metaOption: unknown): Array<{ key: string; value: string }> | undefined {
+  if (!metaOption) {
+    return undefined;
+  }
+  const pairs = Array.isArray(metaOption) ? metaOption : [metaOption];
+  if (pairs.length === 0) {
+    return undefined;
+  }
+  const result: Array<{ key: string; value: string }> = [];
+  for (const pair of pairs) {
+    if (typeof pair !== 'string') {
+      continue;
+    }
+    const eqIndex = pair.indexOf('=');
+    if (eqIndex <= 0) {
+      throw new TaskListValidationError(`Invalid metadata filter: ${pair}. Format must be key=value`, () => {
+        console.error(chalk.red(`\nError: Invalid metadata filter: ${pair}. Format must be key=value\n`));
+      });
+    }
+    const key = pair.slice(0, eqIndex);
+    const value = pair.slice(eqIndex + 1);
+    result.push({ key, value });
+  }
+  return result.length > 0 ? result : undefined;
+}
+
+/**
  * Handle tree view output.
  */
 function handleTreeView(
@@ -868,6 +930,8 @@ function buildEmptyListJsonOutput(options: Record<string, unknown>, tagIds: numb
       tagIds: tagIds || [],
       rootOnly: options.rootOnly || false,
       priority: options.priority || null,
+      meta: getFiltersMeta(options),
+      unblocked: Boolean(options.unblocked),
     },
     sort: options.sort || 'created_at',
     order: options.order || 'desc',
@@ -891,6 +955,8 @@ function buildEmptyTreeJsonOutput(options: Record<string, unknown>, tagIds: numb
       rootOnly: options.rootOnly || false,
       all: options.all || false,
       priority: options.priority || null,
+      meta: getFiltersMeta(options),
+      unblocked: Boolean(options.unblocked),
     },
     sort: options.sort || 'created_at',
     order: options.order || 'desc',
@@ -913,6 +979,8 @@ function buildEmptyDepTreeJsonOutput(options: Record<string, unknown>, tagIds: n
       rootOnly: options.rootOnly || false,
       all: options.all || false,
       priority: options.priority || null,
+      meta: getFiltersMeta(options),
+      unblocked: Boolean(options.unblocked),
     },
     tasks: [],
   };
@@ -960,6 +1028,8 @@ function resolveFilters(
   statusFilter: TaskStatus | TaskStatus[] | undefined;
   tagIds: number[] | undefined;
   priorityFilter: string | string[] | undefined;
+  metaFilter: Array<{ key: string; value: string }> | undefined;
+  unblockedFilter: boolean | undefined;
 } {
   // Validate and normalize status filter
   let statusFilter: TaskStatus | TaskStatus[] | undefined;
@@ -988,7 +1058,13 @@ function resolveFilters(
     priorityFilter = normalizePriorityFilter(priorityParts);
   }
 
-  return { statusFilter, tagIds, priorityFilter };
+  // Parse and validate metadata filter
+  const metaFilter = parseMetaFilter(options.meta);
+
+  // Unblocked filter
+  const unblockedFilter = options.unblocked ? true : undefined;
+
+  return { statusFilter, tagIds, priorityFilter, metaFilter, unblockedFilter };
 }
 
 /**
@@ -1020,7 +1096,9 @@ function queryAndFilterTasks(
   options: Record<string, unknown>,
   statusFilter: TaskStatus | TaskStatus[] | undefined,
   tagIds: number[] | undefined,
-  priorityFilter: string | string[] | undefined
+  priorityFilter: string | string[] | undefined,
+  metaFilter?: Array<{ key: string; value: string }>,
+  unblockedFilter?: boolean
 ): { displayTasks: TaskRecord[]; allTasks: TaskRecord[] } {
   let allTasks = taskService.listTasks(
     {
@@ -1030,6 +1108,8 @@ function queryAndFilterTasks(
       tagIds,
       priority: priorityFilter,
       includeArchived: options.archived as boolean | undefined,
+      metadata: metaFilter,
+      unblocked: unblockedFilter,
     },
     options.sort as SortField,
     options.order as SortOrder
@@ -1048,8 +1128,16 @@ async function executeListAction(
 ): Promise<void> {
   const { taskService, tagService } = getServiceContainer();
 
-  const { statusFilter, tagIds, priorityFilter } = resolveFilters(options, tagService);
-  const { displayTasks, allTasks } = queryAndFilterTasks(taskService, options, statusFilter, tagIds, priorityFilter);
+  const { statusFilter, tagIds, priorityFilter, metaFilter, unblockedFilter } = resolveFilters(options, tagService);
+  const { displayTasks, allTasks } = queryAndFilterTasks(
+    taskService,
+    options,
+    statusFilter,
+    tagIds,
+    priorityFilter,
+    metaFilter,
+    unblockedFilter
+  );
 
   if (displayTasks.length === 0) {
     handleEmptyResults(options, tagIds, allTasks, formatter);
@@ -1105,6 +1193,12 @@ export function setupTaskListCommand(program: Command): void {
       '-p, --priority <priorities>',
       `Filter by priority (comma-separated, e.g., "high" or "critical,high"). Valid values: ${PRIORITIES.join(', ')}`
     )
+    .option(
+      '--meta <key=value>',
+      'Filter by metadata key=value (repeatable, e.g., --meta key=value)',
+      (val: string, prev: string[] = []) => [...prev, val]
+    )
+    .option('--unblocked', 'Filter by unblocked tasks (tasks with no unresolved blockers)')
     .option('--all', 'Include all statuses (including icebox, done, and closed)')
     .option('--archived', 'Include archived tasks (is_archived=1)')
     .option('--tree', 'Display tasks in tree structure')

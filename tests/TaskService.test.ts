@@ -720,6 +720,129 @@ describe('TaskService', () => {
       expect(tasks[3].title).toBe('High Task');
       expect(tasks[4].title).toBe('Critical Task');
     });
+
+    it('Filter by metadata - single key=value pair', () => {
+      const metadataService = new MetadataService();
+      const task1 = taskService.createTask({ title: 'Task 1', status: 'ready' });
+      const task2 = taskService.createTask({ title: 'Task 2', status: 'ready' });
+
+      metadataService.setMetadata({ task_id: task1.id, key: 'env', value: 'production' });
+      metadataService.setMetadata({ task_id: task2.id, key: 'env', value: 'staging' });
+
+      const prodTasks = taskService.listTasks({ metadata: [{ key: 'env', value: 'production' }] });
+      expect(prodTasks.length).toBe(1);
+      expect(prodTasks[0].id).toBe(task1.id);
+
+      const stagingTasks = taskService.listTasks({ metadata: [{ key: 'env', value: 'staging' }] });
+      expect(stagingTasks.length).toBe(1);
+      expect(stagingTasks[0].id).toBe(task2.id);
+
+      const devTasks = taskService.listTasks({ metadata: [{ key: 'env', value: 'development' }] });
+      expect(devTasks.length).toBe(0);
+    });
+
+    it('Filter by metadata - multiple key=value pairs with AND logic', () => {
+      const metadataService = new MetadataService();
+      const task1 = taskService.createTask({ title: 'Task Prod Backend', status: 'ready' });
+      const task2 = taskService.createTask({ title: 'Task Prod Frontend', status: 'ready' });
+      const task3 = taskService.createTask({ title: 'Task Staging Backend', status: 'ready' });
+
+      metadataService.setMetadata({ task_id: task1.id, key: 'env', value: 'production' });
+      metadataService.setMetadata({ task_id: task1.id, key: 'team', value: 'backend' });
+
+      metadataService.setMetadata({ task_id: task2.id, key: 'env', value: 'production' });
+      metadataService.setMetadata({ task_id: task2.id, key: 'team', value: 'frontend' });
+
+      metadataService.setMetadata({ task_id: task3.id, key: 'env', value: 'staging' });
+      metadataService.setMetadata({ task_id: task3.id, key: 'team', value: 'backend' });
+
+      const matched = taskService.listTasks({
+        metadata: [
+          { key: 'env', value: 'production' },
+          { key: 'team', value: 'backend' },
+        ],
+      });
+      expect(matched.length).toBe(1);
+      expect(matched[0].id).toBe(task1.id);
+    });
+
+    it('Filter by unblocked - tasks without blockers are returned', () => {
+      const task1 = taskService.createTask({ title: 'Free Task', status: 'ready' });
+      const unblockedTasks = taskService.listTasks({ unblocked: true });
+      expect(unblockedTasks.some((t) => t.id === task1.id)).toBe(true);
+    });
+
+    it('Filter by unblocked - tasks with resolved blockers (done, closed, review) are returned', () => {
+      const taskBlockService = new TaskBlockService();
+      const doneBlocker = taskService.createTask({ title: 'Done Blocker', status: 'done' });
+      const closedBlocker = taskService.createTask({ title: 'Closed Blocker', status: 'closed' });
+      const reviewBlocker = taskService.createTask({ title: 'Review Blocker', status: 'review' });
+
+      const task = taskService.createTask({ title: 'Unblocked Task', status: 'ready' });
+      taskBlockService.addBlock({ blocker_task_id: doneBlocker.id, blocked_task_id: task.id });
+      taskBlockService.addBlock({ blocker_task_id: closedBlocker.id, blocked_task_id: task.id });
+      taskBlockService.addBlock({ blocker_task_id: reviewBlocker.id, blocked_task_id: task.id });
+
+      const unblockedTasks = taskService.listTasks({ unblocked: true });
+      expect(unblockedTasks.some((t) => t.id === task.id)).toBe(true);
+    });
+
+    it('Filter by unblocked - tasks with unresolved blockers are excluded', () => {
+      const taskBlockService = new TaskBlockService();
+      const inProgressBlocker = taskService.createTask({ title: 'IP Blocker', status: 'in_progress' });
+      const readyBlocker = taskService.createTask({ title: 'Ready Blocker', status: 'ready' });
+      const backlogBlocker = taskService.createTask({ title: 'Backlog Blocker', status: 'backlog' });
+      const iceboxBlocker = taskService.createTask({ title: 'Icebox Blocker', status: 'icebox' });
+
+      const blockedTask1 = taskService.createTask({ title: 'Blocked by IP', status: 'ready' });
+      const blockedTask2 = taskService.createTask({ title: 'Blocked by Ready', status: 'ready' });
+      const blockedTask3 = taskService.createTask({ title: 'Blocked by Backlog', status: 'ready' });
+      const blockedTask4 = taskService.createTask({ title: 'Blocked by Icebox', status: 'ready' });
+      const doneBlocker = taskService.createTask({ title: 'Done Blocker', status: 'done' });
+      const partiallyBlocked = taskService.createTask({ title: 'Blocked by Done and IP', status: 'ready' });
+
+      taskBlockService.addBlock({ blocker_task_id: inProgressBlocker.id, blocked_task_id: blockedTask1.id });
+      taskBlockService.addBlock({ blocker_task_id: readyBlocker.id, blocked_task_id: blockedTask2.id });
+      taskBlockService.addBlock({ blocker_task_id: backlogBlocker.id, blocked_task_id: blockedTask3.id });
+      taskBlockService.addBlock({ blocker_task_id: iceboxBlocker.id, blocked_task_id: blockedTask4.id });
+
+      taskBlockService.addBlock({ blocker_task_id: doneBlocker.id, blocked_task_id: partiallyBlocked.id });
+      taskBlockService.addBlock({ blocker_task_id: inProgressBlocker.id, blocked_task_id: partiallyBlocked.id });
+
+      const unblockedTasks = taskService.listTasks({ unblocked: true });
+      const unblockedIds = unblockedTasks.map((t) => t.id);
+
+      expect(unblockedIds).not.toContain(blockedTask1.id);
+      expect(unblockedIds).not.toContain(blockedTask2.id);
+      expect(unblockedIds).not.toContain(blockedTask3.id);
+      expect(unblockedIds).not.toContain(blockedTask4.id);
+      expect(unblockedIds).not.toContain(partiallyBlocked.id);
+    });
+
+    it('Filter by unblocked and metadata combined', () => {
+      const metadataService = new MetadataService();
+      const taskBlockService = new TaskBlockService();
+
+      const blocker = taskService.createTask({ title: 'Active Blocker', status: 'in_progress' });
+
+      const task1 = taskService.createTask({ title: 'Target Task', status: 'ready' });
+      metadataService.setMetadata({ task_id: task1.id, key: 'component', value: 'auth' });
+
+      const task2 = taskService.createTask({ title: 'Blocked Target Task', status: 'ready' });
+      metadataService.setMetadata({ task_id: task2.id, key: 'component', value: 'auth' });
+      taskBlockService.addBlock({ blocker_task_id: blocker.id, blocked_task_id: task2.id });
+
+      const task3 = taskService.createTask({ title: 'Other Component Task', status: 'ready' });
+      metadataService.setMetadata({ task_id: task3.id, key: 'component', value: 'billing' });
+
+      const results = taskService.listTasks({
+        metadata: [{ key: 'component', value: 'auth' }],
+        unblocked: true,
+      });
+
+      expect(results.length).toBe(1);
+      expect(results[0].id).toBe(task1.id);
+    });
   });
 
   describe('updateTask', () => {

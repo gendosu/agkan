@@ -110,6 +110,15 @@ class SQLiteTaskRepository implements TaskRepository {
         params.push(...priorities);
       }
     }
+    if (filter?.metadata && filter.metadata.length > 0) {
+      for (const item of filter.metadata) {
+        clause += ` AND EXISTS (SELECT 1 FROM task_metadata tm WHERE tm.task_id = ${tablePrefix ? tablePrefix : 'tasks.'}id AND tm.key = ? AND tm.value = ?)`;
+        params.push(item.key, item.value);
+      }
+    }
+    if (filter?.unblocked) {
+      clause += ` AND NOT EXISTS (SELECT 1 FROM task_blocks tb INNER JOIN tasks b ON tb.blocker_task_id = b.id WHERE tb.blocked_task_id = ${tablePrefix ? tablePrefix : 'tasks.'}id AND b.status NOT IN ('done', 'closed', 'review'))`;
+    }
     if (filter?.search) {
       const pattern = `%${filter.search}%`;
       if (hasIdSearch) {
