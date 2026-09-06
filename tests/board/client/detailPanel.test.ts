@@ -2367,7 +2367,7 @@ describe('saveDetailTask - collectEditedTaskFields', () => {
     });
   });
 
-  it('shows a toast when the PATCH request fails', async () => {
+  it('shows a generic toast when the PATCH request fails with no server error message', async () => {
     const fetchMock = defaultFetchMock((u, init) => {
       if (u === '/api/tasks/1' && init?.method === 'PATCH') {
         return { ok: false, json: () => Promise.resolve({}) } as unknown as Response;
@@ -2391,9 +2391,144 @@ describe('saveDetailTask - collectEditedTaskFields', () => {
 
     await vi.waitFor(() => {
       const toast = document.getElementById('toast');
-      expect(toast?.textContent).toBe('Failed to update task');
+      expect(toast?.textContent).toBe('Server error');
       expect(toast?.classList.contains('show')).toBe(true);
     });
+  });
+
+  it('shows the server error message in the toast when the PATCH request fails', async () => {
+    const fetchMock = defaultFetchMock((u, init) => {
+      if (u === '/api/tasks/1' && init?.method === 'PATCH') {
+        return {
+          ok: false,
+          json: () => Promise.resolve({ error: 'model is not in the catalog' }),
+        } as unknown as Response;
+      }
+      return undefined;
+    });
+    global.fetch = fetchMock;
+
+    const { initDetailPanel, renderDetailPanel } = await import('../../../src/board/client/detailPanel');
+    initDetailPanel();
+    renderDetailPanel(makeTaskDetail());
+
+    let titleInput: HTMLInputElement | null = null;
+    await vi.waitFor(() => {
+      titleInput = document.getElementById('detail-edit-title') as HTMLInputElement;
+      expect(titleInput).not.toBeNull();
+    });
+
+    const saveBtn = document.getElementById('detail-save-btn') as HTMLButtonElement;
+    saveBtn.click();
+
+    await vi.waitFor(() => {
+      const toast = document.getElementById('toast');
+      expect(toast?.textContent).toBe('model is not in the catalog');
+      expect(toast?.classList.contains('show')).toBe(true);
+    });
+  });
+
+  function makeTaskDetailWithModels() {
+    return makeTaskDetail({
+      task: {
+        ...makeTaskDetail().task,
+        model_planning: 'sonnet',
+        model_run: 'opus',
+        effort_planning: 'high',
+        effort_run: 'medium',
+      },
+    });
+  }
+
+  // Renders the panel for `taskDetail`, runs `mutate` (DOM tweaks simulating
+  // user edits) if given, clicks Save, and returns the parsed PATCH body.
+  async function saveAndGetPatchBody(
+    taskDetail: ReturnType<typeof makeTaskDetail>,
+    mutate?: () => void
+  ): Promise<{ models: Record<string, string>; efforts: Record<string, string> }> {
+    const fetchMock = defaultFetchMock((u, init) => {
+      if (u === '/api/tasks/1' && init?.method === 'PATCH') {
+        return { ok: true, json: () => Promise.resolve({}) } as unknown as Response;
+      }
+      if (u === '/api/tasks/1' && (!init || !init.method)) {
+        return { ok: true, json: () => Promise.resolve(taskDetail) } as unknown as Response;
+      }
+      return undefined;
+    });
+    global.fetch = fetchMock;
+
+    const { initDetailPanel, renderDetailPanel } = await import('../../../src/board/client/detailPanel');
+    initDetailPanel();
+    renderDetailPanel(taskDetail);
+
+    await vi.waitFor(() => {
+      expect(document.getElementById('detail-edit-title')).not.toBeNull();
+    });
+
+    mutate?.();
+
+    const saveBtn = document.getElementById('detail-save-btn') as HTMLButtonElement;
+    saveBtn.click();
+
+    await vi.waitFor(() => {
+      expect(
+        fetchMock.mock.calls.some(
+          ([u, init]: [string, RequestInit?]) => String(u) === '/api/tasks/1' && init?.method === 'PATCH'
+        )
+      ).toBe(true);
+    });
+
+    const patchCall = fetchMock.mock.calls.find(
+      ([u, init]: [string, RequestInit?]) => String(u) === '/api/tasks/1' && init?.method === 'PATCH'
+    )!;
+    return JSON.parse((patchCall[1] as RequestInit).body as string);
+  }
+
+  it('excludes unchanged model/effort keys from the PATCH body', async () => {
+    const body = await saveAndGetPatchBody(makeTaskDetailWithModels());
+    expect(body.models).toEqual({});
+    expect(body.efforts).toEqual({});
+  });
+
+  it('includes the model kind that changed, and its paired effort reset by rebuildEffortOptions', async () => {
+    const body = await saveAndGetPatchBody(makeTaskDetailWithModels(), () => {
+      const modelPlanningEl = document.getElementById('detail-edit-model-planning') as HTMLSelectElement;
+      modelPlanningEl.value = '';
+      // wireModelEffortSync only reacts to a real 'change' event — matches how
+      // a user actually interacts with the select.
+      modelPlanningEl.dispatchEvent(new Event('change'));
+    });
+    expect(body.models).toEqual({ planning: '' });
+    // rebuildEffortOptions resets the paired effort select because the stale
+    // 'high' value is no longer a candidate for the new (empty) model — that
+    // reset is itself a change and must be sent.
+    expect(body.efforts).toEqual({ planning: '' });
+  });
+
+  it('includes only the effort key when only the effort select changes, independent of model', async () => {
+    const body = await saveAndGetPatchBody(makeTaskDetailWithModels(), () => {
+      const effortRunEl = document.getElementById('detail-edit-effort-run') as HTMLSelectElement;
+      effortRunEl.value = '';
+    });
+    expect(body.models).toEqual({});
+    expect(body.efforts).toEqual({ run: '' });
+  });
+
+  it('excludes unchanged keys when the loaded values are normal catalog entries, not stale ones', async () => {
+    const win = window as unknown as Record<string, unknown>;
+    win.modelCatalog = [
+      { cli: 'claude', model: 'sonnet', efforts: ['low', 'high'] },
+      { cli: 'claude', model: 'opus', efforts: ['medium'] },
+    ];
+    win.defaultAgent = 'claude';
+    try {
+      const body = await saveAndGetPatchBody(makeTaskDetailWithModels());
+      expect(body.models).toEqual({});
+      expect(body.efforts).toEqual({});
+    } finally {
+      delete win.modelCatalog;
+      delete win.defaultAgent;
+    }
   });
 });
 

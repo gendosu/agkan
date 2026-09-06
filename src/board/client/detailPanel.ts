@@ -17,6 +17,7 @@ import {
   subscribeRunLogs,
   PANEL_MIN_WIDTH,
   PANEL_MAX_WIDTH,
+  ApiError,
 } from './detailPanelApi';
 import { setRunLogsActive } from './connectionStatus';
 import {
@@ -43,6 +44,20 @@ let runLogsLoadedTaskId: number | null = null;
 // Branch selector instance, re-created on every renderDetailPanel call since
 // the branch input/dropdown elements are rebuilt with the panel HTML.
 let branchSelector: BranchSelector | null = null;
+
+// Model/effort values as loaded from the server, captured on each renderDetailPanel
+// call. collectEditedTaskFields diffs against this so a save only sends the
+// planning/run keys that actually changed — resolveOverridePair/validateOverrideBody
+// (src/board/routes/taskRoutes.ts) treat an untouched key as "leave the stored
+// value alone", but treat a *present* key (even with the same value) as "touched"
+// and re-validate the whole pair, so a stale (not-in-catalog) value must stay
+// absent from the PATCH body unless the user actually changed it.
+let loadedModelEffort = {
+  model_planning: '',
+  model_run: '',
+  effort_planning: '',
+  effort_run: '',
+};
 
 function closeRunLogStream(): void {
   if (runLogEventSource !== null) {
@@ -432,6 +447,12 @@ export function renderDetailPanel(data: TaskDetail): void {
 
   detailTaskId = task.id;
   detailPanelTitle.textContent = '#' + task.id;
+  loadedModelEffort = {
+    model_planning: task.model_planning ?? '',
+    model_run: task.model_run ?? '',
+    effort_planning: task.effort_planning ?? '',
+    effort_run: task.effort_run ?? '',
+  };
 
   const detailsPane = document.getElementById('detail-tab-content-details');
   if (detailsPane) {
@@ -602,25 +623,33 @@ function collectEditedTaskFields(): {
   const bodyEl = document.getElementById('detail-edit-body') as HTMLTextAreaElement;
   const statusEl = document.getElementById('detail-edit-status') as HTMLSelectElement;
   const priorityEl = document.getElementById('detail-edit-priority') as HTMLSelectElement;
-  const modelPlanningEl = document.getElementById('detail-edit-model-planning') as HTMLSelectElement | null;
-  const modelRunEl = document.getElementById('detail-edit-model-run') as HTMLSelectElement | null;
-  const effortPlanningEl = document.getElementById('detail-edit-effort-planning') as HTMLSelectElement | null;
-  const effortRunEl = document.getElementById('detail-edit-effort-run') as HTMLSelectElement | null;
+
   return {
     title,
     body: bodyEl ? bodyEl.value.trim() || null : null,
     status: statusEl ? statusEl.value : undefined,
     priority: priorityEl ? priorityEl.value || null : null,
     branch: branchSelector?.getValue() || null,
-    models: {
-      planning: modelPlanningEl?.value || '',
-      run: modelRunEl?.value || '',
-    },
-    efforts: {
-      planning: effortPlanningEl?.value || '',
-      run: effortRunEl?.value || '',
-    },
+    models: collectChangedOverrides('model'),
+    efforts: collectChangedOverrides('effort'),
   };
+}
+
+/**
+ * Diff the planning/run selects for one override category against the value
+ * loaded with the panel. A kind's key is included only when its select value
+ * changed; a missing select (should not normally happen) counts as unchanged
+ * rather than as a clear-to-empty instruction.
+ */
+function collectChangedOverrides(category: 'model' | 'effort'): { planning?: string; run?: string } {
+  const result: { planning?: string; run?: string } = {};
+  (['planning', 'run'] as const).forEach((kind) => {
+    const el = document.getElementById(`detail-edit-${category}-${kind}`) as HTMLSelectElement | null;
+    if (!el) return;
+    const loaded = loadedModelEffort[`${category}_${kind}` as keyof typeof loadedModelEffort];
+    if (el.value !== loaded) result[kind] = el.value;
+  });
+  return result;
 }
 
 async function saveDetailTask(): Promise<void> {
@@ -633,8 +662,10 @@ async function saveDetailTask(): Promise<void> {
     renderDetailPanel(data);
     showToast('Task saved successfully');
     refreshBoardCards();
-  } catch {
-    showToast('Failed to update task');
+  } catch (err) {
+    // Only ApiError carries a message meant for the user (the server's own
+    // `{ error }` text); a fetch-level failure (e.g. offline) does not.
+    showToast(err instanceof ApiError ? err.message : 'Failed to update task');
   }
 }
 

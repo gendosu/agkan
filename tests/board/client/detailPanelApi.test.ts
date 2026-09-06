@@ -180,6 +180,15 @@ describe('postComment', () => {
 
     await expect(postComment(7, 'comment')).rejects.toThrow('Server error');
   });
+
+  it('propagates the server error message when response is not ok', async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: false,
+      json: () => Promise.resolve({ error: 'comment is too long' }),
+    });
+
+    await expect(postComment(7, 'comment')).rejects.toThrow('comment is too long');
+  });
 });
 
 // --- fetchTaskDetail ---
@@ -283,8 +292,28 @@ describe('patchTask', () => {
     expect(result).toEqual(mockTaskDetail);
   });
 
-  it('throws when PATCH response is not ok', async () => {
-    global.fetch = vi.fn().mockResolvedValue({ ok: false });
+  it('throws with the server error message when PATCH response is not ok', async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: false,
+      json: () => Promise.resolve({ error: 'model is not in the catalog' }),
+    });
+
+    const fields = { title: 'x', body: null, status: undefined, priority: null };
+    await expect(patchTask(3, fields)).rejects.toThrow('model is not in the catalog');
+  });
+
+  it('falls back to a generic message when the error response body is not JSON', async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: false,
+      json: () => Promise.reject(new Error('not json')),
+    });
+
+    const fields = { title: 'x', body: null, status: undefined, priority: null };
+    await expect(patchTask(3, fields)).rejects.toThrow('Server error');
+  });
+
+  it('falls back to a generic message when the error response body has no error field', async () => {
+    global.fetch = vi.fn().mockResolvedValue({ ok: false, json: () => Promise.resolve({}) });
 
     const fields = { title: 'x', body: null, status: undefined, priority: null };
     await expect(patchTask(3, fields)).rejects.toThrow('Server error');
