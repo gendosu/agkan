@@ -37,7 +37,16 @@ vi.mock('child_process', async (importOriginal) => {
 type SubscribeCallback = (event: { kind: 'done'; exitCode: number } | { kind: 'error'; message: string }) => void;
 
 const TEST_CONFIG_DIR = path.join(process.cwd(), '.agkan-test-claude-routes-' + process.pid);
-const TEST_AGKAN_CONFIG = path.join(process.cwd(), '.agkan-test.yml');
+// loadConfig() reads '<cwd>/.agkan-test.yml'. Vitest runs test files
+// concurrently across forks (vitest.config.ts pool: 'forks'), so a config
+// written to the shared repo-root path can be unlinked or overwritten by
+// another test file's hooks between this file's write and the route's read
+// (observed in CI as model/effort arriving as undefined). Isolate by mocking
+// process.cwd() to a private tmp dir per test, matching
+// tests/board/claudePromptBuilder.test.ts and tests/db/config.test.ts.
+let tmpCwd: string;
+let cwdSpy: ReturnType<typeof vi.spyOn>;
+let TEST_AGKAN_CONFIG: string;
 
 function buildMockClaudeProcessService(): PtySessionService {
   const mock = {
@@ -85,14 +94,18 @@ beforeEach(async () => {
   const { execFileSync } = await import('child_process');
   vi.mocked(execFileSync).mockReset();
   vi.mocked(execFileSync).mockReturnValue(Buffer.from(''));
+  // Mock cwd only after resetDatabase(): the DB singleton resolves its path
+  // from process.cwd() on first initialization.
+  tmpCwd = fs.mkdtempSync(path.join(os.tmpdir(), 'agkan-claude-routes-test-'));
+  cwdSpy = vi.spyOn(process, 'cwd').mockReturnValue(tmpCwd);
+  TEST_AGKAN_CONFIG = path.join(tmpCwd, '.agkan-test.yml');
 });
 
 afterEach(() => {
+  cwdSpy.mockRestore();
+  fs.rmSync(tmpCwd, { recursive: true, force: true });
   if (fs.existsSync(TEST_CONFIG_DIR)) {
     fs.rmSync(TEST_CONFIG_DIR, { recursive: true });
-  }
-  if (fs.existsSync(TEST_AGKAN_CONFIG)) {
-    fs.unlinkSync(TEST_AGKAN_CONFIG);
   }
 });
 
@@ -447,32 +460,18 @@ describe('POST /api/claude/tasks/:taskId/run', () => {
     const task = services.ts.createTask({ title: 'Codex Model Task', status: 'backlog' });
     services.ts.updateTask(task.id, { model_run: 'gpt-5.6-sol', effort_run: 'none' });
     const app = buildApp(services);
+    fs.writeFileSync(TEST_AGKAN_CONFIG, yaml.dump({ modelCatalog: CATALOG_WITH_CODEX }));
 
-    const tmpCwd = fs.mkdtempSync(path.join(os.tmpdir(), 'agkan-claude-routes-test-'));
-    const cwdSpy = vi.spyOn(process, 'cwd').mockReturnValue(tmpCwd);
-    try {
-      fs.writeFileSync(path.join(tmpCwd, '.agkan-test.yml'), yaml.dump({ modelCatalog: CATALOG_WITH_CODEX }));
-      const res = await app.fetch(
-        new Request(`http://localhost/api/claude/tasks/${task.id}/run`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ command: 'run' }),
-        })
-      );
+    const res = await app.fetch(
+      new Request(`http://localhost/api/claude/tasks/${task.id}/run`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ command: 'run' }),
+      })
+    );
 
-      expect(res.status).toBe(201);
-      expect(mock.startProcess).toHaveBeenCalledWith(
-        task.id,
-        expect.any(String),
-        'run',
-        'gpt-5.6-sol',
-        'none',
-        'codex'
-      );
-    } finally {
-      cwdSpy.mockRestore();
-      fs.rmSync(tmpCwd, { recursive: true, force: true });
-    }
+    expect(res.status).toBe(201);
+    expect(mock.startProcess).toHaveBeenCalledWith(task.id, expect.any(String), 'run', 'gpt-5.6-sol', 'none', 'codex');
   });
 
   it('returns 500 when the configured modelCatalog is invalid', async () => {
@@ -480,31 +479,20 @@ describe('POST /api/claude/tasks/:taskId/run', () => {
     const services = buildServices(mock);
     const task = services.ts.createTask({ title: 'Broken Catalog Task', status: 'backlog' });
     const app = buildApp(services);
+    // A string instead of an array: resolveModelCatalog() throws on this.
+    fs.writeFileSync(TEST_AGKAN_CONFIG, yaml.dump({ modelCatalog: 'claude' }));
 
-    // Isolate the write to a private tmp dir (mocked process.cwd()) rather
-    // than the shared repo-root TEST_AGKAN_CONFIG: vitest runs test files
-    // concurrently across forks (vitest.config.ts pool: 'forks'), so other
-    // test files' loadConfig() calls could observe this invalid catalog
-    // mid-test and fail for the wrong reason.
-    const tmpCwd = fs.mkdtempSync(path.join(os.tmpdir(), 'agkan-claude-routes-test-'));
-    const cwdSpy = vi.spyOn(process, 'cwd').mockReturnValue(tmpCwd);
-    try {
-      fs.writeFileSync(path.join(tmpCwd, '.agkan-test.yml'), yaml.dump({ modelCatalog: 'claude' }));
-      const res = await app.fetch(
-        new Request(`http://localhost/api/claude/tasks/${task.id}/run`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ command: 'run' }),
-        })
-      );
+    const res = await app.fetch(
+      new Request(`http://localhost/api/claude/tasks/${task.id}/run`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ command: 'run' }),
+      })
+    );
 
-      expect(res.status).toBe(500);
-      const data = (await res.json()) as { error: string };
-      expect(data.error).toMatch(/Invalid modelCatalog/);
-    } finally {
-      cwdSpy.mockRestore();
-      fs.rmSync(tmpCwd, { recursive: true, force: true });
-    }
+    expect(res.status).toBe(500);
+    const data = (await res.json()) as { error: string };
+    expect(data.error).toMatch(/Invalid modelCatalog/);
   });
 
   it('returns 404 when ptySessionService is not configured', async () => {
