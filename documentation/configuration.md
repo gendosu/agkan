@@ -391,3 +391,16 @@ permissionMode: skipPermissions
 ```
 
 > **Breaking Change**: Prior to this feature, `--dangerously-skip-permissions` was always passed. The new default is `--permission-mode auto`. To restore the previous behavior, set `permissionMode: skipPermissions` in your `.agkan.yml`.
+
+### Mapping for other agents
+
+`permissionMode` values are translated to the selected agent CLI's own flags. For `agent: agy`:
+
+| Value | agy CLI flag |
+|-------|--------------|
+| (not set) / `auto` / `bypassPermissions` / `skipPermissions` | `--dangerously-skip-permissions` |
+| `dontAsk` | `--mode accept-edits` |
+| `plan` | `--mode plan` |
+| `default` / `acceptEdits` | (none; agy's interactive request-review default) |
+
+> agy has no equivalent of Claude's `auto` mode, so `auto` (the default) is approximated with `--dangerously-skip-permissions` to keep board runs non-interactive. Set `permissionMode: default` to have agy pause for approval instead.

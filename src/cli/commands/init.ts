@@ -118,7 +118,8 @@ agent: claude
 # Default: auto
 # Valid values: auto | acceptEdits | bypassPermissions | default | dontAsk | plan | skipPermissions
 # Permission values are translated to the selected CLI's flags.
-# Note: skipPermissions bypasses permission checks for both agents.
+# Note: skipPermissions bypasses permission checks for every agent.
+# agy has no "auto" mode, so auto (the default) is passed to agy as --dangerously-skip-permissions.
 # Example: permissionMode: auto
 # permissionMode: auto
 `;

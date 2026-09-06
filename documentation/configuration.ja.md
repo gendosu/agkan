@@ -378,3 +378,16 @@ permissionMode: skipPermissions
 ```
 
 > **破壊的変更**: この機能導入以前は常に `--dangerously-skip-permissions` が渡されていました。新しいデフォルトは `--permission-mode auto` です。従来の動作を維持するには `.agkan.yml` に `permissionMode: skipPermissions` を設定してください。
+
+### 他のエージェントへのマッピング
+
+`permissionMode` の値は、選択したエージェントCLI固有のフラグに変換されます。`agent: agy` の場合:
+
+| 値 | agy CLIフラグ |
+|----|---------------|
+| (未設定) / `auto` / `bypassPermissions` / `skipPermissions` | `--dangerously-skip-permissions` |
+| `dontAsk` | `--mode accept-edits` |
+| `plan` | `--mode plan` |
+| `default` / `acceptEdits` | (なし。agy の対話的な request-review デフォルト) |
+
+> agy には Claude の `auto` モードに相当するものがないため、`auto`（デフォルト）はボード実行を非対話に保つために `--dangerously-skip-permissions` で近似されます。agy に承認を求めさせたい場合は `permissionMode: default` を設定してください。
