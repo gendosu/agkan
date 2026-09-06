@@ -42,7 +42,6 @@ const CATALOG_WITH_CODEX: ModelCatalogEntry[] = [
 ];
 
 const TEST_CONFIG_DIR = path.join(process.cwd(), '.agkan-test-routes-' + process.pid);
-const TEST_AGKAN_CONFIG = path.join(process.cwd(), '.agkan-test.yml');
 
 function buildServices(): BoardServices {
   const database = getStorageBackend();
@@ -74,9 +73,6 @@ beforeEach(() => {
 afterEach(() => {
   if (fs.existsSync(TEST_CONFIG_DIR)) {
     fs.rmSync(TEST_CONFIG_DIR, { recursive: true });
-  }
-  if (fs.existsSync(TEST_AGKAN_CONFIG)) {
-    fs.unlinkSync(TEST_AGKAN_CONFIG);
   }
 });
 
@@ -791,15 +787,14 @@ describe('PATCH /api/tasks/:id', () => {
     }
   });
 
-  // The two tests below write their own '.agkan-test.yml' under a mocked cwd
-  // rather than TEST_AGKAN_CONFIG (the shared repo-root path other tests in
-  // this file use): unlike those tests, an *invalid* modelCatalog would
-  // otherwise break every route in the file that happens to run while this
-  // config is on disk (vitest runs test files concurrently across forks, and
-  // even within this file, other `it`s could observe it between this test's
-  // write and its own afterEach unlink). Isolate by mocking process.cwd() to
-  // a private tmp dir per test, matching tests/board/claudePromptBuilder.test.ts
-  // (resolveLaunchSettings) and tests/db/config.test.ts.
+  // The two tests below write an *invalid* modelCatalog, which would break
+  // every route that happens to run while it is on disk (vitest runs test
+  // files concurrently across forks, and even within this file, other `it`s
+  // could observe it between this test's write and its cleanup). Never write
+  // it to the shared repo-root '.agkan-test.yml'; isolate by mocking
+  // process.cwd() to a private tmp dir per test, matching
+  // tests/board/claudePromptBuilder.test.ts (resolveLaunchSettings) and
+  // tests/db/config.test.ts.
   it('returns 200 for a status-only PATCH even when modelCatalog itself is invalid', async () => {
     const services = buildServices();
     const task = services.ts.createTask({ title: 'Untouched catalog', status: 'backlog' });

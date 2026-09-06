@@ -11,6 +11,7 @@
   - [デフォルトの動作](#デフォルトの動作)
   - [プロジェクトごとの管理](#プロジェクトごとの管理)
 - [ボード設定](#ボード設定)
+- [エージェント設定](#エージェント設定)
 - [モデルカタログ](#モデルカタログ)
 - [モデル設定](#モデル設定)
 - [パーミッションモード設定](#パーミッションモード設定)
@@ -173,6 +174,28 @@ board:
     title: "マイプロジェクトボード"
   ```
 
+## エージェント設定
+
+`.agkan.yml` の `agent` フィールドで、ボードがタスク実行に使用するAIコーディングエージェントを選択します。
+
+### 利用可能な値
+
+| 値 | 説明 |
+|-------|-------------|
+| (未設定) | デフォルトの `claude` が使用されます |
+| `claude` | Claude Code CLIを使用 |
+| `codex` | OpenAI Codex CLIを使用 |
+
+```yaml
+# デフォルト
+agent: claude
+
+# OpenAI Codex CLIを使用
+agent: codex
+```
+
+各エージェントCLIは別途インストールと認証が必要です。`agent` にこれら以外の値を設定するとエラーになります: `Invalid agent "<value>". Must be one of: claude, codex`。
+
 ## モデルカタログ
 
 `.agkan.yml` の `modelCatalog` は、タスクが選択できるモデル・そのモデルを実行する cli・そのモデルで選べる effort を定義します。`agkan task add` / `agkan task update` のフラグ検証、`POST` / `PATCH /api/tasks` の検証、Board のモデル/effortドロップダウンは、すべてこのカタログを唯一の正として参照します。
@@ -188,7 +211,7 @@ modelCatalog:
 
 | フィールド | 型 | 説明 |
 |----------|-----|------|
-| `cli` | string | `claude`。このモデルを選んだタスクを実行する cli |
+| `cli` | string | `claude` または `codex`。このモデルを選んだタスクを実行する cli |
 | `model` | string | cli の `--model` にそのまま渡す値。表示は `cli[model]` |
 | `efforts` | string[] | このモデルで選べる effort。空配列可（その行では effort を指定できない） |
 
@@ -202,13 +225,17 @@ modelCatalog:
 | claude | `opus` | `low`, `medium`, `high`, `xhigh`, `max` |
 | claude | `sonnet` | `low`, `medium`, `high`, `xhigh`, `max` |
 | claude | `haiku` | `low`, `medium`, `high`, `xhigh`, `max` |
+| codex | `gpt-6-astra` | `low`, `medium`, `high`, `xhigh`, `max`, `ultra` |
+| codex | `gpt-5.6-sol` | `low`, `medium`, `high`, `xhigh`, `max`, `ultra` |
+| codex | `gpt-5.6-terra` | `low`, `medium`, `high`, `xhigh`, `max`, `ultra` |
+| codex | `gpt-5.6-luna` | `low`, `medium`, `high`, `xhigh`, `max` |
 
 ### 検証
 
 `modelCatalog` を設定すると、組み込みの既定は**丸ごと置き換わります**（行単位のマージはしません）。空配列も有効で、その場合タスク単位のオーバーライドは一切選べません。次の場合はエラーになります。
 
 - `modelCatalog` が配列でない
-- 行の `cli` が `claude` でない
+- 行の `cli` が `claude` でも `codex` でもない
 - 行の `model` が空、または `efforts` が「空でない文字列の配列」でない
 - 同じ `model` 名が 2 行以上に現れる
 
@@ -227,18 +254,20 @@ modelCatalog:
 
 | フィールド | 型 | デフォルト値 | 説明 |
 |----------|-----|------------|------|
-| `models.<agent>.planning.model` | string | (選択したCLIのデフォルト) | planningコマンド実行時に使用するモデル |
+| `models.<agent>.planning.model` | string | claude: 選択したCLIのデフォルト / codex: `gpt-5.6-sol` | planningコマンド実行時に使用するモデル |
 | `models.<agent>.planning.effort` | string | (選択したCLIのデフォルト) | planningコマンドのeffortレベル（[モデルカタログ](#モデルカタログ)を参照） |
-| `models.<agent>.run.model` | string | (選択したCLIのデフォルト) | run/prコマンド実行時に使用するモデル |
+| `models.<agent>.run.model` | string | claude: 選択したCLIのデフォルト / codex: `gpt-5.6-sol` | run/prコマンド実行時に使用するモデル |
 | `models.<agent>.run.effort` | string | (選択したCLIのデフォルト) | run/prコマンドのeffortレベル（[モデルカタログ](#モデルカタログ)を参照） |
 
-`<agent>` は `claude` です。`model` と `effort` はいずれも省略可能です。
+`<agent>` は `claude` または `codex` です。`models.claude` と `models.codex` の両方を同時に定義でき、`agent` で選択した側の設定のみが使用されます。`model` と `effort` はいずれも省略可能です。
 
-`models.claude.planning.model` / `models.claude.run.model` が未設定の場合、Claude CLI自身のデフォルトモデルが使用されます。
+`models.codex.planning.model` / `models.codex.run.model` が未設定の場合、Codex CLI自身のデフォルトに委ねるのではなく、agkanが `gpt-5.6-sol` をデフォルトとして使用します。`claude` にはagkan側のデフォルトはなく、未設定の場合はClaude CLI自身のデフォルトモデルが使用されます。
+
+> **破壊的変更**: この機能導入以前は、Codexのモデルが未設定の場合 `--model` 自体が渡されず、Codex CLI自身のデフォルトモデルに委ねられていました。agkanは今後常に `--model` を渡し、未設定時は `gpt-5.6-sol` をデフォルトとします。Codex CLI自身のデフォルトに依存していた場合は、`models.codex.planning.model` / `models.codex.run.model` にそのモデル名を明示的に設定してください。
 
 後方互換のため、エージェントキーを持たない従来のフラット形式 `models.planning` / `models.run` も引き続きフォールバックとしてサポートされます: `models.<agent>.planning`（または `.run`）が未設定の場合、`models.planning`（または `.run`）にフォールバックします。エージェント固有の設定は常に従来のフラット形式より優先されます。
 
-モデル名はClaude CLIの `--model` フラグにそのまま渡されます。`opus`、`sonnet`、`haiku` などのエイリアスは、agkanではなくClaude CLI自身が解決します。agkanは設定ファイルの `models.<agent>` の値に対するモデルのエイリアス解決やバリデーションは行いません。
+モデル名は選択したエージェントのCLIにそのまま渡されます（`claude` と `codex` のどちらも `--model` フラグ）。`opus`、`sonnet`、`haiku` などのClaude CLIのエイリアスは、agkanではなくClaude CLI自身が解決します。agkanはどちらのエージェントについてもモデルのエイリアス解決やバリデーションは行いません。Codexの場合、`effort` は `--effort` フラグではなく `--config model_reasoning_effort=<effort>` として渡されます。
 
 ### 設定例
 
@@ -247,6 +276,7 @@ modelCatalog:
 path: ./.agkan/data.db
 
 # モデル設定
+agent: codex
 models:
   claude:
     planning:
@@ -255,6 +285,13 @@ models:
     run:
       model: claude-sonnet-4-6
       effort: low
+  codex:
+    planning:
+      model: gpt-5.6-sol
+      effort: high
+    run:
+      model: gpt-5.6-sol
+      effort: high
 ```
 
 ### エイリアスの使用
@@ -271,7 +308,7 @@ models:
       model: sonnet
 ```
 
-使用可能なエイリアス: `opus`、`sonnet`、`haiku`（Claude CLIが解決します）
+使用可能なエイリアス: `opus`、`sonnet`、`haiku`（Claude CLIが解決します。Codexについてagkanはエイリアスを解決しません）
 
 ### フィールドの詳細
 

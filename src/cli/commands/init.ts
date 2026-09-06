@@ -17,7 +17,7 @@ const DEFAULT_CONFIG_CONTENT = `# agkan configuration file
 # Default AI coding agent used by the board
 # Applies to tasks with no model override. A task that selects a model from
 # modelCatalog runs on that row's cli instead.
-# Valid values: claude
+# Valid values: claude | codex
 # Default: claude
 agent: claude
 
@@ -43,6 +43,7 @@ agent: claude
 # The value is passed to the selected agent CLI.
 # Valid effort values come from the model's modelCatalog row (see below).
 # If omitted for claude, the Claude CLI's own default model is used.
+# If omitted for codex, agkan defaults to gpt-5.6-sol instead of the Codex CLI's own default.
 # models:
 #   claude:
 #     planning:
@@ -50,6 +51,13 @@ agent: claude
 #       effort: high
 #     run:
 #       model: sonnet
+#       effort: high
+#   codex:
+#     planning:
+#       model: gpt-5.6-sol
+#       effort: high
+#     run:
+#       model: gpt-5.6-sol
 #       effort: high
 
 # Model catalog
@@ -69,6 +77,18 @@ agent: claude
 #     efforts: [low, medium, high, xhigh, max]
 #   - cli: claude
 #     model: haiku
+#     efforts: [low, medium, high, xhigh, max]
+#   - cli: codex
+#     model: gpt-6-astra
+#     efforts: [low, medium, high, xhigh, max, ultra]
+#   - cli: codex
+#     model: gpt-5.6-sol
+#     efforts: [low, medium, high, xhigh, max, ultra]
+#   - cli: codex
+#     model: gpt-5.6-terra
+#     efforts: [low, medium, high, xhigh, max, ultra]
+#   - cli: codex
+#     model: gpt-5.6-luna
 #     efforts: [low, medium, high, xhigh, max]
 
 # Permission mode configuration

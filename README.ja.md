@@ -158,7 +158,7 @@ board:
 
 テストモード（`NODE_ENV=test`）では、`.agkan-test.yml` と `.agkan-test/` が自動的に使用され、テストが本番のタスクデータベースに影響しないよう分離されます。
 
-プロジェクトごとの管理・モデル選択・パーミッションモードを含む全設定リファレンスは **[documentation/configuration.ja.md](documentation/configuration.ja.md)** を参照してください。
+プロジェクトごとの管理・エージェント選択（Claude/Codex）・モデル選択・パーミッションモードを含む全設定リファレンスは **[documentation/configuration.ja.md](documentation/configuration.ja.md)** を参照してください。
 
 ## タスクステータス
 
@@ -181,7 +181,7 @@ board:
 | ドキュメント | 説明 |
 |---|---|
 | [documentation/cli-reference.ja.md](documentation/cli-reference.ja.md) | 全コマンドリファレンス、オプション、JSON出力フォーマット |
-| [documentation/configuration.ja.md](documentation/configuration.ja.md) | `.agkan.yml` リファレンス（パス・ボード・モデル・パーミッションモード） |
+| [documentation/configuration.ja.md](documentation/configuration.ja.md) | `.agkan.yml` リファレンス（パス・ボード・エージェント選択・モデル・パーミッションモード） |
 | [documentation/project-structure.ja.md](documentation/project-structure.ja.md) | リポジトリのディレクトリ構成 |
 | [documentation/database-schema.ja.md](documentation/database-schema.ja.md) | SQLiteスキーマリファレンス |
 | [documentation/development.ja.md](documentation/development.ja.md) | 技術スタック、ローカルセットアップ、ビルド情報 |

@@ -85,7 +85,7 @@ describe('setupInitCommand', () => {
     expect(content).toContain('.agkan/data.db');
     expect(content).toContain('agent: claude');
     expect(content).toContain('  claude:');
-    expect(content).not.toContain('codex');
+    expect(content).toContain('  codex:');
     expect(content).toContain('# modelCatalog:');
   });
 

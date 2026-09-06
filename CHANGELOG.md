@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - Add a `modelCatalog` setting to `.agkan.yml` listing which model a task may select and which reasoning efforts that model accepts. Setting this key replaces the built-in catalog entirely (no per-row merge), and each model name may appear only once. The catalog is also reported by `agkan config get` and commented into the `agkan init` template
+- Add codex rows to the built-in `modelCatalog`: `gpt-6-astra`, `gpt-5.6-sol`, `gpt-5.6-terra` (efforts `low`, `medium`, `high`, `xhigh`, `max`, `ultra`) and `gpt-5.6-luna` (same list without `ultra`), after the four claude rows. A task can now select a codex model without configuring `modelCatalog` in `.agkan.yml`
 
 ### Changed
 - Validate task-level model and effort values against `modelCatalog` instead of the fixed alias list (`fable`, `opus`, `sonnet`, `haiku`) and effort list (`low`, `medium`, `high`, `xhigh`, `max`). The model and effort of each of planning/run are now checked as a pair: an effort must belong to the selected model's row, or to the union of the catalog's efforts when no model is selected. `agkan task update` and `PATCH /api/tasks/:id` validate a flag you omit against the value already stored on the task
@@ -22,6 +23,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 - Move task-level Claude model/effort overrides from `task_metadata` rows (`model:planning` / `model:run` / `effort:planning` / `effort:run`) to dedicated `tasks` table columns. Existing metadata rows are migrated automatically on the next run and then removed
+- Change the Codex agent's default model to `gpt-5.6-sol` when no model is specified (or resolves to an empty string) via task override or `.agkan.yml`, instead of deferring to the Codex CLI's own default. **Breaking change**: agkan now always passes `--model` to Codex; to keep using the Codex CLI's own default, set `models.codex.planning.model` / `models.codex.run.model` explicitly (#14)
+- Update the codex example model in the `agkan init` template and in `documentation/configuration.md` / `documentation/configuration.ja.md` from `gpt-5.1-codex` to `gpt-5.6-sol`, matching the runtime default (#735)
+- Validate task-level model and effort values against `modelCatalog` instead of the fixed Claude alias list (`fable`, `opus`, `sonnet`, `haiku`) and effort list (`low`, `medium`, `high`, `xhigh`, `max`). The model and effort of each of planning/run are now checked as a pair: an effort must belong to the selected model's row, or to the default cli's union when no model is selected. `agkan task update` and `PATCH /api/tasks/:id` validate a flag you omit against the value already stored on the task
+- Change the Board's model labels from `claude[Fable]` to `claude[fable]`: the label is now `cli[model]` verbatim, with no capitalization. A stored model or effort that is no longer in the catalog is shown in the detail panel as `(not in catalog) <value>` instead of silently reading as the default
+- Fail a run whose task-level model is not in `modelCatalog` (`POST /api/claude/tasks/:id/run` returns 400; Bulk Run skips the task and continues) instead of launching it on the default cli
 
 ## [3.20.2] - 2026-08-29
 

@@ -621,6 +621,10 @@ modelCatalog: claude fable (low, medium, high, xhigh, max)
 modelCatalog: claude opus (low, medium, high, xhigh, max)
 modelCatalog: claude sonnet (low, medium, high, xhigh, max)
 modelCatalog: claude haiku (low, medium, high, xhigh, max)
+modelCatalog: codex gpt-6-astra (low, medium, high, xhigh, max, ultra)
+modelCatalog: codex gpt-5.6-sol (low, medium, high, xhigh, max, ultra)
+modelCatalog: codex gpt-5.6-terra (low, medium, high, xhigh, max, ultra)
+modelCatalog: codex gpt-5.6-luna (low, medium, high, xhigh, max)
 ```
 
 ### ヘルプの表示
