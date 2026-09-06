@@ -47,5 +47,8 @@ async function main() {
 }
 
 await main();
+// No explicit process.exit() here: stdout to a pipe is written asynchronously on some
+// platforms, and exiting immediately after write() can truncate it before it flushes. With
+// nothing else keeping the event loop alive, Node exits on its own (code 0) once the write
+// completes.
 process.stdout.write('{}');
-process.exit(0);

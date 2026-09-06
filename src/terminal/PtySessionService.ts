@@ -379,7 +379,6 @@ export class PtySessionService {
   private hookSettingsDataDir: string | null;
   private hookSettingsPath: string | null = null;
   private agyHooksConfigDir: string | null;
-  private agyHooksEnsured = false;
 
   constructor(db?: StorageBackend | null, options?: PtySessionServiceOptions) {
     this.db = db ?? null;
@@ -491,16 +490,19 @@ export class PtySessionService {
       this.hookSettingsPath = await ensureBoardHookSettings(this.hookSettingsDataDir);
     }
 
-    // agy has no per-invocation hook flag; it only reads a single global hooks.json, so this
-    // registers the board's Stop hook there once instead of per-session (see
-    // ensureAgyHookSettings for why this is a merge-write, not an isolated settings file).
-    if (agent === 'agy' && this.agyHooksConfigDir !== null && !this.agyHooksEnsured) {
-      await ensureAgyHookSettings(this.agyHooksConfigDir);
-      this.agyHooksEnsured = true;
-    }
-
     const hookEnv = buildHookEnv(taskId, this.boardApiUrl, command);
     const boardHooksEnabled = Object.keys(hookEnv).length > 0;
+
+    // agy has no per-invocation hook flag; it only reads a single hooks.json shared by every
+    // agy invocation on the machine (see ensureAgyHookSettings), unlike claude's isolated
+    // per-task settings file above. Gating on boardHooksEnabled (not just agyHooksConfigDir)
+    // keeps a board with hooks disabled (no boardApiUrl) from writing to that shared file at
+    // all. This is re-checked on every launch rather than cached, so the board self-heals if
+    // the file is later edited or deleted out from under it.
+    if (agent === 'agy' && boardHooksEnabled && this.agyHooksConfigDir !== null) {
+      await ensureAgyHookSettings(this.agyHooksConfigDir);
+    }
+
     const args = buildAgentArgs(agent, config, prompt, model, effort, this.hookSettingsPath, boardHooksEnabled);
 
     const agentBin = agent === 'codex' ? CODEX_BIN : agent === 'agy' ? AGY_BIN : CLAUDE_BIN;

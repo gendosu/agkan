@@ -1,6 +1,7 @@
 // Board API calls shared by the session-stop hooks (hook-stop.mjs for Claude Code,
-// hook-codex-notify.mjs for Codex). Both hooks must agree on what "target status
-// reached" means and on the /hooks/stop request contract, so that lives here once.
+// hook-codex-notify.mjs for Codex, hook-agy-notify.mjs for agy). All three hooks must
+// agree on what "target status reached" means and on the /hooks/stop request contract,
+// so that lives here once.
 
 // Fetches the current task status from the board and checks whether it has reached the
 // run's target status. Reached = current status matches target, or has advanced to a

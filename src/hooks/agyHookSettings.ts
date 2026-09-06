@@ -1,5 +1,6 @@
 import { promises as fs } from 'fs';
 import { join, resolve } from 'path';
+import { randomBytes } from 'crypto';
 
 const STOP_HOOK = resolve(__dirname, 'hook-agy-notify.mjs');
 
@@ -34,19 +35,32 @@ export async function ensureAgyHookSettings(configDir: string): Promise<string> 
   let existing: Record<string, unknown> = {};
   try {
     const raw = await fs.readFile(path, 'utf-8');
-    const parsed = JSON.parse(raw) as unknown;
-    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
-      existing = parsed as Record<string, unknown>;
+    try {
+      const parsed = JSON.parse(raw) as unknown;
+      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+        existing = parsed as Record<string, unknown>;
+      }
+    } catch (parseErr) {
+      // The file exists but is not valid JSON: a corrupt file must not block the board from
+      // launching agy sessions, but silently starting from {} would discard every other
+      // named hook the user (or another tool) had in it — so this is logged, unlike the
+      // "file does not exist yet" case below.
+      const message = parseErr instanceof Error ? parseErr.message : String(parseErr);
+      process.stderr.write(`ensureAgyHookSettings: ${path} is not valid JSON (${message}); replacing it\n`);
     }
   } catch {
-    // Missing file or invalid JSON: start from an empty object rather than failing —
-    // a corrupt file must not block the board from launching agy sessions.
+    // File does not exist yet — nothing to preserve, nothing to warn about.
   }
 
   const desired = { ...existing, [BOARD_HOOK_NAME]: buildBoardHook() };
-  const desiredText = JSON.stringify(desired, null, 2);
   if (JSON.stringify(existing) !== JSON.stringify(desired)) {
-    await fs.writeFile(path, desiredText, 'utf-8');
+    // Write to a temp file first and rename into place: a plain writeFile would leave the
+    // shared file half-written (and thus invalid JSON for every other agy invocation reading
+    // it concurrently) if the process is killed mid-write; rename is atomic on the same
+    // filesystem, so readers only ever see the old or the new complete content.
+    const tmpPath = join(configDir, `.${HOOKS_FILE}.tmp-${process.pid}-${randomBytes(4).toString('hex')}`);
+    await fs.writeFile(tmpPath, JSON.stringify(desired, null, 2), 'utf-8');
+    await fs.rename(tmpPath, path);
   }
   return path;
 }

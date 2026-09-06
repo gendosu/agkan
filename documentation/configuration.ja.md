@@ -200,6 +200,8 @@ agent: agy
 
 各エージェントCLIは別途インストールと認証が必要です。`agent` にこれら以外の値を設定するとエラーになります: `Invalid agent "<value>". Must be one of: claude, codex, agy`。
 
+> **agyの副作用**: claude や codex と異なり、agy にはセッション単位で完了通知フックを登録するフラグが無く、マシン上の全 agy 実行が共有する単一のグローバルファイル `~/.gemini/config/hooks.json` のみを読み込みます。`agent: agy` でボードセッションを実行すると、`board-stop` というエントリをそのファイルにマージします（既に存在する他の名前付きフックは保持されます）。これはボード自身のフックが有効な場合のみ書き込まれ、ボード外で手動実行した `agy` は影響を受けません（フックはボード固有の環境変数を確認してから動作するため）。
+
 ## モデルカタログ
 
 `.agkan.yml` の `modelCatalog` は、タスクが選択できるモデル・そのモデルを実行する cli・そのモデルで選べる effort を定義します。`agkan task add` / `agkan task update` のフラグ検証、`POST` / `PATCH /api/tasks` の検証、Board のモデル/effortドロップダウンは、すべてこのカタログを唯一の正として参照します。

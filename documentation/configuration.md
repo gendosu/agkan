@@ -213,6 +213,8 @@ agent: agy
 
 Each agent CLI must be installed and authenticated separately. Setting `agent` to any other value raises an error: `Invalid agent "<value>". Must be one of: claude, codex, agy`.
 
+> **agy side effect**: unlike claude and codex, agy has no per-session flag for registering a completion hook — it only ever reads one global `~/.gemini/config/hooks.json`, shared by every agy invocation on the machine. Running a board session with `agent: agy` merges a `board-stop` entry into that file (any other named hooks already there are preserved). This is only written while the board itself has hooks enabled; a manually-run `agy` outside the board is unaffected because the hook checks board-specific environment variables before doing anything.
+
 ## Model Catalog
 
 The `modelCatalog` list in `.agkan.yml` defines which model a task may select, which cli runs it, and which effort values that model accepts. It is the single source of truth for the `agkan task add` / `agkan task update` flags, the `POST` / `PATCH /api/tasks` validation, and the Board's model/effort dropdowns.

@@ -1575,4 +1575,23 @@ describe('PtySessionService - agy hook integration', () => {
 
     expect(existsSync(join(tmp, 'hooks.json'))).toBe(false);
   });
+
+  it('does not write agy hooks.json when board hooks are disabled (no boardApiUrl)', async () => {
+    const svc = newService(null);
+    await svc.startProcess(1, 'prompt', 'run');
+
+    expect(existsSync(join(tmp, 'hooks.json'))).toBe(false);
+  });
+
+  it('re-verifies (self-heals) the hooks file on every launch instead of caching', async () => {
+    const svc = newService('http://127.0.0.1:9999');
+    const hooksPath = join(tmp, 'hooks.json');
+
+    await svc.startProcess(1, 'prompt', 'run');
+    expect(existsSync(hooksPath)).toBe(true);
+    rmSync(hooksPath);
+
+    await svc.startProcess(2, 'prompt', 'run');
+    expect(existsSync(hooksPath)).toBe(true);
+  });
 });
