@@ -6,6 +6,7 @@ import {
   resolveDatabasePath,
   resolveModelSettings,
   type AgentModelSettings,
+  type AgentTool,
 } from '../../../db/config';
 import { createFormatter } from '../../utils/output-formatter';
 import { DEFAULT_BOARD_PORT } from '../../utils/constants';
@@ -14,7 +15,7 @@ import { resolveModelCatalog, type ModelCatalogEntry } from '../../../db/modelCa
 export { DEFAULT_BOARD_PORT };
 
 type ResolvedConfig = {
-  agent: 'claude' | 'codex';
+  agent: AgentTool;
   path: string;
   board: {
     port: number;
@@ -25,6 +26,7 @@ type ResolvedConfig = {
     run: { model?: string; effort?: string } | undefined;
     claude: AgentModelSettings | undefined;
     codex: AgentModelSettings | undefined;
+    agy: AgentModelSettings | undefined;
   };
   modelCatalog: ModelCatalogEntry[];
 };
@@ -43,6 +45,7 @@ function buildResolvedConfig(): ResolvedConfig {
       run: resolveModelSettings(config, 'run'),
       claude: config.models?.claude,
       codex: config.models?.codex,
+      agy: config.models?.agy,
     },
     modelCatalog: resolveModelCatalog(config),
   };

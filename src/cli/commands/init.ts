@@ -17,7 +17,7 @@ const DEFAULT_CONFIG_CONTENT = `# agkan configuration file
 # Default AI coding agent used by the board
 # Applies to tasks with no model override. A task that selects a model from
 # modelCatalog runs on that row's cli instead.
-# Valid values: claude | codex
+# Valid values: claude | codex | agy
 # Default: claude
 agent: claude
 
@@ -59,6 +59,13 @@ agent: claude
 #     run:
 #       model: gpt-5.6-sol
 #       effort: high
+#   agy:
+#     planning:
+#       model: gemini-3.8-flash
+#       effort: high
+#     run:
+#       model: gemini-3.8-flash
+#       effort: high
 
 # Model catalog
 # Rows of cli + model + selectable efforts. Selecting a model on a task also
@@ -90,13 +97,29 @@ agent: claude
 #   - cli: codex
 #     model: gpt-5.6-luna
 #     efforts: [low, medium, high, xhigh, max]
+#   - cli: agy
+#     model: gemini-3.8-flash
+#     efforts: [low, medium, high]
+#   - cli: agy
+#     model: gemini-3.7-flash
+#     efforts: [low, medium, high]
+#   - cli: agy
+#     model: claude-sonnet-4-6
+#     efforts: []
+#   - cli: agy
+#     model: claude-opus-4-6-thinking
+#     efforts: []
+#   - cli: agy
+#     model: gpt-oss-120b-medium
+#     efforts: []
 
 # Permission mode configuration
 # Controls permission prompts for the selected agent CLI.
 # Default: auto
 # Valid values: auto | acceptEdits | bypassPermissions | default | dontAsk | plan | skipPermissions
 # Permission values are translated to the selected CLI's flags.
-# Note: skipPermissions bypasses permission checks for both agents.
+# Note: skipPermissions bypasses permission checks for every agent.
+# agy has no "auto" mode, so auto (the default) is passed to agy as --dangerously-skip-permissions.
 # Example: permissionMode: auto
 # permissionMode: auto
 `;

@@ -58,6 +58,9 @@ export function startBoardServer(port: number, boardTitle?: string): void {
   const hookSettingsDataDir = process.env.AGKAN_DATA_DIR
     ? join(process.env.AGKAN_DATA_DIR, 'board-hooks')
     : join(homedir(), '.agkan', 'board-hooks');
+  // agy's hooks.json is not board-scoped data (unlike hookSettingsDataDir above): it is the
+  // real global config directory the agy CLI itself reads, always under the user's home.
+  const agyHooksConfigDir = join(homedir(), '.gemini', 'config');
 
   const app = new Hono();
   const resolvedConfigDir = path.join(process.cwd(), getDefaultDirName());
@@ -65,6 +68,7 @@ export function startBoardServer(port: number, boardTitle?: string): void {
     boardApiUrl: null,
     attentionStateService,
     hookSettingsDataDir,
+    agyHooksConfigDir,
   });
   const services: BoardServices = {
     ts: new TaskService(resolvedDb, boardEventService),

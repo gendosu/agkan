@@ -3,7 +3,7 @@ import path from 'path';
 import yaml from 'js-yaml';
 import type { ModelCatalogEntry } from './modelCatalog';
 
-export type AgentTool = 'claude' | 'codex';
+export type AgentTool = 'claude' | 'codex' | 'agy';
 export type ModelSettings = { model?: string; effort?: string };
 export type AgentModelSettings = {
   planning?: ModelSettings;
@@ -23,6 +23,7 @@ export interface Config {
   models?: AgentModelSettings & {
     claude?: AgentModelSettings;
     codex?: AgentModelSettings;
+    agy?: AgentModelSettings;
   };
   modelCatalog?: ModelCatalogEntry[];
   permissionMode?: string;
@@ -34,8 +35,8 @@ export interface Config {
  */
 export function resolveAgentTool(config: Config): AgentTool {
   const agent = config.agent ?? 'claude';
-  if (agent !== 'claude' && agent !== 'codex') {
-    throw new Error('Invalid agent "' + String(agent) + '". Must be one of: claude, codex');
+  if (agent !== 'claude' && agent !== 'codex' && agent !== 'agy') {
+    throw new Error('Invalid agent "' + String(agent) + '". Must be one of: claude, codex, agy');
   }
   return agent;
 }
@@ -84,6 +85,29 @@ export function buildCodexPermissionArgs(config: Config): string[] {
       return ['--ask-for-approval', 'never', '--sandbox', 'read-only'];
     default:
       return ['--ask-for-approval', 'on-request', '--sandbox', 'workspace-write'];
+  }
+}
+
+/**
+ * Build agy CLI permission/mode arguments from the existing permission setting.
+ * agy has no equivalent of claude's "auto" mode, so "auto" (and the unset
+ * default, which means "auto") is approximated with --dangerously-skip-permissions
+ * to keep board runs non-interactive. Other modes without a direct agy
+ * equivalent use agy's own interactive default (request-review).
+ */
+export function buildAgyPermissionArgs(config: Config): string[] {
+  switch (config.permissionMode) {
+    case undefined:
+    case 'auto':
+    case 'skipPermissions':
+    case 'bypassPermissions':
+      return ['--dangerously-skip-permissions'];
+    case 'dontAsk':
+      return ['--mode', 'accept-edits'];
+    case 'plan':
+      return ['--mode', 'plan'];
+    default:
+      return [];
   }
 }
 

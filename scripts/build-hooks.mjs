@@ -11,7 +11,15 @@ const destDir = join(rootDir, 'dist', 'hooks');
 
 await mkdir(destDir, { recursive: true });
 
-const hooks = ['board-stop-client.mjs', 'hook-attention.mjs', 'hook-codex-notify.mjs', 'hook-session-start.mjs', 'hook-stop.mjs', 'session-marker.mjs'];
+const hooks = [
+  'board-stop-client.mjs',
+  'hook-agy-notify.mjs',
+  'hook-attention.mjs',
+  'hook-codex-notify.mjs',
+  'hook-session-start.mjs',
+  'hook-stop.mjs',
+  'session-marker.mjs',
+];
 for (const hook of hooks) {
   await copyFile(join(srcDir, hook), join(destDir, hook));
   console.log(`Copied ${hook} to dist/hooks/`);

@@ -2,7 +2,9 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { PtySessionService, detectClaudeScreenStatus, stripAnsi } from '../../src/terminal/PtySessionService';
 import { AttentionStateService } from '../../src/services/AttentionStateService';
 import { ConflictError } from '../../src/errors';
-import { existsSync } from 'fs';
+import { existsSync, readFileSync, mkdtempSync, rmSync } from 'fs';
+import { tmpdir } from 'os';
+import { join } from 'path';
 
 describe('stripAnsi', () => {
   it('removes basic SGR color codes', () => {
@@ -784,6 +786,67 @@ describe('PtySessionService - model/effort/boardApiUrl args', () => {
     expect(args).not.toContain('--effort');
   });
 
+  it('starts agy with model, effort, permissions, and the prompt behind -i', async () => {
+    vi.mocked(configModule.loadConfig).mockReturnValue({ agent: 'agy' });
+    const svc = new PtySessionService();
+    await svc.startProcess(1, 'Task ID: 1', 'run', 'gemini-3.8-flash-high', 'high');
+
+    expect(spawnMock.mock.calls[0][0]).toBe('agy');
+    const args = spawnMock.mock.calls[0][1] as string[];
+    expect(args).toEqual([
+      '--model',
+      'gemini-3.8-flash-high',
+      '--effort',
+      'high',
+      '--dangerously-skip-permissions',
+      '-i',
+      'Task ID: 1',
+    ]);
+  });
+
+  it('spawns agy when passed as the trailing agent argument', async () => {
+    vi.mocked(configModule.loadConfig).mockReturnValue({});
+    const svc = new PtySessionService();
+    await svc.startProcess(1, 'prompt', 'run', 'gemini-3.8-flash-high', undefined, 'agy');
+
+    expect(spawnMock.mock.calls[0][0]).toBe('agy');
+  });
+
+  it('does not pass --model or --effort for agy when not provided', async () => {
+    vi.mocked(configModule.loadConfig).mockReturnValue({ agent: 'agy' });
+    const svc = new PtySessionService();
+    await svc.startProcess(1, 'prompt', 'run');
+    const args = spawnMock.mock.calls[0][1] as string[];
+    expect(args).not.toContain('--model');
+    expect(args).not.toContain('--effort');
+    expect(args).toEqual(['--dangerously-skip-permissions', '-i', 'prompt']);
+  });
+
+  it('passes no permission flag to agy for the interactive default mode', async () => {
+    vi.mocked(configModule.loadConfig).mockReturnValue({ agent: 'agy', permissionMode: 'default' });
+    const svc = new PtySessionService();
+    await svc.startProcess(1, 'prompt', 'run');
+    const args = spawnMock.mock.calls[0][1] as string[];
+    expect(args).toEqual(['-i', 'prompt']);
+  });
+
+  it('maps agy skipPermissions to its dangerous skip flag', async () => {
+    vi.mocked(configModule.loadConfig).mockReturnValue({ agent: 'agy', permissionMode: 'skipPermissions' });
+    const svc = new PtySessionService();
+    await svc.startProcess(1, 'prompt', 'run');
+    const args = spawnMock.mock.calls[0][1] as string[];
+    expect(args).toContain('--dangerously-skip-permissions');
+  });
+
+  it('does not inject a pending prompt or --settings for agy', async () => {
+    vi.mocked(configModule.loadConfig).mockReturnValue({ agent: 'agy' });
+    const svc = new PtySessionService();
+    await svc.startProcess(1, 'prompt', 'run');
+    const args = spawnMock.mock.calls[0][1] as string[];
+    expect(args).not.toContain('--settings');
+    expect(mockWrite).not.toHaveBeenCalled();
+  });
+
   it('does not inject board env vars when boardApiUrl is empty string', async () => {
     const savedTaskId = process.env.BOARD_TASK_ID;
     const savedApiUrl = process.env.BOARD_API_URL;
@@ -1466,5 +1529,85 @@ describe('PtySessionService - codex notify hook', () => {
     const args = spawnMock.mock.calls[0][1] as string[];
     expect(args.some((a) => a.startsWith('notify='))).toBe(false);
     expect(args).toContain('--settings');
+  });
+});
+
+describe('PtySessionService - agy hook integration', () => {
+  let spawnMock: ReturnType<typeof vi.fn>;
+  let tmp: string;
+
+  beforeEach(async () => {
+    vi.useFakeTimers();
+    mockWrite.mockClear();
+    mockOnDataHandler = null;
+    mockOnExitHandler = null;
+    const pty = await import('node-pty');
+    spawnMock = pty.spawn as unknown as ReturnType<typeof vi.fn>;
+    spawnMock.mockClear();
+    vi.mocked(configModule.loadConfig).mockReturnValue({ agent: 'agy' });
+    tmp = mkdtempSync(join(tmpdir(), 'agy-hooks-integration-'));
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+    rmSync(tmp, { recursive: true, force: true });
+  });
+
+  function newService(boardApiUrl: string | null): PtySessionService {
+    return new PtySessionService(undefined, {
+      boardApiUrl,
+      attentionStateService: new AttentionStateService(),
+      hookSettingsDataDir: '/tmp/test-hooks-' + process.pid,
+      agyHooksConfigDir: tmp,
+    });
+  }
+
+  it('registers the board Stop hook in the configured agy hooks directory', async () => {
+    const svc = newService('http://127.0.0.1:9999');
+    await svc.startProcess(1, 'Task ID: 1', 'run');
+
+    expect(spawnMock.mock.calls[0][0]).toBe('agy');
+    const hooksPath = join(tmp, 'hooks.json');
+    expect(existsSync(hooksPath)).toBe(true);
+    const json = JSON.parse(readFileSync(hooksPath, 'utf-8'));
+    expect(json['board-stop'].Stop[0].command).toMatch(/hook-agy-notify\.mjs/);
+  });
+
+  it('does not write agy hooks.json for claude or codex', async () => {
+    vi.mocked(configModule.loadConfig).mockReturnValue({});
+    const svc = newService('http://127.0.0.1:9999');
+    await svc.startProcess(1, 'prompt', 'run');
+
+    expect(existsSync(join(tmp, 'hooks.json'))).toBe(false);
+  });
+
+  it('does not write agy hooks.json when agyHooksConfigDir is not configured', async () => {
+    const svc = new PtySessionService(undefined, {
+      boardApiUrl: 'http://127.0.0.1:9999',
+      attentionStateService: new AttentionStateService(),
+      hookSettingsDataDir: '/tmp/test-hooks-' + process.pid,
+    });
+    await svc.startProcess(1, 'prompt', 'run');
+
+    expect(existsSync(join(tmp, 'hooks.json'))).toBe(false);
+  });
+
+  it('does not write agy hooks.json when board hooks are disabled (no boardApiUrl)', async () => {
+    const svc = newService(null);
+    await svc.startProcess(1, 'prompt', 'run');
+
+    expect(existsSync(join(tmp, 'hooks.json'))).toBe(false);
+  });
+
+  it('re-verifies (self-heals) the hooks file on every launch instead of caching', async () => {
+    const svc = newService('http://127.0.0.1:9999');
+    const hooksPath = join(tmp, 'hooks.json');
+
+    await svc.startProcess(1, 'prompt', 'run');
+    expect(existsSync(hooksPath)).toBe(true);
+    rmSync(hooksPath);
+
+    await svc.startProcess(2, 'prompt', 'run');
+    expect(existsSync(hooksPath)).toBe(true);
   });
 });
