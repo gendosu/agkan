@@ -44,6 +44,17 @@ let runLogsLoadedTaskId: number | null = null;
 // the branch input/dropdown elements are rebuilt with the panel HTML.
 let branchSelector: BranchSelector | null = null;
 
+// Model/effort values as loaded from the server, captured on each renderDetailPanel
+// call. collectEditedTaskFields diffs against this so a save only sends the
+// planning/run keys that actually changed — an untouched key that predates a
+// catalog change (see Ruling 4 in taskRoutes.ts) must not be re-validated.
+let loadedModelEffort = {
+  model_planning: '',
+  model_run: '',
+  effort_planning: '',
+  effort_run: '',
+};
+
 function closeRunLogStream(): void {
   if (runLogEventSource !== null) {
     runLogEventSource.close();
@@ -432,6 +443,12 @@ export function renderDetailPanel(data: TaskDetail): void {
 
   detailTaskId = task.id;
   detailPanelTitle.textContent = '#' + task.id;
+  loadedModelEffort = {
+    model_planning: task.model_planning ?? '',
+    model_run: task.model_run ?? '',
+    effort_planning: task.effort_planning ?? '',
+    effort_run: task.effort_run ?? '',
+  };
 
   const detailsPane = document.getElementById('detail-tab-content-details');
   if (detailsPane) {
@@ -606,20 +623,29 @@ function collectEditedTaskFields(): {
   const modelRunEl = document.getElementById('detail-edit-model-run') as HTMLSelectElement | null;
   const effortPlanningEl = document.getElementById('detail-edit-effort-planning') as HTMLSelectElement | null;
   const effortRunEl = document.getElementById('detail-edit-effort-run') as HTMLSelectElement | null;
+
+  const modelPlanning = modelPlanningEl?.value || '';
+  const modelRun = modelRunEl?.value || '';
+  const effortPlanning = effortPlanningEl?.value || '';
+  const effortRun = effortRunEl?.value || '';
+
+  // Only send keys that changed from the loaded value — an unchanged kind must
+  // stay absent so the server does not re-validate it (see Ruling 4).
+  const models: { planning?: string; run?: string } = {};
+  if (modelPlanning !== loadedModelEffort.model_planning) models.planning = modelPlanning;
+  if (modelRun !== loadedModelEffort.model_run) models.run = modelRun;
+  const efforts: { planning?: string; run?: string } = {};
+  if (effortPlanning !== loadedModelEffort.effort_planning) efforts.planning = effortPlanning;
+  if (effortRun !== loadedModelEffort.effort_run) efforts.run = effortRun;
+
   return {
     title,
     body: bodyEl ? bodyEl.value.trim() || null : null,
     status: statusEl ? statusEl.value : undefined,
     priority: priorityEl ? priorityEl.value || null : null,
     branch: branchSelector?.getValue() || null,
-    models: {
-      planning: modelPlanningEl?.value || '',
-      run: modelRunEl?.value || '',
-    },
-    efforts: {
-      planning: effortPlanningEl?.value || '',
-      run: effortRunEl?.value || '',
-    },
+    models,
+    efforts,
   };
 }
 
@@ -633,8 +659,8 @@ async function saveDetailTask(): Promise<void> {
     renderDetailPanel(data);
     showToast('Task saved successfully');
     refreshBoardCards();
-  } catch {
-    showToast('Failed to update task');
+  } catch (err) {
+    showToast(err instanceof Error ? err.message : 'Failed to update task');
   }
 }
 

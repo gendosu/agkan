@@ -2367,7 +2367,7 @@ describe('saveDetailTask - collectEditedTaskFields', () => {
     });
   });
 
-  it('shows a toast when the PATCH request fails', async () => {
+  it('shows a generic toast when the PATCH request fails with no server error message', async () => {
     const fetchMock = defaultFetchMock((u, init) => {
       if (u === '/api/tasks/1' && init?.method === 'PATCH') {
         return { ok: false, json: () => Promise.resolve({}) } as unknown as Response;
@@ -2391,9 +2391,140 @@ describe('saveDetailTask - collectEditedTaskFields', () => {
 
     await vi.waitFor(() => {
       const toast = document.getElementById('toast');
-      expect(toast?.textContent).toBe('Failed to update task');
+      expect(toast?.textContent).toBe('Server error');
       expect(toast?.classList.contains('show')).toBe(true);
     });
+  });
+
+  it('shows the server error message in the toast when the PATCH request fails', async () => {
+    const fetchMock = defaultFetchMock((u, init) => {
+      if (u === '/api/tasks/1' && init?.method === 'PATCH') {
+        return {
+          ok: false,
+          json: () => Promise.resolve({ error: 'model is not in the catalog' }),
+        } as unknown as Response;
+      }
+      return undefined;
+    });
+    global.fetch = fetchMock;
+
+    const { initDetailPanel, renderDetailPanel } = await import('../../../src/board/client/detailPanel');
+    initDetailPanel();
+    renderDetailPanel(makeTaskDetail());
+
+    let titleInput: HTMLInputElement | null = null;
+    await vi.waitFor(() => {
+      titleInput = document.getElementById('detail-edit-title') as HTMLInputElement;
+      expect(titleInput).not.toBeNull();
+    });
+
+    const saveBtn = document.getElementById('detail-save-btn') as HTMLButtonElement;
+    saveBtn.click();
+
+    await vi.waitFor(() => {
+      const toast = document.getElementById('toast');
+      expect(toast?.textContent).toBe('model is not in the catalog');
+      expect(toast?.classList.contains('show')).toBe(true);
+    });
+  });
+
+  it('excludes unchanged model/effort keys from the PATCH body', async () => {
+    const taskDetailWithModels = makeTaskDetail({
+      task: {
+        ...makeTaskDetail().task,
+        model_planning: 'sonnet',
+        model_run: 'opus',
+        effort_planning: 'high',
+        effort_run: 'medium',
+      },
+    });
+    const fetchMock = defaultFetchMock((u, init) => {
+      if (u === '/api/tasks/1' && init?.method === 'PATCH') {
+        return { ok: true, json: () => Promise.resolve({}) } as unknown as Response;
+      }
+      if (u === '/api/tasks/1' && (!init || !init.method)) {
+        return { ok: true, json: () => Promise.resolve(taskDetailWithModels) } as unknown as Response;
+      }
+      return undefined;
+    });
+    global.fetch = fetchMock;
+
+    const { initDetailPanel, renderDetailPanel } = await import('../../../src/board/client/detailPanel');
+    initDetailPanel();
+    renderDetailPanel(taskDetailWithModels);
+
+    await vi.waitFor(() => {
+      expect(document.getElementById('detail-edit-title')).not.toBeNull();
+    });
+
+    const saveBtn = document.getElementById('detail-save-btn') as HTMLButtonElement;
+    saveBtn.click();
+
+    await vi.waitFor(() => {
+      expect(
+        fetchMock.mock.calls.some(
+          ([u, init]: [string, RequestInit?]) => String(u) === '/api/tasks/1' && init?.method === 'PATCH'
+        )
+      ).toBe(true);
+    });
+
+    const patchCall = fetchMock.mock.calls.find(
+      ([u, init]: [string, RequestInit?]) => String(u) === '/api/tasks/1' && init?.method === 'PATCH'
+    )!;
+    const body = JSON.parse((patchCall[1] as RequestInit).body as string);
+    expect(body.models).toEqual({});
+    expect(body.efforts).toEqual({});
+  });
+
+  it('includes only the kind whose model value actually changed in the PATCH body', async () => {
+    const taskDetailWithModels = makeTaskDetail({
+      task: {
+        ...makeTaskDetail().task,
+        model_planning: 'sonnet',
+        model_run: 'opus',
+        effort_planning: 'high',
+        effort_run: 'medium',
+      },
+    });
+    const fetchMock = defaultFetchMock((u, init) => {
+      if (u === '/api/tasks/1' && init?.method === 'PATCH') {
+        return { ok: true, json: () => Promise.resolve({}) } as unknown as Response;
+      }
+      if (u === '/api/tasks/1' && (!init || !init.method)) {
+        return { ok: true, json: () => Promise.resolve(taskDetailWithModels) } as unknown as Response;
+      }
+      return undefined;
+    });
+    global.fetch = fetchMock;
+
+    const { initDetailPanel, renderDetailPanel } = await import('../../../src/board/client/detailPanel');
+    initDetailPanel();
+    renderDetailPanel(taskDetailWithModels);
+
+    let modelPlanningEl: HTMLSelectElement | null = null;
+    await vi.waitFor(() => {
+      modelPlanningEl = document.getElementById('detail-edit-model-planning') as HTMLSelectElement;
+      expect(modelPlanningEl).not.toBeNull();
+    });
+    modelPlanningEl!.value = '';
+
+    const saveBtn = document.getElementById('detail-save-btn') as HTMLButtonElement;
+    saveBtn.click();
+
+    await vi.waitFor(() => {
+      expect(
+        fetchMock.mock.calls.some(
+          ([u, init]: [string, RequestInit?]) => String(u) === '/api/tasks/1' && init?.method === 'PATCH'
+        )
+      ).toBe(true);
+    });
+
+    const patchCall = fetchMock.mock.calls.find(
+      ([u, init]: [string, RequestInit?]) => String(u) === '/api/tasks/1' && init?.method === 'PATCH'
+    )!;
+    const body = JSON.parse((patchCall[1] as RequestInit).body as string);
+    expect(body.models).toEqual({ planning: '' });
+    expect(body.efforts).toEqual({});
   });
 });
 

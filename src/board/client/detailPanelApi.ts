@@ -11,11 +11,29 @@ const PANEL_DEFAULT_WIDTH = 400;
 
 export { PANEL_MIN_WIDTH, PANEL_MAX_WIDTH, PANEL_DEFAULT_WIDTH };
 
+/**
+ * Throw the server's `{ error }` message for a non-ok response, falling back to
+ * a generic message when the body isn't JSON or carries no `error` string.
+ */
+async function throwOnError(res: Response): Promise<void> {
+  if (res.ok) return;
+  let message = 'Server error';
+  try {
+    const data = await res.json();
+    if (data && typeof data.error === 'string' && data.error) {
+      message = data.error;
+    }
+  } catch {
+    // Response body isn't JSON — keep the fallback message.
+  }
+  throw new Error(message);
+}
+
 export async function fetchComments(
   taskId: number
 ): Promise<Array<{ id: number; content: string; author?: string | null; created_at?: string }>> {
   const res = await fetch('/api/tasks/' + taskId + '/comments');
-  if (!res.ok) throw new Error('Server error');
+  await throwOnError(res);
   const data = await res.json();
   return data.comments || [];
 }
@@ -26,12 +44,12 @@ export async function patchComment(commentId: number, content: string): Promise<
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ content }),
   });
-  if (!res.ok) throw new Error('Server error');
+  await throwOnError(res);
 }
 
 export async function deleteCommentRequest(commentId: number): Promise<void> {
   const res = await fetch('/api/comments/' + commentId, { method: 'DELETE' });
-  if (!res.ok) throw new Error('Server error');
+  await throwOnError(res);
 }
 
 export async function postComment(taskId: number, content: string): Promise<void> {
@@ -40,12 +58,12 @@ export async function postComment(taskId: number, content: string): Promise<void
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ content }),
   });
-  if (!res.ok) throw new Error('Server error');
+  await throwOnError(res);
 }
 
 export async function fetchTaskDetail(taskId: number | string, signal?: AbortSignal): Promise<TaskDetail> {
   const res = await fetch('/api/tasks/' + taskId, signal ? { signal } : undefined);
-  if (!res.ok) throw new Error('Server error');
+  await throwOnError(res);
   return res.json();
 }
 
@@ -66,7 +84,7 @@ export async function patchTask(
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(fields),
   });
-  if (!res.ok) throw new Error('Server error');
+  await throwOnError(res);
   return fetchTaskDetail(taskId);
 }
 
@@ -105,7 +123,7 @@ export async function fetchRunLogs(taskId: number): Promise<
   }>
 > {
   const res = await fetch('/api/claude/tasks/' + taskId + '/run-logs');
-  if (!res.ok) throw new Error('Server error');
+  await throwOnError(res);
   const data = await res.json();
   return data.logs || [];
 }
