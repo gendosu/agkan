@@ -248,22 +248,13 @@ Omitting `modelCatalog` uses this catalog:
 | codex | `gpt-5.6-sol` | `low`, `medium`, `high`, `xhigh`, `max`, `ultra` |
 | codex | `gpt-5.6-terra` | `low`, `medium`, `high`, `xhigh`, `max`, `ultra` |
 | codex | `gpt-5.6-luna` | `low`, `medium`, `high`, `xhigh`, `max` |
-| agy | `gemini-3.8-flash-high` | (none) |
-| agy | `gemini-3.8-flash-medium` | (none) |
-| agy | `gemini-3.8-flash-low` | (none) |
-| agy | `gemini-3.7-flash-high` | (none) |
-| agy | `gemini-3.7-flash-medium` | (none) |
-| agy | `gemini-3.7-flash-low` | (none) |
-| agy | `gemini-3.6-flash-high` | (none) |
-| agy | `gemini-3.6-flash-medium` | (none) |
-| agy | `gemini-3.6-flash-low` | (none) |
-| agy | `gemini-3.1-pro-high` | (none) |
-| agy | `gemini-3.1-pro-low` | (none) |
+| agy | `gemini-3.8-flash` | `low`, `medium`, `high` |
+| agy | `gemini-3.7-flash` | `low`, `medium`, `high` |
 | agy | `claude-sonnet-4-6` | (none) |
 | agy | `claude-opus-4-6-thinking` | (none) |
 | agy | `gpt-oss-120b-medium` | (none) |
 
-Each agy row lists effort already baked into its model id (e.g. `-high`/`-medium`/`-low`), rather than as a separate effort dimension, so none of the built-in agy rows accept an effort override. A project can still define its own agy rows with efforts in `.agkan.yml`; agy's generic `--effort low|medium|high` flag is passed through when one is selected.
+`agy models` lists the gemini flash ids with effort baked in (e.g. `gemini-3.8-flash-high`), but the agy CLI also accepts the bare id with a separate `--effort low|medium|high` flag, so those two rows carry a real effort override. `claude-sonnet-4-6`, `claude-opus-4-6-thinking`, and `gpt-oss-120b-medium` are fixed variants that reject `--effort`, so they accept none.
 
 ### Validation
 
@@ -329,9 +320,11 @@ models:
       effort: high
   agy:
     planning:
-      model: gemini-3.8-flash-high
+      model: gemini-3.8-flash
+      effort: high
     run:
-      model: gemini-3.8-flash-high
+      model: gemini-3.8-flash
+      effort: high
 ```
 
 ### Using Aliases

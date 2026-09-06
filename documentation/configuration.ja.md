@@ -235,22 +235,13 @@ modelCatalog:
 | codex | `gpt-5.6-sol` | `low`, `medium`, `high`, `xhigh`, `max`, `ultra` |
 | codex | `gpt-5.6-terra` | `low`, `medium`, `high`, `xhigh`, `max`, `ultra` |
 | codex | `gpt-5.6-luna` | `low`, `medium`, `high`, `xhigh`, `max` |
-| agy | `gemini-3.8-flash-high` | (なし) |
-| agy | `gemini-3.8-flash-medium` | (なし) |
-| agy | `gemini-3.8-flash-low` | (なし) |
-| agy | `gemini-3.7-flash-high` | (なし) |
-| agy | `gemini-3.7-flash-medium` | (なし) |
-| agy | `gemini-3.7-flash-low` | (なし) |
-| agy | `gemini-3.6-flash-high` | (なし) |
-| agy | `gemini-3.6-flash-medium` | (なし) |
-| agy | `gemini-3.6-flash-low` | (なし) |
-| agy | `gemini-3.1-pro-high` | (なし) |
-| agy | `gemini-3.1-pro-low` | (なし) |
+| agy | `gemini-3.8-flash` | `low`, `medium`, `high` |
+| agy | `gemini-3.7-flash` | `low`, `medium`, `high` |
 | agy | `claude-sonnet-4-6` | (なし) |
 | agy | `claude-opus-4-6-thinking` | (なし) |
 | agy | `gpt-oss-120b-medium` | (なし) |
 
-agy の各行はモデルID自体に effort が埋め込まれている（`-high`/`-medium`/`-low` など）ため、独立した effort の次元を持たず、組み込みの agy 行はどれも effort のオーバーライドを受け付けません。プロジェクト側で `.agkan.yml` に効果 (efforts) を持つ独自の agy 行を定義することは可能で、その場合は agy 汎用の `--effort low|medium|high` フラグがそのまま渡されます。
+`agy models` はモデルIDに effort を埋め込んだ形（`gemini-3.8-flash-high` など）で一覧を返しますが、agy CLI はそのベースID単体と、独立した `--effort low|medium|high` フラグの組み合わせも受け付けるため、この2行は実際の effort オーバーライドを持ちます。`claude-sonnet-4-6`、`claude-opus-4-6-thinking`、`gpt-oss-120b-medium` は固定バリアントで `--effort` を受け付けないため、いずれも効果を持ちません。
 
 ### 検証
 
@@ -316,9 +307,11 @@ models:
       effort: high
   agy:
     planning:
-      model: gemini-3.8-flash-high
+      model: gemini-3.8-flash
+      effort: high
     run:
-      model: gemini-3.8-flash-high
+      model: gemini-3.8-flash
+      effort: high
 ```
 
 ### エイリアスの使用

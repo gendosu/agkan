@@ -61,9 +61,11 @@ agent: claude
 #       effort: high
 #   agy:
 #     planning:
-#       model: gemini-3.8-flash-high
+#       model: gemini-3.8-flash
+#       effort: high
 #     run:
-#       model: gemini-3.8-flash-high
+#       model: gemini-3.8-flash
+#       effort: high
 
 # Model catalog
 # Rows of cli + model + selectable efforts. Selecting a model on a task also
@@ -96,38 +98,11 @@ agent: claude
 #     model: gpt-5.6-luna
 #     efforts: [low, medium, high, xhigh, max]
 #   - cli: agy
-#     model: gemini-3.8-flash-high
-#     efforts: []
+#     model: gemini-3.8-flash
+#     efforts: [low, medium, high]
 #   - cli: agy
-#     model: gemini-3.8-flash-medium
-#     efforts: []
-#   - cli: agy
-#     model: gemini-3.8-flash-low
-#     efforts: []
-#   - cli: agy
-#     model: gemini-3.7-flash-high
-#     efforts: []
-#   - cli: agy
-#     model: gemini-3.7-flash-medium
-#     efforts: []
-#   - cli: agy
-#     model: gemini-3.7-flash-low
-#     efforts: []
-#   - cli: agy
-#     model: gemini-3.6-flash-high
-#     efforts: []
-#   - cli: agy
-#     model: gemini-3.6-flash-medium
-#     efforts: []
-#   - cli: agy
-#     model: gemini-3.6-flash-low
-#     efforts: []
-#   - cli: agy
-#     model: gemini-3.1-pro-high
-#     efforts: []
-#   - cli: agy
-#     model: gemini-3.1-pro-low
-#     efforts: []
+#     model: gemini-3.7-flash
+#     efforts: [low, medium, high]
 #   - cli: agy
 #     model: claude-sonnet-4-6
 #     efforts: []
