@@ -180,6 +180,15 @@ describe('postComment', () => {
 
     await expect(postComment(7, 'comment')).rejects.toThrow('Server error');
   });
+
+  it('propagates the server error message when response is not ok', async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: false,
+      json: () => Promise.resolve({ error: 'comment is too long' }),
+    });
+
+    await expect(postComment(7, 'comment')).rejects.toThrow('comment is too long');
+  });
 });
 
 // --- fetchTaskDetail ---

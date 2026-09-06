@@ -17,6 +17,7 @@ import {
   subscribeRunLogs,
   PANEL_MIN_WIDTH,
   PANEL_MAX_WIDTH,
+  ApiError,
 } from './detailPanelApi';
 import { setRunLogsActive } from './connectionStatus';
 import {
@@ -46,8 +47,11 @@ let branchSelector: BranchSelector | null = null;
 
 // Model/effort values as loaded from the server, captured on each renderDetailPanel
 // call. collectEditedTaskFields diffs against this so a save only sends the
-// planning/run keys that actually changed — an untouched key that predates a
-// catalog change (see Ruling 4 in taskRoutes.ts) must not be re-validated.
+// planning/run keys that actually changed — resolveOverridePair/validateOverrideBody
+// (src/board/routes/taskRoutes.ts) treat an untouched key as "leave the stored
+// value alone", but treat a *present* key (even with the same value) as "touched"
+// and re-validate the whole pair, so a stale (not-in-catalog) value must stay
+// absent from the PATCH body unless the user actually changed it.
 let loadedModelEffort = {
   model_planning: '',
   model_run: '',
@@ -619,24 +623,6 @@ function collectEditedTaskFields(): {
   const bodyEl = document.getElementById('detail-edit-body') as HTMLTextAreaElement;
   const statusEl = document.getElementById('detail-edit-status') as HTMLSelectElement;
   const priorityEl = document.getElementById('detail-edit-priority') as HTMLSelectElement;
-  const modelPlanningEl = document.getElementById('detail-edit-model-planning') as HTMLSelectElement | null;
-  const modelRunEl = document.getElementById('detail-edit-model-run') as HTMLSelectElement | null;
-  const effortPlanningEl = document.getElementById('detail-edit-effort-planning') as HTMLSelectElement | null;
-  const effortRunEl = document.getElementById('detail-edit-effort-run') as HTMLSelectElement | null;
-
-  const modelPlanning = modelPlanningEl?.value || '';
-  const modelRun = modelRunEl?.value || '';
-  const effortPlanning = effortPlanningEl?.value || '';
-  const effortRun = effortRunEl?.value || '';
-
-  // Only send keys that changed from the loaded value — an unchanged kind must
-  // stay absent so the server does not re-validate it (see Ruling 4).
-  const models: { planning?: string; run?: string } = {};
-  if (modelPlanning !== loadedModelEffort.model_planning) models.planning = modelPlanning;
-  if (modelRun !== loadedModelEffort.model_run) models.run = modelRun;
-  const efforts: { planning?: string; run?: string } = {};
-  if (effortPlanning !== loadedModelEffort.effort_planning) efforts.planning = effortPlanning;
-  if (effortRun !== loadedModelEffort.effort_run) efforts.run = effortRun;
 
   return {
     title,
@@ -644,9 +630,26 @@ function collectEditedTaskFields(): {
     status: statusEl ? statusEl.value : undefined,
     priority: priorityEl ? priorityEl.value || null : null,
     branch: branchSelector?.getValue() || null,
-    models,
-    efforts,
+    models: collectChangedOverrides('model'),
+    efforts: collectChangedOverrides('effort'),
   };
+}
+
+/**
+ * Diff the planning/run selects for one override category against the value
+ * loaded with the panel. A kind's key is included only when its select value
+ * changed; a missing select (should not normally happen) counts as unchanged
+ * rather than as a clear-to-empty instruction.
+ */
+function collectChangedOverrides(category: 'model' | 'effort'): { planning?: string; run?: string } {
+  const result: { planning?: string; run?: string } = {};
+  (['planning', 'run'] as const).forEach((kind) => {
+    const el = document.getElementById(`detail-edit-${category}-${kind}`) as HTMLSelectElement | null;
+    if (!el) return;
+    const loaded = loadedModelEffort[`${category}_${kind}` as keyof typeof loadedModelEffort];
+    if (el.value !== loaded) result[kind] = el.value;
+  });
+  return result;
 }
 
 async function saveDetailTask(): Promise<void> {
@@ -660,7 +663,9 @@ async function saveDetailTask(): Promise<void> {
     showToast('Task saved successfully');
     refreshBoardCards();
   } catch (err) {
-    showToast(err instanceof Error ? err.message : 'Failed to update task');
+    // Only ApiError carries a message meant for the user (the server's own
+    // `{ error }` text); a fetch-level failure (e.g. offline) does not.
+    showToast(err instanceof ApiError ? err.message : 'Failed to update task');
   }
 }
 

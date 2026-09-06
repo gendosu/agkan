@@ -12,6 +12,13 @@ const PANEL_DEFAULT_WIDTH = 400;
 export { PANEL_MIN_WIDTH, PANEL_MAX_WIDTH, PANEL_DEFAULT_WIDTH };
 
 /**
+ * Thrown by throwOnError so callers can show its message to the user directly —
+ * distinct from a fetch-level failure (e.g. offline), whose raw message
+ * ("Failed to fetch") is not something to surface as-is.
+ */
+export class ApiError extends Error {}
+
+/**
  * Throw the server's `{ error }` message for a non-ok response, falling back to
  * a generic message when the body isn't JSON or carries no `error` string.
  */
@@ -26,7 +33,7 @@ async function throwOnError(res: Response): Promise<void> {
   } catch {
     // Response body isn't JSON — keep the fallback message.
   }
-  throw new Error(message);
+  throw new ApiError(message);
 }
 
 export async function fetchComments(
