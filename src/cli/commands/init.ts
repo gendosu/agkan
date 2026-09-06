@@ -17,7 +17,7 @@ const DEFAULT_CONFIG_CONTENT = `# agkan configuration file
 # Default AI coding agent used by the board
 # Applies to tasks with no model override. A task that selects a model from
 # modelCatalog runs on that row's cli instead.
-# Valid values: claude | codex
+# Valid values: claude | codex | agy
 # Default: claude
 agent: claude
 
@@ -59,6 +59,11 @@ agent: claude
 #     run:
 #       model: gpt-5.6-sol
 #       effort: high
+#   agy:
+#     planning:
+#       model: gemini-3.8-flash-high
+#     run:
+#       model: gemini-3.8-flash-high
 
 # Model catalog
 # Rows of cli + model + selectable efforts. Selecting a model on a task also
@@ -90,6 +95,48 @@ agent: claude
 #   - cli: codex
 #     model: gpt-5.6-luna
 #     efforts: [low, medium, high, xhigh, max]
+#   - cli: agy
+#     model: gemini-3.8-flash-high
+#     efforts: []
+#   - cli: agy
+#     model: gemini-3.8-flash-medium
+#     efforts: []
+#   - cli: agy
+#     model: gemini-3.8-flash-low
+#     efforts: []
+#   - cli: agy
+#     model: gemini-3.7-flash-high
+#     efforts: []
+#   - cli: agy
+#     model: gemini-3.7-flash-medium
+#     efforts: []
+#   - cli: agy
+#     model: gemini-3.7-flash-low
+#     efforts: []
+#   - cli: agy
+#     model: gemini-3.6-flash-high
+#     efforts: []
+#   - cli: agy
+#     model: gemini-3.6-flash-medium
+#     efforts: []
+#   - cli: agy
+#     model: gemini-3.6-flash-low
+#     efforts: []
+#   - cli: agy
+#     model: gemini-3.1-pro-high
+#     efforts: []
+#   - cli: agy
+#     model: gemini-3.1-pro-low
+#     efforts: []
+#   - cli: agy
+#     model: claude-sonnet-4-6
+#     efforts: []
+#   - cli: agy
+#     model: claude-opus-4-6-thinking
+#     efforts: []
+#   - cli: agy
+#     model: gpt-oss-120b-medium
+#     efforts: []
 
 # Permission mode configuration
 # Controls permission prompts for the selected agent CLI.

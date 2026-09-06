@@ -67,6 +67,20 @@ describe('setupConfigGetCommand', () => {
       { cli: 'codex', model: 'gpt-5.6-sol', efforts: ['low', 'medium', 'high', 'xhigh', 'max', 'ultra'] },
       { cli: 'codex', model: 'gpt-5.6-terra', efforts: ['low', 'medium', 'high', 'xhigh', 'max', 'ultra'] },
       { cli: 'codex', model: 'gpt-5.6-luna', efforts: ['low', 'medium', 'high', 'xhigh', 'max'] },
+      { cli: 'agy', model: 'gemini-3.8-flash-high', efforts: [] },
+      { cli: 'agy', model: 'gemini-3.8-flash-medium', efforts: [] },
+      { cli: 'agy', model: 'gemini-3.8-flash-low', efforts: [] },
+      { cli: 'agy', model: 'gemini-3.7-flash-high', efforts: [] },
+      { cli: 'agy', model: 'gemini-3.7-flash-medium', efforts: [] },
+      { cli: 'agy', model: 'gemini-3.7-flash-low', efforts: [] },
+      { cli: 'agy', model: 'gemini-3.6-flash-high', efforts: [] },
+      { cli: 'agy', model: 'gemini-3.6-flash-medium', efforts: [] },
+      { cli: 'agy', model: 'gemini-3.6-flash-low', efforts: [] },
+      { cli: 'agy', model: 'gemini-3.1-pro-high', efforts: [] },
+      { cli: 'agy', model: 'gemini-3.1-pro-low', efforts: [] },
+      { cli: 'agy', model: 'claude-sonnet-4-6', efforts: [] },
+      { cli: 'agy', model: 'claude-opus-4-6-thinking', efforts: [] },
+      { cli: 'agy', model: 'gpt-oss-120b-medium', efforts: [] },
     ]);
   });
 
@@ -130,6 +144,31 @@ describe('setupConfigGetCommand', () => {
 
     const output = consoleLogSpy.mock.calls.map((c) => c[0]).join('');
     expect(JSON.parse(output).value).toBe('gpt-codex');
+  });
+
+  it('outputs agy when configured as the agent', async () => {
+    vi.spyOn(configModule, 'loadConfig').mockReturnValue({ agent: 'agy' });
+    vi.spyOn(configModule, 'resolveDatabasePath').mockReturnValue('/default/path/data.db');
+
+    await program.parseAsync(['node', 'agkan', 'config', 'get', 'agent', '--json']);
+
+    const output = consoleLogSpy.mock.calls.map((c) => c[0]).join('');
+    expect(JSON.parse(output).value).toBe('agy');
+  });
+
+  it('outputs agy-specific model settings by dot notation', async () => {
+    vi.spyOn(configModule, 'loadConfig').mockReturnValue({
+      agent: 'agy',
+      models: {
+        agy: { run: { model: 'gemini-3.8-flash-high' } },
+      },
+    });
+    vi.spyOn(configModule, 'resolveDatabasePath').mockReturnValue('/fake/data.db');
+
+    await program.parseAsync(['node', 'agkan', 'config', 'get', 'models.agy.run.model', '--json']);
+
+    const output = consoleLogSpy.mock.calls.map((c) => c[0]).join('');
+    expect(JSON.parse(output).value).toBe('gemini-3.8-flash-high');
   });
 
   it('should output specific key value', async () => {
