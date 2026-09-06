@@ -27,6 +27,7 @@ import {
   loadConfig,
   resolveAgentTool,
   resolveModelSettings,
+  buildAgyPermissionArgs,
 } from '../../src/db/config';
 
 describe('Agent tool resolution', () => {
@@ -36,6 +37,10 @@ describe('Agent tool resolution', () => {
 
   it('accepts codex', () => {
     expect(resolveAgentTool({ agent: 'codex' })).toBe('codex');
+  });
+
+  it('accepts agy', () => {
+    expect(resolveAgentTool({ agent: 'agy' })).toBe('agy');
   });
 
   it('selects agent-specific model settings', () => {
@@ -79,8 +84,30 @@ describe('Agent tool resolution', () => {
 
   it('rejects unsupported values loaded from YAML', () => {
     expect(() => resolveAgentTool({ agent: 'other' as 'claude' })).toThrow(
-      'Invalid agent "other". Must be one of: claude, codex'
+      'Invalid agent "other". Must be one of: claude, codex, agy'
     );
+  });
+});
+
+describe('buildAgyPermissionArgs', () => {
+  it('maps skipPermissions to the dangerous skip flag', () => {
+    expect(buildAgyPermissionArgs({ permissionMode: 'skipPermissions' })).toEqual(['--dangerously-skip-permissions']);
+  });
+
+  it('maps bypassPermissions to the dangerous skip flag', () => {
+    expect(buildAgyPermissionArgs({ permissionMode: 'bypassPermissions' })).toEqual(['--dangerously-skip-permissions']);
+  });
+
+  it('maps dontAsk to accept-edits mode', () => {
+    expect(buildAgyPermissionArgs({ permissionMode: 'dontAsk' })).toEqual(['--mode', 'accept-edits']);
+  });
+
+  it('maps plan to plan mode', () => {
+    expect(buildAgyPermissionArgs({ permissionMode: 'plan' })).toEqual(['--mode', 'plan']);
+  });
+
+  it('passes no flags for the default permission mode', () => {
+    expect(buildAgyPermissionArgs({})).toEqual([]);
   });
 });
 

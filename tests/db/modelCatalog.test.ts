@@ -15,7 +15,7 @@ const CODEX_EFFORTS = ['low', 'medium', 'high', 'xhigh', 'max', 'ultra'];
 const CATALOG_WITH_CODEX: ModelCatalogEntry[] = DEFAULT_MODEL_CATALOG.map((e) => ({ ...e, efforts: [...e.efforts] }));
 
 describe('DEFAULT_MODEL_CATALOG', () => {
-  it('lists the four claude models followed by the four codex models', () => {
+  it('lists the four claude models, four codex models, then the agy models', () => {
     expect(DEFAULT_MODEL_CATALOG.map((e) => `${e.cli}[${e.model}]`)).toEqual([
       'claude[fable]',
       'claude[opus]',
@@ -25,6 +25,20 @@ describe('DEFAULT_MODEL_CATALOG', () => {
       'codex[gpt-5.6-sol]',
       'codex[gpt-5.6-terra]',
       'codex[gpt-5.6-luna]',
+      'agy[gemini-3.8-flash-high]',
+      'agy[gemini-3.8-flash-medium]',
+      'agy[gemini-3.8-flash-low]',
+      'agy[gemini-3.7-flash-high]',
+      'agy[gemini-3.7-flash-medium]',
+      'agy[gemini-3.7-flash-low]',
+      'agy[gemini-3.6-flash-high]',
+      'agy[gemini-3.6-flash-medium]',
+      'agy[gemini-3.6-flash-low]',
+      'agy[gemini-3.1-pro-high]',
+      'agy[gemini-3.1-pro-low]',
+      'agy[claude-sonnet-4-6]',
+      'agy[claude-opus-4-6-thinking]',
+      'agy[gpt-oss-120b-medium]',
     ]);
   });
 
@@ -44,6 +58,12 @@ describe('DEFAULT_MODEL_CATALOG', () => {
       'gpt-5.6-terra': CODEX_EFFORTS,
       'gpt-5.6-luna': ['low', 'medium', 'high', 'xhigh', 'max'],
     });
+  });
+
+  it('gives every agy row an empty efforts list (effort is baked into the model id)', () => {
+    for (const entry of DEFAULT_MODEL_CATALOG.filter((e) => e.cli === 'agy')) {
+      expect(entry.efforts).toEqual([]);
+    }
   });
 });
 
@@ -161,7 +181,7 @@ describe('validateOverridePair', () => {
 
   it('rejects a model that is not in the catalog', () => {
     expect(validateOverridePair(catalog, 'claude', 'gpt-5', undefined)).toBe(
-      'Invalid model "gpt-5". Must be one of: fable, opus, sonnet, haiku, gpt-6-astra, gpt-5.6-sol, gpt-5.6-terra, gpt-5.6-luna'
+      'Invalid model "gpt-5". Must be one of: ' + catalog.map((e) => e.model).join(', ')
     );
   });
 

@@ -18,6 +18,28 @@ const CLAUDE_EFFORTS = ['low', 'medium', 'high', 'xhigh', 'max'];
 const CODEX_EFFORTS = ['low', 'medium', 'high', 'xhigh', 'max', 'ultra'];
 const CODEX_EFFORTS_NO_ULTRA = ['low', 'medium', 'high', 'xhigh', 'max'];
 
+// agy's `agy models` list already bakes reasoning effort into each model id (e.g.
+// `gemini-3.8-flash-high`) or exposes only one fixed variant (e.g. `claude-sonnet-4-6`),
+// so none of its rows accept a separate effort override (efforts: []). agy still has a
+// generic --effort flag for a project that defines its own agy rows with efforts in
+// .agkan.yml (see buildAgentArgs in PtySessionService.ts).
+const AGY_MODELS = [
+  'gemini-3.8-flash-high',
+  'gemini-3.8-flash-medium',
+  'gemini-3.8-flash-low',
+  'gemini-3.7-flash-high',
+  'gemini-3.7-flash-medium',
+  'gemini-3.7-flash-low',
+  'gemini-3.6-flash-high',
+  'gemini-3.6-flash-medium',
+  'gemini-3.6-flash-low',
+  'gemini-3.1-pro-high',
+  'gemini-3.1-pro-low',
+  'claude-sonnet-4-6',
+  'claude-opus-4-6-thinking',
+  'gpt-oss-120b-medium',
+];
+
 export const DEFAULT_MODEL_CATALOG: readonly ModelCatalogEntry[] = [
   { cli: 'claude', model: 'fable', efforts: CLAUDE_EFFORTS },
   { cli: 'claude', model: 'opus', efforts: CLAUDE_EFFORTS },
@@ -27,6 +49,7 @@ export const DEFAULT_MODEL_CATALOG: readonly ModelCatalogEntry[] = [
   { cli: 'codex', model: 'gpt-5.6-sol', efforts: CODEX_EFFORTS },
   { cli: 'codex', model: 'gpt-5.6-terra', efforts: CODEX_EFFORTS },
   { cli: 'codex', model: 'gpt-5.6-luna', efforts: CODEX_EFFORTS_NO_ULTRA },
+  ...AGY_MODELS.map((model) => ({ cli: 'agy' as const, model, efforts: [] as string[] })),
 ];
 
 function cloneCatalog(catalog: readonly ModelCatalogEntry[]): ModelCatalogEntry[] {
@@ -40,8 +63,8 @@ function parseEntry(raw: unknown, index: number): ModelCatalogEntry {
   const entry = raw as Record<string, unknown>;
 
   const cli = entry.cli;
-  if (cli !== 'claude' && cli !== 'codex') {
-    throw new Error(`Invalid modelCatalog[${index}].cli "${String(cli)}". Must be one of: claude, codex`);
+  if (cli !== 'claude' && cli !== 'codex' && cli !== 'agy') {
+    throw new Error(`Invalid modelCatalog[${index}].cli "${String(cli)}". Must be one of: claude, codex, agy`);
   }
 
   const model = entry.model;
