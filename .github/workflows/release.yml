@@ -84,17 +84,6 @@ jobs:
             exit 1
           fi
 
-      - name: Create or update GitHub Release
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TAG: ${{ steps.tag.outputs.TAG }}
-        run: |
-          if gh release view "$TAG" >/dev/null 2>&1; then
-            gh release edit "$TAG" --title "Release $TAG" --notes-file release-notes.md
-          else
-            gh release create "$TAG" --title "Release $TAG" --notes-file release-notes.md
-          fi
-
       - name: Publish to npm
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
@@ -106,3 +95,14 @@ jobs:
             exit 0
           fi
           pnpm publish --no-git-checks --access public
+
+      - name: Create or update GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ steps.tag.outputs.TAG }}
+        run: |
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release edit "$TAG" --title "Release $TAG" --notes-file release-notes.md
+          else
+            gh release create "$TAG" --title "Release $TAG" --notes-file release-notes.md
+          fi
