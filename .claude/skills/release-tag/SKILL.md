@@ -53,3 +53,4 @@ Pushing the tag triggers the `.github/workflows/release.yml` workflow which runs
 - Tags must use the `v` prefix (e.g., `v2.5.0`).
 - Tags are applied to the `main` branch only.
 - If `npm publish` is applicable for this project, the `.github/workflows/release.yml` workflow handles it automatically on tag push.
+- If the release workflow fails, re-run it for the same tag with `gh workflow run release.yml -f tag=v<VERSION>` instead of re-running the failed run. Steps already completed (GitHub Release, npm publish) are skipped, so the retry is safe.
