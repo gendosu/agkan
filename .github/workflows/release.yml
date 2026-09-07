@@ -4,6 +4,12 @@ on:
   push:
     tags:
       - 'v*.*.*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag to release (e.g. v3.22.0)'
+        required: true
+        type: string
 
 jobs:
   release:
@@ -12,8 +18,26 @@ jobs:
       contents: write
 
     steps:
+      - name: Resolve release tag
+        id: tag
+        env:
+          INPUT_TAG: ${{ inputs.tag }}
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          TAG="${INPUT_TAG:-$REF_NAME}"
+          case "$TAG" in
+            v[0-9]*.[0-9]*.[0-9]*) ;;
+            *) echo "::error::Invalid release tag: $TAG (expected vX.Y.Z)"; exit 1 ;;
+          esac
+          {
+            echo "TAG=$TAG"
+            echo "VERSION=${TAG#v}"
+          } >> "$GITHUB_OUTPUT"
+
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.tag.outputs.TAG }}
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
@@ -24,6 +48,12 @@ jobs:
           node-version: '20'
           cache: 'pnpm'
           registry-url: 'https://registry.npmjs.org'
+
+      # Fails fast on an invalid NPM_TOKEN, before the GitHub Release is created.
+      - name: Verify npm authentication
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: npm whoami
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
@@ -40,33 +70,39 @@ jobs:
       - name: Run tests
         run: pnpm test -- --run
 
-      - name: Extract version from tag
-        id: version
-        run: echo "VERSION=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
-
       - name: Extract release notes from CHANGELOG
-        id: changelog
-        run: |
-          VERSION="${{ steps.version.outputs.VERSION }}"
-          NOTES=$(awk "/^## \[$VERSION\]/{found=1; next} found && /^## \[/{exit} found{print}" CHANGELOG.md)
-          {
-            echo "NOTES<<EOF"
-            echo "$NOTES"
-            echo "EOF"
-          } >> "$GITHUB_OUTPUT"
-
-      - name: Create GitHub Release
-        uses: actions/create-release@v1
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          tag_name: ${{ github.ref_name }}
-          release_name: Release ${{ github.ref_name }}
-          body: ${{ steps.changelog.outputs.NOTES }}
-          draft: false
-          prerelease: false
+          VERSION: ${{ steps.tag.outputs.VERSION }}
+        run: |
+          awk -v ver="$VERSION" '
+            index($0, "## [" ver "]") == 1 { found = 1; next }
+            found && /^## \[/ { exit }
+            found { print }
+          ' CHANGELOG.md > release-notes.md
+          if [ ! -s release-notes.md ]; then
+            echo "::error::No CHANGELOG entry found for $VERSION"
+            exit 1
+          fi
+
+      - name: Create or update GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ steps.tag.outputs.TAG }}
+        run: |
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release edit "$TAG" --title "Release $TAG" --notes-file release-notes.md
+          else
+            gh release create "$TAG" --title "Release $TAG" --notes-file release-notes.md
+          fi
 
       - name: Publish to npm
-        run: pnpm publish --no-git-checks --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          VERSION: ${{ steps.tag.outputs.VERSION }}
+        run: |
+          PKG=$(node -p "require('./package.json').name")
+          if npm view "$PKG@$VERSION" version >/dev/null 2>&1; then
+            echo "$PKG@$VERSION is already published; skipping"
+            exit 0
+          fi
+          pnpm publish --no-git-checks --access public
