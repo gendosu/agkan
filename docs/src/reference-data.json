@@ -90,6 +90,8 @@
             ["--assignees <assignees>", "Filter by assignee"],
             ["-t, --tag <tags>", "Filter by tag name(s) or ID(s), comma-separated"],
             ["-p, --priority <priorities>", "Filter by priority, comma-separated"],
+            ["--meta <key=value>", "Filter by metadata key=value (repeatable, AND-combined)"],
+            ["--unblocked", "Show only tasks with no unresolved blockers"],
             ["--all", "Include all statuses (icebox, done, and closed)"],
             ["--archived", "Include archived tasks (is_archived=1)"],
             ["--tree", "Display as parent-child tree"],
@@ -104,7 +106,9 @@
             "agkan task list --status in_progress",
             "agkan task list --tag backend --priority high,critical",
             "agkan task list --tree",
-            "agkan task list --all --json"
+            "agkan task list --all --json",
+            "agkan task list --unblocked",
+            "agkan task list --meta team=backend"
           ]
         },
         {
@@ -506,6 +510,8 @@
             ["--assignees <assignees>", "担当者で絞り込み"],
             ["-t, --tag <tags>", "タグ名またはIDで絞り込み（カンマ区切り）"],
             ["-p, --priority <priorities>", "優先度で絞り込み（カンマ区切り）"],
+            ["--meta <key=value>", "メタデータの key=value で絞り込み（複数指定可、AND結合）"],
+            ["--unblocked", "未解消のブロッカーがないタスクのみ表示"],
             ["--all", "全ステータス（icebox・done・closed含む）を表示"],
             ["--archived", "アーカイブ済みタスクを含める"],
             ["--tree", "親子ツリー形式で表示"],
@@ -520,7 +526,9 @@
             "agkan task list --status in_progress",
             "agkan task list --tag backend --priority high,critical",
             "agkan task list --tree",
-            "agkan task list --all --json"
+            "agkan task list --all --json",
+            "agkan task list --unblocked",
+            "agkan task list --meta team=backend"
           ]
         },
         {
