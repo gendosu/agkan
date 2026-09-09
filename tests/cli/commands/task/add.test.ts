@@ -103,11 +103,11 @@ describe('setupTaskAddCommand', () => {
       expect(taskService.listTasks()).toHaveLength(0);
     });
 
-    it('should reject body exceeding 10000 characters', async () => {
-      const longBody = 'b'.repeat(10001);
+    it('should reject body exceeding 100000 characters', async () => {
+      const longBody = 'b'.repeat(100001);
       const { exitCode, errors } = await runCommand(program, ['task', 'add', 'Valid Title', longBody]);
       expect(exitCode).toBe(1);
-      expect(errors.join('\n')).toContain('10000');
+      expect(errors.join('\n')).toContain('100000');
 
       const taskService = new TaskService();
       expect(taskService.listTasks()).toHaveLength(0);

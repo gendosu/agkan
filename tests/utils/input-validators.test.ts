@@ -58,21 +58,21 @@ describe('Input Validators', () => {
       expect(errors).toEqual([]);
     });
 
-    it('should return error for body exceeding 10000 characters', () => {
+    it('should return error for body exceeding 100000 characters', () => {
       const input: CreateTaskInput = {
         title: 'Valid title',
-        body: 'a'.repeat(10001),
+        body: 'a'.repeat(100001),
       };
       const errors = validateTaskInput(input);
       expect(errors).toHaveLength(1);
       expect(errors[0].field).toBe('body');
-      expect(errors[0].message).toBe('Body must not exceed 10000 characters');
+      expect(errors[0].message).toBe('Body must not exceed 100000 characters');
     });
 
-    it('should accept body with exactly 10000 characters', () => {
+    it('should accept body with exactly 100000 characters', () => {
       const input: CreateTaskInput = {
         title: 'Valid title',
-        body: 'a'.repeat(10000),
+        body: 'a'.repeat(100000),
       };
       const errors = validateTaskInput(input);
       expect(errors).toEqual([]);
@@ -130,7 +130,7 @@ describe('Input Validators', () => {
     it('should return multiple errors for multiple invalid fields', () => {
       const input: CreateTaskInput = {
         title: 'a'.repeat(201),
-        body: 'b'.repeat(10001),
+        body: 'b'.repeat(100001),
         author: 'c'.repeat(101),
       };
       const errors = validateTaskInput(input);
@@ -176,12 +176,12 @@ describe('Input Validators', () => {
       expect(errors[0].message).toBe('Title must not exceed 200 characters');
     });
 
-    it('should return error for body exceeding 10000 characters', () => {
-      const input: UpdateTaskInput = { body: 'a'.repeat(10001) };
+    it('should return error for body exceeding 100000 characters', () => {
+      const input: UpdateTaskInput = { body: 'a'.repeat(100001) };
       const errors = validateTaskUpdateInput(input);
       expect(errors).toHaveLength(1);
       expect(errors[0].field).toBe('body');
-      expect(errors[0].message).toBe('Body must not exceed 10000 characters');
+      expect(errors[0].message).toBe('Body must not exceed 100000 characters');
     });
 
     it('should return error for author exceeding 100 characters', () => {

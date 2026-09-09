@@ -313,7 +313,7 @@ describe('POST /api/tasks', () => {
       new Request('http://localhost/api/tasks', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title: 'Too Long Body', body: 'x'.repeat(10001) }),
+        body: JSON.stringify({ title: 'Too Long Body', body: 'x'.repeat(100001) }),
       })
     );
     expect(res.status).toBe(400);

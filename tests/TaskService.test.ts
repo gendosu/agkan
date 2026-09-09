@@ -88,10 +88,10 @@ describe('TaskService', () => {
       }).toThrow('Title must not exceed 200 characters');
     });
 
-    it('Error when body exceeds 10000 characters', () => {
+    it('Error when body exceeds 100000 characters', () => {
       expect(() => {
-        taskService.createTask({ title: 'valid title', body: 'b'.repeat(10001) });
-      }).toThrow('Body must not exceed 10000 characters');
+        taskService.createTask({ title: 'valid title', body: 'b'.repeat(100001) });
+      }).toThrow('Body must not exceed 100000 characters');
     });
 
     it('Error when author exceeds 100 characters', () => {
@@ -1193,11 +1193,11 @@ describe('TaskService', () => {
       }).toThrow('Title must not exceed 200 characters');
     });
 
-    it('Error when updating body to exceed 10000 characters', () => {
+    it('Error when updating body to exceed 100000 characters', () => {
       const task = taskService.createTask({ title: 'Original' });
       expect(() => {
-        taskService.updateTask(task.id, { body: 'b'.repeat(10001) });
-      }).toThrow('Body must not exceed 10000 characters');
+        taskService.updateTask(task.id, { body: 'b'.repeat(100001) });
+      }).toThrow('Body must not exceed 100000 characters');
     });
 
     it('Error when updating author to exceed 100 characters', () => {

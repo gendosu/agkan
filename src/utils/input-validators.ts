@@ -16,6 +16,11 @@ export interface ValidationError {
 }
 
 /**
+ * Maximum allowed length for the body field
+ */
+export const MAX_BODY_LENGTH = 100000;
+
+/**
  * Validate the title field (required, max 200 chars)
  */
 function validateTitleField(title: string): ValidationError | null {
@@ -29,11 +34,11 @@ function validateTitleField(title: string): ValidationError | null {
 }
 
 /**
- * Validate the body field (optional, max 10000 chars)
+ * Validate the body field (optional, max MAX_BODY_LENGTH chars)
  */
 function validateBodyField(body: string | null | undefined): ValidationError | null {
-  if (body && body.length > 10000) {
-    return { field: 'body', message: 'Body must not exceed 10000 characters' };
+  if (body && body.length > MAX_BODY_LENGTH) {
+    return { field: 'body', message: `Body must not exceed ${MAX_BODY_LENGTH} characters` };
   }
   return null;
 }

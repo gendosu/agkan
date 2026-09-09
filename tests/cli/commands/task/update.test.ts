@@ -212,7 +212,7 @@ describe('setupTaskUpdateCommand', () => {
     expect(exitCode).toBe(1);
   });
 
-  it('should show error when body exceeds 10000 characters', async () => {
+  it('should show error when body exceeds 100000 characters', async () => {
     const taskService = new TaskService();
     taskService.createTask({ title: 'Test task', status: 'backlog' });
     const task = taskService.listTasks()[0];
@@ -231,7 +231,7 @@ describe('setupTaskUpdateCommand', () => {
       exitCode = code;
     }) as never;
 
-    const longBody = 'a'.repeat(10001);
+    const longBody = 'a'.repeat(100001);
 
     try {
       await program.parseAsync(['node', 'test', 'task', 'update', String(task.id), 'body', longBody]);
@@ -242,7 +242,7 @@ describe('setupTaskUpdateCommand', () => {
     }
 
     const output = consoleErrors.join('\n');
-    expect(output).toContain('10000');
+    expect(output).toContain('100000');
     expect(exitCode).toBe(1);
   });
 
