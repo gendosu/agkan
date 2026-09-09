@@ -1,4 +1,4 @@
-# node関係のファイルが変更された場合のみテストを実行
+# node関係のファイルが変更された場合のみ build と type-check を実行（テストは CI に委譲）
 NODE_PATTERN="package\.json|package-lock\.json|tsconfig|vitest\.config|eslint\.config|\.ts$|^src/|^tests/"
 
 while read local_ref local_sha remote_ref remote_sha; do
@@ -19,4 +19,4 @@ while read local_ref local_sha remote_ref remote_sha; do
   fi
 done
 
-echo "node関係のファイルの変更なし。テストをスキップします"
+echo "node関係のファイルの変更なし。build/type-checkをスキップします"
