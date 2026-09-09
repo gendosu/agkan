@@ -16,19 +16,34 @@ export interface ValidationError {
 }
 
 /**
+ * Maximum allowed length for the title field
+ */
+export const MAX_TITLE_LENGTH = 200;
+
+/**
  * Maximum allowed length for the body field
  */
 export const MAX_BODY_LENGTH = 100000;
 
 /**
- * Validate the title field (required, max 200 chars)
+ * Maximum allowed length for the author field
+ */
+export const MAX_AUTHOR_LENGTH = 100;
+
+/**
+ * Maximum allowed length for the assignees field (CSV format)
+ */
+export const MAX_ASSIGNEES_LENGTH = 500;
+
+/**
+ * Validate the title field (required, max MAX_TITLE_LENGTH chars)
  */
 function validateTitleField(title: string): ValidationError | null {
   if (!title || title.trim().length === 0) {
     return { field: 'title', message: 'Title is required' };
   }
-  if (title.length > 200) {
-    return { field: 'title', message: 'Title must not exceed 200 characters' };
+  if (title.length > MAX_TITLE_LENGTH) {
+    return { field: 'title', message: `Title must not exceed ${MAX_TITLE_LENGTH} characters` };
   }
   return null;
 }
@@ -44,21 +59,21 @@ function validateBodyField(body: string | null | undefined): ValidationError | n
 }
 
 /**
- * Validate the author field (optional, max 100 chars)
+ * Validate the author field (optional, max MAX_AUTHOR_LENGTH chars)
  */
 function validateAuthorField(author: string | null | undefined): ValidationError | null {
-  if (author && author.length > 100) {
-    return { field: 'author', message: 'Author must not exceed 100 characters' };
+  if (author && author.length > MAX_AUTHOR_LENGTH) {
+    return { field: 'author', message: `Author must not exceed ${MAX_AUTHOR_LENGTH} characters` };
   }
   return null;
 }
 
 /**
- * Validate the assignees field (optional, max 500 chars)
+ * Validate the assignees field (optional, max MAX_ASSIGNEES_LENGTH chars)
  */
 function validateAssigneesField(assignees: string | null | undefined): ValidationError | null {
-  if (assignees && assignees.length > 500) {
-    return { field: 'assignees', message: 'Assignees must not exceed 500 characters' };
+  if (assignees && assignees.length > MAX_ASSIGNEES_LENGTH) {
+    return { field: 'assignees', message: `Assignees must not exceed ${MAX_ASSIGNEES_LENGTH} characters` };
   }
   return null;
 }
