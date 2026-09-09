@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.23.0] - 2026-09-09
+
+### 追加
+- `agkan task list` に `--meta <key=value>` と `--unblocked` フィルタを追加。`--meta` は繰り返し指定可能で各値は `key=value` 形式である必要がある。どちらのフィルタも `--json` 出力に反映される (#726)
+
+### 変更
+- タスクの `body` フィールドの最大長を 10,000 文字から 100,000 文字に拡張（`agkan task add` / `agkan task update`）。`title` の上限（200文字）は変更なし (#740)
+
 ## [3.22.0] - 2026-09-06
 
 ### 追加
