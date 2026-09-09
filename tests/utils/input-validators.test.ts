@@ -4,6 +4,7 @@ import {
   validateTaskUpdateInput,
   validateTagInput,
   validateMultipleStatuses,
+  MAX_BODY_LENGTH,
 } from '../../src/utils/input-validators';
 import type { CreateTaskInput, UpdateTaskInput } from '../../src/models/Task';
 import type { CreateTagInput } from '../../src/models/Tag';
@@ -58,21 +59,21 @@ describe('Input Validators', () => {
       expect(errors).toEqual([]);
     });
 
-    it('should return error for body exceeding 10000 characters', () => {
+    it(`should return error for body exceeding ${MAX_BODY_LENGTH} characters`, () => {
       const input: CreateTaskInput = {
         title: 'Valid title',
-        body: 'a'.repeat(10001),
+        body: 'a'.repeat(MAX_BODY_LENGTH + 1),
       };
       const errors = validateTaskInput(input);
       expect(errors).toHaveLength(1);
       expect(errors[0].field).toBe('body');
-      expect(errors[0].message).toBe('Body must not exceed 10000 characters');
+      expect(errors[0].message).toBe(`Body must not exceed ${MAX_BODY_LENGTH} characters`);
     });
 
-    it('should accept body with exactly 10000 characters', () => {
+    it(`should accept body with exactly ${MAX_BODY_LENGTH} characters`, () => {
       const input: CreateTaskInput = {
         title: 'Valid title',
-        body: 'a'.repeat(10000),
+        body: 'a'.repeat(MAX_BODY_LENGTH),
       };
       const errors = validateTaskInput(input);
       expect(errors).toEqual([]);
@@ -130,7 +131,7 @@ describe('Input Validators', () => {
     it('should return multiple errors for multiple invalid fields', () => {
       const input: CreateTaskInput = {
         title: 'a'.repeat(201),
-        body: 'b'.repeat(10001),
+        body: 'b'.repeat(MAX_BODY_LENGTH + 1),
         author: 'c'.repeat(101),
       };
       const errors = validateTaskInput(input);
@@ -176,12 +177,12 @@ describe('Input Validators', () => {
       expect(errors[0].message).toBe('Title must not exceed 200 characters');
     });
 
-    it('should return error for body exceeding 10000 characters', () => {
-      const input: UpdateTaskInput = { body: 'a'.repeat(10001) };
+    it(`should return error for body exceeding ${MAX_BODY_LENGTH} characters`, () => {
+      const input: UpdateTaskInput = { body: 'a'.repeat(MAX_BODY_LENGTH + 1) };
       const errors = validateTaskUpdateInput(input);
       expect(errors).toHaveLength(1);
       expect(errors[0].field).toBe('body');
-      expect(errors[0].message).toBe('Body must not exceed 10000 characters');
+      expect(errors[0].message).toBe(`Body must not exceed ${MAX_BODY_LENGTH} characters`);
     });
 
     it('should return error for author exceeding 100 characters', () => {
