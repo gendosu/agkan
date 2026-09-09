@@ -47,16 +47,16 @@ export interface Task {
  * Excludes id, created_at, and updated_at as they are auto-generated
  *
  * Security constraints:
- * - title: max 200 characters (required)
- * - body: max 100000 characters (optional)
- * - author: max 100 characters (optional)
- * - assignees: max 500 characters (optional, CSV format)
+ * - title: max MAX_TITLE_LENGTH characters (required)
+ * - body: max MAX_BODY_LENGTH characters (optional)
+ * - author: max MAX_AUTHOR_LENGTH characters (optional)
+ * - assignees: max MAX_ASSIGNEES_LENGTH characters (optional, CSV format)
  */
 export interface CreateTaskInput {
-  title: string; // max 200 chars
-  body?: string; // max 100000 chars
-  author?: string; // max 100 chars
-  assignees?: string; // max 500 chars, CSV format
+  title: string; // max MAX_TITLE_LENGTH chars
+  body?: string; // max MAX_BODY_LENGTH chars
+  author?: string; // max MAX_AUTHOR_LENGTH chars
+  assignees?: string; // max MAX_ASSIGNEES_LENGTH chars, CSV format
   status?: TaskStatus;
   priority?: Priority | null;
   parent_id?: number | null;
@@ -74,16 +74,16 @@ export interface CreateTaskInput {
  * All fields are optional to support partial updates
  *
  * Security constraints:
- * - title: max 200 characters
- * - body: max 100000 characters
- * - author: max 100 characters
- * - assignees: max 500 characters (CSV format)
+ * - title: max MAX_TITLE_LENGTH characters
+ * - body: max MAX_BODY_LENGTH characters
+ * - author: max MAX_AUTHOR_LENGTH characters
+ * - assignees: max MAX_ASSIGNEES_LENGTH characters (CSV format)
  */
 export interface UpdateTaskInput {
-  title?: string; // max 200 chars
-  body?: string; // max 100000 chars
-  author?: string; // max 100 chars
-  assignees?: string; // max 500 chars, CSV format
+  title?: string; // max MAX_TITLE_LENGTH chars
+  body?: string; // max MAX_BODY_LENGTH chars
+  author?: string; // max MAX_AUTHOR_LENGTH chars
+  assignees?: string; // max MAX_ASSIGNEES_LENGTH chars, CSV format
   status?: TaskStatus;
   priority?: Priority | null;
   parent_id?: number | null;

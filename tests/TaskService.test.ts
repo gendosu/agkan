@@ -9,6 +9,7 @@ import { resetDatabase } from '../src/db/reset';
 import { getStorageBackend } from '../src/db/connection';
 import { createMockStorageBackend } from './utils/mock-database';
 import type { StorageBackend } from '../src/db/types/repository';
+import { MAX_BODY_LENGTH } from '../src/utils/input-validators';
 
 describe('TaskService', () => {
   let taskService: TaskService;
@@ -88,10 +89,10 @@ describe('TaskService', () => {
       }).toThrow('Title must not exceed 200 characters');
     });
 
-    it('Error when body exceeds 100000 characters', () => {
+    it(`Error when body exceeds ${MAX_BODY_LENGTH} characters`, () => {
       expect(() => {
-        taskService.createTask({ title: 'valid title', body: 'b'.repeat(100001) });
-      }).toThrow('Body must not exceed 100000 characters');
+        taskService.createTask({ title: 'valid title', body: 'b'.repeat(MAX_BODY_LENGTH + 1) });
+      }).toThrow(`Body must not exceed ${MAX_BODY_LENGTH} characters`);
     });
 
     it('Error when author exceeds 100 characters', () => {
@@ -1193,11 +1194,11 @@ describe('TaskService', () => {
       }).toThrow('Title must not exceed 200 characters');
     });
 
-    it('Error when updating body to exceed 100000 characters', () => {
+    it(`Error when updating body to exceed ${MAX_BODY_LENGTH} characters`, () => {
       const task = taskService.createTask({ title: 'Original' });
       expect(() => {
-        taskService.updateTask(task.id, { body: 'b'.repeat(100001) });
-      }).toThrow('Body must not exceed 100000 characters');
+        taskService.updateTask(task.id, { body: 'b'.repeat(MAX_BODY_LENGTH + 1) });
+      }).toThrow(`Body must not exceed ${MAX_BODY_LENGTH} characters`);
     });
 
     it('Error when updating author to exceed 100 characters', () => {

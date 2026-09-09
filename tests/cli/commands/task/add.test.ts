@@ -13,6 +13,7 @@ import { getDatabase } from '../../../../src/db/connection';
 import { TaskService, TagService } from '../../../../src/services';
 import { createProgram, runCommand } from '../../../helpers/command-test-utils';
 import type { ModelCatalogEntry } from '../../../../src/db/modelCatalog';
+import { MAX_BODY_LENGTH } from '../../../../src/utils/input-validators';
 
 const CATALOG_WITH_CODEX: ModelCatalogEntry[] = [
   { cli: 'claude', model: 'fable', efforts: ['low', 'medium', 'high', 'xhigh', 'max'] },
@@ -103,11 +104,11 @@ describe('setupTaskAddCommand', () => {
       expect(taskService.listTasks()).toHaveLength(0);
     });
 
-    it('should reject body exceeding 100000 characters', async () => {
-      const longBody = 'b'.repeat(100001);
+    it(`should reject body exceeding ${MAX_BODY_LENGTH} characters`, async () => {
+      const longBody = 'b'.repeat(MAX_BODY_LENGTH + 1);
       const { exitCode, errors } = await runCommand(program, ['task', 'add', 'Valid Title', longBody]);
       expect(exitCode).toBe(1);
-      expect(errors.join('\n')).toContain('100000');
+      expect(errors.join('\n')).toContain(String(MAX_BODY_LENGTH));
 
       const taskService = new TaskService();
       expect(taskService.listTasks()).toHaveLength(0);

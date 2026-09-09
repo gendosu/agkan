@@ -31,6 +31,7 @@ import { PtySessionService } from '../../src/terminal/PtySessionService';
 import { AttentionStateService } from '../../src/services/AttentionStateService';
 import { getHookToken } from '../../src/utils/hookToken';
 import { DETAIL_PANE_MAX_WIDTH } from '../../src/board/boardConfig';
+import { MAX_BODY_LENGTH } from '../../src/utils/input-validators';
 import type { ModelCatalogEntry } from '../../src/db/modelCatalog';
 
 const CATALOG_WITH_CODEX: ModelCatalogEntry[] = [
@@ -313,7 +314,7 @@ describe('POST /api/tasks', () => {
       new Request('http://localhost/api/tasks', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title: 'Too Long Body', body: 'x'.repeat(100001) }),
+        body: JSON.stringify({ title: 'Too Long Body', body: 'x'.repeat(MAX_BODY_LENGTH + 1) }),
       })
     );
     expect(res.status).toBe(400);

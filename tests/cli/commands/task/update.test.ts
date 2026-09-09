@@ -13,6 +13,7 @@ import { resetDatabase } from '../../../../src/db/reset';
 import { TaskService } from '../../../../src/services';
 import { createProgram, runCommand } from '../../../helpers/command-test-utils';
 import type { ModelCatalogEntry } from '../../../../src/db/modelCatalog';
+import { MAX_BODY_LENGTH } from '../../../../src/utils/input-validators';
 
 const CATALOG_WITH_CODEX: ModelCatalogEntry[] = [
   { cli: 'claude', model: 'fable', efforts: ['low', 'medium', 'high', 'xhigh', 'max'] },
@@ -212,7 +213,7 @@ describe('setupTaskUpdateCommand', () => {
     expect(exitCode).toBe(1);
   });
 
-  it('should show error when body exceeds 100000 characters', async () => {
+  it(`should show error when body exceeds ${MAX_BODY_LENGTH} characters`, async () => {
     const taskService = new TaskService();
     taskService.createTask({ title: 'Test task', status: 'backlog' });
     const task = taskService.listTasks()[0];
@@ -231,7 +232,7 @@ describe('setupTaskUpdateCommand', () => {
       exitCode = code;
     }) as never;
 
-    const longBody = 'a'.repeat(100001);
+    const longBody = 'a'.repeat(MAX_BODY_LENGTH + 1);
 
     try {
       await program.parseAsync(['node', 'test', 'task', 'update', String(task.id), 'body', longBody]);
@@ -242,7 +243,7 @@ describe('setupTaskUpdateCommand', () => {
     }
 
     const output = consoleErrors.join('\n');
-    expect(output).toContain('100000');
+    expect(output).toContain(String(MAX_BODY_LENGTH));
     expect(exitCode).toBe(1);
   });
 
