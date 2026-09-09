@@ -51,6 +51,8 @@ describe('setupTaskListCommand', () => {
     expect(optionNames).toContain('--author');
     expect(optionNames).toContain('--tag');
     expect(optionNames).toContain('--priority');
+    expect(optionNames).toContain('--meta');
+    expect(optionNames).toContain('--unblocked');
     expect(optionNames).toContain('--all');
     expect(optionNames).toContain('--tree');
     expect(optionNames).toContain('--root-only');
@@ -1721,5 +1723,151 @@ describe('setupTaskListCommand', () => {
     const output = consoleLogs.join('\n');
     expect(output).toContain('Release Task');
     expect(output).not.toContain('Non Release Task');
+  });
+
+  it('should filter tasks by single --meta key=value', async () => {
+    const taskService = new TaskService();
+    const metadataService = new MetadataService();
+
+    const task1 = taskService.createTask({ title: 'Task in Prod', status: 'ready' });
+    const task2 = taskService.createTask({ title: 'Task in Staging', status: 'ready' });
+
+    metadataService.setMetadata({ task_id: task1.id, key: 'env', value: 'production' });
+    metadataService.setMetadata({ task_id: task2.id, key: 'env', value: 'staging' });
+
+    const consoleLogs: string[] = [];
+    const originalLog = console.log;
+    console.log = (...args: unknown[]) => consoleLogs.push(args.join(' '));
+    const originalExit = process.exit;
+    process.exit = (() => {}) as never;
+
+    try {
+      await program.parseAsync(['node', 'test', 'task', 'list', '--meta', 'env=production']);
+    } finally {
+      console.log = originalLog;
+      process.exit = originalExit;
+    }
+
+    const output = consoleLogs.join('\n');
+    expect(output).toContain('Task in Prod');
+    expect(output).not.toContain('Task in Staging');
+  });
+
+  it('should filter tasks by multiple repeatable --meta key=value options (AND logic)', async () => {
+    const taskService = new TaskService();
+    const metadataService = new MetadataService();
+
+    const task1 = taskService.createTask({ title: 'Task Prod Backend', status: 'ready' });
+    const task2 = taskService.createTask({ title: 'Task Prod Frontend', status: 'ready' });
+    const task3 = taskService.createTask({ title: 'Task Staging Backend', status: 'ready' });
+
+    metadataService.setMetadata({ task_id: task1.id, key: 'env', value: 'production' });
+    metadataService.setMetadata({ task_id: task1.id, key: 'team', value: 'backend' });
+
+    metadataService.setMetadata({ task_id: task2.id, key: 'env', value: 'production' });
+    metadataService.setMetadata({ task_id: task2.id, key: 'team', value: 'frontend' });
+
+    metadataService.setMetadata({ task_id: task3.id, key: 'env', value: 'staging' });
+    metadataService.setMetadata({ task_id: task3.id, key: 'team', value: 'backend' });
+
+    const consoleLogs: string[] = [];
+    const originalLog = console.log;
+    console.log = (...args: unknown[]) => consoleLogs.push(args.join(' '));
+    const originalExit = process.exit;
+    process.exit = (() => {}) as never;
+
+    try {
+      await program.parseAsync(['node', 'test', 'task', 'list', '--meta', 'env=production', '--meta', 'team=backend']);
+    } finally {
+      console.log = originalLog;
+      process.exit = originalExit;
+    }
+
+    const output = consoleLogs.join('\n');
+    expect(output).toContain('Task Prod Backend');
+    expect(output).not.toContain('Task Prod Frontend');
+    expect(output).not.toContain('Task Staging Backend');
+  });
+
+  it('should error when --meta argument does not contain "="', async () => {
+    const consoleErrors: string[] = [];
+    const originalError = console.error;
+    console.error = (...args: unknown[]) => consoleErrors.push(args.join(' '));
+
+    const originalLog = console.log;
+    console.log = () => {};
+
+    let exitCode: number | undefined;
+    const originalExit = process.exit;
+    process.exit = ((code?: number) => {
+      exitCode = code;
+    }) as never;
+
+    try {
+      await program.parseAsync(['node', 'test', 'task', 'list', '--meta', 'invalid_no_equal']);
+    } finally {
+      console.log = originalLog;
+      console.error = originalError;
+      process.exit = originalExit;
+    }
+
+    expect(exitCode).toBe(1);
+    const output = consoleErrors.join('\n');
+    expect(output).toContain('Invalid metadata filter: invalid_no_equal');
+    expect(output).toContain('Format must be key=value');
+  });
+
+  it('should filter tasks by --unblocked', async () => {
+    const taskService = new TaskService();
+    const taskBlockService = new TaskBlockService();
+
+    const blocker = taskService.createTask({ title: 'Active Blocker', status: 'in_progress' });
+    const blockedTask = taskService.createTask({ title: 'Blocked Task', status: 'ready' });
+    taskService.createTask({ title: 'Free Task', status: 'ready' });
+
+    taskBlockService.addBlock({ blocker_task_id: blocker.id, blocked_task_id: blockedTask.id });
+
+    const consoleLogs: string[] = [];
+    const originalLog = console.log;
+    console.log = (...args: unknown[]) => consoleLogs.push(args.join(' '));
+    const originalExit = process.exit;
+    process.exit = (() => {}) as never;
+
+    try {
+      await program.parseAsync(['node', 'test', 'task', 'list', '--unblocked']);
+    } finally {
+      console.log = originalLog;
+      process.exit = originalExit;
+    }
+
+    const output = consoleLogs.join('\n');
+    expect(output).toContain('Free Task');
+    expect(output).not.toContain('Blocked Task');
+  });
+
+  it('should include meta and unblocked in JSON output filters', async () => {
+    const taskService = new TaskService();
+    const metadataService = new MetadataService();
+
+    const task = taskService.createTask({ title: 'JSON Meta Task', status: 'ready' });
+    metadataService.setMetadata({ task_id: task.id, key: 'env', value: 'production' });
+
+    const consoleLogs: string[] = [];
+    const originalLog = console.log;
+    console.log = (...args: unknown[]) => consoleLogs.push(args.join(' '));
+    const originalExit = process.exit;
+    process.exit = (() => {}) as never;
+
+    try {
+      await program.parseAsync(['node', 'test', 'task', 'list', '--meta', 'env=production', '--unblocked', '--json']);
+    } finally {
+      console.log = originalLog;
+      process.exit = originalExit;
+    }
+
+    expect(consoleLogs.length).toBeGreaterThan(0);
+    const parsed = JSON.parse(consoleLogs[0]);
+    expect(parsed.filters.meta).toEqual(['env=production']);
+    expect(parsed.filters.unblocked).toBe(true);
   });
 });

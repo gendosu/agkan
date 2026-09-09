@@ -103,7 +103,7 @@ export class TaskService {
 
   /**
    * Get task list
-   * @param filters - Filter criteria (status, author, tagIds, includeArchived)
+   * @param filters - Filter criteria (status, author, assignees, tagIds, priority, search, includeArchived, metadata, unblocked)
    * @param sort - Sort field (default: created_at)
    * @param order - Sort order (default: desc)
    * @returns Array of tasks
@@ -117,13 +117,15 @@ export class TaskService {
       priority?: string | string[];
       search?: string;
       includeArchived?: boolean;
+      metadata?: Array<{ key: string; value: string }>;
+      unblocked?: boolean;
     },
     sort?: SortField,
     order?: SortOrder
   ): Task[] {
     const sortField: SortField = sort && ALLOWED_SORT_FIELDS.includes(sort) ? sort : 'created_at';
     const sortOrder: SortOrder = order === 'asc' ? 'asc' : 'desc';
-    const { status, author, assignees, tagIds, priority, search, includeArchived } = filters ?? {};
+    const { status, author, assignees, tagIds, priority, search, includeArchived, metadata, unblocked } = filters ?? {};
 
     const searchId = search && /^\d+$/.test(search) ? parseInt(search, 10) : undefined;
 
@@ -138,6 +140,8 @@ export class TaskService {
         search,
         searchId,
         includeArchived,
+        metadata,
+        unblocked,
       },
       { field: sortField, order: sortOrder }
     );
