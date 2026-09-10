@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.23.0] - 2026-09-09
+
+### Added
+- Add `--meta <key=value>` and `--unblocked` filters to `agkan task list`. `--meta` is repeatable and each value must be in `key=value` format; both filters are also reflected in `--json` output (#726)
+
+### Changed
+- Increase the task `body` field's maximum length from 10,000 to 100,000 characters (`agkan task add` / `agkan task update`); the `title` limit (200 characters) is unchanged (#740)
+
 ## [3.22.0] - 2026-09-06
 
 ### Added
