@@ -129,6 +129,38 @@ describe('setupMetaSetCommand', () => {
     expect(updated?.value).toBe('high');
   });
 
+  it('should bump task.updated_at via taskService.updateTask when setting a non-priority key', async () => {
+    const taskService = new TaskService();
+    const task = taskService.createTask({ title: 'Test task', status: 'ready' });
+
+    const updateTaskSpy = vi.spyOn(TaskService.prototype, 'updateTask');
+
+    const consoleLogs: string[] = [];
+    const originalLog = console.log;
+    console.log = (...args: unknown[]) => consoleLogs.push(args.join(' '));
+
+    const originalExit = process.exit;
+    process.exit = (() => {}) as never;
+
+    try {
+      await program.parseAsync([
+        'node',
+        'test',
+        'task',
+        'meta',
+        'set',
+        String(task.id),
+        'pr',
+        'https://example.com/pr/1',
+      ]);
+      expect(updateTaskSpy).toHaveBeenCalledWith(task.id, {});
+    } finally {
+      console.log = originalLog;
+      process.exit = originalExit;
+      updateTaskSpy.mockRestore();
+    }
+  });
+
   it('should show error when task does not exist', async () => {
     const consoleLogs: string[] = [];
     const originalLog = console.log;
