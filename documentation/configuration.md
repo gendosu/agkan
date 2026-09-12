@@ -8,6 +8,7 @@ Full configuration reference for agkan, covering `.agkan.yml` fields, database p
   - [Configuration File: `.agkan.yml`](#configuration-file-agkanyml)
   - [Path Specification](#path-specification)
   - [Environment Variable Configuration](#environment-variable-configuration)
+  - [Git Worktrees](#git-worktrees)
   - [Default Behavior](#default-behavior)
   - [Per-Project Management](#per-project-management)
 - [Board Settings](#board-settings)
@@ -116,19 +117,35 @@ Test mode (`NODE_ENV=test`) automatically isolates test data from production dat
    NODE_ENV=test AGENT_KANBAN_DB_PATH=/tmp/test.db pnpm test
    ```
 
+### Git Worktrees
+
+When agkan runs inside a directory created by `git worktree add`, it does not look for `.agkan.yml` in the worktree itself. It reads the `.git` file that git places in the worktree (`gitdir: <main>/.git/worktrees/<name>`), resolves the main repository root from it, and uses that root as the project root:
+
+- `.agkan.yml` (or `.agkan-test.yml` in test mode) is read from the main repository root
+- A relative `path` in that file, and the default `.agkan/data.db`, are resolved from the main repository root
+- `.agkan/board.pid` and the board's `.agkan/config.yml` are also resolved from the main repository root
+
+So every worktree of a repository shares the main checkout's configuration and database without any extra setup.
+
+`AGENT_KANBAN_DB_PATH` keeps the highest priority inside a worktree, and a relative value is still resolved from the current directory, not from the main repository root.
+
+Regular repositories (where `.git` is a directory), submodules, and directories that are not under git are not affected: the current directory remains the project root.
+
 ### Default Behavior
 
 If no `.agkan.yml` file exists and no environment variable is set, the database is created in:
 
 ```
-<current-directory>/.agkan/data.db
+<project-root>/.agkan/data.db
 ```
 
 In test mode (`NODE_ENV=test`), the default location is:
 
 ```
-<current-directory>/.agkan-test/data.db
+<project-root>/.agkan-test/data.db
 ```
+
+`<project-root>` is the current directory, or the main repository root when running inside a git worktree (see [Git Worktrees](#git-worktrees)).
 
 ### Per-Project Management
 
