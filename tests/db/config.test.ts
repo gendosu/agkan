@@ -29,6 +29,7 @@ import {
   resolveModelSettings,
   buildAgyPermissionArgs,
   buildGrokPermissionArgs,
+  resolveProjectRoot,
 } from '../../src/db/config';
 
 describe('Agent tool resolution', () => {
@@ -652,6 +653,113 @@ describe('Database Path Resolution', () => {
 
       process.env.NODE_ENV = 'production';
       expect(getDefaultDirName()).toBe('.agkan');
+    });
+  });
+});
+
+describe('Worktree project root resolution', () => {
+  const originalEnv = process.env;
+  let tmpBase: string;
+  let mainRoot: string;
+  let worktreeDir: string;
+
+  const writeGitFile = (gitdir: string) => {
+    fs.writeFileSync(path.join(worktreeDir, '.git'), `gitdir: ${gitdir}\n`);
+  };
+
+  beforeEach(() => {
+    process.env = { ...originalEnv, NODE_ENV: 'development' };
+    delete process.env.AGENT_KANBAN_DB_PATH;
+
+    tmpBase = fs.mkdtempSync(path.join(os.tmpdir(), 'agkan-worktree-test-'));
+    mainRoot = path.join(tmpBase, 'main');
+    worktreeDir = path.join(tmpBase, 'wt');
+    fs.mkdirSync(path.join(mainRoot, '.git', 'worktrees', 'wt'), { recursive: true });
+    fs.mkdirSync(worktreeDir);
+    vi.spyOn(process, 'cwd').mockReturnValue(worktreeDir);
+  });
+
+  afterEach(() => {
+    process.env = originalEnv;
+    vi.restoreAllMocks();
+    fs.rmSync(tmpBase, { recursive: true, force: true });
+  });
+
+  describe('resolveProjectRoot', () => {
+    it('returns cwd when no .git entry exists', () => {
+      expect(resolveProjectRoot()).toBe(worktreeDir);
+    });
+
+    it('returns cwd when .git is a directory (regular repository)', () => {
+      fs.mkdirSync(path.join(worktreeDir, '.git'));
+      expect(resolveProjectRoot()).toBe(worktreeDir);
+    });
+
+    it('returns cwd for a submodule-style .git file', () => {
+      writeGitFile(path.join(mainRoot, '.git', 'modules', 'wt'));
+      expect(resolveProjectRoot()).toBe(worktreeDir);
+    });
+
+    it('returns cwd when the .git file has no gitdir line', () => {
+      fs.writeFileSync(path.join(worktreeDir, '.git'), 'not a gitdir pointer\n');
+      expect(resolveProjectRoot()).toBe(worktreeDir);
+    });
+
+    it('returns cwd when the referenced main repository does not exist', () => {
+      writeGitFile(path.join(tmpBase, 'missing', '.git', 'worktrees', 'wt'));
+      expect(resolveProjectRoot()).toBe(worktreeDir);
+    });
+
+    it('returns the main repository root for an absolute worktree gitdir', () => {
+      writeGitFile(path.join(mainRoot, '.git', 'worktrees', 'wt'));
+      expect(resolveProjectRoot()).toBe(mainRoot);
+    });
+
+    it('returns the main repository root for a relative worktree gitdir', () => {
+      writeGitFile(path.join('..', 'main', '.git', 'worktrees', 'wt'));
+      expect(resolveProjectRoot()).toBe(mainRoot);
+    });
+  });
+
+  describe('inside a worktree', () => {
+    beforeEach(() => {
+      writeGitFile(path.join(mainRoot, '.git', 'worktrees', 'wt'));
+    });
+
+    it('loadConfig reads .agkan.yml from the main repository root', () => {
+      fs.writeFileSync(path.join(mainRoot, '.agkan.yml'), yaml.dump({ board: { port: 4321 } }));
+
+      expect(loadConfig()).toEqual({ board: { port: 4321 } });
+    });
+
+    it('resolveDatabasePath defaults to .agkan/data.db under the main repository root', () => {
+      expect(resolveDatabasePath()).toBe(path.join(mainRoot, '.agkan', 'data.db'));
+    });
+
+    it('resolveDatabasePath resolves a relative config path from the main repository root', () => {
+      fs.writeFileSync(path.join(mainRoot, '.agkan.yml'), yaml.dump({ path: './custom/db.sqlite' }));
+
+      expect(resolveDatabasePath()).toBe(path.join(mainRoot, 'custom', 'db.sqlite'));
+    });
+
+    it('resolveDatabasePath resolves a relative legacy config path from the main repository root', () => {
+      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+      fs.writeFileSync(path.join(mainRoot, '.akan.yml'), yaml.dump({ path: './legacy/db.sqlite' }));
+
+      expect(resolveDatabasePath()).toBe(path.join(mainRoot, 'legacy', 'db.sqlite'));
+      warnSpy.mockRestore();
+    });
+
+    it('ignores a .agkan.yml placed in the worktree itself', () => {
+      fs.writeFileSync(path.join(worktreeDir, '.agkan.yml'), yaml.dump({ path: './wt/db.sqlite' }));
+
+      expect(resolveDatabasePath()).toBe(path.join(mainRoot, '.agkan', 'data.db'));
+    });
+
+    it('still resolves a relative AGENT_KANBAN_DB_PATH from cwd', () => {
+      process.env.AGENT_KANBAN_DB_PATH = './env/db.sqlite';
+
+      expect(resolveDatabasePath()).toBe(path.join(worktreeDir, 'env', 'db.sqlite'));
     });
   });
 });
