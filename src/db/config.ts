@@ -138,12 +138,52 @@ export function buildGrokPermissionArgs(config: Config): string[] {
 }
 
 /**
+ * Resolve the directory that holds the project's `.agkan.yml` / `.agkan/`.
+ *
+ * Inside a `git worktree` checkout, `.git` is a file containing
+ * `gitdir: <main>/.git/worktrees/<name>`; in that case the main repository
+ * root is returned so the worktree shares the main checkout's config and DB.
+ * Anything else (regular repository, submodule, non-git directory, unreadable
+ * or dangling pointer) resolves to `process.cwd()`.
+ *
+ * Test mode always resolves to `process.cwd()`: `.agkan-test/` must stay
+ * isolated per checkout, otherwise vitest runs in several worktrees would share
+ * the main repository's `data-<worker>.db` files.
+ */
+export function resolveProjectRoot(): string {
+  const cwd = process.cwd();
+  if (isTestMode()) {
+    return cwd;
+  }
+  try {
+    const gitPath = path.join(cwd, '.git');
+    if (!fs.statSync(gitPath).isFile()) {
+      return cwd;
+    }
+    const match = /^gitdir:\s*(.+?)\s*$/m.exec(fs.readFileSync(gitPath, 'utf8'));
+    if (!match) {
+      return cwd;
+    }
+    const gitDir = path.resolve(cwd, match[1]);
+    const worktreesDir = path.dirname(gitDir);
+    const mainGitDir = path.dirname(worktreesDir);
+    if (path.basename(worktreesDir) !== 'worktrees' || path.basename(mainGitDir) !== '.git') {
+      return cwd;
+    }
+    const mainRoot = path.dirname(mainGitDir);
+    return fs.statSync(mainRoot).isDirectory() ? mainRoot : cwd;
+  } catch {
+    return cwd;
+  }
+}
+
+/**
  * Load and parse the configuration file.
  * Returns the parsed Config object, or an empty object if the file does not exist or is invalid.
  */
 export function loadConfig(): Config {
   const configFileName = getConfigFileName();
-  const configPath = path.join(process.cwd(), configFileName);
+  const configPath = path.join(resolveProjectRoot(), configFileName);
 
   if (fs.existsSync(configPath)) {
     try {
@@ -229,9 +269,11 @@ export function resolveDatabasePath(): string {
     return resolvedPath;
   }
 
-  // Priority 2: Check configuration file
+  // Priority 2: Check configuration file (relative to the project root, which is
+  // the main repository when running inside a git worktree)
+  const projectRoot = resolveProjectRoot();
   const configFileName = getConfigFileName();
-  const configPath = path.join(process.cwd(), configFileName);
+  const configPath = path.join(projectRoot, configFileName);
 
   if (fs.existsSync(configPath)) {
     try {
@@ -239,8 +281,8 @@ export function resolveDatabasePath(): string {
       const config = yaml.load(configContent) as Config;
 
       if (config.path) {
-        // Resolve relative paths from current working directory
-        const dbPath = path.isAbsolute(config.path) ? config.path : path.join(process.cwd(), config.path);
+        // Resolve relative paths from the project root
+        const dbPath = path.isAbsolute(config.path) ? config.path : path.join(projectRoot, config.path);
 
         // Warn if in test mode but path appears to be a production path
         if (isTestMode() && isProductionPath(dbPath)) {
@@ -259,7 +301,7 @@ export function resolveDatabasePath(): string {
   } else {
     // Priority 2a: Fallback to legacy config file (.akan.yml / .akan-test.yml)
     const legacyConfigFileName = getLegacyConfigFileName();
-    const legacyConfigPath = path.join(process.cwd(), legacyConfigFileName);
+    const legacyConfigPath = path.join(projectRoot, legacyConfigFileName);
 
     if (fs.existsSync(legacyConfigPath)) {
       console.warn(
@@ -272,7 +314,7 @@ export function resolveDatabasePath(): string {
         const config = yaml.load(configContent) as Config;
 
         if (config.path) {
-          const dbPath = path.isAbsolute(config.path) ? config.path : path.join(process.cwd(), config.path);
+          const dbPath = path.isAbsolute(config.path) ? config.path : path.join(projectRoot, config.path);
 
           if (isTestMode() && isProductionPath(dbPath)) {
             console.warn(
@@ -293,5 +335,5 @@ export function resolveDatabasePath(): string {
   const defaultDir = getDefaultDirName();
   const workerId = process.env.VITEST_WORKER_ID;
   const dbFileName = isTestMode() && workerId ? `data-${workerId}.db` : 'data.db';
-  return path.join(process.cwd(), defaultDir, dbFileName);
+  return path.join(projectRoot, defaultDir, dbFileName);
 }
