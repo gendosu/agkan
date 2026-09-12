@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.25.0] - 2026-09-12
+
+### 追加
+- git worktree 内で実行した場合に `.agkan.yml` の設定と `.agkan/` データベースディレクトリをメインリポジトリから解決するようにした。worktree の `.git` ポインタを辿ることで `loadConfig()` と `resolveDatabasePath()` が worktree 自体ではなくメインリポジトリを読むようになる。`AGENT_KANBAN_DB_PATH` は引き続き優先され、相対パスの場合は cwd から解決される。通常のリポジトリ・サブモジュール・git 以外のディレクトリは従来通り cwd を使う
+- Board の `.agkan/config.yml` ディレクトリと `.agkan/board.pid` もプロジェクトルートから解決するようにし、git worktree から起動した board がメインリポジトリの board 状態を共有するようにした
+
+### 修正
+- テストモード（`.agkan-test/`）が worktree の cwd ではなくメインリポジトリに解決されていた不具合を修正。これにより異なる worktree での vitest 実行が同じ `data-<worker>.db` ファイルを共有してしまう問題があった
+
 ## [3.24.0] - 2026-09-12
 
 ### 追加

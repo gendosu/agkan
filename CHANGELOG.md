@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.25.0] - 2026-09-12
+
+### Added
+- Resolve `.agkan.yml` config and the `.agkan/` database directory from the main repository when running inside a git worktree, following the worktree's `.git` pointer instead of reading from the worktree itself. `AGENT_KANBAN_DB_PATH` still takes priority and its relative form still resolves from cwd; regular repositories, submodules, and non-git directories keep using cwd
+- Resolve the Board's `.agkan/config.yml` directory and `.agkan/board.pid` from the project root as well, so a board started from a git worktree shares the main repository's board state
+
+### Fixed
+- Fix test mode (`.agkan-test/`) resolving to the main repository instead of the worktree's cwd, which caused vitest runs in different worktrees to share the same `data-<worker>.db` files
+
 ## [3.24.0] - 2026-09-12
 
 ### Added
