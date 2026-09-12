@@ -28,6 +28,7 @@ import {
   resolveAgentTool,
   resolveModelSettings,
   buildAgyPermissionArgs,
+  buildGrokPermissionArgs,
 } from '../../src/db/config';
 
 describe('Agent tool resolution', () => {
@@ -41,6 +42,10 @@ describe('Agent tool resolution', () => {
 
   it('accepts agy', () => {
     expect(resolveAgentTool({ agent: 'agy' })).toBe('agy');
+  });
+
+  it('accepts grok', () => {
+    expect(resolveAgentTool({ agent: 'grok' })).toBe('grok');
   });
 
   it('selects agent-specific model settings', () => {
@@ -84,7 +89,7 @@ describe('Agent tool resolution', () => {
 
   it('rejects unsupported values loaded from YAML', () => {
     expect(() => resolveAgentTool({ agent: 'other' as 'claude' })).toThrow(
-      'Invalid agent "other". Must be one of: claude, codex, agy'
+      'Invalid agent "other". Must be one of: claude, codex, agy, grok'
     );
   });
 });
@@ -118,6 +123,46 @@ describe('buildAgyPermissionArgs', () => {
 
   it('passes no flags for the default (interactive) permission mode', () => {
     expect(buildAgyPermissionArgs({ permissionMode: 'default' })).toEqual([]);
+  });
+});
+
+describe('buildGrokPermissionArgs', () => {
+  it('defaults to auto when unset', () => {
+    expect(buildGrokPermissionArgs({})).toEqual(['--permission-mode', 'auto']);
+  });
+
+  it('passes auto explicitly', () => {
+    expect(buildGrokPermissionArgs({ permissionMode: 'auto' })).toEqual(['--permission-mode', 'auto']);
+  });
+
+  it('maps skipPermissions to bypassPermissions', () => {
+    expect(buildGrokPermissionArgs({ permissionMode: 'skipPermissions' })).toEqual([
+      '--permission-mode',
+      'bypassPermissions',
+    ]);
+  });
+
+  it('passes bypassPermissions directly', () => {
+    expect(buildGrokPermissionArgs({ permissionMode: 'bypassPermissions' })).toEqual([
+      '--permission-mode',
+      'bypassPermissions',
+    ]);
+  });
+
+  it('passes acceptEdits directly', () => {
+    expect(buildGrokPermissionArgs({ permissionMode: 'acceptEdits' })).toEqual(['--permission-mode', 'acceptEdits']);
+  });
+
+  it('passes dontAsk directly', () => {
+    expect(buildGrokPermissionArgs({ permissionMode: 'dontAsk' })).toEqual(['--permission-mode', 'dontAsk']);
+  });
+
+  it('passes plan directly', () => {
+    expect(buildGrokPermissionArgs({ permissionMode: 'plan' })).toEqual(['--permission-mode', 'plan']);
+  });
+
+  it('passes default directly', () => {
+    expect(buildGrokPermissionArgs({ permissionMode: 'default' })).toEqual(['--permission-mode', 'default']);
   });
 });
 

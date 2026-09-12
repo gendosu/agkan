@@ -847,6 +847,59 @@ describe('PtySessionService - model/effort/boardApiUrl args', () => {
     expect(mockWrite).not.toHaveBeenCalled();
   });
 
+  it('starts grok with model, effort, permissions, and the prompt behind --', async () => {
+    vi.mocked(configModule.loadConfig).mockReturnValue({ agent: 'grok' });
+    const svc = new PtySessionService();
+    await svc.startProcess(1, 'Task ID: 1', 'run', 'grok-4.6', 'high');
+
+    expect(spawnMock.mock.calls[0][0]).toBe('grok');
+    const args = spawnMock.mock.calls[0][1] as string[];
+    expect(args).toEqual(['--model', 'grok-4.6', '--effort', 'high', '--permission-mode', 'auto', '--', 'Task ID: 1']);
+  });
+
+  it('spawns grok when passed as the trailing agent argument', async () => {
+    vi.mocked(configModule.loadConfig).mockReturnValue({});
+    const svc = new PtySessionService();
+    await svc.startProcess(1, 'prompt', 'run', 'grok-4.6', undefined, 'grok');
+
+    expect(spawnMock.mock.calls[0][0]).toBe('grok');
+  });
+
+  it('does not pass --model or --effort for grok when not provided', async () => {
+    vi.mocked(configModule.loadConfig).mockReturnValue({ agent: 'grok' });
+    const svc = new PtySessionService();
+    await svc.startProcess(1, 'prompt', 'run');
+    const args = spawnMock.mock.calls[0][1] as string[];
+    expect(args).not.toContain('--model');
+    expect(args).not.toContain('--effort');
+    expect(args).toEqual(['--permission-mode', 'auto', '--', 'prompt']);
+  });
+
+  it('passes explicit permission mode to grok', async () => {
+    vi.mocked(configModule.loadConfig).mockReturnValue({ agent: 'grok', permissionMode: 'acceptEdits' });
+    const svc = new PtySessionService();
+    await svc.startProcess(1, 'prompt', 'run');
+    const args = spawnMock.mock.calls[0][1] as string[];
+    expect(args).toEqual(['--permission-mode', 'acceptEdits', '--', 'prompt']);
+  });
+
+  it('maps grok skipPermissions to bypassPermissions', async () => {
+    vi.mocked(configModule.loadConfig).mockReturnValue({ agent: 'grok', permissionMode: 'skipPermissions' });
+    const svc = new PtySessionService();
+    await svc.startProcess(1, 'prompt', 'run');
+    const args = spawnMock.mock.calls[0][1] as string[];
+    expect(args).toEqual(['--permission-mode', 'bypassPermissions', '--', 'prompt']);
+  });
+
+  it('does not inject a pending prompt or --settings for grok', async () => {
+    vi.mocked(configModule.loadConfig).mockReturnValue({ agent: 'grok' });
+    const svc = new PtySessionService();
+    await svc.startProcess(1, 'prompt', 'run');
+    const args = spawnMock.mock.calls[0][1] as string[];
+    expect(args).not.toContain('--settings');
+    expect(mockWrite).not.toHaveBeenCalled();
+  });
+
   it('does not inject board env vars when boardApiUrl is empty string', async () => {
     const savedTaskId = process.env.BOARD_TASK_ID;
     const savedApiUrl = process.env.BOARD_API_URL;
@@ -1602,6 +1655,86 @@ describe('PtySessionService - agy hook integration', () => {
   it('re-verifies (self-heals) the hooks file on every launch instead of caching', async () => {
     const svc = newService('http://127.0.0.1:9999');
     const hooksPath = join(tmp, 'hooks.json');
+
+    await svc.startProcess(1, 'prompt', 'run');
+    expect(existsSync(hooksPath)).toBe(true);
+    rmSync(hooksPath);
+
+    await svc.startProcess(2, 'prompt', 'run');
+    expect(existsSync(hooksPath)).toBe(true);
+  });
+});
+
+describe('PtySessionService - grok hook integration', () => {
+  let spawnMock: ReturnType<typeof vi.fn>;
+  let tmp: string;
+
+  beforeEach(async () => {
+    vi.useFakeTimers();
+    mockWrite.mockClear();
+    mockOnDataHandler = null;
+    mockOnExitHandler = null;
+    const pty = await import('node-pty');
+    spawnMock = pty.spawn as unknown as ReturnType<typeof vi.fn>;
+    spawnMock.mockClear();
+    vi.mocked(configModule.loadConfig).mockReturnValue({ agent: 'grok' });
+    tmp = mkdtempSync(join(tmpdir(), 'grok-hooks-integration-'));
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+    rmSync(tmp, { recursive: true, force: true });
+  });
+
+  function newService(boardApiUrl: string | null): PtySessionService {
+    return new PtySessionService(undefined, {
+      boardApiUrl,
+      attentionStateService: new AttentionStateService(),
+      hookSettingsDataDir: '/tmp/test-hooks-' + process.pid,
+      grokHooksConfigDir: tmp,
+    });
+  }
+
+  it('registers the board Stop hook in the configured grok hooks directory', async () => {
+    const svc = newService('http://127.0.0.1:9999');
+    await svc.startProcess(1, 'Task ID: 1', 'run');
+
+    expect(spawnMock.mock.calls[0][0]).toBe('grok');
+    const hooksPath = join(tmp, 'agkan-board-stop.json');
+    expect(existsSync(hooksPath)).toBe(true);
+    const json = JSON.parse(readFileSync(hooksPath, 'utf-8'));
+    expect(json.hooks.Stop[0].hooks[0].command).toMatch(/hook-grok-notify\.mjs/);
+  });
+
+  it('does not write grok agkan-board-stop.json for claude or codex', async () => {
+    vi.mocked(configModule.loadConfig).mockReturnValue({});
+    const svc = newService('http://127.0.0.1:9999');
+    await svc.startProcess(1, 'prompt', 'run');
+
+    expect(existsSync(join(tmp, 'agkan-board-stop.json'))).toBe(false);
+  });
+
+  it('does not write grok hooks when grokHooksConfigDir is not configured', async () => {
+    const svc = new PtySessionService(undefined, {
+      boardApiUrl: 'http://127.0.0.1:9999',
+      attentionStateService: new AttentionStateService(),
+      hookSettingsDataDir: '/tmp/test-hooks-' + process.pid,
+    });
+    await svc.startProcess(1, 'prompt', 'run');
+
+    expect(existsSync(join(tmp, 'agkan-board-stop.json'))).toBe(false);
+  });
+
+  it('does not write grok hooks when board hooks are disabled (no boardApiUrl)', async () => {
+    const svc = newService(null);
+    await svc.startProcess(1, 'prompt', 'run');
+
+    expect(existsSync(join(tmp, 'agkan-board-stop.json'))).toBe(false);
+  });
+
+  it('re-verifies (self-heals) the hooks file on every launch instead of caching', async () => {
+    const svc = newService('http://127.0.0.1:9999');
+    const hooksPath = join(tmp, 'agkan-board-stop.json');
 
     await svc.startProcess(1, 'prompt', 'run');
     expect(existsSync(hooksPath)).toBe(true);

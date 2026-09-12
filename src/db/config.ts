@@ -3,7 +3,7 @@ import path from 'path';
 import yaml from 'js-yaml';
 import type { ModelCatalogEntry } from './modelCatalog';
 
-export type AgentTool = 'claude' | 'codex' | 'agy';
+export type AgentTool = 'claude' | 'codex' | 'agy' | 'grok';
 export type ModelSettings = { model?: string; effort?: string };
 export type AgentModelSettings = {
   planning?: ModelSettings;
@@ -24,6 +24,7 @@ export interface Config {
     claude?: AgentModelSettings;
     codex?: AgentModelSettings;
     agy?: AgentModelSettings;
+    grok?: AgentModelSettings;
   };
   modelCatalog?: ModelCatalogEntry[];
   permissionMode?: string;
@@ -35,8 +36,8 @@ export interface Config {
  */
 export function resolveAgentTool(config: Config): AgentTool {
   const agent = config.agent ?? 'claude';
-  if (agent !== 'claude' && agent !== 'codex' && agent !== 'agy') {
-    throw new Error('Invalid agent "' + String(agent) + '". Must be one of: claude, codex, agy');
+  if (agent !== 'claude' && agent !== 'codex' && agent !== 'agy' && agent !== 'grok') {
+    throw new Error('Invalid agent "' + String(agent) + '". Must be one of: claude, codex, agy, grok');
   }
   return agent;
 }
@@ -108,6 +109,31 @@ export function buildAgyPermissionArgs(config: Config): string[] {
       return ['--mode', 'plan'];
     default:
       return [];
+  }
+}
+
+/**
+ * Build Grok CLI permission arguments from the configured permission setting.
+ * grok natively supports: default, acceptEdits, auto, dontAsk, bypassPermissions, plan.
+ * - undefined or "auto" → --permission-mode auto (default)
+ * - "skipPermissions" or "bypassPermissions" → --permission-mode bypassPermissions
+ * - "acceptEdits" / "dontAsk" / "plan" / "default" → --permission-mode <value>
+ */
+export function buildGrokPermissionArgs(config: Config): string[] {
+  switch (config.permissionMode) {
+    case undefined:
+    case 'auto':
+      return ['--permission-mode', 'auto'];
+    case 'skipPermissions':
+    case 'bypassPermissions':
+      return ['--permission-mode', 'bypassPermissions'];
+    case 'acceptEdits':
+    case 'dontAsk':
+    case 'plan':
+    case 'default':
+      return ['--permission-mode', config.permissionMode];
+    default:
+      return ['--permission-mode', config.permissionMode];
   }
 }
 

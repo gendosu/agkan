@@ -61,6 +61,8 @@ export function startBoardServer(port: number, boardTitle?: string): void {
   // agy's hooks.json is not board-scoped data (unlike hookSettingsDataDir above): it is the
   // real global config directory the agy CLI itself reads, always under the user's home.
   const agyHooksConfigDir = join(homedir(), '.gemini', 'config');
+  // grok's hooks directory is also the real global directory (~/.grok/hooks).
+  const grokHooksConfigDir = join(homedir(), '.grok', 'hooks');
 
   const app = new Hono();
   const resolvedConfigDir = path.join(process.cwd(), getDefaultDirName());
@@ -69,6 +71,7 @@ export function startBoardServer(port: number, boardTitle?: string): void {
     attentionStateService,
     hookSettingsDataDir,
     agyHooksConfigDir,
+    grokHooksConfigDir,
   });
   const services: BoardServices = {
     ts: new TaskService(resolvedDb, boardEventService),

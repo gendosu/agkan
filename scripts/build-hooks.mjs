@@ -16,6 +16,7 @@ const hooks = [
   'hook-agy-notify.mjs',
   'hook-attention.mjs',
   'hook-codex-notify.mjs',
+  'hook-grok-notify.mjs',
   'hook-session-start.mjs',
   'hook-stop.mjs',
   'session-marker.mjs',

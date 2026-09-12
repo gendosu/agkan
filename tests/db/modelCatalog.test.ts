@@ -15,7 +15,7 @@ const CODEX_EFFORTS = ['low', 'medium', 'high', 'xhigh', 'max', 'ultra'];
 const CATALOG_WITH_CODEX: ModelCatalogEntry[] = DEFAULT_MODEL_CATALOG.map((e) => ({ ...e, efforts: [...e.efforts] }));
 
 describe('DEFAULT_MODEL_CATALOG', () => {
-  it('lists the four claude models, four codex models, then the agy models', () => {
+  it('lists the four claude models, four codex models, agy models, then the grok models', () => {
     expect(DEFAULT_MODEL_CATALOG.map((e) => `${e.cli}[${e.model}]`)).toEqual([
       'claude[fable]',
       'claude[opus]',
@@ -30,6 +30,8 @@ describe('DEFAULT_MODEL_CATALOG', () => {
       'agy[claude-sonnet-4-6]',
       'agy[claude-opus-4-6-thinking]',
       'agy[gpt-oss-120b-medium]',
+      'grok[grok-4.6]',
+      'grok[grok-4.5]',
     ]);
   });
 
@@ -61,6 +63,16 @@ describe('DEFAULT_MODEL_CATALOG', () => {
       'claude-sonnet-4-6': [],
       'claude-opus-4-6-thinking': [],
       'gpt-oss-120b-medium': [],
+    });
+  });
+
+  it('gives each grok row the efforts its model accepts', () => {
+    const grokEfforts = Object.fromEntries(
+      DEFAULT_MODEL_CATALOG.filter((e) => e.cli === 'grok').map((e) => [e.model, e.efforts])
+    );
+    expect(grokEfforts).toEqual({
+      'grok-4.6': ['low', 'medium', 'high', 'xhigh'],
+      'grok-4.5': ['low', 'medium', 'high'],
     });
   });
 });
@@ -103,7 +115,7 @@ describe('resolveModelCatalog', () => {
   it('rejects an unsupported cli', () => {
     expect(() =>
       resolveModelCatalog({ modelCatalog: [{ cli: 'gemini' as 'claude', model: 'x', efforts: [] }] })
-    ).toThrow('Invalid modelCatalog[0].cli "gemini". Must be one of: claude, codex');
+    ).toThrow('Invalid modelCatalog[0].cli "gemini". Must be one of: claude, codex, agy, grok');
   });
 
   it('rejects an empty model name', () => {
