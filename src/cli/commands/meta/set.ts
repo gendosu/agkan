@@ -72,10 +72,13 @@ export function setupMetaSetCommand(program: Command): void {
           value,
         });
 
-        // Sync priority to tasks table so the board card reflects it
-        if (key === 'priority' && isPriority(value)) {
-          taskService.updateTask(parsedTaskId, { priority: value as Priority });
-        }
+        // Sync priority to tasks table so the board card reflects it, and always bump
+        // task.updated_at so the board detail panel's refresh detection (which compares
+        // card attributes, not metadata) sees metadata-only changes to the viewed task.
+        taskService.updateTask(
+          parsedTaskId,
+          key === 'priority' && isPriority(value) ? { priority: value as Priority } : {}
+        );
 
         await notifyBoard();
 

@@ -106,6 +106,32 @@ describe('setupMetaDeleteCommand', () => {
     expect(parsed.success).toBe(true);
   });
 
+  it('should bump task.updated_at via taskService.updateTask when deleting a non-priority key', async () => {
+    const taskService = new TaskService();
+    const task = taskService.createTask({ title: 'Test task', status: 'ready' });
+
+    const metadataService = new MetadataService();
+    metadataService.setMetadata({ task_id: task.id, key: 'pr', value: 'https://example.com/pr/1' });
+
+    const updateTaskSpy = vi.spyOn(TaskService.prototype, 'updateTask');
+
+    const consoleLogs: string[] = [];
+    const originalLog = console.log;
+    console.log = (...args: unknown[]) => consoleLogs.push(args.join(' '));
+
+    const originalExit = process.exit;
+    process.exit = (() => {}) as never;
+
+    try {
+      await program.parseAsync(['node', 'test', 'task', 'meta', 'delete', String(task.id), 'pr']);
+      expect(updateTaskSpy).toHaveBeenCalledWith(task.id, {});
+    } finally {
+      console.log = originalLog;
+      process.exit = originalExit;
+      updateTaskSpy.mockRestore();
+    }
+  });
+
   it('should show error when metadata key does not exist', async () => {
     const taskService = new TaskService();
     const task = taskService.createTask({ title: 'Test task', status: 'ready' });

@@ -55,10 +55,10 @@ export function setupMetaDeleteCommand(program: Command): void {
           process.exit(1);
         }
 
-        // Sync priority removal to tasks table
-        if (key === 'priority') {
-          taskService.updateTask(parsedTaskId, { priority: null });
-        }
+        // Sync priority removal to tasks table, and always bump task.updated_at so the
+        // board detail panel's refresh detection (which compares card attributes, not
+        // metadata) sees metadata-only changes to the viewed task.
+        taskService.updateTask(parsedTaskId, key === 'priority' ? { priority: null } : {});
 
         await notifyBoard();
 
