@@ -2938,3 +2938,270 @@ describe('loadRunLogs - stale subscription handling on task switch', () => {
     expect(pane.innerHTML).not.toContain('stale');
   });
 });
+
+describe('detail field autosave', () => {
+  beforeEach(() => {
+    vi.resetModules();
+    setupBoardContainerDOM();
+    document.body.insertAdjacentHTML('beforeend', '<div id="toast"></div>');
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  function installFetchMock(
+    taskDetail: ReturnType<typeof makeTaskDetail>,
+    patchResponse?: (body: Record<string, unknown>) => Response | Promise<Response>
+  ) {
+    return vi.fn().mockImplementation((url: string, init?: RequestInit) => {
+      const target = String(url);
+      if (target === '/api/tasks/1' && init?.method === 'PATCH') {
+        const body = JSON.parse(String(init.body)) as Record<string, unknown>;
+        return patchResponse?.(body) ?? Promise.resolve({ ok: true, json: () => Promise.resolve({}) });
+      }
+      if (target === '/api/tasks/1' && (!init || !init.method)) {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve(taskDetail) });
+      }
+      if (target.includes('/api/config')) return Promise.resolve({ ok: true, json: () => Promise.resolve({}) });
+      if (target.includes('/api/tags')) return Promise.resolve({ ok: true, json: () => Promise.resolve({ tags: [] }) });
+      if (target.includes('/api/board/cards'))
+        return Promise.resolve({ ok: true, json: () => Promise.resolve({ columns: [] }) });
+      if (target.includes('/comments'))
+        return Promise.resolve({ ok: true, json: () => Promise.resolve({ comments: [] }) });
+      return Promise.resolve({ ok: true, json: () => Promise.resolve(taskDetail) });
+    });
+  }
+
+  async function renderForAutosave(taskDetail = makeTaskDetail()) {
+    const module = await import('../../../src/board/client/detailPanel');
+    module.initDetailPanel();
+    module.renderDetailPanel(taskDetail);
+    return module;
+  }
+
+  function patchBodies(fetchMock: ReturnType<typeof vi.fn>): Array<Record<string, unknown>> {
+    return fetchMock.mock.calls
+      .filter(([url, init]: [string, RequestInit?]) => String(url) === '/api/tasks/1' && init?.method === 'PATCH')
+      .map(([, init]: [string, RequestInit]) => JSON.parse(String(init.body)) as Record<string, unknown>);
+  }
+
+  it('autosaves status with a narrow PATCH and preserves unsaved title text', async () => {
+    const taskDetail = makeTaskDetail();
+    const fetchMock = installFetchMock(taskDetail);
+    global.fetch = fetchMock;
+    await renderForAutosave(taskDetail);
+    const title = document.getElementById('detail-edit-title') as HTMLInputElement;
+    const status = document.getElementById('detail-edit-status') as HTMLSelectElement;
+    title.value = 'Unsaved title';
+
+    status.value = 'in_progress';
+    status.dispatchEvent(new Event('change'));
+
+    await vi.waitFor(() => expect(patchBodies(fetchMock)).toHaveLength(1));
+    expect(patchBodies(fetchMock)[0]).toEqual({ status: 'in_progress' });
+    expect((document.getElementById('detail-edit-title') as HTMLInputElement).value).toBe('Unsaved title');
+    expect(document.getElementById('toast')?.textContent).not.toBe('Task saved successfully');
+  });
+
+  it('autosaves priority and branch independently', async () => {
+    const taskDetail = makeTaskDetail();
+    const fetchMock = installFetchMock(taskDetail);
+    global.fetch = fetchMock;
+    await renderForAutosave(taskDetail);
+
+    const priority = document.getElementById('detail-edit-priority') as HTMLSelectElement;
+    priority.value = 'high';
+    priority.dispatchEvent(new Event('change'));
+    await vi.waitFor(() => expect(patchBodies(fetchMock)).toContainEqual({ priority: 'high' }));
+
+    const branch = document.getElementById('detail-edit-branch') as HTMLInputElement;
+    branch.dispatchEvent(new KeyboardEvent('keydown', { key: 'f', bubbles: true, cancelable: true }));
+    branch.value = 'feature/autosave';
+    branch.dispatchEvent(new Event('input'));
+    branch.dispatchEvent(new Event('blur'));
+
+    await vi.waitFor(() => expect(patchBodies(fetchMock)).toContainEqual({ branch: 'feature/autosave' }));
+  });
+
+  it('sends a changed model with an effort reset as one atomic narrow PATCH', async () => {
+    const taskDetail = makeTaskDetail({
+      task: {
+        ...makeTaskDetail().task,
+        model_planning: 'stale-model',
+        effort_planning: 'high',
+      },
+    });
+    const fetchMock = installFetchMock(taskDetail);
+    global.fetch = fetchMock;
+    await renderForAutosave(taskDetail);
+
+    const model = document.getElementById('detail-edit-model-planning') as HTMLSelectElement;
+    model.value = '';
+    model.dispatchEvent(new Event('change'));
+
+    await vi.waitFor(() => expect(patchBodies(fetchMock)).toHaveLength(1));
+    expect(patchBodies(fetchMock)[0]).toEqual({ models: { planning: '' }, efforts: { planning: '' } });
+  });
+
+  it('autosaves a run effort without including the untouched model or planning keys', async () => {
+    const taskDetail = makeTaskDetail({
+      task: {
+        ...makeTaskDetail().task,
+        model_run: 'stale-model',
+        effort_run: 'high',
+      },
+    });
+    const fetchMock = installFetchMock(taskDetail);
+    global.fetch = fetchMock;
+    await renderForAutosave(taskDetail);
+
+    const effort = document.getElementById('detail-edit-effort-run') as HTMLSelectElement;
+    effort.value = '';
+    effort.dispatchEvent(new Event('change'));
+
+    await vi.waitFor(() => expect(patchBodies(fetchMock)).toHaveLength(1));
+    expect(patchBodies(fetchMock)[0]).toEqual({ efforts: { run: '' } });
+  });
+
+  it('shows the server error toast when autosave fails', async () => {
+    const taskDetail = makeTaskDetail();
+    const fetchMock = installFetchMock(
+      taskDetail,
+      () =>
+        ({
+          ok: false,
+          json: () => Promise.resolve({ error: 'Invalid status transition' }),
+        }) as unknown as Response
+    );
+    global.fetch = fetchMock;
+    await renderForAutosave(taskDetail);
+
+    const status = document.getElementById('detail-edit-status') as HTMLSelectElement;
+    status.value = 'in_progress';
+    status.dispatchEvent(new Event('change'));
+
+    await vi.waitFor(() => expect(document.getElementById('toast')?.textContent).toBe('Invalid status transition'));
+  });
+
+  it('retries a failed field together with the next autosave change', async () => {
+    let patchCount = 0;
+    const taskDetail = makeTaskDetail();
+    const fetchMock = installFetchMock(taskDetail, () => {
+      patchCount++;
+      if (patchCount === 1) {
+        return {
+          ok: false,
+          json: () => Promise.resolve({ error: 'Temporary failure' }),
+        } as unknown as Response;
+      }
+      return { ok: true, json: () => Promise.resolve({}) } as unknown as Response;
+    });
+    global.fetch = fetchMock;
+    await renderForAutosave(taskDetail);
+    const status = document.getElementById('detail-edit-status') as HTMLSelectElement;
+    const priority = document.getElementById('detail-edit-priority') as HTMLSelectElement;
+
+    status.value = 'in_progress';
+    status.dispatchEvent(new Event('change'));
+    await vi.waitFor(() => expect(document.getElementById('toast')?.textContent).toBe('Temporary failure'));
+    priority.value = 'high';
+    priority.dispatchEvent(new Event('change'));
+
+    await vi.waitFor(() => expect(patchBodies(fetchMock)).toHaveLength(2));
+    expect(patchBodies(fetchMock)[1]).toEqual({ status: 'in_progress', priority: 'high' });
+  });
+
+  it('ignores a completed autosave response after switching to another task', async () => {
+    let resolvePatch!: (response: Response) => void;
+    const pendingPatch = new Promise<Response>((resolve) => {
+      resolvePatch = resolve;
+    });
+    const taskOne = makeTaskDetail();
+    const taskTwo = makeTaskDetail({
+      task: {
+        ...makeTaskDetail().task,
+        id: 2,
+        title: 'Second task',
+        updated_at: '2026-06-01T00:00:00.000Z',
+      },
+    });
+    const fetchMock = installFetchMock(taskOne, () => pendingPatch);
+    global.fetch = fetchMock;
+    const { renderDetailPanel } = await renderForAutosave(taskOne);
+    const status = document.getElementById('detail-edit-status') as HTMLSelectElement;
+
+    status.value = 'in_progress';
+    status.dispatchEvent(new Event('change'));
+    await vi.waitFor(() => expect(patchBodies(fetchMock)).toHaveLength(1));
+    renderDetailPanel(taskTwo);
+    const secondFooter = document.querySelector('.detail-footer-timestamp')?.textContent;
+    resolvePatch({ ok: true, json: () => Promise.resolve({}) } as unknown as Response);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect((document.getElementById('detail-edit-title') as HTMLInputElement).value).toBe('Second task');
+    expect(document.querySelector('.detail-footer-timestamp')?.textContent).toBe(secondFooter);
+  });
+
+  it('serializes writes and coalesces changes made while a PATCH is in flight', async () => {
+    let resolveFirstPatch!: (response: Response) => void;
+    const firstPatch = new Promise<Response>((resolve) => {
+      resolveFirstPatch = resolve;
+    });
+    let patchCount = 0;
+    const taskDetail = makeTaskDetail();
+    const fetchMock = installFetchMock(taskDetail, () => {
+      patchCount++;
+      if (patchCount === 1) return firstPatch;
+      return { ok: true, json: () => Promise.resolve({}) } as unknown as Response;
+    });
+    global.fetch = fetchMock;
+    await renderForAutosave(taskDetail);
+    const status = document.getElementById('detail-edit-status') as HTMLSelectElement;
+    const priority = document.getElementById('detail-edit-priority') as HTMLSelectElement;
+
+    status.value = 'in_progress';
+    status.dispatchEvent(new Event('change'));
+    await vi.waitFor(() => expect(patchBodies(fetchMock)).toHaveLength(1));
+    priority.value = 'high';
+    priority.dispatchEvent(new Event('change'));
+    status.value = 'completed';
+    status.dispatchEvent(new Event('change'));
+    expect(patchBodies(fetchMock)).toHaveLength(1);
+
+    resolveFirstPatch({ ok: true, json: () => Promise.resolve({}) } as unknown as Response);
+    await vi.waitFor(() => expect(patchBodies(fetchMock)).toHaveLength(2));
+    expect(patchBodies(fetchMock)[1]).toEqual({ priority: 'high', status: 'completed' });
+  });
+
+  it('does not let an explicit Save response erase a newer autosaved field edit', async () => {
+    let resolveSavePatch!: (response: Response) => void;
+    const savePatch = new Promise<Response>((resolve) => {
+      resolveSavePatch = resolve;
+    });
+    let patchCount = 0;
+    const taskDetail = makeTaskDetail();
+    const fetchMock = installFetchMock(taskDetail, () => {
+      patchCount++;
+      if (patchCount === 1) return savePatch;
+      return { ok: true, json: () => Promise.resolve({}) } as unknown as Response;
+    });
+    global.fetch = fetchMock;
+    await renderForAutosave(taskDetail);
+    const title = document.getElementById('detail-edit-title') as HTMLInputElement;
+    title.value = 'Saved title';
+    title.dispatchEvent(new Event('input'));
+
+    (document.getElementById('detail-save-btn') as HTMLButtonElement).click();
+    await vi.waitFor(() => expect(patchBodies(fetchMock)).toHaveLength(1));
+    const status = document.getElementById('detail-edit-status') as HTMLSelectElement;
+    status.value = 'in_progress';
+    status.dispatchEvent(new Event('change'));
+    resolveSavePatch({ ok: true, json: () => Promise.resolve({}) } as unknown as Response);
+
+    await vi.waitFor(() => expect(patchBodies(fetchMock)).toHaveLength(2));
+    expect(patchBodies(fetchMock)[1]).toEqual({ status: 'in_progress' });
+    expect((document.getElementById('detail-edit-title') as HTMLInputElement).value).toBe('Saved title');
+    expect((document.getElementById('detail-edit-status') as HTMLSelectElement).value).toBe('in_progress');
+  });
+});

@@ -12,6 +12,7 @@ import {
   refreshBoardCards,
   applyIncrementalCardUpdate,
   initBoardPolling,
+  suppressDetailRefreshForTask,
 } from '../../../src/board/client/boardPolling';
 import { updateButtonStates } from '../../../src/board/client/claudeButton';
 import * as boardStream from '../../../src/board/client/boardStream';
@@ -159,6 +160,40 @@ describe('refreshBoardCards', () => {
 
     const countEl = document.querySelector('.column-count')!;
     expect(countEl.textContent).toBe('5');
+  });
+
+  it('updates the card but suppresses a self-originated detail-panel refresh', async () => {
+    document.getElementById('col-backlog')!.innerHTML =
+      '<div class="card" data-id="99" data-status="backlog" data-updated-at="2026-01-01T00:00:00.000Z"></div>';
+    const renderDetailPanel = vi.fn();
+    registerDetailPanelCallbacks({
+      openTaskDetail: vi.fn(),
+      renderDetailPanel,
+      showUpdateWarning: vi.fn(),
+      getDetailTaskId: vi.fn().mockReturnValue(99),
+      getDetailActiveTab: vi.fn().mockReturnValue('details'),
+      setActiveCard: vi.fn(),
+    });
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: vi.fn().mockResolvedValue({
+        columns: [
+          {
+            status: 'backlog',
+            html: '<div class="card" data-id="99" data-status="backlog" data-updated-at="2026-01-02T00:00:00.000Z"></div>',
+            count: 1,
+          },
+        ],
+      }),
+    });
+    global.fetch = fetchMock;
+
+    suppressDetailRefreshForTask(99);
+    await refreshBoardCards();
+
+    expect(document.querySelector<HTMLElement>('[data-id="99"]')?.dataset.updatedAt).toBe('2026-01-02T00:00:00.000Z');
+    expect(renderDetailPanel).not.toHaveBeenCalled();
+    expect(fetchMock).toHaveBeenCalledOnce();
   });
 
   it('immediately disables run buttons when a running task exists after DOM update', async () => {

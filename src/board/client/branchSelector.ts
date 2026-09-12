@@ -9,6 +9,7 @@ export const BRANCH_AUTO_GENERATE_DISPLAY = '✨ Auto-generate on run';
 export interface BranchSelector {
   getValue(): string;
   reset(): void;
+  flush(): void;
 }
 
 // Suggestions are fetched once and shared across every selector instance.
@@ -34,6 +35,10 @@ export interface BranchSelectorOptions {
   // Initial branch value. Omit (or pass null/undefined/BRANCH_AUTO_GENERATE)
   // to start in auto-generate mode.
   initialBranch?: string | null;
+  // Called when a branch choice is committed. Typed input is debounced, while
+  // choosing a suggestion/auto-generate or leaving the field commits at once.
+  onCommit?: (branch: string) => void;
+  commitDebounceMs?: number;
 }
 
 export function initBranchSelector(options: BranchSelectorOptions): BranchSelector {
@@ -45,6 +50,21 @@ export function initBranchSelector(options: BranchSelectorOptions): BranchSelect
     options.initialBranch === undefined ||
     options.initialBranch === BRANCH_AUTO_GENERATE;
   let branchInternalValue: string = isAuto ? BRANCH_AUTO_GENERATE : options.initialBranch!;
+  let commitTimer: ReturnType<typeof setTimeout> | null = null;
+
+  function commit(): void {
+    if (commitTimer !== null) {
+      clearTimeout(commitTimer);
+      commitTimer = null;
+    }
+    options.onCommit?.(branchInternalValue);
+  }
+
+  function scheduleCommit(): void {
+    if (!options.onCommit) return;
+    if (commitTimer !== null) clearTimeout(commitTimer);
+    commitTimer = setTimeout(commit, options.commitDebounceMs ?? 300);
+  }
 
   function setAutoMode(): void {
     branchInternalValue = BRANCH_AUTO_GENERATE;
@@ -84,6 +104,7 @@ export function initBranchSelector(options: BranchSelectorOptions): BranchSelect
     autoOpt.addEventListener('mousedown', (e: MouseEvent) => {
       e.preventDefault();
       setAutoMode();
+      commit();
     });
     dropdown.appendChild(autoOpt);
 
@@ -101,6 +122,7 @@ export function initBranchSelector(options: BranchSelectorOptions): BranchSelect
         e.preventDefault();
         setManualMode(branch);
         dropdown.style.display = 'none';
+        commit();
       });
       dropdown.appendChild(opt);
     });
@@ -122,6 +144,7 @@ export function initBranchSelector(options: BranchSelectorOptions): BranchSelect
         branchInternalValue = e.key;
         input.value = e.key;
         renderDropdown(e.key);
+        scheduleCommit();
       }
     });
 
@@ -132,9 +155,11 @@ export function initBranchSelector(options: BranchSelectorOptions): BranchSelect
       }
       branchInternalValue = input.value;
       renderDropdown(input.value);
+      scheduleCommit();
     });
 
     input.addEventListener('blur', () => {
+      if (commitTimer !== null) commit();
       setTimeout(() => {
         dropdown.style.display = 'none';
       }, 150);
@@ -144,5 +169,8 @@ export function initBranchSelector(options: BranchSelectorOptions): BranchSelect
   return {
     getValue: () => branchInternalValue,
     reset: setAutoMode,
+    flush: () => {
+      if (commitTimer !== null) commit();
+    },
   };
 }

@@ -74,18 +74,17 @@ export async function fetchTaskDetail(taskId: number | string, signal?: AbortSig
   return res.json();
 }
 
-export async function patchTask(
-  taskId: number,
-  fields: {
-    title: string;
-    body: string | null;
-    status: string | undefined;
-    priority: string | null;
-    branch?: string | null;
-    models?: { planning?: string; run?: string };
-    efforts?: { planning?: string; run?: string };
-  }
-): Promise<TaskDetail> {
+export interface TaskPatchFields {
+  title?: string;
+  body?: string | null;
+  status?: string;
+  priority?: string | null;
+  branch?: string | null;
+  models?: { planning?: string; run?: string };
+  efforts?: { planning?: string; run?: string };
+}
+
+export async function patchTask(taskId: number, fields: TaskPatchFields): Promise<TaskDetail> {
   const res = await fetch('/api/tasks/' + taskId, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },

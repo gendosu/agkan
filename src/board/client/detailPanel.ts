@@ -3,7 +3,7 @@
 import type { TaskDetail } from './types';
 import { relativeTime, showToast } from './utils';
 import { loadAllTags, renderTagsSection, registerGetDetailTaskId } from './tags';
-import { refreshBoardCards, registerDetailPanelCallbacks } from './boardPolling';
+import { refreshBoardCards, registerDetailPanelCallbacks, suppressDetailRefreshForTask } from './boardPolling';
 import {
   fetchComments,
   patchComment,
@@ -18,6 +18,7 @@ import {
   PANEL_MIN_WIDTH,
   PANEL_MAX_WIDTH,
   ApiError,
+  type TaskPatchFields,
 } from './detailPanelApi';
 import { setRunLogsActive } from './connectionStatus';
 import {
@@ -40,6 +41,8 @@ let runLogEventSource: EventSource | null = null;
 let currentFetchController: AbortController | null = null;
 let runLogLoadSeq = 0;
 let runLogsLoadedTaskId: number | null = null;
+let detailPanelRevision = 0;
+let detailFormEditRevision = 0;
 
 // Branch selector instance, re-created on every renderDetailPanel call since
 // the branch input/dropdown elements are rebuilt with the panel HTML.
@@ -58,6 +61,134 @@ let loadedModelEffort = {
   effort_planning: '',
   effort_run: '',
 };
+
+interface PendingAutosave {
+  fields: TaskPatchFields;
+  revision: number;
+}
+
+interface AutosaveState {
+  pending: PendingAutosave | null;
+  failed: PendingAutosave | null;
+  running: boolean;
+  idleWaiters: Array<() => void>;
+}
+
+const autosaveStates = new Map<number, AutosaveState>();
+const taskWriteTails = new Map<number, Promise<void>>();
+
+function mergePatchFields(base: TaskPatchFields, incoming: TaskPatchFields): TaskPatchFields {
+  const merged = { ...base, ...incoming };
+  if (base.models || incoming.models) merged.models = { ...base.models, ...incoming.models };
+  if (base.efforts || incoming.efforts) merged.efforts = { ...base.efforts, ...incoming.efforts };
+  return merged;
+}
+
+function runSerializedTaskWrite<T>(taskId: number, write: () => Promise<T>): Promise<T> {
+  const previous = taskWriteTails.get(taskId) ?? Promise.resolve();
+  const result = previous.catch(() => undefined).then(write);
+  taskWriteTails.set(
+    taskId,
+    result.then(
+      () => undefined,
+      () => undefined
+    )
+  );
+  return result;
+}
+
+function updateLoadedOverrides(fields: TaskPatchFields): void {
+  (['planning', 'run'] as const).forEach((kind) => {
+    if (fields.models && kind in fields.models) {
+      loadedModelEffort[`model_${kind}`] = fields.models[kind] ?? '';
+    }
+    if (fields.efforts && kind in fields.efforts) {
+      loadedModelEffort[`effort_${kind}`] = fields.efforts[kind] ?? '';
+    }
+  });
+}
+
+function updateDetailFooterTimestamp(data: TaskDetail): void {
+  const timestamp = document.querySelector<HTMLElement>('.detail-footer-timestamp');
+  if (!timestamp) return;
+  timestamp.innerHTML =
+    'created ' + relativeTime(data.task.created_at) + ' &middot; updated ' + relativeTime(data.task.updated_at);
+}
+
+function autosaveErrorMessage(err: unknown): string {
+  return err instanceof ApiError ? err.message : 'Failed to update task';
+}
+
+function isCurrentPanelWrite(taskId: number, revision: number): boolean {
+  return detailTaskId === taskId && detailPanelRevision === revision;
+}
+
+function rememberFailedAutosave(state: AutosaveState, current: PendingAutosave): void {
+  const pendingAfterFailure = state.pending as PendingAutosave | null;
+  if (pendingAfterFailure?.revision === current.revision) {
+    pendingAfterFailure.fields = mergePatchFields(current.fields, pendingAfterFailure.fields);
+    return;
+  }
+  state.failed = {
+    fields: mergePatchFields(state.failed?.fields ?? {}, current.fields),
+    revision: current.revision,
+  };
+}
+
+async function performAutosave(taskId: number, state: AutosaveState, current: PendingAutosave): Promise<void> {
+  suppressDetailRefreshForTask(taskId);
+  try {
+    const data = await runSerializedTaskWrite(taskId, () => patchTask(taskId, current.fields));
+    if (isCurrentPanelWrite(taskId, current.revision)) {
+      updateLoadedOverrides(current.fields);
+      updateDetailFooterTimestamp(data);
+    }
+    suppressDetailRefreshForTask(taskId);
+    await refreshBoardCards({ suppressDetailRefresh: true });
+  } catch (err) {
+    if (!isCurrentPanelWrite(taskId, current.revision)) return;
+    rememberFailedAutosave(state, current);
+    showToast(autosaveErrorMessage(err));
+  }
+}
+
+async function drainAutosaves(taskId: number, state: AutosaveState): Promise<void> {
+  try {
+    while (state.pending) {
+      const current = state.pending;
+      state.pending = null;
+      await performAutosave(taskId, state, current);
+    }
+  } finally {
+    state.running = false;
+    state.idleWaiters.splice(0).forEach((resolve) => resolve());
+  }
+}
+
+function enqueueAutosave(taskId: number, revision: number, fields: TaskPatchFields): void {
+  let state = autosaveStates.get(taskId);
+  if (!state) {
+    state = { pending: null, failed: null, running: false, idleWaiters: [] };
+    autosaveStates.set(taskId, state);
+  }
+  const retryFields = state.failed?.revision === revision ? state.failed.fields : {};
+  state.failed = null;
+  const nextFields = mergePatchFields(retryFields, fields);
+  state.pending = {
+    fields: state.pending?.revision === revision ? mergePatchFields(state.pending.fields, nextFields) : nextFields,
+    revision,
+  };
+  if (!state.running) {
+    state.running = true;
+    void drainAutosaves(taskId, state);
+  }
+}
+
+function waitForAutosaves(taskId: number): Promise<void> {
+  const state = autosaveStates.get(taskId);
+  if (!state || (!state.running && !state.pending)) return Promise.resolve();
+  return new Promise((resolve) => state.idleWaiters.push(resolve));
+}
 
 function closeRunLogStream(): void {
   if (runLogEventSource !== null) {
@@ -87,6 +218,8 @@ export function setActiveCard(taskId: number | null): void {
 }
 
 export function closeDetailPanel(): void {
+  branchSelector?.flush();
+  detailPanelRevision++;
   closeRunLogStream();
   runLogsLoadedTaskId = null;
   const runLogsPane = document.getElementById('detail-tab-content-run-logs');
@@ -99,6 +232,7 @@ export function closeDetailPanel(): void {
   detailPanel.style.width = '';
   setActiveCard(null);
   detailTaskId = null;
+  branchSelector = null;
 }
 
 export function switchTab(tabName: string): void {
@@ -437,6 +571,38 @@ function handleRunLogToggle(e: MouseEvent): void {
   if (item) item.classList.toggle('open');
 }
 
+function wireAutosaveSelects(taskId: number, revision: number): void {
+  const status = document.getElementById('detail-edit-status') as HTMLSelectElement | null;
+  status?.addEventListener('change', () => {
+    detailFormEditRevision++;
+    enqueueAutosave(taskId, revision, { status: status.value });
+  });
+
+  const priority = document.getElementById('detail-edit-priority') as HTMLSelectElement | null;
+  priority?.addEventListener('change', () => {
+    detailFormEditRevision++;
+    enqueueAutosave(taskId, revision, { priority: priority.value || null });
+  });
+
+  (['planning', 'run'] as const).forEach((kind) => {
+    const model = document.getElementById(`detail-edit-model-${kind}`) as HTMLSelectElement | null;
+    const effort = document.getElementById(`detail-edit-effort-${kind}`) as HTMLSelectElement | null;
+
+    model?.addEventListener('change', () => {
+      detailFormEditRevision++;
+      const fields: TaskPatchFields = { models: { [kind]: model.value } };
+      if (effort && effort.value !== loadedModelEffort[`effort_${kind}`]) {
+        fields.efforts = { [kind]: effort.value };
+      }
+      enqueueAutosave(taskId, revision, fields);
+    });
+    effort?.addEventListener('change', () => {
+      detailFormEditRevision++;
+      enqueueAutosave(taskId, revision, { efforts: { [kind]: effort.value } });
+    });
+  });
+}
+
 export function renderDetailPanel(data: TaskDetail): void {
   // Remove stale update-warning bar so it does not persist after reload
   document.getElementById('detail-panel-update-warning')?.remove();
@@ -445,6 +611,8 @@ export function renderDetailPanel(data: TaskDetail): void {
   const task = data.task;
   const tags = data.tags || [];
 
+  const revision = ++detailPanelRevision;
+  detailFormEditRevision++;
   detailTaskId = task.id;
   detailPanelTitle.textContent = '#' + task.id;
   loadedModelEffort = {
@@ -477,7 +645,13 @@ export function renderDetailPanel(data: TaskDetail): void {
     inputId: 'detail-edit-branch',
     dropdownId: 'detail-branch-dropdown',
     initialBranch: data.task.branch,
+    onCommit: (branch) => {
+      detailFormEditRevision++;
+      enqueueAutosave(task.id, revision, { branch });
+    },
   });
+
+  wireAutosaveSelects(task.id, revision);
 
   // Update footer with timestamp and save button
   const footer = document.getElementById('detail-panel-footer');
@@ -515,9 +689,14 @@ export function renderDetailPanel(data: TaskDetail): void {
     });
 
     textarea.addEventListener('input', () => {
+      detailFormEditRevision++;
       autoResizeTextarea(textarea);
     });
   }
+
+  document.getElementById('detail-edit-title')?.addEventListener('input', () => {
+    detailFormEditRevision++;
+  });
 
   // Render tags section immediately to avoid content shift and blinking
   renderTagsSection([...tags]);
@@ -605,15 +784,7 @@ function buildUpdateWarningReloadBtn(): HTMLButtonElement {
   return reloadBtn;
 }
 
-function collectEditedTaskFields(): {
-  title: string;
-  body: string | null;
-  status: string | undefined;
-  priority: string | null;
-  branch: string | null;
-  models: { planning?: string; run?: string };
-  efforts: { planning?: string; run?: string };
-} | null {
+function collectEditedTaskFields(): TaskPatchFields | null {
   const titleInput = document.getElementById('detail-edit-title') as HTMLInputElement;
   const title = titleInput ? titleInput.value.trim() : '';
   if (!title) {
@@ -652,20 +823,56 @@ function collectChangedOverrides(category: 'model' | 'effort'): { planning?: str
   return result;
 }
 
-async function saveDetailTask(): Promise<void> {
-  if (detailTaskId === null) return;
+interface DetailSaveContext {
+  taskId: number;
+  panelRevision: number;
+}
+
+function getDetailSaveContext(): DetailSaveContext | null {
+  if (detailTaskId === null) return null;
+  const titleInput = document.getElementById('detail-edit-title') as HTMLInputElement | null;
+  if (!titleInput?.value.trim()) {
+    titleInput?.focus();
+    return null;
+  }
+  return { taskId: detailTaskId, panelRevision: detailPanelRevision };
+}
+
+async function prepareDetailSave(
+  context: DetailSaveContext
+): Promise<{ fields: TaskPatchFields; editRevision: number } | null> {
+  branchSelector?.flush();
+  await waitForAutosaves(context.taskId);
+  if (!isCurrentPanelWrite(context.taskId, context.panelRevision)) return null;
   const fields = collectEditedTaskFields();
-  if (!fields) return;
+  return fields ? { fields, editRevision: detailFormEditRevision } : null;
+}
+
+function finishDetailSave(context: DetailSaveContext, data: TaskDetail, savedEditRevision: number): void {
+  const autosaveState = autosaveStates.get(context.taskId);
+  if (autosaveState) autosaveState.failed = null;
+  const panelIsCurrent = isCurrentPanelWrite(context.taskId, context.panelRevision);
+  const canRender = panelIsCurrent && detailFormEditRevision === savedEditRevision;
+  if (canRender) renderDetailPanel(data);
+  if (panelIsCurrent) showToast('Task saved successfully');
+  void refreshBoardCards(canRender ? undefined : { suppressDetailRefresh: true });
+}
+
+async function saveDetailTask(): Promise<void> {
+  const context = getDetailSaveContext();
+  if (!context) return;
+  const prepared = await prepareDetailSave(context);
+  if (!prepared) return;
 
   try {
-    const data = await patchTask(detailTaskId, fields);
-    renderDetailPanel(data);
-    showToast('Task saved successfully');
-    refreshBoardCards();
+    const data = await runSerializedTaskWrite(context.taskId, () => patchTask(context.taskId, prepared.fields));
+    finishDetailSave(context, data, prepared.editRevision);
   } catch (err) {
     // Only ApiError carries a message meant for the user (the server's own
     // `{ error }` text); a fetch-level failure (e.g. offline) does not.
-    showToast(err instanceof ApiError ? err.message : 'Failed to update task');
+    if (isCurrentPanelWrite(context.taskId, context.panelRevision)) {
+      showToast(autosaveErrorMessage(err));
+    }
   }
 }
 

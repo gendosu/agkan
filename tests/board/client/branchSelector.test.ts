@@ -261,3 +261,81 @@ describe('initBranchSelector', () => {
     expect(() => initBranchSelector({ inputId: 'missing-input', dropdownId: 'missing-dropdown' })).not.toThrow();
   });
 });
+
+describe('branch commit notifications', () => {
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.restoreAllMocks();
+  });
+
+  it('debounces typed branch values and commits only the latest value', async () => {
+    vi.useFakeTimers();
+    const { initBranchSelector } = await loadBranchSelector();
+    setupDOM('branch-input', 'branch-dropdown');
+    const onCommit = vi.fn();
+    initBranchSelector({
+      inputId: 'branch-input',
+      dropdownId: 'branch-dropdown',
+      initialBranch: 'main',
+      onCommit,
+      commitDebounceMs: 300,
+    });
+    const input = document.getElementById('branch-input') as HTMLInputElement;
+
+    input.value = 'feature/a';
+    input.dispatchEvent(new Event('input'));
+    input.value = 'feature/ab';
+    input.dispatchEvent(new Event('input'));
+
+    vi.advanceTimersByTime(299);
+    expect(onCommit).not.toHaveBeenCalled();
+    vi.advanceTimersByTime(1);
+    expect(onCommit).toHaveBeenCalledOnce();
+    expect(onCommit).toHaveBeenCalledWith('feature/ab');
+  });
+
+  it('flushes a pending typed value immediately on blur', async () => {
+    vi.useFakeTimers();
+    const { initBranchSelector } = await loadBranchSelector();
+    setupDOM('branch-input', 'branch-dropdown');
+    const onCommit = vi.fn();
+    initBranchSelector({
+      inputId: 'branch-input',
+      dropdownId: 'branch-dropdown',
+      initialBranch: 'main',
+      onCommit,
+    });
+    const input = document.getElementById('branch-input') as HTMLInputElement;
+
+    input.value = 'feature/blurred';
+    input.dispatchEvent(new Event('input'));
+    input.dispatchEvent(new Event('blur'));
+
+    expect(onCommit).toHaveBeenCalledOnce();
+    expect(onCommit).toHaveBeenCalledWith('feature/blurred');
+    vi.advanceTimersByTime(500);
+    expect(onCommit).toHaveBeenCalledOnce();
+  });
+
+  it('commits a selected suggestion immediately', async () => {
+    const { initBranchSelector } = await loadBranchSelector();
+    setupDOM('branch-input', 'branch-dropdown');
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ branches: ['feature/selected'] }),
+    });
+    const onCommit = vi.fn();
+    initBranchSelector({ inputId: 'branch-input', dropdownId: 'branch-dropdown', onCommit });
+    const input = document.getElementById('branch-input') as HTMLInputElement;
+    input.dispatchEvent(new Event('focus'));
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    const option = Array.from(document.querySelectorAll<HTMLElement>('.branch-select-option')).find(
+      (element) => element.textContent === 'feature/selected'
+    )!;
+    option.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true }));
+
+    expect(onCommit).toHaveBeenCalledOnce();
+    expect(onCommit).toHaveBeenCalledWith('feature/selected');
+  });
+});

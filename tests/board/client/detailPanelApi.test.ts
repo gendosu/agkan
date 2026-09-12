@@ -292,6 +292,21 @@ describe('patchTask', () => {
     expect(result).toEqual(mockTaskDetail);
   });
 
+  it('supports a narrow partial-update payload without adding untouched keys', async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve(mockTaskDetail),
+    });
+
+    await patchTask(3, { status: 'completed' });
+
+    expect(global.fetch).toHaveBeenNthCalledWith(1, '/api/tasks/3', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: 'completed' }),
+    });
+  });
+
   it('throws with the server error message when PATCH response is not ok', async () => {
     global.fetch = vi.fn().mockResolvedValue({
       ok: false,

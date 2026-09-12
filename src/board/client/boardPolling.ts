@@ -34,6 +34,37 @@ let _getDetailTaskId: (() => number | null) | null = null;
 let _getDetailActiveTab: (() => string) | null = null;
 let _setActiveCard: ((taskId: number | null) => void) | null = null;
 let _redrawDependencies: (() => void) | null = null;
+const detailRefreshSuppressedUntil = new Map<number, number>();
+
+// A PATCH initiated by the open detail panel also emits a board update. Keep
+// that update from re-rendering the form and discarding unsaved title/body text.
+export function suppressDetailRefreshForTask(taskId: number): void {
+  const until = Date.now() + 1500;
+  detailRefreshSuppressedUntil.set(taskId, until);
+  setTimeout(() => {
+    if (detailRefreshSuppressedUntil.get(taskId) === until) {
+      detailRefreshSuppressedUntil.delete(taskId);
+    }
+  }, 1500);
+}
+
+function isDetailRefreshSuppressed(): boolean {
+  const now = Date.now();
+  let suppressed = false;
+  detailRefreshSuppressedUntil.forEach((until, taskId) => {
+    if (until < now) {
+      detailRefreshSuppressedUntil.delete(taskId);
+    } else {
+      suppressed = true;
+    }
+  });
+  return suppressed;
+}
+
+interface RefreshBoardCardsOptions {
+  suppressDetailRefresh?: boolean;
+  suppressDetailRefreshForTaskId?: number;
+}
 
 export function registerDetailPanelCallbacks(callbacks: {
   openTaskDetail: (taskId: string) => Promise<void>;
@@ -43,6 +74,7 @@ export function registerDetailPanelCallbacks(callbacks: {
   getDetailActiveTab: () => string;
   setActiveCard: (taskId: number | null) => void;
 }): void {
+  detailRefreshSuppressedUntil.clear();
   _openTaskDetail = callbacks.openTaskDetail;
   _renderDetailPanel = callbacks.renderDetailPanel;
   _showUpdateWarning = callbacks.showUpdateWarning;
@@ -196,7 +228,17 @@ async function refreshDetailPanelIfCardChanged(
 }
 
 function isEditingDetailPanel(): boolean {
-  const editableFields = ['detail-edit-title', 'detail-edit-body', 'detail-edit-status', 'detail-edit-priority'];
+  const editableFields = [
+    'detail-edit-title',
+    'detail-edit-body',
+    'detail-edit-status',
+    'detail-edit-priority',
+    'detail-edit-branch',
+    'detail-edit-model-planning',
+    'detail-edit-effort-planning',
+    'detail-edit-model-run',
+    'detail-edit-effort-run',
+  ];
   return editableFields.some((id) => document.activeElement && document.activeElement.id === id);
 }
 
@@ -219,7 +261,7 @@ async function refreshOpenDetailPanel(detailTaskId: number): Promise<void> {
   }
 }
 
-export async function refreshBoardCards(): Promise<void> {
+export async function refreshBoardCards(options?: RefreshBoardCardsOptions): Promise<void> {
   const filterParams = buildFilterParams();
   const url = '/api/board/cards' + (filterParams.toString() ? '?' + filterParams.toString() : '');
   try {
@@ -242,7 +284,12 @@ export async function refreshBoardCards(): Promise<void> {
       _redrawDependencies();
     }
 
-    if (detailTaskId !== null) {
+    const suppressDetailRefresh =
+      detailTaskId !== null &&
+      (options?.suppressDetailRefresh === true ||
+        options?.suppressDetailRefreshForTaskId === detailTaskId ||
+        isDetailRefreshSuppressed());
+    if (detailTaskId !== null && !suppressDetailRefresh) {
       await refreshDetailPanelIfCardChanged(detailTaskId, beforeDetailSnapshot);
     }
   } catch {
