@@ -27,6 +27,7 @@ type ResolvedConfig = {
     claude: AgentModelSettings | undefined;
     codex: AgentModelSettings | undefined;
     agy: AgentModelSettings | undefined;
+    grok: AgentModelSettings | undefined;
   };
   modelCatalog: ModelCatalogEntry[];
 };
@@ -46,6 +47,7 @@ function buildResolvedConfig(): ResolvedConfig {
       claude: config.models?.claude,
       codex: config.models?.codex,
       agy: config.models?.agy,
+      grok: config.models?.grok,
     },
     modelCatalog: resolveModelCatalog(config),
   };

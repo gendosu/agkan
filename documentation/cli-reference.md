@@ -635,6 +635,8 @@ modelCatalog: agy gemini-3.7-flash (low, medium, high)
 modelCatalog: agy claude-sonnet-4-6 ()
 modelCatalog: agy claude-opus-4-6-thinking ()
 modelCatalog: agy gpt-oss-120b-medium ()
+modelCatalog: grok grok-4.6 (low, medium, high, xhigh)
+modelCatalog: grok grok-4.5 (low, medium, high)
 ```
 
 ### Display Help

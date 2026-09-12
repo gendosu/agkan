@@ -6,6 +6,7 @@ import { ConflictError } from '../errors';
 import { ensureBoardHookSettings } from '../hooks/claudeHookSettings';
 import { buildCodexNotifyArgs } from '../hooks/codexNotifyArgs';
 import { ensureAgyHookSettings } from '../hooks/agyHookSettings';
+import { ensureGrokHookSettings } from '../hooks/grokHookSettings';
 import { buildHookEnv } from './buildHookEnv';
 import { ensureSpawnHelperExecutable } from './ensureSpawnHelperExecutable';
 import { AttentionStateService } from '../services/AttentionStateService';
@@ -14,6 +15,7 @@ import {
   buildPermissionArgs,
   buildCodexPermissionArgs,
   buildAgyPermissionArgs,
+  buildGrokPermissionArgs,
   resolveAgentTool,
   type AgentTool,
 } from '../db/config';
@@ -43,6 +45,7 @@ function resolveClaudePath(): string {
 const CLAUDE_BIN = resolveClaudePath();
 const CODEX_BIN = 'codex';
 const AGY_BIN = 'agy';
+const GROK_BIN = 'grok';
 const DEFAULT_CODEX_MODEL = 'gpt-5.6-sol';
 const PROMPT_FALLBACK_DELAY_MS = 10000;
 const PROMPT_ENTER_DELAY_MS = 200;
@@ -352,6 +355,15 @@ function buildAgentArgs(
     return [...modelArgs, ...effortArgs, ...buildAgyPermissionArgs(config), '-i', prompt];
   }
 
+  if (agent === 'grok') {
+    const modelArgs = model ? ['--model', model] : [];
+    const effortArgs = effort ? ['--effort', effort] : [];
+    // grok's Stop hook is registered separately in ~/.grok/hooks/agkan-board-stop.json (see
+    // ensureGrokHookSettings), not via a CLI flag.
+    // Positional prompt is placed behind '--' to prevent prompt content from being parsed as flags.
+    return [...modelArgs, ...effortArgs, ...buildGrokPermissionArgs(config), '--', prompt];
+  }
+
   const modelArgs = model ? ['--model', model] : [];
   const effortArgs = effort ? ['--effort', effort] : [];
   const settingsArgs = hookSettingsPath ? ['--settings', hookSettingsPath] : [];
@@ -364,6 +376,8 @@ export interface PtySessionServiceOptions {
   hookSettingsDataDir: string;
   /** Directory containing agy's global hooks.json (real: ~/.gemini/config; tests: a tmp dir). */
   agyHooksConfigDir?: string | null;
+  /** Directory containing grok's global hooks (real: ~/.grok/hooks; tests: a tmp dir). */
+  grokHooksConfigDir?: string | null;
 }
 
 export class PtySessionService {
@@ -379,6 +393,7 @@ export class PtySessionService {
   private hookSettingsDataDir: string | null;
   private hookSettingsPath: string | null = null;
   private agyHooksConfigDir: string | null;
+  private grokHooksConfigDir: string | null;
 
   constructor(db?: StorageBackend | null, options?: PtySessionServiceOptions) {
     this.db = db ?? null;
@@ -386,6 +401,7 @@ export class PtySessionService {
     this.attentionStateService = options?.attentionStateService ?? null;
     this.hookSettingsDataDir = options?.hookSettingsDataDir ?? null;
     this.agyHooksConfigDir = options?.agyHooksConfigDir ?? null;
+    this.grokHooksConfigDir = options?.grokHooksConfigDir ?? null;
     // Self-heal node-pty's spawn-helper permissions so pty.spawn() cannot fail
     // with "posix_spawnp failed." when the prebuilt binary lost its execute bit.
     ensureSpawnHelperExecutable();
@@ -503,9 +519,14 @@ export class PtySessionService {
       await ensureAgyHookSettings(this.agyHooksConfigDir);
     }
 
+    if (agent === 'grok' && boardHooksEnabled && this.grokHooksConfigDir !== null) {
+      await ensureGrokHookSettings(this.grokHooksConfigDir);
+    }
+
     const args = buildAgentArgs(agent, config, prompt, model, effort, this.hookSettingsPath, boardHooksEnabled);
 
-    const agentBin = agent === 'codex' ? CODEX_BIN : agent === 'agy' ? AGY_BIN : CLAUDE_BIN;
+    const agentBin =
+      agent === 'codex' ? CODEX_BIN : agent === 'agy' ? AGY_BIN : agent === 'grok' ? GROK_BIN : CLAUDE_BIN;
     let ptyProcess: pty.IPty;
     try {
       ptyProcess = pty.spawn(agentBin, args, {
@@ -528,7 +549,7 @@ export class PtySessionService {
     }
 
     console.error(
-      `[diag][spawn] taskId=${taskId} pid=${ptyProcess.pid} command=${command} bin=${CLAUDE_BIN} args=${JSON.stringify(args)} at=${new Date().toISOString()}`
+      `[diag][spawn] taskId=${taskId} pid=${ptyProcess.pid} command=${command} bin=${agentBin} args=${JSON.stringify(args)} at=${new Date().toISOString()}`
     );
 
     const info: SessionInfo = {

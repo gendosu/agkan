@@ -1,5 +1,5 @@
 // Board API calls shared by the session-stop hooks (hook-stop.mjs for Claude Code,
-// hook-codex-notify.mjs for Codex, hook-agy-notify.mjs for agy). All three hooks must
+// hook-codex-notify.mjs for Codex, hook-agy-notify.mjs for agy, hook-grok-notify.mjs for Grok). All four hooks must
 // agree on what "target status reached" means and on the /hooks/stop request contract,
 // so that lives here once.
 

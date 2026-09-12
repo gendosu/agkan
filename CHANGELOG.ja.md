@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### 追加
+- `agent` に `claude` / `codex` / `agy` に加えて `grok` を追加。組み込みの `modelCatalog` に `grok-4.6`（effort: `low`, `medium`, `high`, `xhigh`）および `grok-4.5`（effort: `low`, `medium`, `high`）を追加した。`agent: grok` で起動したボードセッションは、`~/.grok/hooks/agkan-board-stop.json` に Stop フックを登録し（既存の他のフックファイルを壊さない）、ターン完了時（`reason: "end_turn"`）に自動終了する。初期プロンプトは `--` の後ろに位置引数として渡される
+
 ## [3.23.0] - 2026-09-09
 
 ### 追加

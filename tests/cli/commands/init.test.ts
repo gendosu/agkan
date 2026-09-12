@@ -84,12 +84,14 @@ describe('setupInitCommand', () => {
     expect(content).toContain('path:');
     expect(content).toContain('.agkan/data.db');
     expect(content).toContain('agent: claude');
-    expect(content).toContain('Valid values: claude | codex | agy');
+    expect(content).toContain('Valid values: claude | codex | agy | grok');
     expect(content).toContain('  claude:');
     expect(content).toContain('  codex:');
     expect(content).toContain('  agy:');
+    expect(content).toContain('  grok:');
     expect(content).toContain('# modelCatalog:');
     expect(content).toContain('cli: agy');
+    expect(content).toContain('cli: grok');
   });
 
   it('should display success messages after creation', async () => {

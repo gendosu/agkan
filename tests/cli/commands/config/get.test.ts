@@ -72,6 +72,8 @@ describe('setupConfigGetCommand', () => {
       { cli: 'agy', model: 'claude-sonnet-4-6', efforts: [] },
       { cli: 'agy', model: 'claude-opus-4-6-thinking', efforts: [] },
       { cli: 'agy', model: 'gpt-oss-120b-medium', efforts: [] },
+      { cli: 'grok', model: 'grok-4.6', efforts: ['low', 'medium', 'high', 'xhigh'] },
+      { cli: 'grok', model: 'grok-4.5', efforts: ['low', 'medium', 'high'] },
     ]);
   });
 
@@ -160,6 +162,31 @@ describe('setupConfigGetCommand', () => {
 
     const output = consoleLogSpy.mock.calls.map((c) => c[0]).join('');
     expect(JSON.parse(output).value).toBe('gemini-3.8-flash-high');
+  });
+
+  it('outputs grok when configured as the agent', async () => {
+    vi.spyOn(configModule, 'loadConfig').mockReturnValue({ agent: 'grok' });
+    vi.spyOn(configModule, 'resolveDatabasePath').mockReturnValue('/default/path/data.db');
+
+    await program.parseAsync(['node', 'agkan', 'config', 'get', 'agent', '--json']);
+
+    const output = consoleLogSpy.mock.calls.map((c) => c[0]).join('');
+    expect(JSON.parse(output).value).toBe('grok');
+  });
+
+  it('outputs grok-specific model settings by dot notation', async () => {
+    vi.spyOn(configModule, 'loadConfig').mockReturnValue({
+      agent: 'grok',
+      models: {
+        grok: { run: { model: 'grok-4.6' } },
+      },
+    });
+    vi.spyOn(configModule, 'resolveDatabasePath').mockReturnValue('/fake/data.db');
+
+    await program.parseAsync(['node', 'agkan', 'config', 'get', 'models.grok.run.model', '--json']);
+
+    const output = consoleLogSpy.mock.calls.map((c) => c[0]).join('');
+    expect(JSON.parse(output).value).toBe('grok-4.6');
   });
 
   it('should output specific key value', async () => {

@@ -158,7 +158,7 @@ The database path can also be overridden with the `AGENT_KANBAN_DB_PATH` environ
 
 In test mode (`NODE_ENV=test`), agkan automatically isolates data using `.agkan-test.yml` and `.agkan-test/` instead, so tests never touch your real task database.
 
-See **[documentation/configuration.md](documentation/configuration.md)** for the full reference, including per-project setup, agent selection (Claude/Codex), model selection, and permission modes.
+See **[documentation/configuration.md](documentation/configuration.md)** for the full reference, including per-project setup, agent selection (Claude/Codex/agy/grok), model selection, and permission modes.
 
 ## Task Statuses
 

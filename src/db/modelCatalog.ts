@@ -34,6 +34,9 @@ const AGY_MODELS: Array<{ model: string; efforts: string[] }> = [
   { model: 'gpt-oss-120b-medium', efforts: [] },
 ];
 
+const GROK_46_EFFORTS = ['low', 'medium', 'high', 'xhigh'];
+const GROK_45_EFFORTS = ['low', 'medium', 'high'];
+
 export const DEFAULT_MODEL_CATALOG: readonly ModelCatalogEntry[] = [
   { cli: 'claude', model: 'fable', efforts: CLAUDE_EFFORTS },
   { cli: 'claude', model: 'opus', efforts: CLAUDE_EFFORTS },
@@ -44,6 +47,8 @@ export const DEFAULT_MODEL_CATALOG: readonly ModelCatalogEntry[] = [
   { cli: 'codex', model: 'gpt-5.6-terra', efforts: CODEX_EFFORTS },
   { cli: 'codex', model: 'gpt-5.6-luna', efforts: CODEX_EFFORTS_NO_ULTRA },
   ...AGY_MODELS.map(({ model, efforts }) => ({ cli: 'agy' as const, model, efforts })),
+  { cli: 'grok', model: 'grok-4.6', efforts: GROK_46_EFFORTS },
+  { cli: 'grok', model: 'grok-4.5', efforts: GROK_45_EFFORTS },
 ];
 
 function cloneCatalog(catalog: readonly ModelCatalogEntry[]): ModelCatalogEntry[] {
@@ -57,8 +62,8 @@ function parseEntry(raw: unknown, index: number): ModelCatalogEntry {
   const entry = raw as Record<string, unknown>;
 
   const cli = entry.cli;
-  if (cli !== 'claude' && cli !== 'codex' && cli !== 'agy') {
-    throw new Error(`Invalid modelCatalog[${index}].cli "${String(cli)}". Must be one of: claude, codex, agy`);
+  if (cli !== 'claude' && cli !== 'codex' && cli !== 'agy' && cli !== 'grok') {
+    throw new Error(`Invalid modelCatalog[${index}].cli "${String(cli)}". Must be one of: claude, codex, agy, grok`);
   }
 
   const model = entry.model;

@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Add `grok` as a fourth `agent` option alongside `claude`, `codex`, and `agy`, with `grok-4.6` (efforts: `low`, `medium`, `high`, `xhigh`) and `grok-4.5` (efforts: `low`, `medium`, `high`) appended to the built-in `modelCatalog`. Board sessions launched with `agent: grok` register a Stop hook in `~/.grok/hooks/agkan-board-stop.json` (leaving other hook files intact) so the session terminates on its own when the turn completes (`reason: "end_turn"`). The initial prompt is passed as a positional argument behind `--`
+
 ## [3.23.0] - 2026-09-09
 
 ### Added

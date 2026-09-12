@@ -17,7 +17,7 @@ const DEFAULT_CONFIG_CONTENT = `# agkan configuration file
 # Default AI coding agent used by the board
 # Applies to tasks with no model override. A task that selects a model from
 # modelCatalog runs on that row's cli instead.
-# Valid values: claude | codex | agy
+# Valid values: claude | codex | agy | grok
 # Default: claude
 agent: claude
 
@@ -66,6 +66,13 @@ agent: claude
 #     run:
 #       model: gemini-3.8-flash
 #       effort: high
+#   grok:
+#     planning:
+#       model: grok-4.6
+#       effort: high
+#     run:
+#       model: grok-4.6
+#       effort: high
 
 # Model catalog
 # Rows of cli + model + selectable efforts. Selecting a model on a task also
@@ -112,6 +119,12 @@ agent: claude
 #   - cli: agy
 #     model: gpt-oss-120b-medium
 #     efforts: []
+#   - cli: grok
+#     model: grok-4.6
+#     efforts: [low, medium, high, xhigh]
+#   - cli: grok
+#     model: grok-4.5
+#     efforts: [low, medium, high]
 
 # Permission mode configuration
 # Controls permission prompts for the selected agent CLI.
@@ -120,6 +133,8 @@ agent: claude
 # Permission values are translated to the selected CLI's flags.
 # Note: skipPermissions bypasses permission checks for every agent.
 # agy has no "auto" mode, so auto (the default) is passed to agy as --dangerously-skip-permissions.
+# grok natively supports "auto", so permissionMode: auto maps directly to --permission-mode auto.
+# Running board sessions with grok writes ~/.grok/hooks/agkan-board-stop.json to detect turn completion.
 # Example: permissionMode: auto
 # permissionMode: auto
 `;
