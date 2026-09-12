@@ -719,6 +719,17 @@ describe('Worktree project root resolution', () => {
       writeGitFile(path.join('..', 'main', '.git', 'worktrees', 'wt'));
       expect(resolveProjectRoot()).toBe(mainRoot);
     });
+
+    it('tolerates CRLF line endings in the .git file', () => {
+      fs.writeFileSync(path.join(worktreeDir, '.git'), `gitdir: ${path.join(mainRoot, '.git', 'worktrees', 'wt')}\r\n`);
+      expect(resolveProjectRoot()).toBe(mainRoot);
+    });
+
+    it('returns cwd in test mode even inside a worktree', () => {
+      process.env.NODE_ENV = 'test';
+      writeGitFile(path.join(mainRoot, '.git', 'worktrees', 'wt'));
+      expect(resolveProjectRoot()).toBe(worktreeDir);
+    });
   });
 
   describe('inside a worktree', () => {
@@ -760,6 +771,15 @@ describe('Worktree project root resolution', () => {
       process.env.AGENT_KANBAN_DB_PATH = './env/db.sqlite';
 
       expect(resolveDatabasePath()).toBe(path.join(worktreeDir, 'env', 'db.sqlite'));
+    });
+
+    it('keeps .agkan-test/ under the worktree in test mode', () => {
+      process.env.NODE_ENV = 'test';
+      fs.writeFileSync(path.join(mainRoot, '.agkan-test.yml'), yaml.dump({ path: './main-test/db.sqlite' }));
+      const workerId = process.env.VITEST_WORKER_ID;
+      const expectedFile = workerId ? `data-${workerId}.db` : 'data.db';
+
+      expect(resolveDatabasePath()).toBe(path.join(worktreeDir, '.agkan-test', expectedFile));
     });
   });
 });

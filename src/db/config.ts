@@ -145,9 +145,16 @@ export function buildGrokPermissionArgs(config: Config): string[] {
  * root is returned so the worktree shares the main checkout's config and DB.
  * Anything else (regular repository, submodule, non-git directory, unreadable
  * or dangling pointer) resolves to `process.cwd()`.
+ *
+ * Test mode always resolves to `process.cwd()`: `.agkan-test/` must stay
+ * isolated per checkout, otherwise vitest runs in several worktrees would share
+ * the main repository's `data-<worker>.db` files.
  */
 export function resolveProjectRoot(): string {
   const cwd = process.cwd();
+  if (isTestMode()) {
+    return cwd;
+  }
   try {
     const gitPath = path.join(cwd, '.git');
     if (!fs.statSync(gitPath).isFile()) {
