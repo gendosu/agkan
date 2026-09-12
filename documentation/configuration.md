@@ -85,6 +85,7 @@ Test mode (`NODE_ENV=test`) automatically isolates test data from production dat
 - Uses separate default directory: `.agkan-test/` instead of `.agkan/`
 - Environment variable still takes highest priority in test mode
 - Prevents accidental mixing of test and production data
+- Inside a git worktree, test mode keeps using the worktree's own `.agkan-test.yml` / `.agkan-test/` (see [Git Worktrees](#git-worktrees))
 
 **Use Cases:**
 
@@ -130,6 +131,12 @@ So every worktree of a repository shares the main checkout's configuration and d
 `AGENT_KANBAN_DB_PATH` keeps the highest priority inside a worktree, and a relative value is still resolved from the current directory, not from the main repository root.
 
 Regular repositories (where `.git` is a directory), submodules, and directories that are not under git are not affected: the current directory remains the project root.
+
+Notes:
+
+- Only the current directory's `.git` file is inspected, so run agkan from the worktree's top-level directory, as you would in a regular repository.
+- Test mode (`NODE_ENV=test`) never redirects to the main repository: each worktree keeps its own `.agkan-test.yml` and `.agkan-test/`, so test runs in different worktrees stay isolated.
+- `agkan init` always initializes the current directory. Run it in the main repository root; a `.agkan.yml` created inside a worktree is not read.
 
 ### Default Behavior
 
