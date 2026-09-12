@@ -1,10 +1,10 @@
 import fs from 'fs';
 import path from 'path';
 import { spawn } from 'child_process';
-import { getDefaultDirName } from '../../db/config';
+import { getDefaultDirName, resolveProjectRoot } from '../../db/config';
 
 export function getPidFilePath(): string {
-  return path.join(process.cwd(), getDefaultDirName(), 'board.pid');
+  return path.join(resolveProjectRoot(), getDefaultDirName(), 'board.pid');
 }
 
 export function readBoardPid(): number | null {

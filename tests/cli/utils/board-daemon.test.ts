@@ -9,6 +9,7 @@ vi.mock('fs');
 vi.mock('child_process');
 vi.mock('../../../src/db/config', () => ({
   getDefaultDirName: vi.fn(() => '.agkan-test'),
+  resolveProjectRoot: vi.fn(() => '/mock/project-root'),
 }));
 
 import fs from 'fs';
@@ -28,14 +29,14 @@ const mockFs = vi.mocked(fs);
 const mockSpawn = vi.mocked(spawn);
 
 describe('board-daemon', () => {
-  const expectedPidFile = path.join(process.cwd(), '.agkan-test', 'board.pid');
+  const expectedPidFile = path.join('/mock/project-root', '.agkan-test', 'board.pid');
 
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
   describe('getPidFilePath', () => {
-    it('returns path inside default dir', () => {
+    it('returns path inside default dir under the project root', () => {
       expect(getPidFilePath()).toBe(expectedPidFile);
     });
   });

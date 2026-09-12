@@ -16,7 +16,7 @@ import { BoardEventService } from '../services/BoardEventService';
 import { createTerminalWsServer } from '../terminal/wsTerminalServer';
 import { getStorageBackend } from '../db/connection';
 import { StorageBackend } from '../db/types/repository';
-import { getDefaultDirName } from '../db/config';
+import { getDefaultDirName, resolveProjectRoot } from '../db/config';
 import { registerBoardRoutes, registerHookRoutes, registerTestHookTokenRoute, BoardServices } from './boardRoutes';
 
 export function createBoardApp(
@@ -32,7 +32,7 @@ export function createBoardApp(
   ptySessionService?: PtySessionService
 ): Hono {
   const app = new Hono();
-  const resolvedConfigDir = configDir ?? path.join(process.cwd(), getDefaultDirName());
+  const resolvedConfigDir = configDir ?? path.join(resolveProjectRoot(), getDefaultDirName());
   const resolvedDb = db ?? getStorageBackend();
   const services: BoardServices = {
     ts: taskService ?? new TaskService(resolvedDb),
@@ -65,7 +65,7 @@ export function startBoardServer(port: number, boardTitle?: string): void {
   const grokHooksConfigDir = join(homedir(), '.grok', 'hooks');
 
   const app = new Hono();
-  const resolvedConfigDir = path.join(process.cwd(), getDefaultDirName());
+  const resolvedConfigDir = path.join(resolveProjectRoot(), getDefaultDirName());
   const ptyService = new PtySessionService(resolvedDb, {
     boardApiUrl: null,
     attentionStateService,
