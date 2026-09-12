@@ -7,8 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.24.0] - 2026-09-12
+
 ### 追加
 - `agent` に `claude` / `codex` / `agy` に加えて `grok` を追加。組み込みの `modelCatalog` に `grok-4.6`（effort: `low`, `medium`, `high`, `xhigh`）および `grok-4.5`（effort: `low`, `medium`, `high`）を追加した。`agent: grok` で起動したボードセッションは、`~/.grok/hooks/agkan-board-stop.json` に Stop フックを登録し（既存の他のフックファイルを壊さない）、ターン完了時（`reason: "end_turn"`）に自動終了する。初期プロンプトは `--` の後ろに位置引数として渡される
+- Board のタスク詳細パネルのフィールド（タイトル・説明・ブランチなど）を自動保存するようにした。明示的な保存操作は不要になり、ブランチセレクターの対応とデバウンスされたポーリング更新も追加した (#744)
+
+### 修正
+- `agkan task meta set` / `meta delete` が `priority` 以外のキーでは `task.updated_at` を更新していなかった不具合を修正。Board の詳細パネルの再読み込み判定は `task.updated_at` から導出したカード属性を比較しているため、表示中のタスクに対するメタデータのみの書き込み（例: `meta set <id> pr <url>`）が自動リロードを起こさなかった (#719)
 
 ## [3.23.0] - 2026-09-09
 
