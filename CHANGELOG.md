@@ -7,8 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.24.0] - 2026-09-12
+
 ### Added
 - Add `grok` as a fourth `agent` option alongside `claude`, `codex`, and `agy`, with `grok-4.6` (efforts: `low`, `medium`, `high`, `xhigh`) and `grok-4.5` (efforts: `low`, `medium`, `high`) appended to the built-in `modelCatalog`. Board sessions launched with `agent: grok` register a Stop hook in `~/.grok/hooks/agkan-board-stop.json` (leaving other hook files intact) so the session terminates on its own when the turn completes (`reason: "end_turn"`). The initial prompt is passed as a positional argument behind `--`
+- Autosave the Board task detail panel's fields (title, description, branch, etc.) instead of requiring an explicit save action, with branch selector support and debounced polling updates (#744)
+
+### Fixed
+- Fix `agkan task meta set`/`meta delete` not bumping `task.updated_at` for keys other than `priority`, so the Board detail panel's refresh detection (which compares card attributes derived from `task.updated_at`) never picked up metadata-only writes (e.g. `meta set <id> pr <url>`) on the currently viewed task (#719)
 
 ## [3.23.0] - 2026-09-09
 
