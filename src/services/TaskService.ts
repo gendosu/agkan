@@ -292,7 +292,7 @@ export class TaskService {
 
   /**
    * Search tasks
-   * @param keyword - Search keyword (LIKE search on title and body)
+   * @param keyword - Search keyword (LIKE search on title, body, and task_metadata.value)
    * @param includeAll - If true, include done/closed tasks in search (default: false)
    * @param statuses - Optional array of statuses to filter by (overrides includeAll)
    * @param includeArchived - If true, include archived tasks in search; also skips the default

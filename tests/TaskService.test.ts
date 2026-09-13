@@ -1922,6 +1922,40 @@ describe('TaskService', () => {
       expect(results.map((t) => t.title)).toContain('Archive-alone active task');
       expect(results.map((t) => t.title)).toContain('Archive-alone done task');
     });
+
+    it('Metadata search - Search matches task_metadata.value', () => {
+      const metadataService = new MetadataService();
+      const task1 = taskService.createTask({ title: 'Task with PR link', status: 'ready' });
+      taskService.createTask({ title: 'Task without metadata', status: 'ready' });
+      metadataService.setMetadata({ task_id: task1.id, key: 'pr', value: 'https://github.com/org/repo/pull/999' });
+
+      const results = taskService.searchTasks('pull/999');
+
+      expect(results).toHaveLength(1);
+      expect(results[0].id).toBe(task1.id);
+    });
+
+    it('Metadata search - done/closed tasks are still excluded by default', () => {
+      const metadataService = new MetadataService();
+      const task = taskService.createTask({ title: 'Done task with metadata', status: 'done' });
+      metadataService.setMetadata({ task_id: task.id, key: 'external_id', value: 'EXT-metadata-search-1234' });
+
+      const results = taskService.searchTasks('EXT-metadata-search-1234');
+
+      expect(results).toHaveLength(0);
+    });
+
+    it('Metadata search - Task with multiple matching metadata rows is not duplicated', () => {
+      const metadataService = new MetadataService();
+      const task = taskService.createTask({ title: 'Task with two metadata matches', status: 'ready' });
+      metadataService.setMetadata({ task_id: task.id, key: 'pr', value: 'dup-metadata-marker' });
+      metadataService.setMetadata({ task_id: task.id, key: 'external_id', value: 'dup-metadata-marker' });
+
+      const results = taskService.searchTasks('dup-metadata-marker');
+
+      expect(results).toHaveLength(1);
+      expect(results[0].id).toBe(task.id);
+    });
   });
 
   describe('Parent-Child Relationships', () => {

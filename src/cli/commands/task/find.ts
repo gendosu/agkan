@@ -41,7 +41,7 @@ export function setupTaskFindCommand(program: Command): void {
 
   taskCommand
     .command('find')
-    .argument('<keyword>', 'Search keyword for title and body (LIKE search)')
+    .argument('<keyword>', 'Search keyword for title, body, and metadata values (LIKE search)')
     .option('--all', 'Include done and closed tasks in search results')
     .option('--archived', 'Include archived tasks (is_archived=1)')
     .option('--status <statuses>', 'Filter by status (comma-separated: e.g. ready,in_progress)')

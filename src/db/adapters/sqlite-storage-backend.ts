@@ -121,21 +121,22 @@ class SQLiteTaskRepository implements TaskRepository {
     }
     if (filter?.search) {
       const pattern = `%${filter.search}%`;
+      const metaSearchClause = `EXISTS (SELECT 1 FROM task_metadata WHERE task_metadata.task_id = ${tablePrefix ? tablePrefix : 'tasks.'}id AND task_metadata.value LIKE ?)`;
       if (hasIdSearch) {
         const searchId = filter.searchId as number;
         const statuses = filter.status ? (Array.isArray(filter.status) ? filter.status : [filter.status]) : [];
         if (statuses.length > 0) {
           // ID exact match bypasses status filter; LIKE match is constrained by status
           const statusPlaceholders = statuses.map(() => '?').join(', ');
-          clause += ` AND (${tablePrefix}id = ? OR (${tablePrefix}status IN (${statusPlaceholders}) AND (${tablePrefix}title LIKE ? OR ${tablePrefix}body LIKE ?)))`;
-          params.push(searchId, ...statuses, pattern, pattern);
+          clause += ` AND (${tablePrefix}id = ? OR (${tablePrefix}status IN (${statusPlaceholders}) AND (${tablePrefix}title LIKE ? OR ${tablePrefix}body LIKE ? OR ${metaSearchClause})))`;
+          params.push(searchId, ...statuses, pattern, pattern, pattern);
         } else {
-          clause += ` AND (${tablePrefix}title LIKE ? OR ${tablePrefix}body LIKE ? OR ${tablePrefix}id = ?)`;
-          params.push(pattern, pattern, searchId);
+          clause += ` AND (${tablePrefix}title LIKE ? OR ${tablePrefix}body LIKE ? OR ${metaSearchClause} OR ${tablePrefix}id = ?)`;
+          params.push(pattern, pattern, pattern, searchId);
         }
       } else {
-        clause += ` AND (${tablePrefix}title LIKE ? OR ${tablePrefix}body LIKE ?)`;
-        params.push(pattern, pattern);
+        clause += ` AND (${tablePrefix}title LIKE ? OR ${tablePrefix}body LIKE ? OR ${metaSearchClause})`;
+        params.push(pattern, pattern, pattern);
       }
     }
     return clause;
