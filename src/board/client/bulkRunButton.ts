@@ -4,6 +4,9 @@
 type BulkRunMode = 'idle' | 'running';
 
 let _mode: BulkRunMode = 'idle';
+// Last error shown to the user. Prevents re-alerting the same error on SSE
+// reconnect, when the server resends the same status as its initial update.
+let _lastShownError: string | undefined;
 
 function getSplitEl(): HTMLElement | null {
   return document.getElementById('bulk-run-split');
@@ -107,7 +110,15 @@ export function initBulkRunButton(): void {
 
   const es = new EventSource('/api/claude/bulk-run/stream');
   es.addEventListener('update', (event: MessageEvent) => {
-    const data = JSON.parse(event.data) as { mode: string };
+    const data = JSON.parse(event.data) as { mode: string; error?: string };
     setRunningState(data.mode === 'running');
+    if (data.mode === 'idle' && data.error) {
+      if (data.error !== _lastShownError) {
+        _lastShownError = data.error;
+        alert(`Bulk run stopped: ${data.error}`);
+      }
+    } else {
+      _lastShownError = undefined;
+    }
   });
 }
