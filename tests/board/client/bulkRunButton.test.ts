@@ -172,6 +172,63 @@ describe('initBulkRunButton', () => {
   });
 });
 
+describe('SSE update event error handling', () => {
+  it('shows alert when stopped idle with a configuration error', () => {
+    makeBulkRunSplit();
+    initBulkRunButton();
+
+    MockEventSource.lastInstance!.dispatch('update', { mode: 'running' });
+    MockEventSource.lastInstance!.dispatch('update', { mode: 'idle', error: 'invalid modelCatalog' });
+
+    expect(alert).toHaveBeenCalledWith(expect.stringContaining('invalid modelCatalog'));
+  });
+
+  it('does not alert on the very first status, even if it already reports an idle error (e.g. page reload after a prior failure)', () => {
+    makeBulkRunSplit();
+    initBulkRunButton();
+
+    MockEventSource.lastInstance!.dispatch('update', { mode: 'idle', error: 'invalid modelCatalog' });
+
+    expect(alert).not.toHaveBeenCalled();
+  });
+
+  it('does not show the same error twice within one connection (e.g. EventSource auto-reconnect resending the same status)', () => {
+    makeBulkRunSplit();
+    initBulkRunButton();
+
+    MockEventSource.lastInstance!.dispatch('update', { mode: 'running' });
+    MockEventSource.lastInstance!.dispatch('update', { mode: 'idle', error: 'invalid modelCatalog' });
+    expect(alert).toHaveBeenCalledTimes(1);
+
+    MockEventSource.lastInstance!.dispatch('update', { mode: 'idle', error: 'invalid modelCatalog' });
+    expect(alert).toHaveBeenCalledTimes(1);
+  });
+
+  it('alerts again for a new failure after a run that completed without error', () => {
+    makeBulkRunSplit();
+    initBulkRunButton();
+
+    MockEventSource.lastInstance!.dispatch('update', { mode: 'running' });
+    MockEventSource.lastInstance!.dispatch('update', { mode: 'idle', error: 'invalid modelCatalog' });
+    MockEventSource.lastInstance!.dispatch('update', { mode: 'running' });
+    MockEventSource.lastInstance!.dispatch('update', { mode: 'idle' });
+    MockEventSource.lastInstance!.dispatch('update', { mode: 'running' });
+    MockEventSource.lastInstance!.dispatch('update', { mode: 'idle', error: 'invalid modelCatalog' });
+
+    expect(alert).toHaveBeenCalledTimes(2);
+  });
+
+  it('does not show an alert on normal completion or manual stop (idle, no error)', () => {
+    makeBulkRunSplit();
+    initBulkRunButton();
+
+    MockEventSource.lastInstance!.dispatch('update', { mode: 'running' });
+    MockEventSource.lastInstance!.dispatch('update', { mode: 'idle' });
+
+    expect(alert).not.toHaveBeenCalled();
+  });
+});
+
 describe('mainBtn click', () => {
   it('calls stopBulkRun when running', async () => {
     const { mainBtn } = makeBulkRunSplit();

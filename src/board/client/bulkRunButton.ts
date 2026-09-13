@@ -105,9 +105,29 @@ export function initBulkRunButton(): void {
     split.classList.remove('open');
   });
 
+  // The server keeps the last error until the next run starts, so a fresh
+  // connection's first update is always a snapshot of past state, not a new
+  // event — never alert on it. `lastShownError` additionally guards against
+  // this same connection's EventSource auto-reconnecting and resending an
+  // already-alerted error.
+  let isInitialStatus = true;
+  let lastShownError: string | undefined;
+
   const es = new EventSource('/api/claude/bulk-run/stream');
   es.addEventListener('update', (event: MessageEvent) => {
-    const data = JSON.parse(event.data) as { mode: string };
+    const data = JSON.parse(event.data) as { mode: BulkRunMode; error?: string };
     setRunningState(data.mode === 'running');
+
+    const wasInitialStatus = isInitialStatus;
+    isInitialStatus = false;
+
+    if (data.mode === 'idle' && data.error) {
+      if (!wasInitialStatus && data.error !== lastShownError) {
+        alert(`Bulk run stopped: ${data.error}`);
+      }
+      lastShownError = data.error;
+    } else {
+      lastShownError = undefined;
+    }
   });
 }
