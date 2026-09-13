@@ -2,7 +2,7 @@ import { TaskService } from '../services/TaskService';
 import { TaskBlockService } from '../services/TaskBlockService';
 import { PtySessionService } from '../terminal/PtySessionService';
 import { PRIORITY_ORDER } from '../models';
-import { resolveLaunchSettings } from './claudePromptBuilder';
+import { resolveLaunchSettings, LaunchSettingsError } from './claudePromptBuilder';
 import type { AgentTool } from '../db/config';
 
 export type BulkRunCommand = 'direct' | 'pr';
@@ -11,6 +11,8 @@ type BulkRunState = 'idle' | 'running';
 export interface BulkRunStatus {
   mode: BulkRunState;
   command: BulkRunCommand | null;
+  /** Set when the loop was stopped by a configuration error (not a per-task catalog miss). */
+  error?: string;
 }
 
 type StateChangeCallback = (status: BulkRunStatus) => void;
@@ -35,6 +37,7 @@ export class BulkRunService {
   // Tasks whose launch settings could not be resolved. Without this the loop
   // would re-select the same still-'ready' task forever.
   private skippedTaskIds = new Set<number>();
+  private error: string | undefined = undefined;
 
   constructor(
     private ts: TaskService,
@@ -44,7 +47,7 @@ export class BulkRunService {
   ) {}
 
   getStatus(): BulkRunStatus {
-    return { mode: this.mode, command: this.command };
+    return { mode: this.mode, command: this.command, error: this.error };
   }
 
   subscribeStateChange(callback: StateChangeCallback): () => void {
@@ -65,6 +68,7 @@ export class BulkRunService {
     this.command = command;
     this.stopRequested = false;
     this.skippedTaskIds.clear();
+    this.error = undefined;
     this.notifyStateChange();
     void this.runNext();
     return {};
@@ -176,9 +180,21 @@ export class BulkRunService {
     try {
       params = this.buildLaunchParams(taskId);
     } catch (e) {
-      console.error(`[BulkRunService] skipping taskId=${taskId}: ${e instanceof Error ? e.message : String(e)}`);
-      this.skippedTaskIds.add(taskId);
-      advance();
+      if (e instanceof LaunchSettingsError) {
+        // Task-level catalog miss (e.g. a stale model_run/effort_run override):
+        // skip this task and let the loop move on to the next ready one.
+        console.error(`[BulkRunService] skipping taskId=${taskId}: ${e.message}`);
+        this.skippedTaskIds.add(taskId);
+        advance();
+        return;
+      }
+      // Anything else means the .agkan.yml modelCatalog/agent configuration itself
+      // is broken. Skipping would just repeat for every remaining ready task, so
+      // stop the run instead and surface the error via the status notification.
+      const message = e instanceof Error ? e.message : String(e);
+      console.error(`[BulkRunService] stopping bulk run: ${message}`);
+      this.error = message;
+      this.finishLoop();
       return;
     }
     const { prompt, ptyCommand, model, effort, agent } = params;

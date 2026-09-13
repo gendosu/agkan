@@ -691,8 +691,81 @@ describe('BulkRunService model/effort override resolution', () => {
 
     expect(startProcess).toHaveBeenCalledTimes(1);
     expect(startProcess).toHaveBeenCalledWith(healthy.id, expect.any(String), 'run', undefined, undefined, 'claude');
+    // A per-task catalog miss (LaunchSettingsError) must not be treated as a
+    // configuration-level failure: the run keeps going and no error is reported.
+    expect(service.getStatus().error).toBeUndefined();
 
     service.stop();
+  });
+
+  it('stops the bulk run and reports an error when the modelCatalog itself is invalid', async () => {
+    const db = getStorageBackend();
+    const ts = new TaskService(db);
+    const tbs = new TaskBlockService(db);
+
+    ts.createTask({ title: 'task 1', status: 'ready', priority: 'high' });
+    ts.createTask({ title: 'task 2', status: 'ready', priority: 'low' });
+
+    const startProcess = vi.fn().mockResolvedValue(undefined);
+    const pty = buildMockPty({ startProcess });
+    const service = new BulkRunService(ts, tbs, pty, ts);
+
+    const stateChanges: Array<{ mode: string; error?: string }> = [];
+    service.subscribeStateChange((s) => stateChanges.push(s));
+
+    const tmpCwd = fs.mkdtempSync(path.join(os.tmpdir(), 'agkan-bulk-run-test-'));
+    const cwdSpy = vi.spyOn(process, 'cwd').mockReturnValue(tmpCwd);
+    try {
+      // Structurally invalid modelCatalog entry (unknown cli): resolveModelCatalog
+      // throws a plain Error here, not a LaunchSettingsError.
+      fs.writeFileSync(
+        path.join(tmpCwd, '.agkan-test.yml'),
+        yaml.dump({ modelCatalog: [{ cli: 'bogus', model: 'x', efforts: [] }] })
+      );
+
+      await service.start('direct');
+
+      // The loop must stop outright rather than skip every ready task one by one.
+      expect(startProcess).not.toHaveBeenCalled();
+      expect(service.getStatus().mode).toBe('idle');
+      expect(service.getStatus().error).toContain('Invalid modelCatalog[0].cli');
+      expect(stateChanges.some((s) => s.mode === 'idle' && !!s.error)).toBe(true);
+    } finally {
+      service.stop();
+      cwdSpy.mockRestore();
+      fs.rmSync(tmpCwd, { recursive: true, force: true });
+    }
+  });
+
+  it('clears a previous configuration error when a new bulk run starts', async () => {
+    const db = getStorageBackend();
+    const ts = new TaskService(db);
+    const tbs = new TaskBlockService(db);
+
+    ts.createTask({ title: 'task 1', status: 'ready', priority: 'high' });
+
+    const startProcess = vi.fn().mockResolvedValue(undefined);
+    const pty = buildMockPty({ startProcess });
+    const service = new BulkRunService(ts, tbs, pty, ts);
+
+    const tmpCwd = fs.mkdtempSync(path.join(os.tmpdir(), 'agkan-bulk-run-test-'));
+    const cwdSpy = vi.spyOn(process, 'cwd').mockReturnValue(tmpCwd);
+    try {
+      fs.writeFileSync(
+        path.join(tmpCwd, '.agkan-test.yml'),
+        yaml.dump({ modelCatalog: [{ cli: 'bogus', model: 'x', efforts: [] }] })
+      );
+      await service.start('direct');
+      expect(service.getStatus().error).toBeDefined();
+
+      fs.rmSync(path.join(tmpCwd, '.agkan-test.yml'));
+      await service.start('direct');
+      expect(service.getStatus().error).toBeUndefined();
+    } finally {
+      service.stop();
+      cwdSpy.mockRestore();
+      fs.rmSync(tmpCwd, { recursive: true, force: true });
+    }
   });
 });
 
