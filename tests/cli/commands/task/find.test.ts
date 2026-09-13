@@ -12,6 +12,7 @@ function resetDatabase() {
   const db = getDatabase();
   db.exec('DELETE FROM task_tags');
   db.exec('DELETE FROM task_blocks');
+  db.exec('DELETE FROM task_metadata');
   db.exec('DELETE FROM tasks');
   db.exec("DELETE FROM sqlite_sequence WHERE name='tasks'");
 }
