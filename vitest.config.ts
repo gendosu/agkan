@@ -16,7 +16,7 @@ export default defineConfig({
       exclude: ['node_modules/**', 'dist/**', 'tests/**', '**/*.test.ts', '**/*.config.ts', '**/*.d.ts'],
       thresholds: {
         // 実測ベースライン (2026-07-19時点: Stmts 89.83 / Branch 82.16 / Funcs 90.56 / Lines 91.3)。
-        // 将来的にラチェットで引き上げる (agkan task #640)
+        // ラチェット引き上げは現時点で未計画（必要になった時点で別タスク化する）
         lines: 91,
         functions: 90,
         branches: 82,
