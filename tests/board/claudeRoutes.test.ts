@@ -425,6 +425,27 @@ describe('POST /api/claude/tasks/:taskId/run', () => {
     expect(data.error).toMatch(/is not allowed for model "opus"/);
   });
 
+  it('returns 400 when the configured effort is not allowed for the configured model', async () => {
+    fs.writeFileSync(TEST_AGKAN_CONFIG, yaml.dump({ models: { run: { model: 'opus', effort: 'none' } } }));
+    const mock = buildMockClaudeProcessService();
+    const services = buildServices(mock);
+    const task = services.ts.createTask({ title: 'Config Bad Effort Task', status: 'backlog' });
+    const app = buildApp(services);
+
+    const res = await app.fetch(
+      new Request(`http://localhost/api/claude/tasks/${task.id}/run`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ command: 'run' }),
+      })
+    );
+
+    expect(res.status).toBe(400);
+    const data = (await res.json()) as { error: string };
+    expect(data.error).toMatch(/is not allowed for model "opus"/);
+    expect(mock.startProcess).not.toHaveBeenCalled();
+  });
+
   it('passes a config effort through unvalidated when the config model is not in the catalog', async () => {
     fs.writeFileSync(
       TEST_AGKAN_CONFIG,
