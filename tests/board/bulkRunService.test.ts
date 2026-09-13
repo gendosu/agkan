@@ -737,6 +737,39 @@ describe('BulkRunService model/effort override resolution', () => {
     }
   });
 
+  it('stops the bulk run and reports an error when the configured models.run.effort is not in the catalog', async () => {
+    const db = getStorageBackend();
+    const ts = new TaskService(db);
+    const tbs = new TaskBlockService(db);
+
+    ts.createTask({ title: 'task 1', status: 'ready', priority: 'high' });
+    ts.createTask({ title: 'task 2', status: 'ready', priority: 'low' });
+
+    const startProcess = vi.fn().mockResolvedValue(undefined);
+    const pty = buildMockPty({ startProcess });
+    const service = new BulkRunService(ts, tbs, pty, ts);
+
+    const tmpCwd = fs.mkdtempSync(path.join(os.tmpdir(), 'agkan-bulk-run-test-'));
+    const cwdSpy = vi.spyOn(process, 'cwd').mockReturnValue(tmpCwd);
+    try {
+      fs.writeFileSync(
+        path.join(tmpCwd, '.agkan-test.yml'),
+        yaml.dump({ models: { run: { model: 'opus', effort: 'none' } } })
+      );
+
+      await service.start('direct');
+
+      // Every ready task shares the broken config, so skipping would repeat for all of them.
+      expect(startProcess).not.toHaveBeenCalled();
+      expect(service.getStatus().mode).toBe('idle');
+      expect(service.getStatus().error).toContain('Effort "none" is not allowed for model "opus"');
+    } finally {
+      service.stop();
+      cwdSpy.mockRestore();
+      fs.rmSync(tmpCwd, { recursive: true, force: true });
+    }
+  });
+
   it('clears a previous configuration error when a new bulk run starts', async () => {
     const db = getStorageBackend();
     const ts = new TaskService(db);

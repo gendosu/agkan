@@ -180,7 +180,7 @@ export class BulkRunService {
     try {
       params = this.buildLaunchParams(taskId);
     } catch (e) {
-      if (e instanceof LaunchSettingsError) {
+      if (e instanceof LaunchSettingsError && e.source === 'task') {
         // Task-level catalog miss (e.g. a stale model_run/effort_run override):
         // skip this task and let the loop move on to the next ready one.
         console.error(`[BulkRunService] skipping taskId=${taskId}: ${e.message}`);
@@ -188,8 +188,8 @@ export class BulkRunService {
         advance();
         return;
       }
-      // Anything else means the .agkan.yml modelCatalog/agent configuration itself
-      // is broken. Skipping would just repeat for every remaining ready task, so
+      // Anything else means the .agkan.yml configuration itself (modelCatalog,
+      // agent, or a models.*.effort outside the catalog) is broken. Skipping would just repeat for every remaining ready task, so
       // stop the run instead and surface the error via the status notification.
       const message = e instanceof Error ? e.message : String(e);
       console.error(`[BulkRunService] stopping bulk run: ${message}`);

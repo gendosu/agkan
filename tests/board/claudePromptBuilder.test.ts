@@ -176,6 +176,59 @@ describe('resolveLaunchSettings', () => {
     );
   });
 
+  describe('LaunchSettingsError source', () => {
+    function captureError(fn: () => unknown): unknown {
+      try {
+        fn();
+      } catch (e) {
+        return e;
+      }
+      throw new Error('expected function to throw');
+    }
+
+    it('is "task" when the task-level model is not in the catalog', () => {
+      const { ts } = buildServices();
+      const task = ts.createTask({ title: 'Task', status: 'backlog' });
+      ts.updateTask(task.id, { model_run: 'gpt-5' });
+
+      const err = captureError(() => resolveLaunchSettings(ts, task.id, 'run'));
+      expect(err).toBeInstanceOf(LaunchSettingsError);
+      expect((err as LaunchSettingsError).source).toBe('task');
+    });
+
+    it('is "task" when the task-level effort is not allowed', () => {
+      const { ts } = buildServices();
+      const task = ts.createTask({ title: 'Task', status: 'backlog' });
+      writeConfig({ models: { run: { model: 'opus' } } });
+      ts.updateTask(task.id, { effort_run: 'none' });
+
+      expect((captureError(() => resolveLaunchSettings(ts, task.id, 'run')) as LaunchSettingsError).source).toBe(
+        'task'
+      );
+    });
+
+    it('is "task" when a config effort does not fit the task-level model row', () => {
+      const { ts } = buildServices();
+      const task = ts.createTask({ title: 'Task', status: 'backlog' });
+      ts.updateTask(task.id, { model_run: 'gpt-5.6-sol' });
+      writeConfig({ modelCatalog: CATALOG_WITH_CODEX, models: { codex: { run: { effort: 'max' } } } });
+
+      expect((captureError(() => resolveLaunchSettings(ts, task.id, 'run')) as LaunchSettingsError).source).toBe(
+        'task'
+      );
+    });
+
+    it('is "config" when the configured effort is not allowed for the configured model', () => {
+      const { ts } = buildServices();
+      const task = ts.createTask({ title: 'Task', status: 'backlog' });
+      writeConfig({ models: { run: { model: 'opus', effort: 'none' } } });
+
+      expect((captureError(() => resolveLaunchSettings(ts, task.id, 'run')) as LaunchSettingsError).source).toBe(
+        'config'
+      );
+    });
+  });
+
   it('passes a config effort through unvalidated when the config model is not in the catalog', () => {
     const { ts } = buildServices();
     const task = ts.createTask({ title: 'Task', status: 'backlog' });

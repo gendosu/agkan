@@ -33,8 +33,20 @@ export function buildClaudePrompt(taskId: number, command: ClaudeCommand, branch
       : `Task ID: ${taskId}\n/agkan-subtask-direct${branchInstruction}${exitInstruction}`;
 }
 
-/** Thrown when a task's model/effort cannot be resolved against the model catalog. */
-export class LaunchSettingsError extends Error {}
+/**
+ * Thrown when a task's model/effort cannot be resolved against the model catalog.
+ * `source` is 'task' when a task-level override is involved (only that task is
+ * affected) and 'config' when .agkan.yml alone produced the invalid combination
+ * (every task launched with that config would fail the same way).
+ */
+export class LaunchSettingsError extends Error {
+  constructor(
+    message: string,
+    readonly source: 'task' | 'config'
+  ) {
+    super(message);
+  }
+}
 
 export interface LaunchSettings {
   agent: AgentTool;
@@ -69,7 +81,8 @@ export function resolveLaunchSettings(
     entry = findCatalogEntry(catalog, taskModel);
     if (!entry) {
       throw new LaunchSettingsError(
-        `Task model "${taskModel}" is not in modelCatalog. Must be one of: ${catalog.map((e) => e.model).join(', ')}`
+        `Task model "${taskModel}" is not in modelCatalog. Must be one of: ${catalog.map((e) => e.model).join(', ')}`,
+        'task'
       );
     }
     agent = entry.cli;
@@ -88,7 +101,10 @@ export function resolveLaunchSettings(
       entry.efforts.length === 0
         ? 'This model does not accept an effort override'
         : `Must be one of: ${entry.efforts.join(', ')}`;
-    throw new LaunchSettingsError(`Effort "${effort}" is not allowed for model "${entry.model}". ${allowed}`);
+    throw new LaunchSettingsError(
+      `Effort "${effort}" is not allowed for model "${entry.model}". ${allowed}`,
+      taskModel || taskEffort ? 'task' : 'config'
+    );
   }
 
   return { agent, model, effort };
