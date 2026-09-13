@@ -514,6 +514,22 @@ describe('Database Path Resolution', () => {
       expect(config).toEqual({});
     });
 
+    it('should default version to 1 when config file does not specify version', () => {
+      const configPath = path.join(process.cwd(), testConfigFileTest);
+      fs.writeFileSync(configPath, yaml.dump({ path: '/some/path.db' }));
+
+      const config = loadConfig();
+      expect(config.version).toBe(1);
+    });
+
+    it('should return explicit version when config file has version field', () => {
+      const configPath = path.join(process.cwd(), testConfigFileTest);
+      fs.writeFileSync(configPath, yaml.dump({ version: 2, path: '/some/path.db' }));
+
+      const config = loadConfig();
+      expect(config.version).toBe(2);
+    });
+
     it('should return parsed config with path field', () => {
       const configPath = path.join(process.cwd(), testConfigFileTest);
       fs.writeFileSync(configPath, yaml.dump({ path: '/some/path.db' }));
@@ -740,7 +756,7 @@ describe('Worktree project root resolution', () => {
     it('loadConfig reads .agkan.yml from the main repository root', () => {
       fs.writeFileSync(path.join(mainRoot, '.agkan.yml'), yaml.dump({ board: { port: 4321 } }));
 
-      expect(loadConfig()).toEqual({ board: { port: 4321 } });
+      expect(loadConfig()).toEqual({ board: { port: 4321 }, version: 1 });
     });
 
     it('resolveDatabasePath defaults to .agkan/data.db under the main repository root', () => {
