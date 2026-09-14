@@ -14,6 +14,7 @@ export type AgentModelSettings = {
  * Configuration file type definition
  */
 export interface Config {
+  version?: number;
   agent?: AgentTool;
   path?: string;
   board?: {
@@ -188,7 +189,14 @@ export function loadConfig(): Config {
   if (fs.existsSync(configPath)) {
     try {
       const configContent = fs.readFileSync(configPath, 'utf8');
-      return (yaml.load(configContent) as Config) ?? {};
+      const parsed = yaml.load(configContent) as Config | null | undefined;
+      if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+        return {};
+      }
+      return {
+        ...parsed,
+        version: parsed.version ?? 1,
+      };
     } catch {
       return {};
     }
