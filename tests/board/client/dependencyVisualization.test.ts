@@ -127,10 +127,17 @@ describe('dependencyVisualization', () => {
     }
 
     function hoverCard(card: HTMLElement, fromCard: HTMLElement | null) {
+      if (fromCard) {
+        fromCard.dispatchEvent(new MouseEvent('mouseout', { bubbles: true, relatedTarget: card }));
+      }
       card.dispatchEvent(new MouseEvent('mouseover', { bubbles: true, relatedTarget: fromCard ?? undefined }));
     }
 
-    function getLineColors(): string[] {
+    function unhover(fromCard: HTMLElement) {
+      fromCard.dispatchEvent(new MouseEvent('mouseout', { bubbles: true }));
+    }
+
+    function getLineColors(): (string | null)[] {
       return Array.from(document.querySelectorAll('.dependency-line')).map((line) => line.getAttribute('stroke'));
     }
 
@@ -190,6 +197,83 @@ describe('dependencyVisualization', () => {
 
       expect(card2.classList.contains('dep-blocks')).toBe(false);
       expect(card1.classList.contains('dep-blocked-by')).toBe(false);
+    });
+
+    it('clears the highlight and paints lines gray again after the mouse leaves the board', async () => {
+      const { toggleBtn, card1, card2 } = setupChainDOM();
+      const { initDependencyVisualization } = await loadModule();
+
+      initDependencyVisualization();
+      toggleBtn.click(); // enable
+      hoverCard(card1, null);
+      expect(getLineColors()).toContain('#ef4444');
+
+      unhover(card1);
+
+      expect(card2.classList.contains('dep-blocks')).toBe(false);
+      expect(getLineColors().every((color) => color === '#cbd5e1')).toBe(true);
+    });
+
+    it('does not mark an unrelated sibling of the hovered card as incoming (diamond graph)', async () => {
+      // 1 blocks 2 and 3; 2 (hovered) also blocks 3 directly, so 3 is blocked by both 1 and 2.
+      document.body.innerHTML = `
+        <div class="board-container">
+          <div class="board"></div>
+          <div class="card" data-id="1" data-blocking="2,3"></div>
+          <div class="card" data-id="2" data-blocked-by="1" data-blocking="3"></div>
+          <div class="card" data-id="3" data-blocked-by="1,2"></div>
+        </div>
+        <div class="column-body"></div>
+        <button id="dependency-toggle"></button>
+      `;
+      const toggleBtn = document.getElementById('dependency-toggle') as HTMLButtonElement;
+      const card1 = document.querySelector('[data-id="1"]') as HTMLElement;
+      const card2 = document.querySelector('[data-id="2"]') as HTMLElement;
+      const card3 = document.querySelector('[data-id="3"]') as HTMLElement;
+      const { initDependencyVisualization } = await loadModule();
+
+      initDependencyVisualization();
+      toggleBtn.click(); // enable
+
+      hoverCard(card2, null);
+
+      // Card 3 is directly blocked by the hovered card (2) — outgoing only, not both.
+      expect(card3.classList.contains('dep-blocks')).toBe(true);
+      expect(card3.classList.contains('dep-blocked-by')).toBe(false);
+      // Card 1 blocks the hovered card directly — incoming.
+      expect(card1.classList.contains('dep-blocked-by')).toBe(true);
+      // The 1 -> 3 edge is unrelated to the hovered card's own relationships and stays gray.
+      expect(getLineColors()).toEqual(expect.arrayContaining(['#3b82f6', '#ef4444', '#cbd5e1']));
+    });
+
+    it('does not mark an unrelated sibling of the hovered card as incoming (shared blocker)', async () => {
+      // 1 blocks both 2 (hovered) and 3; 2 and 3 have no relationship to each other.
+      document.body.innerHTML = `
+        <div class="board-container">
+          <div class="board"></div>
+          <div class="card" data-id="1" data-blocking="2,3"></div>
+          <div class="card" data-id="2" data-blocked-by="1"></div>
+          <div class="card" data-id="3" data-blocked-by="1"></div>
+        </div>
+        <div class="column-body"></div>
+        <button id="dependency-toggle"></button>
+      `;
+      const toggleBtn = document.getElementById('dependency-toggle') as HTMLButtonElement;
+      const card1 = document.querySelector('[data-id="1"]') as HTMLElement;
+      const card2 = document.querySelector('[data-id="2"]') as HTMLElement;
+      const card3 = document.querySelector('[data-id="3"]') as HTMLElement;
+      const { initDependencyVisualization } = await loadModule();
+
+      initDependencyVisualization();
+      toggleBtn.click(); // enable
+
+      hoverCard(card2, null);
+
+      expect(card1.classList.contains('dep-blocked-by')).toBe(true);
+      // Card 3 only shares a blocker with the hovered card — it is not itself related.
+      expect(card3.classList.contains('dep-blocks')).toBe(false);
+      expect(card3.classList.contains('dep-blocked-by')).toBe(false);
+      expect(getLineColors()).toEqual(expect.arrayContaining(['#3b82f6', '#cbd5e1']));
     });
   });
 });
