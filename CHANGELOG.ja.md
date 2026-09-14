@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### 追加
+- `task find` コマンドおよび Board のフリーテキスト検索が、title/body に加えて `task_metadata.value` にもマッチするようにした。PR URL や外部チケット番号等の汎用的な metadata 値でタスクを検索できる (#727)
+
 ## [3.25.0] - 2026-09-12
 
 ### 追加

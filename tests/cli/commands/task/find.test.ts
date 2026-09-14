@@ -6,12 +6,13 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { Command } from 'commander';
 import { setupTaskFindCommand } from '../../../../src/cli/commands/task/find';
 import { getDatabase } from '../../../../src/db/connection';
-import { TaskService } from '../../../../src/services';
+import { TaskService, MetadataService } from '../../../../src/services';
 
 function resetDatabase() {
   const db = getDatabase();
   db.exec('DELETE FROM task_tags');
   db.exec('DELETE FROM task_blocks');
+  db.exec('DELETE FROM task_metadata');
   db.exec('DELETE FROM tasks');
   db.exec("DELETE FROM sqlite_sequence WHERE name='tasks'");
 }
@@ -210,6 +211,57 @@ describe('setupTaskFindCommand', () => {
 
     const output = consoleLogs.join('\n');
     expect(output).toContain('Task title');
+  });
+
+  it('should find tasks matching metadata value', async () => {
+    const taskService = new TaskService();
+    const metadataService = new MetadataService();
+    const task = taskService.createTask({ title: 'Task with PR link', status: 'ready' });
+    metadataService.setMetadata({ task_id: task.id, key: 'pr', value: 'https://github.com/org/repo/pull/4242' });
+    taskService.createTask({ title: 'Task without metadata', status: 'ready' });
+
+    const consoleLogs: string[] = [];
+    const originalLog = console.log;
+    console.log = (...args: unknown[]) => consoleLogs.push(args.join(' '));
+
+    const originalExit = process.exit;
+    process.exit = (() => {}) as never;
+
+    try {
+      await program.parseAsync(['node', 'test', 'task', 'find', 'pull/4242']);
+    } finally {
+      console.log = originalLog;
+      process.exit = originalExit;
+    }
+
+    const output = consoleLogs.join('\n');
+    expect(output).toContain('Task with PR link');
+    expect(output).not.toContain('Task without metadata');
+  });
+
+  it('should find tasks matching metadata value with --json option', async () => {
+    const taskService = new TaskService();
+    const metadataService = new MetadataService();
+    const task = taskService.createTask({ title: 'Task with external id', status: 'ready' });
+    metadataService.setMetadata({ task_id: task.id, key: 'external_id', value: 'EXT-json-9001' });
+
+    const consoleLogs: string[] = [];
+    const originalLog = console.log;
+    console.log = (...args: unknown[]) => consoleLogs.push(args.join(' '));
+
+    const originalExit = process.exit;
+    process.exit = (() => {}) as never;
+
+    try {
+      await program.parseAsync(['node', 'test', 'task', 'find', 'EXT-json-9001', '--json']);
+    } finally {
+      console.log = originalLog;
+      process.exit = originalExit;
+    }
+
+    const parsed = JSON.parse(consoleLogs[0]);
+    expect(parsed.totalCount).toBe(1);
+    expect(parsed.tasks[0].id).toBe(task.id);
   });
 
   it('should have --status option', () => {

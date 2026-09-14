@@ -1922,6 +1922,69 @@ describe('TaskService', () => {
       expect(results.map((t) => t.title)).toContain('Archive-alone active task');
       expect(results.map((t) => t.title)).toContain('Archive-alone done task');
     });
+
+    it('Metadata search - Search matches task_metadata.value', () => {
+      const metadataService = new MetadataService();
+      const task1 = taskService.createTask({ title: 'Task with PR link', status: 'ready' });
+      taskService.createTask({ title: 'Task without metadata', status: 'ready' });
+      metadataService.setMetadata({ task_id: task1.id, key: 'pr', value: 'https://github.com/org/repo/pull/999' });
+
+      const results = taskService.searchTasks('pull/999');
+
+      expect(results).toHaveLength(1);
+      expect(results[0].id).toBe(task1.id);
+    });
+
+    it('Metadata search - done/closed tasks are still excluded by default', () => {
+      const metadataService = new MetadataService();
+      const task = taskService.createTask({ title: 'Done task with metadata', status: 'done' });
+      metadataService.setMetadata({ task_id: task.id, key: 'external_id', value: 'EXT-metadata-search-1234' });
+
+      const results = taskService.searchTasks('EXT-metadata-search-1234');
+
+      expect(results).toHaveLength(0);
+    });
+
+    it('Metadata search - Task with multiple matching metadata rows is not duplicated', () => {
+      const metadataService = new MetadataService();
+      const task = taskService.createTask({ title: 'Task with two metadata matches', status: 'ready' });
+      metadataService.setMetadata({ task_id: task.id, key: 'pr', value: 'dup-metadata-marker' });
+      metadataService.setMetadata({ task_id: task.id, key: 'external_id', value: 'dup-metadata-marker' });
+
+      const results = taskService.searchTasks('dup-metadata-marker');
+
+      expect(results).toHaveLength(1);
+      expect(results[0].id).toBe(task.id);
+    });
+
+    it('Metadata search - Numeric keyword combined with an explicit status filter still matches metadata.value', () => {
+      const metadataService = new MetadataService();
+      const matching = taskService.createTask({ title: 'Allowed-status task with numeric metadata', status: 'ready' });
+      metadataService.setMetadata({ task_id: matching.id, key: 'external_id', value: 'EXT-918273' });
+      const excluded = taskService.createTask({
+        title: 'Disallowed-status task with numeric metadata',
+        status: 'in_progress',
+      });
+      metadataService.setMetadata({ task_id: excluded.id, key: 'external_id', value: 'EXT-918273' });
+
+      // Explicit status list exercises the numeric-keyword branch that also constrains the
+      // title/body/metadata match by status (id fallback bypasses the status constraint).
+      const results = taskService.searchTasks('918273', false, ['ready']);
+
+      expect(results.map((t) => t.id)).toContain(matching.id);
+      expect(results.map((t) => t.id)).not.toContain(excluded.id);
+    });
+
+    it('Metadata search - Numeric keyword still matches metadata.value without a status filter', () => {
+      const metadataService = new MetadataService();
+      const task = taskService.createTask({ title: 'Task with numeric metadata, no status filter', status: 'done' });
+      metadataService.setMetadata({ task_id: task.id, key: 'external_id', value: 'EXT-554433' });
+
+      // includeArchived bypasses the default status narrowing, exercising the no-status numeric branch
+      const results = taskService.searchTasks('554433', false, undefined, true);
+
+      expect(results.some((t) => t.id === task.id)).toBe(true);
+    });
   });
 
   describe('Parent-Child Relationships', () => {

@@ -1548,6 +1548,18 @@ describe('GET /api/board/cards', () => {
     const backlogCol = data.columns.find((c) => c.status === 'backlog')!;
     expect(backlogCol.count).toBe(2);
   });
+
+  it('filters cards by search text matching a task_metadata value', async () => {
+    const services = buildServices();
+    const task = services.ts.createTask({ title: 'Task with PR link', status: 'backlog' });
+    services.ms.setMetadata({ task_id: task.id, key: 'pr', value: 'https://github.com/org/repo/pull/777' });
+    services.ts.createTask({ title: 'Task without metadata', status: 'backlog' });
+    const app = buildApp(services);
+    const res = await app.fetch(new Request('http://localhost/api/board/cards?search=pull/777'));
+    const data = (await res.json()) as { columns: Array<{ status: string; count: number }> };
+    const backlogCol = data.columns.find((c) => c.status === 'backlog')!;
+    expect(backlogCol.count).toBe(1);
+  });
 });
 
 describe('GET /', () => {
