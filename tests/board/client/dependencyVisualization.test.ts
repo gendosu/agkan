@@ -103,4 +103,93 @@ describe('dependencyVisualization', () => {
     const hoverCalls = spy.mock.calls.filter(([type]) => type === 'mouseover' || type === 'mouseout');
     expect(hoverCalls).toHaveLength(2);
   });
+
+  describe('hover direction coloring', () => {
+    function setupChainDOM() {
+      // 1 blocks 2, 2 blocks 3: 1 -> 2 -> 3
+      document.body.innerHTML = `
+        <div class="board-container">
+          <div class="board"></div>
+          <div class="card" data-id="1" data-blocking="2"></div>
+          <div class="card" data-id="2" data-blocked-by="1" data-blocking="3"></div>
+          <div class="card" data-id="3" data-blocked-by="2"></div>
+        </div>
+        <div class="column-body"></div>
+        <button id="dependency-toggle"></button>
+      `;
+      return {
+        boardContainer: document.querySelector('.board-container') as HTMLElement,
+        toggleBtn: document.getElementById('dependency-toggle') as HTMLButtonElement,
+        card1: document.querySelector('[data-id="1"]') as HTMLElement,
+        card2: document.querySelector('[data-id="2"]') as HTMLElement,
+        card3: document.querySelector('[data-id="3"]') as HTMLElement,
+      };
+    }
+
+    function hoverCard(card: HTMLElement, fromCard: HTMLElement | null) {
+      card.dispatchEvent(new MouseEvent('mouseover', { bubbles: true, relatedTarget: fromCard ?? undefined }));
+    }
+
+    function getLineColors(): string[] {
+      return Array.from(document.querySelectorAll('.dependency-line')).map((line) => line.getAttribute('stroke'));
+    }
+
+    it('colors the line to a card the hovered card blocks as outgoing (red)', async () => {
+      const { toggleBtn, card1, card2 } = setupChainDOM();
+      const { initDependencyVisualization } = await loadModule();
+
+      initDependencyVisualization();
+      toggleBtn.click(); // enable
+
+      hoverCard(card1, null);
+
+      expect(card2.classList.contains('dep-blocks')).toBe(true);
+      expect(card2.classList.contains('dep-blocked-by')).toBe(false);
+      expect(getLineColors()).toContain('#ef4444');
+    });
+
+    it('colors the line from a card that blocks the hovered card as incoming (blue)', async () => {
+      const { toggleBtn, card1, card2 } = setupChainDOM();
+      const { initDependencyVisualization } = await loadModule();
+
+      initDependencyVisualization();
+      toggleBtn.click(); // enable
+
+      hoverCard(card2, null);
+
+      expect(card1.classList.contains('dep-blocked-by')).toBe(true);
+      expect(card1.classList.contains('dep-blocks')).toBe(false);
+      expect(getLineColors()).toContain('#3b82f6');
+    });
+
+    it('clears direction classes from previously related cards when the hover target changes', async () => {
+      const { toggleBtn, card1, card2, card3 } = setupChainDOM();
+      const { initDependencyVisualization } = await loadModule();
+
+      initDependencyVisualization();
+      toggleBtn.click(); // enable
+
+      hoverCard(card1, null);
+      expect(card2.classList.contains('dep-blocks')).toBe(true);
+
+      hoverCard(card3, card1);
+      expect(card2.classList.contains('dep-blocks')).toBe(false);
+      expect(card2.classList.contains('dep-blocked-by')).toBe(true);
+    });
+
+    it('removes direction classes from all cards when the toggle is disabled', async () => {
+      const { toggleBtn, card1, card2 } = setupChainDOM();
+      const { initDependencyVisualization } = await loadModule();
+
+      initDependencyVisualization();
+      toggleBtn.click(); // enable
+      hoverCard(card1, null);
+      expect(card2.classList.contains('dep-blocks')).toBe(true);
+
+      toggleBtn.click(); // disable
+
+      expect(card2.classList.contains('dep-blocks')).toBe(false);
+      expect(card1.classList.contains('dep-blocked-by')).toBe(false);
+    });
+  });
 });
