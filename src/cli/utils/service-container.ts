@@ -19,6 +19,7 @@ import {
 import { BoardEventService } from '../../services/BoardEventService';
 import { PtySessionService } from '../../terminal/PtySessionService';
 import { AttentionStateService } from '../../services/AttentionStateService';
+import { getStorageBackend } from '../../db/connection';
 import { notifyBoard } from './boardNotify';
 
 class HttpBoardEventService extends BoardEventService {
@@ -62,7 +63,7 @@ export function getServiceContainer(): ServiceContainer {
     commentService: new CommentService(),
     tagService: new TagService(),
     metadataService: new MetadataService(),
-    ptySessionService: new PtySessionService(undefined, {
+    ptySessionService: new PtySessionService(getStorageBackend(), {
       boardApiUrl: null,
       attentionStateService: new AttentionStateService(),
       hookSettingsDataDir,
