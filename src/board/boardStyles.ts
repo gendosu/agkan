@@ -289,6 +289,10 @@ export const BOARD_STYLES = `
     .dependency-toggle-btn.active:hover { background: #2563eb; border-color: #2563eb; }
     svg#dependency-svg { pointer-events: none; }
     .dependency-line { transition: stroke-width 0.1s ease; }
+    .card.dep-blocks { border-color: #ef4444; box-shadow: 0 0 0 2px rgba(239,68,68,0.25); }
+    .card.dep-blocked-by { border-color: #3b82f6; box-shadow: 0 0 0 2px rgba(59,130,246,0.25); }
+    [data-theme="dark"] .card.dep-blocks { border-color: #ef4444; box-shadow: 0 0 0 2px rgba(239,68,68,0.25); }
+    [data-theme="dark"] .card.dep-blocked-by { border-color: #3b82f6; box-shadow: 0 0 0 2px rgba(59,130,246,0.25); }
     .claude-stream-modal-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
     .claude-stream-modal-header h2 { font-size: 16px; font-weight: 700; margin: 0; }
     .claude-stream-modal-header button { background: none; border: none; font-size: 18px; color: var(--text-secondary); cursor: pointer; padding: 2px 6px; border-radius: 4px; line-height: 1; }

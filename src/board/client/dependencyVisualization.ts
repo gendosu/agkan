@@ -17,6 +17,13 @@ let scrollListener: ((event: Event) => void) | null = null;
 let columnScrollListener: ((event: Event) => void) | null = null;
 let resizeListener: (() => void) | null = null;
 let boardHoverListener: ((event: MouseEvent) => void) | null = null;
+let hoveredCardId: number | null = null;
+
+function clearDependencyCardClasses(): void {
+  document.querySelectorAll('.card.dep-blocks, .card.dep-blocked-by').forEach((card) => {
+    card.classList.remove('dep-blocks', 'dep-blocked-by');
+  });
+}
 
 function getOrCreateArrowMarker(svg: SVGSVGElement, color: string): string {
   const markerId = `arrow-${color.substring(1)}`;
@@ -154,6 +161,42 @@ function createSVGOverlay(): SVGSVGElement {
   return svg;
 }
 
+interface EdgeDirection {
+  isOutgoing: boolean;
+  isIncoming: boolean;
+}
+
+// Classifies a card->blockedCard edge relative to the hovered card:
+// - outgoing: the hovered card blocks this card, directly or via a downstream chain
+// - incoming: this card blocks the hovered card, directly or via an upstream chain
+function classifyEdgeDirection(
+  cardId: number,
+  blockedId: number,
+  hoveredId: number | null,
+  hoveredBlockedBySet: Set<number>,
+  hoveredBlockingSet: Set<number>
+): EdgeDirection {
+  const isOutgoing = cardId === hoveredId || hoveredBlockingSet.has(cardId);
+  const isIncoming = !isOutgoing && (blockedId === hoveredId || hoveredBlockedBySet.has(blockedId));
+  return { isOutgoing, isIncoming };
+}
+
+// Records the two endpoints of a directionally-classified edge (except the hovered
+// card itself) so their cards can later be given a matching border class.
+function recordRelatedIds(
+  cardId: number,
+  blockedId: number,
+  hoveredId: number | null,
+  { isOutgoing, isIncoming }: EdgeDirection,
+  outgoingRelatedIds: Set<number>,
+  incomingRelatedIds: Set<number>
+): void {
+  if (!isOutgoing && !isIncoming) return;
+  const relatedIds = isOutgoing ? outgoingRelatedIds : incomingRelatedIds;
+  if (cardId !== hoveredId) relatedIds.add(cardId);
+  if (blockedId !== hoveredId) relatedIds.add(blockedId);
+}
+
 function redrawDependencies(): void {
   if (!isDependencyVisible) return;
 
@@ -162,6 +205,7 @@ function redrawDependencies(): void {
 
   // Clear existing lines (keep defs)
   svg.querySelectorAll('.dependency-line').forEach((line) => line.remove());
+  clearDependencyCardClasses();
 
   // Get all cards and build a map for quick lookup
   const cards = Array.from(document.querySelectorAll<HTMLElement>('.card'));
@@ -172,9 +216,12 @@ function redrawDependencies(): void {
     cardMap.set(id, card);
   });
 
+  // A card hovered earlier may have been removed/replaced by a poll-triggered re-render.
+  if (hoveredCardId !== null && !cardMap.has(hoveredCardId)) {
+    hoveredCardId = null;
+  }
+
   // Get hovered card IDs (including indirect relationships)
-  const hoveredCard = document.querySelector('.card:hover') as HTMLElement | null;
-  const hoveredCardId = hoveredCard ? Number(hoveredCard.getAttribute('data-id')) : null;
   const hoveredBlockedBySet = new Set<number>();
   const hoveredBlockingSet = new Set<number>();
 
@@ -202,6 +249,10 @@ function redrawDependencies(): void {
 
   const boardRect = boardContainer.getBoundingClientRect();
 
+  // Cards related to the hovered card, keyed by line direction relative to it
+  const outgoingRelatedIds = new Set<number>();
+  const incomingRelatedIds = new Set<number>();
+
   // Draw all dependency lines
   cards.forEach((card) => {
     const cardId = Number(card.getAttribute('data-id'));
@@ -210,22 +261,32 @@ function redrawDependencies(): void {
 
     if (!blockedByStr && !blockingStr) return;
 
-    const isHovered = cardId === hoveredCardId || hoveredBlockedBySet.has(cardId) || hoveredBlockingSet.has(cardId);
-
     // Draw lines to blocking tasks (this task blocks these)
     if (blockingStr) {
       const blockingIds = blockingStr.split(',').map((s) => Number(s.trim()));
       blockingIds.forEach((blockedId) => {
         const blockedCard = cardMap.get(blockedId);
-        if (blockedCard) {
-          const { x1, y1, x2, y2 } = getCardEdgePoints(card, blockedCard, boardRect);
-          const color = isHovered || hoveredBlockedBySet.has(blockedId) ? '#ef4444' : '#cbd5e1';
-          const line = drawBezierLine(svg, x1, y1, x2, y2, color, isHovered);
-          svg.appendChild(line);
-        }
+        if (!blockedCard) return;
+
+        const { x1, y1, x2, y2 } = getCardEdgePoints(card, blockedCard, boardRect);
+        const direction = classifyEdgeDirection(
+          cardId,
+          blockedId,
+          hoveredCardId,
+          hoveredBlockedBySet,
+          hoveredBlockingSet
+        );
+        const color = direction.isOutgoing ? '#ef4444' : direction.isIncoming ? '#3b82f6' : '#cbd5e1';
+        const line = drawBezierLine(svg, x1, y1, x2, y2, color, direction.isOutgoing || direction.isIncoming);
+        svg.appendChild(line);
+
+        recordRelatedIds(cardId, blockedId, hoveredCardId, direction, outgoingRelatedIds, incomingRelatedIds);
       });
     }
   });
+
+  outgoingRelatedIds.forEach((id) => cardMap.get(id)?.classList.add('dep-blocks'));
+  incomingRelatedIds.forEach((id) => cardMap.get(id)?.classList.add('dep-blocked-by'));
 
   // Update SVG viewBox
   svg.setAttribute('viewBox', `0 0 ${boardContainer.offsetWidth} ${boardContainer.offsetHeight}`);
@@ -236,11 +297,20 @@ function attachHoverDelegation(): void {
   if (!boardContainer || boardHoverListener) return;
 
   boardHoverListener = (event: MouseEvent) => {
-    const targetCard = (event.target as HTMLElement).closest?.('.card');
-    const relatedCard = (event.relatedTarget as HTMLElement | null)?.closest?.('.card');
-    if (targetCard !== relatedCard) {
-      redrawDependencies();
+    const targetCard = (event.target as HTMLElement).closest?.('.card') as HTMLElement | null;
+    const relatedCard = (event.relatedTarget as HTMLElement | null)?.closest?.('.card') as HTMLElement | null;
+    if (targetCard === relatedCard) return;
+
+    if (event.type === 'mouseover') {
+      if (!targetCard) return;
+      hoveredCardId = Number(targetCard.getAttribute('data-id'));
+    } else if (event.type === 'mouseout') {
+      // Moving onto another card: the upcoming mouseover on it will redraw instead.
+      if (relatedCard) return;
+      hoveredCardId = null;
     }
+
+    redrawDependencies();
   };
 
   boardContainer.addEventListener('mouseover', boardHoverListener);
@@ -277,6 +347,12 @@ export function initDependencyVisualization(): void {
     if (isDependencyVisible) {
       toggleBtn.classList.add('active');
       attachHoverDelegation();
+
+      // Seed the hovered card in case the pointer is already over one (real browsers
+      // only — jsdom cannot match `:hover`, so this is a no-op in tests).
+      const alreadyHovered = document.querySelector('.card:hover') as HTMLElement | null;
+      hoveredCardId = alreadyHovered ? Number(alreadyHovered.getAttribute('data-id')) : null;
+
       redrawDependencies();
 
       // Redraw on scroll
@@ -302,6 +378,8 @@ export function initDependencyVisualization(): void {
     } else {
       toggleBtn.classList.remove('active');
       detachHoverDelegation();
+      hoveredCardId = null;
+      clearDependencyCardClasses();
       const svg = document.querySelector('#dependency-svg');
       if (svg) svg.remove();
 
