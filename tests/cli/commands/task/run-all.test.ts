@@ -6,6 +6,10 @@
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { Command } from 'commander';
+import fs from 'fs';
+import os from 'os';
+import path from 'path';
+import yaml from 'js-yaml';
 import { runCommand } from '../../../helpers/command-test-utils';
 import { setupTaskRunAllCommand, runLoop, previewRunOrder } from '../../../../src/cli/commands/task/run-all';
 import { resetDatabase } from '../../../../src/db/reset';
@@ -282,6 +286,38 @@ describe('runLoop', () => {
     expect(startProcess).toHaveBeenCalledTimes(1);
     expect(startProcess).toHaveBeenCalledWith(healthy.id, expect.any(String), 'run', undefined, undefined, 'claude');
     expect(exitCode).toBe(0);
+  });
+
+  it('stops the whole run with exit code 1 when the modelCatalog itself is invalid', async () => {
+    const db = getStorageBackend();
+    const ts = new TaskService(db);
+    const tbs = new TaskBlockService(db);
+    ts.createTask({ title: 'task 1', status: 'ready', priority: 'high' });
+    ts.createTask({ title: 'task 2', status: 'ready', priority: 'low' });
+
+    const startProcess = vi.fn().mockResolvedValue(undefined);
+    const pty = buildMockPty({ startProcess });
+    const container = buildContainer(pty, ts, tbs);
+
+    const tmpCwd = fs.mkdtempSync(path.join(os.tmpdir(), 'agkan-run-all-test-'));
+    const cwdSpy = vi.spyOn(process, 'cwd').mockReturnValue(tmpCwd);
+    try {
+      // Structurally invalid modelCatalog entry (unknown cli): resolveModelCatalog throws a
+      // plain Error here, not a LaunchSettingsError — every ready task shares this broken
+      // config, so skipping would just repeat the same failure for each one.
+      fs.writeFileSync(
+        path.join(tmpCwd, '.agkan-test.yml'),
+        yaml.dump({ modelCatalog: [{ cli: 'bogus', model: 'x', efforts: [] }] })
+      );
+
+      const exitCode = await runLoop(container, false);
+
+      expect(exitCode).toBe(1);
+      expect(startProcess).not.toHaveBeenCalled();
+    } finally {
+      cwdSpy.mockRestore();
+      fs.rmSync(tmpCwd, { recursive: true, force: true });
+    }
   });
 
   it('excludes tasks with unresolved blockers (shared selection logic matches Board)', async () => {
