@@ -23,6 +23,7 @@ function buildMockPty(overrides?: Partial<PtySessionService>): PtySessionService
     stopProcess: vi.fn().mockReturnValue(true),
     listRunningTasks: vi.fn().mockReturnValue([]),
     subscribeOutput: vi.fn().mockReturnValue(() => {}),
+    subscribeRawOutput: vi.fn().mockReturnValue(() => {}),
     isExplicitUserStop: vi.fn().mockReturnValue(false),
     ...overrides,
   } as unknown as PtySessionService;
@@ -74,6 +75,52 @@ describe('runLoop', () => {
     expect(startProcess).toHaveBeenNthCalledWith(2, low.id, expect.any(String), 'run', undefined, undefined, 'claude');
     expect(exitCode).toBe(0);
     expect(ts.getTask(high.id)?.status).toBe('done');
+  });
+
+  it('streams live raw PTY output to stdout as it arrives, not just a completion summary', async () => {
+    const db = getStorageBackend();
+    const ts = new TaskService(db);
+    const tbs = new TaskBlockService(db);
+    ts.createTask({ title: 'task', status: 'ready', priority: 'medium' });
+
+    let outputCb: OutputCallback | null = null;
+    let rawCb: ((data: string) => void) | null = null;
+    const subscribeOutput = vi.fn().mockImplementation((_id: number, callback: OutputCallback) => {
+      outputCb = callback;
+      return () => {};
+    });
+    const unsubscribeRaw = vi.fn();
+    const subscribeRawOutput = vi.fn().mockImplementation((_id: number, callback: (data: string) => void) => {
+      rawCb = callback;
+      return unsubscribeRaw;
+    });
+    const startProcess = vi.fn().mockResolvedValue(undefined);
+    const pty = buildMockPty({ startProcess, subscribeOutput, subscribeRawOutput });
+    const container = buildContainer(pty, ts, tbs);
+
+    const writeSpy = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
+    try {
+      const runPromise = runLoop(container, false);
+      await Promise.resolve();
+      await Promise.resolve();
+
+      // Raw chunks arrive before the task finishes — this is what proves it's a live
+      // stream rather than something derived from the eventual done/error event.
+      rawCb!('hello from agent\n');
+      rawCb!('still working...\n');
+      expect(writeSpy).toHaveBeenCalledWith('hello from agent\n');
+      expect(writeSpy).toHaveBeenCalledWith('still working...\n');
+      expect(unsubscribeRaw).not.toHaveBeenCalled();
+
+      outputCb!({ kind: 'done', exitCode: 0 });
+      await runPromise;
+
+      // Subscription is torn down once the task completes so it doesn't leak into
+      // the next iteration of the sequential loop.
+      expect(unsubscribeRaw).toHaveBeenCalledTimes(1);
+    } finally {
+      writeSpy.mockRestore();
+    }
   });
 
   it('uses ptyCommand "pr" when --with-pr is set', async () => {

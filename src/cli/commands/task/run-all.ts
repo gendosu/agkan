@@ -1,7 +1,7 @@
 /**
  * `agkan task run-all`: CLI equivalent of Board's bulk "Run all" feature
- * (BulkRunService), streaming each launched task's completion to stdout
- * instead of a browser UI.
+ * (BulkRunService), mirroring each launched task's live PTY output to this
+ * process's stdout instead of a browser UI.
  *
  * Unlike BulkRunService, a per-task failure stops the whole run (non-zero
  * exit) instead of continuing to the next ready task: this command is meant
@@ -64,9 +64,28 @@ function printPreview(tasks: RunOrderPreviewItem[]): void {
 
 type RunOutcome = { kind: 'done'; exitCode: number } | { kind: 'error'; message: string };
 
+/**
+ * Mirrors the launched task's live PTY output to this process's stdout (subscribeRawOutput
+ * delivers raw chunks as the agent produces them) and resolves once the task's single
+ * completion signal (subscribeOutput's done/error) arrives. Both subscriptions are torn
+ * down on completion so they don't accumulate across the sequential loop.
+ */
 function waitForOutcome(pty: ServiceContainer['ptySessionService'], taskId: number): Promise<RunOutcome> {
   return new Promise((resolve) => {
-    pty.subscribeOutput(taskId, resolve);
+    // Use let so the completion callback can safely reference these even if it fires
+    // synchronously before the assignments complete (subscribeOutput's fast-exit /
+    // no-session fallback path).
+    let unsubscribeRaw: (() => void) | undefined;
+    let unsubscribeOutput: (() => void) | undefined;
+
+    unsubscribeRaw = pty.subscribeRawOutput(taskId, (data) => {
+      process.stdout.write(data);
+    });
+    unsubscribeOutput = pty.subscribeOutput(taskId, (evt) => {
+      unsubscribeRaw?.();
+      unsubscribeOutput?.();
+      resolve(evt);
+    });
   });
 }
 
