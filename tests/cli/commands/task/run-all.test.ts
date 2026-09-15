@@ -149,9 +149,12 @@ describe('runLoop', () => {
     cb!({ kind: 'done', exitCode: 0 });
     await runPromise;
 
+    // Negative lookahead so this doesn't also match the direct-mode prompt's
+    // '/agkan-subtask-direct' — proving the pr/direct prompts actually differ, not just
+    // that both happen to contain the shared '/agkan-subtask' prefix.
     expect(startProcess).toHaveBeenCalledWith(
       task.id,
-      expect.stringContaining('/agkan-subtask'),
+      expect.stringMatching(/\/agkan-subtask(?!-direct)/),
       'pr',
       undefined,
       undefined,
