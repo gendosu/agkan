@@ -17,7 +17,12 @@ import { getServiceContainer, ServiceContainer } from '../../utils/service-conta
 import { handleError } from '../../utils/error-handler';
 import { createFormatter } from '../../utils/output-formatter';
 import { selectNextTask } from '../../../board/taskSelection';
-import { buildClaudePrompt, resolveLaunchSettings, LaunchSettingsError } from '../../../board/claudePromptBuilder';
+import {
+  buildClaudePrompt,
+  resolveLaunchSettings,
+  LaunchSettingsError,
+  type LaunchSettings,
+} from '../../../board/claudePromptBuilder';
 
 interface RunAllOptions {
   withPr?: boolean;
@@ -114,11 +119,9 @@ export async function runLoop(container: ServiceContainer, withPr: boolean): Pro
       return 0;
     }
 
-    let agent: ReturnType<typeof resolveLaunchSettings>['agent'];
-    let model: string | undefined;
-    let effort: string | undefined;
+    let settings: LaunchSettings;
     try {
-      ({ agent, model, effort } = resolveLaunchSettings(taskService, taskId, 'run'));
+      settings = resolveLaunchSettings(taskService, taskId, 'run');
     } catch (e) {
       if (e instanceof LaunchSettingsError && e.source === 'task') {
         // Per-task catalog miss (e.g. a stale model_run/effort_run override): skip just
@@ -134,10 +137,17 @@ export async function runLoop(container: ServiceContainer, withPr: boolean): Pro
       return 1;
     }
 
+    const { agent, model, effort } = settings;
     const prompt = buildClaudePrompt(taskId, ptyCommand, undefined, { includeBranchInstruction: false });
 
     console.log(chalk.bold(`\n▶ Running task ${taskId} (${ptyCommand})...\n`));
     await ptySessionService.startProcess(taskId, prompt, ptyCommand, model, effort, agent);
+    // PtySessionService always spawns at a fixed 220x50 (sized for Board's browser terminal);
+    // resize to the real terminal so TUI escape sequences render correctly here. Guard for
+    // non-TTY stdout (piped/redirected), where columns/rows are undefined.
+    if (typeof process.stdout.columns === 'number' && typeof process.stdout.rows === 'number') {
+      ptySessionService.resize(taskId, process.stdout.columns, process.stdout.rows);
+    }
     const outcome = await waitForOutcome(ptySessionService, taskId);
 
     if (outcome.kind === 'error') {

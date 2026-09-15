@@ -28,6 +28,7 @@ function buildMockPty(overrides?: Partial<PtySessionService>): PtySessionService
     listRunningTasks: vi.fn().mockReturnValue([]),
     subscribeOutput: vi.fn().mockReturnValue(() => {}),
     subscribeRawOutput: vi.fn().mockReturnValue(() => {}),
+    resize: vi.fn(),
     isExplicitUserStop: vi.fn().mockReturnValue(false),
     ...overrides,
   } as unknown as PtySessionService;
@@ -156,6 +157,74 @@ describe('runLoop', () => {
       undefined,
       'claude'
     );
+  });
+
+  it('resizes the PTY to match a TTY stdout after starting the process', async () => {
+    const db = getStorageBackend();
+    const ts = new TaskService(db);
+    const tbs = new TaskBlockService(db);
+    const task = ts.createTask({ title: 'task', status: 'ready', priority: 'medium' });
+
+    let cb: OutputCallback | null = null;
+    const subscribeOutput = vi.fn().mockImplementation((_id: number, callback: OutputCallback) => {
+      cb = callback;
+      return () => {};
+    });
+    const startProcess = vi.fn().mockResolvedValue(undefined);
+    const resize = vi.fn();
+    const pty = buildMockPty({ startProcess, subscribeOutput, resize });
+    const container = buildContainer(pty, ts, tbs);
+
+    const originalColumns = process.stdout.columns;
+    const originalRows = process.stdout.rows;
+    process.stdout.columns = 120;
+    process.stdout.rows = 40;
+    try {
+      const runPromise = runLoop(container, false);
+      await Promise.resolve();
+      await Promise.resolve();
+      cb!({ kind: 'done', exitCode: 0 });
+      await runPromise;
+
+      expect(resize).toHaveBeenCalledWith(task.id, 120, 40);
+    } finally {
+      process.stdout.columns = originalColumns;
+      process.stdout.rows = originalRows;
+    }
+  });
+
+  it('does not resize when stdout is not a TTY (columns/rows undefined)', async () => {
+    const db = getStorageBackend();
+    const ts = new TaskService(db);
+    const tbs = new TaskBlockService(db);
+    ts.createTask({ title: 'task', status: 'ready', priority: 'medium' });
+
+    let cb: OutputCallback | null = null;
+    const subscribeOutput = vi.fn().mockImplementation((_id: number, callback: OutputCallback) => {
+      cb = callback;
+      return () => {};
+    });
+    const startProcess = vi.fn().mockResolvedValue(undefined);
+    const resize = vi.fn();
+    const pty = buildMockPty({ startProcess, subscribeOutput, resize });
+    const container = buildContainer(pty, ts, tbs);
+
+    const originalColumns = process.stdout.columns;
+    const originalRows = process.stdout.rows;
+    process.stdout.columns = undefined;
+    process.stdout.rows = undefined;
+    try {
+      const runPromise = runLoop(container, false);
+      await Promise.resolve();
+      await Promise.resolve();
+      cb!({ kind: 'done', exitCode: 0 });
+      await runPromise;
+
+      expect(resize).not.toHaveBeenCalled();
+    } finally {
+      process.stdout.columns = originalColumns;
+      process.stdout.rows = originalRows;
+    }
   });
 
   it('runs multiple ready tasks sequentially until none remain', async () => {
