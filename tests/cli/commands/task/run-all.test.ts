@@ -1,0 +1,346 @@
+/**
+ * Tests for `agkan task run-all`: CLI equivalent of Board's bulk "Run all"
+ * feature (BulkRunService), but stopping the whole run on the first failure
+ * instead of continuing to the next ready task.
+ */
+
+import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { Command } from 'commander';
+import { runCommand } from '../../../helpers/command-test-utils';
+import { setupTaskRunAllCommand, runLoop, previewRunOrder } from '../../../../src/cli/commands/task/run-all';
+import { resetDatabase } from '../../../../src/db/reset';
+import { getStorageBackend } from '../../../../src/db/connection';
+import { TaskService } from '../../../../src/services/TaskService';
+import { TaskBlockService } from '../../../../src/services/TaskBlockService';
+import type { PtySessionService } from '../../../../src/terminal/PtySessionService';
+import type { ServiceContainer } from '../../../../src/cli/utils/service-container';
+
+type OutputCallback = (event: { kind: 'done'; exitCode: number } | { kind: 'error'; message: string }) => void;
+
+function buildMockPty(overrides?: Partial<PtySessionService>): PtySessionService {
+  return {
+    startProcess: vi.fn().mockResolvedValue(undefined),
+    stopProcess: vi.fn().mockReturnValue(true),
+    listRunningTasks: vi.fn().mockReturnValue([]),
+    subscribeOutput: vi.fn().mockReturnValue(() => {}),
+    isExplicitUserStop: vi.fn().mockReturnValue(false),
+    ...overrides,
+  } as unknown as PtySessionService;
+}
+
+function buildContainer(pty: PtySessionService, ts: TaskService, tbs: TaskBlockService): ServiceContainer {
+  return {
+    taskService: ts,
+    taskBlockService: tbs,
+    taskTagService: {} as ServiceContainer['taskTagService'],
+    commentService: {} as ServiceContainer['commentService'],
+    tagService: {} as ServiceContainer['tagService'],
+    metadataService: {} as ServiceContainer['metadataService'],
+    ptySessionService: pty,
+  };
+}
+
+beforeEach(() => {
+  resetDatabase();
+});
+
+describe('runLoop', () => {
+  it('runs the highest priority ready task first, with ptyCommand "run" by default', async () => {
+    const db = getStorageBackend();
+    const ts = new TaskService(db);
+    const tbs = new TaskBlockService(db);
+    const low = ts.createTask({ title: 'low task', status: 'ready', priority: 'low' });
+    const high = ts.createTask({ title: 'high task', status: 'ready', priority: 'high' });
+
+    const outputCallbacks = new Map<number, OutputCallback>();
+    const subscribeOutput = vi.fn().mockImplementation((taskId: number, callback: OutputCallback) => {
+      outputCallbacks.set(taskId, callback);
+      return () => outputCallbacks.delete(taskId);
+    });
+    const startProcess = vi.fn().mockResolvedValue(undefined);
+    const pty = buildMockPty({ startProcess, subscribeOutput });
+    const container = buildContainer(pty, ts, tbs);
+
+    const runPromise = runLoop(container, false);
+    await Promise.resolve();
+    await Promise.resolve();
+    outputCallbacks.get(high.id)?.({ kind: 'done', exitCode: 0 });
+    await Promise.resolve();
+    await Promise.resolve();
+    outputCallbacks.get(low.id)?.({ kind: 'done', exitCode: 0 });
+    const exitCode = await runPromise;
+
+    expect(startProcess).toHaveBeenNthCalledWith(1, high.id, expect.any(String), 'run', undefined, undefined, 'claude');
+    expect(startProcess).toHaveBeenNthCalledWith(2, low.id, expect.any(String), 'run', undefined, undefined, 'claude');
+    expect(exitCode).toBe(0);
+    expect(ts.getTask(high.id)?.status).toBe('done');
+  });
+
+  it('uses ptyCommand "pr" when --with-pr is set', async () => {
+    const db = getStorageBackend();
+    const ts = new TaskService(db);
+    const tbs = new TaskBlockService(db);
+    const task = ts.createTask({ title: 'task', status: 'ready', priority: 'medium' });
+
+    let cb: OutputCallback | null = null;
+    const subscribeOutput = vi.fn().mockImplementation((_id: number, callback: OutputCallback) => {
+      cb = callback;
+      return () => {};
+    });
+    const startProcess = vi.fn().mockResolvedValue(undefined);
+    const pty = buildMockPty({ startProcess, subscribeOutput });
+    const container = buildContainer(pty, ts, tbs);
+
+    const runPromise = runLoop(container, true);
+    await Promise.resolve();
+    await Promise.resolve();
+    cb!({ kind: 'done', exitCode: 0 });
+    await runPromise;
+
+    expect(startProcess).toHaveBeenCalledWith(
+      task.id,
+      expect.stringContaining('/agkan-subtask'),
+      'pr',
+      undefined,
+      undefined,
+      'claude'
+    );
+  });
+
+  it('runs multiple ready tasks sequentially until none remain', async () => {
+    const db = getStorageBackend();
+    const ts = new TaskService(db);
+    const tbs = new TaskBlockService(db);
+    const task1 = ts.createTask({ title: 'task 1', status: 'ready', priority: 'high' });
+    const task2 = ts.createTask({ title: 'task 2', status: 'ready', priority: 'low' });
+
+    const startProcess = vi.fn().mockImplementation(async (taskId: number) => {
+      ts.updateTask(taskId, { status: 'in_progress' });
+    });
+    const outputCallbacks = new Map<number, OutputCallback>();
+    const subscribeOutput = vi.fn().mockImplementation((taskId: number, callback: OutputCallback) => {
+      outputCallbacks.set(taskId, callback);
+      return () => outputCallbacks.delete(taskId);
+    });
+    const pty = buildMockPty({ startProcess, subscribeOutput });
+    const container = buildContainer(pty, ts, tbs);
+
+    const runPromise = runLoop(container, false);
+    await Promise.resolve();
+    await Promise.resolve();
+    outputCallbacks.get(task1.id)?.({ kind: 'done', exitCode: 0 });
+    await Promise.resolve();
+    await Promise.resolve();
+    outputCallbacks.get(task2.id)?.({ kind: 'done', exitCode: 0 });
+    const exitCode = await runPromise;
+
+    expect(startProcess).toHaveBeenCalledTimes(2);
+    expect(exitCode).toBe(0);
+  });
+
+  it('stops the loop and returns a non-zero exit code on an error event', async () => {
+    const db = getStorageBackend();
+    const ts = new TaskService(db);
+    const tbs = new TaskBlockService(db);
+    ts.createTask({ title: 'task 1', status: 'ready', priority: 'high' });
+    ts.createTask({ title: 'task 2', status: 'ready', priority: 'low' });
+
+    const startProcess = vi.fn().mockResolvedValue(undefined);
+    const subscribeOutput = vi.fn().mockImplementation((_id: number, callback: OutputCallback) => {
+      callback({ kind: 'error', message: 'boom' });
+      return () => {};
+    });
+    const pty = buildMockPty({ startProcess, subscribeOutput });
+    const container = buildContainer(pty, ts, tbs);
+
+    const exitCode = await runLoop(container, false);
+
+    expect(exitCode).toBe(1);
+    expect(startProcess).toHaveBeenCalledTimes(1);
+  });
+
+  it('stops the loop and returns a non-zero exit code on a non-zero exitCode', async () => {
+    const db = getStorageBackend();
+    const ts = new TaskService(db);
+    const tbs = new TaskBlockService(db);
+    ts.createTask({ title: 'task 1', status: 'ready', priority: 'high' });
+    ts.createTask({ title: 'task 2', status: 'ready', priority: 'low' });
+
+    const startProcess = vi.fn().mockResolvedValue(undefined);
+    const subscribeOutput = vi.fn().mockImplementation((_id: number, callback: OutputCallback) => {
+      callback({ kind: 'done', exitCode: 1 });
+      return () => {};
+    });
+    const pty = buildMockPty({ startProcess, subscribeOutput });
+    const container = buildContainer(pty, ts, tbs);
+
+    const exitCode = await runLoop(container, false);
+
+    expect(exitCode).toBe(1);
+    expect(startProcess).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not update task status when a task fails', async () => {
+    const db = getStorageBackend();
+    const ts = new TaskService(db);
+    const tbs = new TaskBlockService(db);
+    const task = ts.createTask({ title: 'task 1', status: 'ready', priority: 'high' });
+    const updateTaskSpy = vi.spyOn(ts, 'updateTask');
+
+    const startProcess = vi.fn().mockResolvedValue(undefined);
+    const subscribeOutput = vi.fn().mockImplementation((_id: number, callback: OutputCallback) => {
+      callback({ kind: 'done', exitCode: 1 });
+      return () => {};
+    });
+    const pty = buildMockPty({ startProcess, subscribeOutput });
+    const container = buildContainer(pty, ts, tbs);
+
+    await runLoop(container, false);
+
+    expect(updateTaskSpy).not.toHaveBeenCalledWith(task.id, { status: 'done' });
+  });
+
+  it('returns 0 immediately when there is nothing ready to run', async () => {
+    const db = getStorageBackend();
+    const ts = new TaskService(db);
+    const tbs = new TaskBlockService(db);
+    const startProcess = vi.fn().mockResolvedValue(undefined);
+    const pty = buildMockPty({ startProcess });
+    const container = buildContainer(pty, ts, tbs);
+
+    const exitCode = await runLoop(container, false);
+
+    expect(exitCode).toBe(0);
+    expect(startProcess).not.toHaveBeenCalled();
+  });
+
+  it('skips a task whose model is not in the catalog and continues to the next one', async () => {
+    const db = getStorageBackend();
+    const ts = new TaskService(db);
+    const tbs = new TaskBlockService(db);
+    const broken = ts.createTask({ title: 'Broken Model Task', status: 'ready', priority: 'critical' });
+    ts.updateTask(broken.id, { model_run: 'gpt-5' });
+    const healthy = ts.createTask({ title: 'Healthy Task', status: 'ready', priority: 'high' });
+
+    const startProcess = vi.fn().mockResolvedValue(undefined);
+    const subscribeOutput = vi.fn().mockImplementation((_id: number, callback: OutputCallback) => {
+      callback({ kind: 'done', exitCode: 0 });
+      return () => {};
+    });
+    const pty = buildMockPty({ startProcess, subscribeOutput });
+    const container = buildContainer(pty, ts, tbs);
+
+    const exitCode = await runLoop(container, false);
+
+    expect(startProcess).toHaveBeenCalledTimes(1);
+    expect(startProcess).toHaveBeenCalledWith(healthy.id, expect.any(String), 'run', undefined, undefined, 'claude');
+    expect(exitCode).toBe(0);
+  });
+
+  it('excludes tasks with unresolved blockers (shared selection logic matches Board)', async () => {
+    const db = getStorageBackend();
+    const ts = new TaskService(db);
+    const tbs = new TaskBlockService(db);
+    const blocker = ts.createTask({ title: 'blocker', status: 'in_progress', priority: 'high' });
+    const blocked = ts.createTask({ title: 'blocked', status: 'ready', priority: 'critical' });
+    const free = ts.createTask({ title: 'free', status: 'ready', priority: 'low' });
+    tbs.addBlock({ blocker_task_id: blocker.id, blocked_task_id: blocked.id });
+
+    const startProcess = vi.fn().mockResolvedValue(undefined);
+    const subscribeOutput = vi.fn().mockImplementation((_id: number, callback: OutputCallback) => {
+      callback({ kind: 'done', exitCode: 0 });
+      return () => {};
+    });
+    const pty = buildMockPty({ startProcess, subscribeOutput });
+    const container = buildContainer(pty, ts, tbs);
+
+    await runLoop(container, false);
+
+    expect(startProcess).toHaveBeenCalledWith(free.id, expect.any(String), 'run', undefined, undefined, 'claude');
+    expect(startProcess).not.toHaveBeenCalledWith(
+      blocked.id,
+      expect.any(String),
+      expect.any(String),
+      undefined,
+      undefined,
+      'claude'
+    );
+  });
+});
+
+describe('previewRunOrder', () => {
+  it('returns the full ordered run list without launching anything', () => {
+    const db = getStorageBackend();
+    const ts = new TaskService(db);
+    const tbs = new TaskBlockService(db);
+    ts.createTask({ title: 'low task', status: 'ready', priority: 'low' });
+    const high = ts.createTask({ title: 'high task', status: 'ready', priority: 'high' });
+    const medium = ts.createTask({ title: 'medium task', status: 'ready', priority: 'medium' });
+
+    const preview = previewRunOrder(ts, tbs);
+
+    expect(preview.map((t) => t.id)).toEqual([high.id, medium.id, expect.any(Number)]);
+  });
+
+  it('returns an empty list when nothing is ready', () => {
+    const db = getStorageBackend();
+    const ts = new TaskService(db);
+    const tbs = new TaskBlockService(db);
+
+    expect(previewRunOrder(ts, tbs)).toEqual([]);
+  });
+});
+
+vi.mock('../../../../src/cli/utils/service-container', async () => {
+  const actual = await vi.importActual<typeof import('../../../../src/cli/utils/service-container')>(
+    '../../../../src/cli/utils/service-container'
+  );
+  return {
+    ...actual,
+    getServiceContainer: vi.fn(),
+  };
+});
+
+function buildRunAllProgram(): Command {
+  const program = new Command();
+  program.exitOverride();
+  program.command('task').description('Task management commands');
+  setupTaskRunAllCommand(program);
+  return program;
+}
+
+describe('setupTaskRunAllCommand (CLI wiring)', () => {
+  it('registers --with-pr, --dry-run and --json options', () => {
+    const program = buildRunAllProgram();
+    const taskCommand = program.commands.find((cmd) => cmd.name() === 'task');
+    const runAllCommand = taskCommand?.commands.find((cmd) => cmd.name() === 'run-all');
+    const optionNames = (runAllCommand?.options ?? []).map((opt) => opt.long);
+
+    expect(optionNames).toContain('--with-pr');
+    expect(optionNames).toContain('--dry-run');
+    expect(optionNames).toContain('--json');
+  });
+
+  it('--dry-run prints the preview and does not launch anything, --json produces parseable JSON', async () => {
+    const db = getStorageBackend();
+    const ts = new TaskService(db);
+    const tbs = new TaskBlockService(db);
+    const task = ts.createTask({ title: 'dry run task', status: 'ready', priority: 'high' });
+
+    const startProcess = vi.fn().mockResolvedValue(undefined);
+    const pty = buildMockPty({ startProcess });
+    const container = buildContainer(pty, ts, tbs);
+
+    const { getServiceContainer } = await import('../../../../src/cli/utils/service-container');
+    vi.mocked(getServiceContainer).mockReturnValue(container);
+
+    const program = buildRunAllProgram();
+    const { logs, exitCode } = await runCommand(program, ['task', 'run-all', '--dry-run', '--json']);
+
+    expect(startProcess).not.toHaveBeenCalled();
+    expect(exitCode).toBeUndefined();
+    const parsed = JSON.parse(logs.join('\n')) as { dryRun: boolean; tasks: Array<{ id: number }> };
+    expect(parsed.dryRun).toBe(true);
+    expect(parsed.tasks.map((t) => t.id)).toEqual([task.id]);
+  });
+});
