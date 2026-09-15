@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### 追加
+- 優先度順に ready タスクを逐次実行する `agkan task run-all` CLIコマンドを追加（Boardの一括「Run all」機能に相当）。1タスクでも失敗すると以降の実行を停止する。`--with-pr` でタスクごとにPRを作成するモードに切替、`--dry-run` で実行順序をプレビュー、`--json` で機械可読な出力に対応 (#747)
 - `task find` コマンドおよび Board のフリーテキスト検索が、title/body に加えて `task_metadata.value` にもマッチするようにした。PR URL や外部チケット番号等の汎用的な metadata 値でタスクを検索できる (#727)
 
 ### 修正

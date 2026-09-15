@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Add `agkan task run-all` CLI command to sequentially run all ready tasks in priority order (mirroring Board's bulk "Run all"), stopping the whole run on the first task failure; supports `--with-pr` to create a PR per task instead of running directly, `--dry-run` to preview the run order, and `--json` for machine-readable output (#747)
 - `task find` and the Board's free-text search now also match `task_metadata.value` (in addition to title/body), so tasks can be found by generic metadata values such as PR URLs or external ticket IDs (#727)
 
 ### Fixed
