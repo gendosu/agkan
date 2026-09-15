@@ -176,7 +176,7 @@ export function setupTaskRunAllCommand(program: Command): void {
     .command('run-all')
     .option('--with-pr', 'Create a PR for each task instead of running directly', false)
     .option('--dry-run', 'Preview the run order without launching anything', false)
-    .option('--json', 'Output in JSON format')
+    .option('--json', 'Output in JSON format (applies to --dry-run only)')
     .description("Sequentially run all ready tasks, mirroring Board's bulk Run all feature")
     .action(async (options: RunAllOptions) => {
       const formatter = createFormatter(options);
