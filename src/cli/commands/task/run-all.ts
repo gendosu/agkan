@@ -194,8 +194,13 @@ export function setupTaskRunAllCommand(program: Command): void {
 
         const exitCode = await runLoop(container, !!options.withPr);
         if (exitCode !== 0) {
-          process.exit(exitCode);
+          // Not process.exit(): this command has just written a large volume of live PTY
+          // output to stdout, and process.exit() does not wait for a piped stdout to drain —
+          // forcing it here could silently truncate the very output a failure needs to show.
+          // Setting exitCode and returning lets Node exit naturally once the pipe drains.
+          process.exitCode = exitCode;
         }
+        return;
       } catch (error) {
         if (error instanceof Error) {
           handleError(error, options);
@@ -204,7 +209,8 @@ export function setupTaskRunAllCommand(program: Command): void {
             console.error(chalk.red('\n✗ An unknown error occurred\n'));
           });
         }
-        process.exit(1);
+        process.exitCode = 1;
+        return;
       }
     });
 }
