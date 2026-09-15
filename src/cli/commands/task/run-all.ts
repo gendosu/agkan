@@ -34,17 +34,25 @@ export interface RunOrderPreviewItem {
 /**
  * Previews the full run order by repeatedly applying the same shared
  * selection rule BulkRunService and runLoop use, without launching anything.
+ *
+ * Each selected task is added to `resolved` (in addition to the `skipped`
+ * exclusion set) so a later task blocked only by an earlier one in this same
+ * preview is still included — the real run would unblock it once the earlier
+ * task actually completes, so the preview must simulate that instead of only
+ * checking each blocker's current (still 'ready') DB status.
  */
 export function previewRunOrder(ts: TaskService, tbs: TaskBlockService): RunOrderPreviewItem[] {
   const skipped = new Set<number>();
+  const resolved = new Set<number>();
   const preview: RunOrderPreviewItem[] = [];
   for (;;) {
-    const taskId = selectNextTask(ts, tbs, skipped);
+    const taskId = selectNextTask(ts, tbs, skipped, resolved);
     if (taskId === null) return preview;
     const task = ts.getTask(taskId);
     if (!task) return preview;
     preview.push({ id: task.id, title: task.title, priority: task.priority ?? null });
     skipped.add(taskId);
+    resolved.add(taskId);
   }
 }
 

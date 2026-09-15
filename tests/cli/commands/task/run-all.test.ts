@@ -365,6 +365,22 @@ describe('previewRunOrder', () => {
     expect(preview.map((t) => t.id)).toEqual([high.id, medium.id, expect.any(Number)]);
   });
 
+  it('includes a task only blocked by another task earlier in this same preview', () => {
+    const db = getStorageBackend();
+    const ts = new TaskService(db);
+    const tbs = new TaskBlockService(db);
+    const a = ts.createTask({ title: 'A', status: 'ready', priority: 'high' });
+    const b = ts.createTask({ title: 'B', status: 'ready', priority: 'critical' });
+    tbs.addBlock({ blocker_task_id: a.id, blocked_task_id: b.id });
+
+    const preview = previewRunOrder(ts, tbs);
+
+    // B outranks A on priority but is blocked by it; A is still 'ready' in the DB (it
+    // hasn't actually run), so the preview must simulate A completing to still include B —
+    // that's what the real run would do once A actually finishes.
+    expect(preview.map((t) => t.id)).toEqual([a.id, b.id]);
+  });
+
   it('returns an empty list when nothing is ready', () => {
     const db = getStorageBackend();
     const ts = new TaskService(db);

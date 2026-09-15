@@ -10,12 +10,16 @@ import { PRIORITY_ORDER } from '../models';
  * (a blocker counts as resolved once it is done/closed/review), ordered by
  * priority then id ascending. `skippedTaskIds` lets a caller exclude ids it has
  * already tried and failed to launch (e.g. a per-task catalog miss) without
- * those tasks re-appearing on the next call.
+ * those tasks re-appearing on the next call. `resolvedTaskIds` additionally
+ * treats a blocker as resolved regardless of its actual DB status — used to
+ * simulate a multi-task run order (e.g. a dry-run preview) where an earlier
+ * selected task is assumed to complete before the next selection is made.
  */
 export function selectNextTask(
   ts: TaskService,
   tbs: TaskBlockService,
-  skippedTaskIds: ReadonlySet<number> = new Set()
+  skippedTaskIds: ReadonlySet<number> = new Set(),
+  resolvedTaskIds: ReadonlySet<number> = new Set()
 ): number | null {
   const tasks = ts.listTasks({ status: 'ready' }, 'id', 'asc');
   const allBlocks = tbs.getAllBlocks();
@@ -33,6 +37,7 @@ export function selectNextTask(
     if (skippedTaskIds.has(task.id)) return false;
     const blockerIds = blockedByMap.get(task.id) ?? [];
     return blockerIds.every((bid) => {
+      if (resolvedTaskIds.has(bid)) return true;
       const blocker = ts.getTask(bid);
       return !blocker || blocker.status === 'done' || blocker.status === 'closed' || blocker.status === 'review';
     });
