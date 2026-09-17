@@ -33,6 +33,7 @@ import { fitTerminal, stopTerminal, getCurrentTerminalTaskId, attachTerminalToTa
 import { getRunningTaskIds } from './claudeButton';
 import { initBranchSelector, type BranchSelector } from './branchSelector';
 import { wireModelEffortSync } from './modelOptions';
+import { createMarkdownEditor, type MarkdownEditorInstance } from './markdownEditor';
 
 // State
 let detailTaskId: number | null = null;
@@ -43,6 +44,8 @@ let runLogLoadSeq = 0;
 let runLogsLoadedTaskId: number | null = null;
 let detailPanelRevision = 0;
 let detailFormEditRevision = 0;
+let renderedFormEditRevision = 0;
+let detailMarkdownEditor: MarkdownEditorInstance | null = null;
 
 // Branch selector instance, re-created on every renderDetailPanel call since
 // the branch input/dropdown elements are rebuilt with the panel HTML.
@@ -613,6 +616,7 @@ export function renderDetailPanel(data: TaskDetail): void {
 
   const revision = ++detailPanelRevision;
   detailFormEditRevision++;
+  renderedFormEditRevision = detailFormEditRevision;
   detailTaskId = task.id;
   detailPanelTitle.textContent = '#' + task.id;
   loadedModelEffort = {
@@ -666,9 +670,27 @@ export function renderDetailPanel(data: TaskDetail): void {
     document.getElementById('detail-save-btn')?.addEventListener('click', saveDetailTask);
   }
 
-  // Set up textarea auto-resize
+  // Set up textarea auto-resize and markdown editor
   const textarea = document.getElementById('detail-edit-body') as HTMLTextAreaElement;
   if (textarea) {
+    if (detailMarkdownEditor) {
+      detailMarkdownEditor.destroy();
+      detailMarkdownEditor = null;
+    }
+    detailMarkdownEditor = createMarkdownEditor(textarea, {
+      onInput: () => {
+        detailFormEditRevision++;
+        autoResizeTextarea(textarea);
+      },
+      onModeChange: (mode) => {
+        if (mode === 'write') {
+          requestAnimationFrame(() => {
+            autoResizeTextarea(textarea);
+          });
+        }
+      },
+    });
+
     // ResizeObserver fires whenever the textarea's content-box width changes —
     // including during the panel's CSS width transition — so autoResizeTextarea
     // always measures scrollHeight at the actual current width.
@@ -853,7 +875,11 @@ function finishDetailSave(context: DetailSaveContext, data: TaskDetail, savedEdi
   if (autosaveState) autosaveState.failed = null;
   const panelIsCurrent = isCurrentPanelWrite(context.taskId, context.panelRevision);
   const canRender = panelIsCurrent && detailFormEditRevision === savedEditRevision;
-  if (canRender) renderDetailPanel(data);
+  if (canRender) {
+    renderDetailPanel(data);
+  } else if (panelIsCurrent) {
+    renderedFormEditRevision = detailFormEditRevision;
+  }
   if (panelIsCurrent) showToast('Task saved successfully');
   void refreshBoardCards(canRender ? undefined : { suppressDetailRefresh: true });
 }
@@ -989,7 +1015,12 @@ export function initDetailPanel(): void {
     getDetailTaskId,
     getDetailActiveTab,
     setActiveCard,
+    isDetailDirty,
   });
 
   registerGetDetailTaskId(getDetailTaskId);
+}
+
+export function isDetailDirty(): boolean {
+  return detailFormEditRevision !== renderedFormEditRevision;
 }

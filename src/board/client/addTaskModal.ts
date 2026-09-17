@@ -6,6 +6,7 @@ import type { Tag } from './types';
 import { refreshBoardCards } from './boardPolling';
 import { initBranchSelector, type BranchSelector } from './branchSelector';
 import { rebuildEffortOptions, wireModelEffortSync } from './modelOptions';
+import { createMarkdownEditor, type MarkdownEditorInstance } from './markdownEditor';
 
 interface AddModalElements {
   addModal: HTMLElement;
@@ -30,6 +31,7 @@ let tagFocusedIndex = -1;
 // Branch selector instance, created once during init and reused across
 // modal opens (see resetAddModal / submitAddTask).
 let branchSelector: BranchSelector | null = null;
+let addMarkdownEditor: MarkdownEditorInstance | null = null;
 
 function getFilteredAddTags(): Tag[] {
   const selectedIds = new Set(selectedTags.map((t) => t.id));
@@ -240,6 +242,7 @@ function collectMetadata(container: HTMLElement): Array<{ key: string; value: st
 }
 
 function resetAddModal(elements: AddModalElements): void {
+  addMarkdownEditor?.reset();
   elements.addTitle.value = '';
   elements.addBody.value = '';
   elements.addPriority.value = 'medium';
@@ -334,6 +337,10 @@ export function initAddTaskModal(): void {
 
   wireModelEffortSync('add-model-planning', 'add-effort-planning');
   wireModelEffortSync('add-model-run', 'add-effort-run');
+
+  if (elements.addBody) {
+    addMarkdownEditor = createMarkdownEditor(elements.addBody);
+  }
 
   initAddTagSelector();
 

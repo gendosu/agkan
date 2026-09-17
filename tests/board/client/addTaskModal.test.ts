@@ -721,3 +721,75 @@ describe('add modal model/effort linkage', () => {
     expect(effortSelect.value).toBe('');
   });
 });
+
+describe('add modal markdown editor', () => {
+  beforeEach(() => {
+    setupAddModalDOM();
+    (window as unknown as Record<string, unknown>).modelCatalog = [];
+    (window as unknown as Record<string, unknown>).defaultAgent = 'claude';
+    vi.spyOn(tagsModule, 'loadAllTags').mockResolvedValue(undefined);
+    initAddTaskModal();
+  });
+
+  it('wraps add-body in markdown editor and toggles between write and preview', () => {
+    const addBody = document.getElementById('add-body') as HTMLTextAreaElement;
+    addBody.value = '## Hello Task';
+
+    const previewBtn = document.querySelector('.markdown-mode-btn[data-mode="preview"]') as HTMLButtonElement;
+    const writeBtn = document.querySelector('.markdown-mode-btn[data-mode="write"]') as HTMLButtonElement;
+    const preview = document.querySelector('.markdown-preview') as HTMLElement;
+
+    expect(previewBtn).not.toBeNull();
+    expect(preview.style.display).toBe('none');
+
+    // Switch to preview
+    previewBtn.click();
+    expect(addBody.style.display).toBe('none');
+    expect(preview.style.display).toBe('block');
+    expect(preview.innerHTML).toContain('<h2>Hello Task</h2>');
+
+    // Switch back to write
+    writeBtn.click();
+    expect(addBody.style.display).toBe('');
+    expect(preview.style.display).toBe('none');
+  });
+
+  it('resets markdown editor to write mode and clears preview when modal is reopened', () => {
+    const addBody = document.getElementById('add-body') as HTMLTextAreaElement;
+    addBody.value = 'Test body';
+
+    const previewBtn = document.querySelector('.markdown-mode-btn[data-mode="preview"]') as HTMLButtonElement;
+    previewBtn.click();
+
+    // Reopen modal
+    (document.querySelector('.add-btn') as HTMLButtonElement).click();
+
+    const preview = document.querySelector('.markdown-preview') as HTMLElement;
+    expect(addBody.style.display).toBe('');
+    expect(preview.style.display).toBe('none');
+    expect(addBody.value).toBe('');
+  });
+
+  it('submits body correctly even when submitted while in preview mode', async () => {
+    const fetchSpy = vi.fn().mockResolvedValue({ ok: true, json: () => Promise.resolve({}) });
+    global.fetch = fetchSpy;
+
+    const addTitle = document.getElementById('add-title') as HTMLInputElement;
+    const addBody = document.getElementById('add-body') as HTMLTextAreaElement;
+    addTitle.value = 'Title from preview';
+    addBody.value = '- Item 1\n- Item 2';
+
+    const previewBtn = document.querySelector('.markdown-mode-btn[data-mode="preview"]') as HTMLButtonElement;
+    previewBtn.click();
+
+    (document.getElementById('add-submit') as HTMLButtonElement).click();
+
+    await vi.waitFor(() => {
+      expect(fetchSpy).toHaveBeenCalled();
+      const call = fetchSpy.mock.calls.find((c) => c[0] === '/api/tasks');
+      expect(call).toBeDefined();
+      const payload = JSON.parse(call[1].body);
+      expect(payload.body).toBe('- Item 1\n- Item 2');
+    });
+  });
+});
