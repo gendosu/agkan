@@ -72,6 +72,20 @@ export function buildPermissionArgs(config: Config): string[] {
 }
 
 /**
+ * Codex's workspace-write sandbox blocks all network access by default, which also
+ * blocks the agkan CLI's board notification (`POST /api/board/notify` to localhost)
+ * from inside the session. Without it the DB is updated but the Board never learns
+ * about the change until a reload, so the sandbox must explicitly allow network
+ * access. `--config` values are parsed as TOML.
+ */
+const CODEX_WORKSPACE_WRITE_ARGS = [
+  '--sandbox',
+  'workspace-write',
+  '--config',
+  'sandbox_workspace_write.network_access=true',
+];
+
+/**
  * Build Codex CLI approval and sandbox arguments from the existing permission
  * setting. Modes without a direct Codex equivalent use the safe interactive
  * default.
@@ -82,11 +96,11 @@ export function buildCodexPermissionArgs(config: Config): string[] {
     case 'bypassPermissions':
       return ['--dangerously-bypass-approvals-and-sandbox'];
     case 'dontAsk':
-      return ['--ask-for-approval', 'never', '--sandbox', 'workspace-write'];
+      return ['--ask-for-approval', 'never', ...CODEX_WORKSPACE_WRITE_ARGS];
     case 'plan':
       return ['--ask-for-approval', 'never', '--sandbox', 'read-only'];
     default:
-      return ['--ask-for-approval', 'on-request', '--sandbox', 'workspace-write'];
+      return ['--ask-for-approval', 'on-request', ...CODEX_WORKSPACE_WRITE_ARGS];
   }
 }
 

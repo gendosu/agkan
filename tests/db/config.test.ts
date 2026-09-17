@@ -27,6 +27,7 @@ import {
   loadConfig,
   resolveAgentTool,
   resolveModelSettings,
+  buildCodexPermissionArgs,
   buildAgyPermissionArgs,
   buildGrokPermissionArgs,
   resolveProjectRoot,
@@ -92,6 +93,54 @@ describe('Agent tool resolution', () => {
     expect(() => resolveAgentTool({ agent: 'other' as 'claude' })).toThrow(
       'Invalid agent "other". Must be one of: claude, codex, agy, grok'
     );
+  });
+});
+
+describe('buildCodexPermissionArgs', () => {
+  // The agkan CLI run inside a Codex session notifies the Board over localhost HTTP;
+  // Codex's workspace-write sandbox blocks all network access by default, so the
+  // sandbox must explicitly allow it.
+  const NETWORK_ACCESS = ['--config', 'sandbox_workspace_write.network_access=true'];
+
+  it('maps skipPermissions to the unsafe bypass flag without a network override', () => {
+    expect(buildCodexPermissionArgs({ permissionMode: 'skipPermissions' })).toEqual([
+      '--dangerously-bypass-approvals-and-sandbox',
+    ]);
+  });
+
+  it('maps bypassPermissions to the unsafe bypass flag without a network override', () => {
+    expect(buildCodexPermissionArgs({ permissionMode: 'bypassPermissions' })).toEqual([
+      '--dangerously-bypass-approvals-and-sandbox',
+    ]);
+  });
+
+  it('maps dontAsk to the workspace-write sandbox with network access', () => {
+    expect(buildCodexPermissionArgs({ permissionMode: 'dontAsk' })).toEqual([
+      '--ask-for-approval',
+      'never',
+      '--sandbox',
+      'workspace-write',
+      ...NETWORK_ACCESS,
+    ]);
+  });
+
+  it('maps plan to the read-only sandbox without a network override', () => {
+    expect(buildCodexPermissionArgs({ permissionMode: 'plan' })).toEqual([
+      '--ask-for-approval',
+      'never',
+      '--sandbox',
+      'read-only',
+    ]);
+  });
+
+  it('maps an unset permission mode to the workspace-write sandbox with network access', () => {
+    expect(buildCodexPermissionArgs({})).toEqual([
+      '--ask-for-approval',
+      'on-request',
+      '--sandbox',
+      'workspace-write',
+      ...NETWORK_ACCESS,
+    ]);
   });
 });
 

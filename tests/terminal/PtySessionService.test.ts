@@ -699,6 +699,8 @@ describe('PtySessionService - model/effort/boardApiUrl args', () => {
       'on-request',
       '--sandbox',
       'workspace-write',
+      '--config',
+      'sandbox_workspace_write.network_access=true',
       '--',
       'Task ID: 1',
     ]);
@@ -728,6 +730,8 @@ describe('PtySessionService - model/effort/boardApiUrl args', () => {
       'on-request',
       '--sandbox',
       'workspace-write',
+      '--config',
+      'sandbox_workspace_write.network_access=true',
       '--',
       'Task ID: 1',
     ]);
