@@ -10,6 +10,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - `task find` and the Board's free-text search now also match `task_metadata.value` (in addition to title/body), so tasks can be found by generic metadata values such as PR URLs or external ticket IDs (#727)
 
+### Fixed
+- Allow network access in the Codex `workspace-write` sandbox (`--config sandbox_workspace_write.network_access=true`) when the Board starts a Codex session with the default or `dontAsk` permission mode. The sandbox blocked the agkan CLI's localhost notification to the Board, so `agkan task update <id> status ...` run inside a Codex session updated the DB but the card did not move until the page was reloaded (#753)
+
 ## [3.25.0] - 2026-09-12
 
 ### Added
