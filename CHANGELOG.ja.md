@@ -10,6 +10,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### 追加
 - `task find` コマンドおよび Board のフリーテキスト検索が、title/body に加えて `task_metadata.value` にもマッチするようにした。PR URL や外部チケット番号等の汎用的な metadata 値でタスクを検索できる (#727)
 
+### 修正
+- Board が `permissionMode` 未設定または `dontAsk` で Codex セッションを起動する際、`workspace-write` サンドボックスのネットワークアクセスを許可するようにした（`--config sandbox_workspace_write.network_access=true`）。サンドボックスが agkan CLI から Board への localhost 通知を遮断していたため、Codex セッション内で `agkan task update <id> status ...` を実行しても DB は更新されるのにカードがリロードまで移動しなかった。Codex にはループバックのみを許可する設定がないため、セッション全体の外部通信が許可される点に注意 (#753)
+
 ## [3.25.0] - 2026-09-12
 
 ### 追加
