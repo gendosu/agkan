@@ -124,9 +124,9 @@ export class BulkRunService {
   private buildLaunchParams(taskId: number): LaunchParams {
     const command = this.command!;
     const ptyCommand: 'pr' | 'run' = command === 'pr' ? 'pr' : 'run';
-    // Bulk runs preserve their existing behavior of omitting branch instructions.
-    const prompt = buildClaudePrompt(taskId, ptyCommand, undefined, { includeBranchInstruction: false });
     const { agent, model, effort } = resolveLaunchSettings(this.taskService, taskId, 'run');
+    // Bulk runs preserve their existing behavior of omitting branch instructions.
+    const prompt = buildClaudePrompt(taskId, ptyCommand, undefined, { includeBranchInstruction: false, agent });
     return { prompt, ptyCommand, model, effort, agent };
   }
 
