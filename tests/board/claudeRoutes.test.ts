@@ -300,6 +300,31 @@ describe('POST /api/claude/tasks/:taskId/run', () => {
     expect(mock.startProcess).toHaveBeenCalledWith(task.id, expect.any(String), 'run', 'gpt-codex', 'high', 'codex');
   });
 
+  it('builds a name-based skill instruction when the resolved agent is agy', async () => {
+    fs.writeFileSync(TEST_AGKAN_CONFIG, yaml.dump({ agent: 'agy' }));
+    const mock = buildMockClaudeProcessService();
+    const services = buildServices(mock);
+    const task = services.ts.createTask({ title: 'Agy prompt task', status: 'ready', branch: 'feature/agy' });
+    const app = buildApp(services);
+
+    await app.fetch(
+      new Request('http://localhost/api/claude/tasks/' + task.id + '/run', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ command: 'run' }),
+      })
+    );
+
+    expect(mock.startProcess).toHaveBeenCalledWith(
+      task.id,
+      `Task ID: ${task.id}\nUse "agkan-subtask-direct" to execute this task\n\nWhen you have completed this task, send 'exit' as a prompt (not as a bash command) to end this session.`,
+      'run',
+      undefined,
+      undefined,
+      'agy'
+    );
+  });
+
   it('passes effort only (no model) from config to startProcess', async () => {
     fs.writeFileSync(TEST_AGKAN_CONFIG, yaml.dump({ models: { run: { effort: 'max' } } }));
     const mock = buildMockClaudeProcessService();

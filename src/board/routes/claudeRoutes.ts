@@ -37,8 +37,6 @@ export function registerClaudeRoutes(
     const body = (await c.req.json().catch(() => ({}))) as { command?: string };
     const command = parseClaudeCommand(body.command);
 
-    const prompt = buildClaudePrompt(taskId, command, task.branch);
-
     let agent: LaunchSettings['agent'];
     let model: string | undefined;
     let effort: string | undefined;
@@ -51,6 +49,8 @@ export function registerClaudeRoutes(
       console.error(`[boardRoutes] failed to resolve launch settings for taskId=${taskId}:`, e);
       return c.json({ error: e instanceof Error ? e.message : 'Failed to resolve launch settings' }, 500);
     }
+
+    const prompt = buildClaudePrompt(taskId, command, task.branch, { agent });
 
     try {
       await claudeProcess.startProcess(taskId, prompt, command, model, effort, agent);
