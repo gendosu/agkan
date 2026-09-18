@@ -15,9 +15,14 @@ export function parseClaudeCommand(rawCommand: unknown): ClaudeCommand {
   return rawCommand === 'planning' ? 'planning' : rawCommand === 'pr' ? 'pr' : 'run';
 }
 
-export function buildClaudePrompt(taskId: number, command: ClaudeCommand, branch: string | null | undefined): string {
+export function buildClaudePrompt(
+  taskId: number,
+  command: ClaudeCommand,
+  branch: string | null | undefined,
+  { includeBranchInstruction = true }: { includeBranchInstruction?: boolean } = {}
+): string {
   const branchInstruction =
-    command === 'planning'
+    command === 'planning' || !includeBranchInstruction
       ? ''
       : !branch || branch === BRANCH_AUTO_GENERATE
         ? `\n\nNo branch specified: Read this task's title and body, and generate an appropriate git branch name for the work. Format: task/${taskId}-<kebab-case> (alphanumeric characters and hyphens only, maximum 60 characters). Run git checkout -b with the generated branch name before starting work, then save the branch field via PATCH /api/tasks/${taskId} (body: { "branch": "<generated-branch-name>" }) after starting work.`

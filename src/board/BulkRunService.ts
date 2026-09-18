@@ -2,7 +2,7 @@ import { TaskService } from '../services/TaskService';
 import { TaskBlockService } from '../services/TaskBlockService';
 import { PtySessionService } from '../terminal/PtySessionService';
 import { PRIORITY_ORDER } from '../models';
-import { resolveLaunchSettings, LaunchSettingsError } from './claudePromptBuilder';
+import { buildClaudePrompt, resolveLaunchSettings, LaunchSettingsError } from './claudePromptBuilder';
 import type { AgentTool } from '../db/config';
 
 export type BulkRunCommand = 'direct' | 'pr';
@@ -156,12 +156,8 @@ export class BulkRunService {
   private buildLaunchParams(taskId: number): LaunchParams {
     const command = this.command!;
     const ptyCommand: 'pr' | 'run' = command === 'pr' ? 'pr' : 'run';
-    const exitInstruction =
-      "\n\nWhen you have completed this task, send 'exit' as a prompt (not as a bash command) to end this session.";
-    const prompt =
-      command === 'pr'
-        ? `Task ID: ${taskId}\n/agkan-subtask${exitInstruction}`
-        : `Task ID: ${taskId}\n/agkan-subtask-direct${exitInstruction}`;
+    // Bulk runs preserve their existing behavior of omitting branch instructions.
+    const prompt = buildClaudePrompt(taskId, ptyCommand, undefined, { includeBranchInstruction: false });
     const { agent, model, effort } = resolveLaunchSettings(this.taskService, taskId, 'run');
     return { prompt, ptyCommand, model, effort, agent };
   }

@@ -50,6 +50,36 @@ describe('buildClaudePrompt', () => {
   const exitInstruction =
     "\n\nWhen you have completed this task, send 'exit' as a prompt (not as a bash command) to end this session.";
 
+  describe.each([
+    ['planning', 'agkan-planning-subtask'],
+    ['pr', 'agkan-subtask'],
+    ['run', 'agkan-subtask-direct'],
+  ] as const)('%s branch instructions', (command, skill) => {
+    it.each([undefined, null, '', '<auto-generate>', 'feature/foo'])(
+      'preserves the default output for branch %s',
+      (branch) => {
+        const branchInstruction =
+          command !== 'planning' && (!branch || branch === '<auto-generate>')
+            ? '\n\nNo branch specified: Read this task\'s title and body, and generate an appropriate git branch name for the work. Format: task/2-<kebab-case> (alphanumeric characters and hyphens only, maximum 60 characters). Run git checkout -b with the generated branch name before starting work, then save the branch field via PATCH /api/tasks/2 (body: { "branch": "<generated-branch-name>" }) after starting work.'
+            : '';
+        const expected = `Task ID: 2\n/${skill}${branchInstruction}${exitInstruction}`;
+
+        expect(buildClaudePrompt(2, command, branch)).toBe(expected);
+        expect(buildClaudePrompt(2, command, branch, {})).toBe(expected);
+        expect(buildClaudePrompt(2, command, branch, { includeBranchInstruction: true })).toBe(expected);
+      }
+    );
+
+    it.each([undefined, null, '', '<auto-generate>', 'feature/foo'])(
+      'omits branch instructions explicitly for branch %s',
+      (branch) => {
+        expect(buildClaudePrompt(2, command, branch, { includeBranchInstruction: false })).toBe(
+          `Task ID: 2\n/${skill}${exitInstruction}`
+        );
+      }
+    );
+  });
+
   it('builds the planning prompt without a branch instruction, even without a branch', () => {
     expect(buildClaudePrompt(1, 'planning', null)).toBe(`Task ID: 1\n/agkan-planning-subtask${exitInstruction}`);
   });

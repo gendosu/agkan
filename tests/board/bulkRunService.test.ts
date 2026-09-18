@@ -233,26 +233,30 @@ describe('BulkRunService task selection', () => {
     expect(service.getStatus().mode).toBe('idle');
   });
 
-  it('uses pr command when started with pr', async () => {
+  it.each([
+    ['direct', 'run', 'agkan-subtask-direct'],
+    ['pr', 'pr', 'agkan-subtask'],
+  ] as const)('launches %s with the exact prompt and no branch instruction', async (command, ptyCommand, skill) => {
     const db = getStorageBackend();
     const ts = new TaskService(db);
     const tbs = new TaskBlockService(db);
 
-    ts.createTask({ title: 'task', status: 'ready', priority: 'medium' });
+    const task = ts.createTask({ title: 'task', status: 'ready', priority: 'medium' });
 
     const startProcess = vi.fn().mockResolvedValue(undefined);
     const pty = buildMockPty({ startProcess });
     const service = new BulkRunService(ts, tbs, pty);
-    await service.start('pr');
+    await service.start(command);
 
     expect(startProcess).toHaveBeenCalledWith(
-      expect.any(Number),
-      expect.stringContaining('/agkan-subtask'),
-      'pr',
+      task.id,
+      `Task ID: ${task.id}\n/${skill}\n\nWhen you have completed this task, send 'exit' as a prompt (not as a bash command) to end this session.`,
+      ptyCommand,
       undefined,
       undefined,
       'claude'
     );
+    service.stop();
   });
 
   it('returns error when already running', async () => {
