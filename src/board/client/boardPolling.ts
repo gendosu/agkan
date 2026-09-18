@@ -33,6 +33,7 @@ let _showUpdateWarning: (() => void) | null = null;
 let _getDetailTaskId: (() => number | null) | null = null;
 let _getDetailActiveTab: (() => string) | null = null;
 let _setActiveCard: ((taskId: number | null) => void) | null = null;
+let _isDetailDirty: (() => boolean) | null = null;
 let _redrawDependencies: (() => void) | null = null;
 const detailRefreshSuppressedUntil = new Map<number, number>();
 
@@ -73,6 +74,7 @@ export function registerDetailPanelCallbacks(callbacks: {
   getDetailTaskId: () => number | null;
   getDetailActiveTab: () => string;
   setActiveCard: (taskId: number | null) => void;
+  isDetailDirty?: () => boolean;
 }): void {
   detailRefreshSuppressedUntil.clear();
   _openTaskDetail = callbacks.openTaskDetail;
@@ -81,6 +83,7 @@ export function registerDetailPanelCallbacks(callbacks: {
   _getDetailTaskId = callbacks.getDetailTaskId;
   _getDetailActiveTab = callbacks.getDetailActiveTab;
   _setActiveCard = callbacks.setActiveCard;
+  _isDetailDirty = callbacks.isDetailDirty || null;
 }
 
 export function registerDependencyRedrawCallback(callback: () => void): void {
@@ -239,7 +242,19 @@ function isEditingDetailPanel(): boolean {
     'detail-edit-model-run',
     'detail-edit-effort-run',
   ];
-  return editableFields.some((id) => document.activeElement && document.activeElement.id === id);
+  if (editableFields.some((id) => document.activeElement && document.activeElement.id === id)) {
+    return true;
+  }
+  if (
+    document.activeElement &&
+    (document.activeElement.closest('.markdown-editor') || document.activeElement.closest('.description-field-wrapper'))
+  ) {
+    return true;
+  }
+  if (_isDetailDirty && _isDetailDirty()) {
+    return true;
+  }
+  return false;
 }
 
 async function refreshOpenDetailPanel(detailTaskId: number): Promise<void> {

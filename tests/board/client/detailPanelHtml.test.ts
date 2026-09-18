@@ -575,6 +575,22 @@ describe('renderEditableTextFields', () => {
     const html = renderEditableTextFields(makeTaskDetail().task);
     expect(html).toContain('Description');
   });
+
+  it('renders markdown editor wrapper, toolbar, format buttons, mode tabs, and preview', () => {
+    const html = renderEditableTextFields(makeTaskDetail().task);
+    const div = document.createElement('div');
+    div.innerHTML = html;
+
+    expect(div.querySelector('.markdown-editor')).not.toBeNull();
+    expect(div.querySelector('.markdown-editor-toolbar')).not.toBeNull();
+    expect(div.querySelector('.markdown-toolbar-btn[data-format="heading"]')).not.toBeNull();
+    expect(div.querySelector('.markdown-toolbar-btn[data-format="list"]')).not.toBeNull();
+    expect(div.querySelector('.markdown-toolbar-btn[data-format="code"]')).not.toBeNull();
+    expect(div.querySelector('.markdown-toolbar-btn[data-format="link"]')).not.toBeNull();
+    expect(div.querySelector('.markdown-mode-btn[data-mode="write"]')).not.toBeNull();
+    expect(div.querySelector('.markdown-mode-btn[data-mode="preview"]')).not.toBeNull();
+    expect(div.querySelector('.markdown-preview')).not.toBeNull();
+  });
 });
 
 // ---- renderModelFields ----

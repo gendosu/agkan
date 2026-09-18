@@ -162,6 +162,36 @@ export const BOARD_STYLES = `
     .detail-edit-textarea:focus { outline: none; border-color: #3b82f6; box-shadow: 0 0 0 2px rgba(59,130,246,0.2); }
     .detail-edit-select { width: 100%; border: 1px solid var(--border-color); border-radius: 6px; padding: 7px 10px; font-size: 13px; font-family: inherit; background: var(--input-bg); color: var(--text-primary); }
     .detail-edit-select:focus { outline: none; border-color: #3b82f6; box-shadow: 0 0 0 2px rgba(59,130,246,0.2); }
+    .markdown-editor { width: 100%; margin-bottom: 12px; }
+    .detail-field .markdown-editor { margin-bottom: 0; }
+    .markdown-editor-toolbar { display: flex; justify-content: space-between; align-items: center; padding: 4px 6px; background: var(--bg-surface-subtle); border: 1px solid var(--border-color); border-bottom: none; border-radius: 6px 6px 0 0; gap: 8px; }
+    .markdown-editor-actions { display: flex; gap: 4px; align-items: center; }
+    .markdown-toolbar-btn { background: transparent; border: 1px solid transparent; border-radius: 4px; padding: 2px 7px; font-size: 11px; font-weight: 600; font-family: inherit; color: var(--text-secondary); cursor: pointer; line-height: 1.4; }
+    .markdown-toolbar-btn:hover:not(:disabled) { background: var(--bg-surface-hover); color: var(--text-primary); border-color: var(--border-color); }
+    .markdown-toolbar-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+    .markdown-editor-modes { display: flex; gap: 2px; }
+    .markdown-mode-btn { background: transparent; border: 1px solid transparent; border-radius: 4px; padding: 2px 8px; font-size: 11px; font-weight: 500; color: var(--text-secondary); cursor: pointer; }
+    .markdown-mode-btn:hover { color: var(--text-primary); }
+    .markdown-mode-btn.active { background: var(--bg-surface); border-color: var(--border-color); color: var(--text-primary); font-weight: 600; box-shadow: 0 1px 2px rgba(0,0,0,0.05); }
+    .markdown-editor-body { position: relative; }
+    .markdown-editor-body textarea { border-top-left-radius: 0 !important; border-top-right-radius: 0 !important; margin-bottom: 0 !important; }
+    .markdown-preview { width: 100%; border: 1px solid var(--border-color); border-radius: 0 0 6px 6px; padding: 8px 12px; min-height: 80px; max-height: 400px; overflow-y: auto; background: var(--input-bg); color: var(--text-primary); font-size: 13px; line-height: 1.6; word-break: break-word; }
+    .markdown-preview h1, .markdown-preview h2, .markdown-preview h3, .markdown-preview h4, .markdown-preview h5, .markdown-preview h6 { margin: 8px 0 4px; font-weight: 600; line-height: 1.3; color: var(--text-primary); }
+    .markdown-preview h1 { font-size: 1.3em; border-bottom: 1px solid var(--border-color); padding-bottom: 4px; }
+    .markdown-preview h2 { font-size: 1.15em; border-bottom: 1px solid var(--border-color); padding-bottom: 2px; }
+    .markdown-preview h3 { font-size: 1.05em; }
+    .markdown-preview p { margin: 4px 0 8px; }
+    .markdown-preview ul, .markdown-preview ol { margin: 4px 0 8px; padding-left: 20px; }
+    .markdown-preview li { margin: 2px 0; }
+    .markdown-preview code { background: rgba(0, 0, 0, 0.06); padding: 2px 4px; border-radius: 4px; font-size: 0.9em; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; }
+    .markdown-preview pre { background: rgba(0, 0, 0, 0.05); padding: 8px 10px; border-radius: 6px; overflow-x: auto; margin: 6px 0; }
+    .markdown-preview pre code { background: transparent; padding: 0; }
+    .markdown-preview a { color: #2563eb; text-decoration: underline; }
+    .markdown-preview blockquote { border-left: 3px solid var(--border-color); margin: 6px 0; padding-left: 8px; color: var(--text-secondary); }
+    .markdown-preview-empty { color: var(--text-muted); font-style: italic; }
+    [data-theme="dark"] .markdown-preview code { background: rgba(255, 255, 255, 0.1); }
+    [data-theme="dark"] .markdown-preview pre { background: rgba(0, 0, 0, 0.3); }
+    [data-theme="dark"] .markdown-preview a { color: #60a5fa; }
     .tag-select-wrapper { position: relative; }
     .tag-select-control { border: 1px solid var(--border-color); border-radius: 6px; padding: 4px 8px; min-height: 36px; cursor: text; display: flex; flex-wrap: wrap; gap: 4px; align-items: center; background: var(--input-bg); }
     .tag-select-control:focus-within { border-color: #3b82f6; box-shadow: 0 0 0 2px rgba(59,130,246,0.2); }

@@ -567,6 +567,83 @@ describe('refreshBoardCards', () => {
 
     expect(renderDetailPanel).toHaveBeenCalled();
   });
+
+  it('shows update warning when focus is on a markdown editor button during task update', async () => {
+    document.getElementById('col-backlog')!.innerHTML =
+      '<div class="card" data-id="1" data-status="backlog" data-updated-at="2026-01-01T00:00:00.000Z"></div>';
+
+    const editorDiv = document.createElement('div');
+    editorDiv.className = 'markdown-editor';
+    const toolbarBtn = document.createElement('button');
+    toolbarBtn.className = 'markdown-toolbar-btn';
+    editorDiv.appendChild(toolbarBtn);
+    document.body.appendChild(editorDiv);
+    toolbarBtn.focus();
+
+    const showUpdateWarning = vi.fn();
+    const renderDetailPanel = vi.fn();
+    registerDetailPanelCallbacks({
+      openTaskDetail: vi.fn(),
+      renderDetailPanel,
+      showUpdateWarning,
+      getDetailTaskId: vi.fn().mockReturnValue(1),
+      getDetailActiveTab: vi.fn().mockReturnValue('details'),
+      setActiveCard: vi.fn(),
+    });
+
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: vi.fn().mockResolvedValue({
+        columns: [
+          {
+            status: 'backlog',
+            html: '<div class="card" data-id="1" data-status="backlog" data-updated-at="2026-01-02T00:00:00.000Z"></div>',
+            count: 1,
+          },
+        ],
+      }),
+    });
+
+    await refreshBoardCards();
+
+    expect(showUpdateWarning).toHaveBeenCalled();
+    expect(renderDetailPanel).not.toHaveBeenCalled();
+  });
+
+  it('shows update warning when detail panel has unsaved changes via isDetailDirty', async () => {
+    document.getElementById('col-backlog')!.innerHTML =
+      '<div class="card" data-id="1" data-status="backlog" data-updated-at="2026-01-01T00:00:00.000Z"></div>';
+
+    const showUpdateWarning = vi.fn();
+    const renderDetailPanel = vi.fn();
+    registerDetailPanelCallbacks({
+      openTaskDetail: vi.fn(),
+      renderDetailPanel,
+      showUpdateWarning,
+      getDetailTaskId: vi.fn().mockReturnValue(1),
+      getDetailActiveTab: vi.fn().mockReturnValue('details'),
+      setActiveCard: vi.fn(),
+      isDetailDirty: () => true,
+    });
+
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: vi.fn().mockResolvedValue({
+        columns: [
+          {
+            status: 'backlog',
+            html: '<div class="card" data-id="1" data-status="backlog" data-updated-at="2026-01-02T00:00:00.000Z"></div>',
+            count: 1,
+          },
+        ],
+      }),
+    });
+
+    await refreshBoardCards();
+
+    expect(showUpdateWarning).toHaveBeenCalled();
+    expect(renderDetailPanel).not.toHaveBeenCalled();
+  });
 });
 
 describe('registerDetailPanelCallbacks', () => {
