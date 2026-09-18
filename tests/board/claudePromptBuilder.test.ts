@@ -80,6 +80,42 @@ describe('buildClaudePrompt', () => {
     );
   });
 
+  // agy ignores a slash command in its initial prompt, so it gets a name-based
+  // instruction instead. The agent is passed explicitly rather than read from
+  // .agkan-test.yml (see the race note in the resolveLaunchSettings tests).
+  describe.each([
+    ['planning', 'agkan-planning-subtask'],
+    ['pr', 'agkan-subtask'],
+    ['run', 'agkan-subtask-direct'],
+  ] as const)('%s with an explicit agent', (command, skill) => {
+    it.each(['claude', 'codex', 'grok'] as const)('keeps the slash command for %s', (agent) => {
+      expect(buildClaudePrompt(2, command, 'feature/foo', { agent })).toBe(`Task ID: 2\n/${skill}${exitInstruction}`);
+      expect(buildClaudePrompt(2, command, null, { agent })).toBe(buildClaudePrompt(2, command, null));
+    });
+
+    it('replaces the slash command with a name-based instruction for agy', () => {
+      expect(buildClaudePrompt(2, command, 'feature/foo', { agent: 'agy' })).toBe(
+        `Task ID: 2\nUse "${skill}" to execute this task${exitInstruction}`
+      );
+    });
+
+    it('omits branch instructions for agy when includeBranchInstruction is false', () => {
+      expect(buildClaudePrompt(2, command, null, { agent: 'agy', includeBranchInstruction: false })).toBe(
+        `Task ID: 2\nUse "${skill}" to execute this task${exitInstruction}`
+      );
+    });
+
+    it('changes only the skill line for agy when a branch instruction applies', () => {
+      const claudePrompt = buildClaudePrompt(2, command, null);
+      expect(buildClaudePrompt(2, command, null, { agent: 'agy' })).toBe(
+        claudePrompt.replace(`/${skill}`, `Use "${skill}" to execute this task`)
+      );
+      expect(buildClaudePrompt(2, command, '<auto-generate>', { agent: 'agy' })).toBe(
+        buildClaudePrompt(2, command, null, { agent: 'agy' })
+      );
+    });
+  });
+
   it('builds the planning prompt without a branch instruction, even without a branch', () => {
     expect(buildClaudePrompt(1, 'planning', null)).toBe(`Task ID: 1\n/agkan-planning-subtask${exitInstruction}`);
   });
