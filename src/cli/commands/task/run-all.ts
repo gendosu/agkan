@@ -138,7 +138,7 @@ export async function runLoop(container: ServiceContainer, withPr: boolean): Pro
     }
 
     const { agent, model, effort } = settings;
-    const prompt = buildClaudePrompt(taskId, ptyCommand, undefined, { includeBranchInstruction: false });
+    const prompt = buildClaudePrompt(taskId, ptyCommand, undefined, { includeBranchInstruction: false, agent });
 
     console.log(chalk.bold(`\n▶ Running task ${taskId} (${ptyCommand})...\n`));
     await ptySessionService.startProcess(taskId, prompt, ptyCommand, model, effort, agent);

@@ -162,6 +162,47 @@ describe('runLoop', () => {
     );
   });
 
+  it.each([
+    [false, 'run', 'agkan-subtask-direct'],
+    [true, 'pr', 'agkan-subtask'],
+  ] as const)(
+    'launches with a name-based skill instruction when the agent is agy (withPr=%s)',
+    async (withPr, ptyCommand, skill) => {
+      const db = getStorageBackend();
+      const ts = new TaskService(db);
+      const tbs = new TaskBlockService(db);
+      const task = ts.createTask({ title: 'task', status: 'ready', priority: 'medium' });
+
+      const startProcess = vi.fn().mockResolvedValue(undefined);
+      const subscribeOutput = vi.fn().mockImplementation((_id: number, callback: OutputCallback) => {
+        callback({ kind: 'done', exitCode: 0 });
+        return () => {};
+      });
+      const pty = buildMockPty({ startProcess, subscribeOutput });
+      const container = buildContainer(pty, ts, tbs);
+
+      const tmpCwd = fs.mkdtempSync(path.join(os.tmpdir(), 'agkan-run-all-test-'));
+      const cwdSpy = vi.spyOn(process, 'cwd').mockReturnValue(tmpCwd);
+      try {
+        fs.writeFileSync(path.join(tmpCwd, '.agkan-test.yml'), yaml.dump({ agent: 'agy' }));
+
+        await runLoop(container, withPr);
+
+        expect(startProcess).toHaveBeenCalledWith(
+          task.id,
+          `Task ID: ${task.id}\nUse "${skill}" to execute this task\n\nWhen you have completed this task, send 'exit' as a prompt (not as a bash command) to end this session.`,
+          ptyCommand,
+          undefined,
+          undefined,
+          'agy'
+        );
+      } finally {
+        cwdSpy.mockRestore();
+        fs.rmSync(tmpCwd, { recursive: true, force: true });
+      }
+    }
+  );
+
   it('resizes the PTY to match a TTY stdout after starting the process', async () => {
     const db = getStorageBackend();
     const ts = new TaskService(db);
