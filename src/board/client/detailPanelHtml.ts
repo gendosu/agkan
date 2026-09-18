@@ -4,6 +4,7 @@ import type { TaskDetail } from './types';
 import { escapeHtmlClient, relativeTime } from './utils';
 import { BRANCH_AUTO_GENERATE, BRANCH_AUTO_GENERATE_DISPLAY } from './branchSelector';
 import { getModelCatalog, effortsForModel } from './modelOptions';
+import { renderMarkdownEditorHtml } from './markdownEditor';
 
 export function renderCommentItemHtml(
   comment: { id: number; content: string; author?: string | null; created_at?: string },
@@ -256,8 +257,11 @@ export function renderEditableTextFields(task: TaskDetail['task']): string {
     '<input id="detail-edit-title" class="detail-edit-input" type="text" value="' + escapeHtmlClient(task.title) + '">';
   html += '</div>';
   html += '<div class="detail-field description-field-wrapper"><div class="detail-field-label">Description</div>';
-  html +=
-    '<textarea id="detail-edit-body" class="detail-edit-textarea">' + escapeHtmlClient(task.body || '') + '</textarea>';
+  html += renderMarkdownEditorHtml({
+    textareaId: 'detail-edit-body',
+    textareaClass: 'detail-edit-textarea',
+    value: task.body || '',
+  });
   html += '</div>';
   return html;
 }

@@ -132,7 +132,24 @@ function getAddTaskModal(catalog: ModelCatalogEntry[], defaultAgent: AgentTool):
       <label for="add-title">Title</label>
       <input type="text" id="add-title" placeholder="Task title">
       <label for="add-body">Description</label>
-      <textarea id="add-body" placeholder="Describe the task..."></textarea>
+      <div class="markdown-editor" id="add-markdown-editor" data-editor-for="add-body">
+        <div class="markdown-editor-toolbar">
+          <div class="markdown-editor-actions" role="toolbar" aria-label="Formatting options">
+            <button type="button" class="markdown-toolbar-btn" data-format="heading" title="Heading" aria-label="Heading">H</button>
+            <button type="button" class="markdown-toolbar-btn" data-format="list" title="Bullet List" aria-label="Bullet List">•</button>
+            <button type="button" class="markdown-toolbar-btn" data-format="code" title="Code Block" aria-label="Code Block">&lt;/&gt;</button>
+            <button type="button" class="markdown-toolbar-btn" data-format="link" title="Link" aria-label="Link">🔗</button>
+          </div>
+          <div class="markdown-editor-modes" role="tablist" aria-label="Editor modes">
+            <button type="button" class="markdown-mode-btn active" data-mode="write" role="tab" aria-selected="true" aria-label="Edit Description">Write</button>
+            <button type="button" class="markdown-mode-btn" data-mode="preview" role="tab" aria-selected="false" aria-label="Preview Description">Preview</button>
+          </div>
+        </div>
+        <div class="markdown-editor-body">
+          <textarea id="add-body" placeholder="Describe the task..."></textarea>
+          <div class="markdown-preview" id="add-markdown-preview" style="display: none;" role="tabpanel" aria-label="Description preview"></div>
+        </div>
+      </div>
       <label for="add-priority">Priority</label>
       <select id="add-priority">
         <option value="">None</option>

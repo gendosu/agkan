@@ -3205,3 +3205,67 @@ describe('detail field autosave', () => {
     expect((document.getElementById('detail-edit-status') as HTMLSelectElement).value).toBe('in_progress');
   });
 });
+
+describe('detail panel markdown editor', () => {
+  beforeEach(() => {
+    setupMinimalBoardDOM();
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ comments: [] }),
+    });
+  });
+
+  it('renders markdown editor in detail panel and toggles between write and preview', async () => {
+    const { renderDetailPanel } = await import('../../../src/board/client/detailPanel');
+    const data = makeTaskDetail({
+      task: {
+        ...makeTaskDetail().task,
+        body: '# Test Heading\n- List Item',
+      },
+    });
+    renderDetailPanel(data);
+
+    const textarea = document.getElementById('detail-edit-body') as HTMLTextAreaElement;
+    const preview = document.querySelector('.markdown-preview') as HTMLElement;
+    const previewBtn = document.querySelector('.markdown-mode-btn[data-mode="preview"]') as HTMLButtonElement;
+    const writeBtn = document.querySelector('.markdown-mode-btn[data-mode="write"]') as HTMLButtonElement;
+
+    expect(textarea).not.toBeNull();
+    expect(preview).not.toBeNull();
+    expect(preview.style.display).toBe('none');
+
+    // Toggle to preview
+    previewBtn.click();
+    expect(textarea.style.display).toBe('none');
+    expect(preview.style.display).toBe('block');
+    expect(preview.innerHTML).toContain('<h1>Test Heading</h1>');
+    expect(preview.innerHTML).toContain('<li>List Item</li>');
+
+    // Toggle back to write
+    writeBtn.click();
+    expect(textarea.style.display).toBe('');
+    expect(preview.style.display).toBe('none');
+  });
+
+  it('formatting toolbar button inserts format into textarea and marks detail dirty', async () => {
+    const { renderDetailPanel, isDetailDirty } = await import('../../../src/board/client/detailPanel');
+    const data = makeTaskDetail({
+      task: {
+        ...makeTaskDetail().task,
+        body: 'Selected line',
+      },
+    });
+    renderDetailPanel(data);
+
+    expect(isDetailDirty()).toBe(false);
+
+    const textarea = document.getElementById('detail-edit-body') as HTMLTextAreaElement;
+    textarea.setSelectionRange(0, 13);
+
+    const headingBtn = document.querySelector('.markdown-toolbar-btn[data-format="heading"]') as HTMLButtonElement;
+    headingBtn.click();
+
+    expect(textarea.value).toBe('### Selected line');
+    expect(isDetailDirty()).toBe(true);
+  });
+});
