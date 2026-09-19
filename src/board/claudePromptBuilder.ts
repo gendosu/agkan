@@ -19,7 +19,7 @@ export function buildClaudePrompt(
   taskId: number,
   command: ClaudeCommand,
   branch: string | null | undefined,
-  { includeBranchInstruction = true }: { includeBranchInstruction?: boolean } = {}
+  { includeBranchInstruction = true, agent }: { includeBranchInstruction?: boolean; agent?: AgentTool } = {}
 ): string {
   const branchInstruction =
     command === 'planning' || !includeBranchInstruction
@@ -31,11 +31,12 @@ export function buildClaudePrompt(
   const exitInstruction =
     "\n\nWhen you have completed this task, send 'exit' as a prompt (not as a bash command) to end this session.";
 
-  return command === 'planning'
-    ? `Task ID: ${taskId}\n/agkan-planning-subtask${branchInstruction}${exitInstruction}`
-    : command === 'pr'
-      ? `Task ID: ${taskId}\n/agkan-subtask${branchInstruction}${exitInstruction}`
-      : `Task ID: ${taskId}\n/agkan-subtask-direct${branchInstruction}${exitInstruction}`;
+  const skill =
+    command === 'planning' ? 'agkan-planning-subtask' : command === 'pr' ? 'agkan-subtask' : 'agkan-subtask-direct';
+  // agy does not interpret a slash command in its initial prompt, so it is asked for the skill by name.
+  const skillLine = agent === 'agy' ? `Use "${skill}" to execute this task` : `/${skill}`;
+
+  return `Task ID: ${taskId}\n${skillLine}${branchInstruction}${exitInstruction}`;
 }
 
 /**

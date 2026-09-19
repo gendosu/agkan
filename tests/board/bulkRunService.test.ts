@@ -259,6 +259,42 @@ describe('BulkRunService task selection', () => {
     service.stop();
   });
 
+  it.each([
+    ['direct', 'run', 'agkan-subtask-direct'],
+    ['pr', 'pr', 'agkan-subtask'],
+  ] as const)('launches %s for agy with a name-based skill instruction', async (command, ptyCommand, skill) => {
+    const db = getStorageBackend();
+    const ts = new TaskService(db);
+    const tbs = new TaskBlockService(db);
+
+    const task = ts.createTask({ title: 'task', status: 'ready', priority: 'medium' });
+
+    const startProcess = vi.fn().mockResolvedValue(undefined);
+    const pty = buildMockPty({ startProcess });
+    const service = new BulkRunService(ts, tbs, pty);
+
+    const tmpCwd = fs.mkdtempSync(path.join(os.tmpdir(), 'agkan-bulk-run-test-'));
+    const cwdSpy = vi.spyOn(process, 'cwd').mockReturnValue(tmpCwd);
+    try {
+      fs.writeFileSync(path.join(tmpCwd, '.agkan-test.yml'), yaml.dump({ agent: 'agy' }));
+
+      await service.start(command);
+
+      expect(startProcess).toHaveBeenCalledWith(
+        task.id,
+        `Task ID: ${task.id}\nUse "${skill}" to execute this task\n\nWhen you have completed this task, send 'exit' as a prompt (not as a bash command) to end this session.`,
+        ptyCommand,
+        undefined,
+        undefined,
+        'agy'
+      );
+    } finally {
+      service.stop();
+      cwdSpy.mockRestore();
+      fs.rmSync(tmpCwd, { recursive: true, force: true });
+    }
+  });
+
   it('returns error when already running', async () => {
     const db = getStorageBackend();
     const ts = new TaskService(db);
