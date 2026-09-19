@@ -273,6 +273,33 @@ describe('POST /api/claude/tasks/:taskId/run', () => {
     );
   });
 
+  it('starts an agy model without efforts with no effort even when agy has a config default effort', async () => {
+    fs.writeFileSync(TEST_AGKAN_CONFIG, yaml.dump({ models: { agy: { run: { effort: 'high' } } } }));
+    const mock = buildMockClaudeProcessService();
+    const services = buildServices(mock);
+    const task = services.ts.createTask({ title: 'Effortless agy model', status: 'backlog' });
+    services.ts.updateTask(task.id, { model_run: 'claude-sonnet-4-6' });
+    const app = buildApp(services);
+
+    const res = await app.fetch(
+      new Request(`http://localhost/api/claude/tasks/${task.id}/run`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ command: 'run' }),
+      })
+    );
+
+    expect(res.status).toBe(201);
+    expect(mock.startProcess).toHaveBeenCalledWith(
+      task.id,
+      expect.any(String),
+      'run',
+      'claude-sonnet-4-6',
+      undefined,
+      'agy'
+    );
+  });
+
   it('selects model settings for the configured agent', async () => {
     fs.writeFileSync(
       TEST_AGKAN_CONFIG,
