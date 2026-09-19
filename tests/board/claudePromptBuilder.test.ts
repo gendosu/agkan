@@ -242,6 +242,59 @@ describe('resolveLaunchSettings', () => {
     );
   });
 
+  describe('catalog rows with efforts: [] (agy fixed variants reject --effort)', () => {
+    const EFFORTLESS_AGY_MODELS = ['claude-sonnet-4-6', 'claude-opus-4-6-thinking', 'gpt-oss-120b-medium'];
+
+    it.each(EFFORTLESS_AGY_MODELS)('drops the config default effort for the task-level model %s', (model) => {
+      writeConfig({ models: { agy: { run: { effort: 'high' } } } });
+      const { ts } = buildServices();
+      const task = ts.createTask({ title: 'Task', status: 'backlog' });
+      ts.updateTask(task.id, { model_run: model });
+
+      expect(resolveLaunchSettings(ts, task.id, 'run')).toEqual({ agent: 'agy', model, effort: undefined });
+    });
+
+    it('drops a task-level effort instead of throwing', () => {
+      const { ts } = buildServices();
+      const task = ts.createTask({ title: 'Task', status: 'backlog' });
+      ts.updateTask(task.id, { model_run: 'claude-sonnet-4-6', effort_run: 'high' });
+
+      expect(resolveLaunchSettings(ts, task.id, 'run')).toEqual({
+        agent: 'agy',
+        model: 'claude-sonnet-4-6',
+        effort: undefined,
+      });
+    });
+
+    it('drops the config effort when the config model resolves to such a row', () => {
+      const { ts } = buildServices();
+      const task = ts.createTask({ title: 'Task', status: 'backlog' });
+      writeConfig({ agent: 'agy', models: { agy: { run: { model: 'claude-opus-4-6-thinking', effort: 'high' } } } });
+
+      expect(resolveLaunchSettings(ts, task.id, 'run')).toEqual({
+        agent: 'agy',
+        model: 'claude-opus-4-6-thinking',
+        effort: undefined,
+      });
+    });
+
+    it('keeps the effort for an agy row that accepts one', () => {
+      writeConfig({ models: { agy: { run: { effort: 'high' } } } });
+      const { ts } = buildServices();
+      const task = ts.createTask({ title: 'Task', status: 'backlog' });
+      ts.updateTask(task.id, { model_run: 'gemini-3.8-flash' });
+
+      expect(resolveLaunchSettings(ts, task.id, 'run')).toEqual({
+        agent: 'agy',
+        model: 'gemini-3.8-flash',
+        effort: 'high',
+      });
+
+      ts.updateTask(task.id, { effort_run: 'low' });
+      expect(resolveLaunchSettings(ts, task.id, 'run').effort).toBe('low');
+    });
+  });
+
   describe('LaunchSettingsError source', () => {
     function captureError(fn: () => unknown): unknown {
       try {
