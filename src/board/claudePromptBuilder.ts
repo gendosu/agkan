@@ -100,15 +100,14 @@ export function resolveLaunchSettings(
     entry = model ? findCatalogEntry(catalog, model, agent) : undefined;
   }
 
-  const effort = taskEffort ?? resolveModelSettings(config, kind, agent)?.effort?.trim() ?? undefined;
+  const requestedEffort = taskEffort ?? resolveModelSettings(config, kind, agent)?.effort?.trim() ?? undefined;
+  // A row with no efforts (agy's fixed variants) rejects --effort outright, so drop the
+  // effort instead of failing the launch; writes are already refused by validateOverridePair.
+  const effort = entry && entry.efforts.length === 0 ? undefined : requestedEffort;
 
   if (effort && entry && !entry.efforts.includes(effort)) {
-    const allowed =
-      entry.efforts.length === 0
-        ? 'This model does not accept an effort override'
-        : `Must be one of: ${entry.efforts.join(', ')}`;
     throw new LaunchSettingsError(
-      `Effort "${effort}" is not allowed for model "${entry.model}". ${allowed}`,
+      `Effort "${effort}" is not allowed for model "${entry.model}". Must be one of: ${entry.efforts.join(', ')}`,
       taskModel || taskEffort ? 'task' : 'config'
     );
   }
