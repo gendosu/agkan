@@ -8,6 +8,7 @@ import {
   TagService,
   MetadataService,
 } from '../../../src/services';
+import { PtySessionService } from '../../../src/terminal/PtySessionService';
 
 describe('ServiceContainer', () => {
   describe('getServiceContainer', () => {
@@ -44,6 +45,11 @@ describe('ServiceContainer', () => {
     it('should provide a MetadataService instance', () => {
       const container = getServiceContainer();
       expect(container.metadataService).toBeInstanceOf(MetadataService);
+    });
+
+    it('should provide a PtySessionService instance', () => {
+      const container = getServiceContainer();
+      expect(container.ptySessionService).toBeInstanceOf(PtySessionService);
     });
 
     it('should return a new container on each call', () => {

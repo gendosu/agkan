@@ -272,6 +272,17 @@
           "examples": ["agkan task copy 42", "agkan task copy 42 --status ready", "agkan task copy 42 --no-tags"]
         },
         {
+          "name": "agkan task run-all",
+          "desc": "Sequentially run all ready tasks, mirroring Board's bulk Run all feature",
+          "syntax": "agkan task run-all [options]",
+          "opts": [
+            ["--with-pr", "Create a PR for each task instead of running directly"],
+            ["--dry-run", "Preview the run order without launching anything"],
+            ["--json", "Output in JSON format (applies to --dry-run only)"]
+          ],
+          "examples": ["agkan task run-all", "agkan task run-all --with-pr", "agkan task run-all --dry-run --json"]
+        },
+        {
           "name": "agkan task purge",
           "desc": "Delete done/closed tasks older than a given date to reduce database size",
           "syntax": "agkan task purge [options]",
@@ -690,6 +701,17 @@
             ["--json", "JSON形式で出力"]
           ],
           "examples": ["agkan task copy 42", "agkan task copy 42 --status ready", "agkan task copy 42 --no-tags"]
+        },
+        {
+          "name": "agkan task run-all",
+          "desc": "準備完了(ready)のタスクを順番にすべて実行（Boardの一括Run all機能と同等）",
+          "syntax": "agkan task run-all [options]",
+          "opts": [
+            ["--with-pr", "直接実行の代わりに各タスクでPRを作成"],
+            ["--dry-run", "実行せずに実行順序をプレビュー"],
+            ["--json", "JSON形式で出力（--dry-run時のみ有効）"]
+          ],
+          "examples": ["agkan task run-all", "agkan task run-all --with-pr", "agkan task run-all --dry-run --json"]
         },
         {
           "name": "agkan task purge",

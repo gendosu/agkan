@@ -21,6 +21,7 @@ import { setupTaskPurgeCommand } from '../../src/cli/commands/task/purge';
 import { setupTaskArchiveCommand } from '../../src/cli/commands/task/archive';
 import { setupTaskUnarchiveCommand } from '../../src/cli/commands/task/unarchive';
 import { setupTaskCopyCommand } from '../../src/cli/commands/task/copy';
+import { setupTaskRunAllCommand } from '../../src/cli/commands/task/run-all';
 
 // Block command handlers
 import { setupBlockAddCommand } from '../../src/cli/commands/block/add';
@@ -127,6 +128,7 @@ function buildProgram(): Command {
     setupTaskArchiveCommand(prog);
     setupTaskUnarchiveCommand(prog);
     setupTaskCopyCommand(prog);
+    setupTaskRunAllCommand(prog);
 
     // Register block commands
     setupBlockAddCommand(prog);

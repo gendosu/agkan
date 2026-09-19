@@ -17,6 +17,7 @@ import { setupTaskPurgeCommand } from './commands/task/purge';
 import { setupTaskArchiveCommand } from './commands/task/archive';
 import { setupTaskUnarchiveCommand } from './commands/task/unarchive';
 import { setupTaskCopyCommand } from './commands/task/copy';
+import { setupTaskRunAllCommand } from './commands/task/run-all';
 
 // Block command handlers
 import { setupBlockAddCommand } from './commands/block/add';
@@ -90,6 +91,7 @@ setupTaskPurgeCommand(program);
 setupTaskArchiveCommand(program);
 setupTaskUnarchiveCommand(program);
 setupTaskCopyCommand(program);
+setupTaskRunAllCommand(program);
 
 // Register block commands (block and tag handlers create their own subcommands)
 setupBlockAddCommand(program);

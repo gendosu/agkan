@@ -57,6 +57,12 @@ agkan task copy <id>
 agkan task copy <id> --status ready    # Specify destination status (default: backlog)
 agkan task copy <id> --no-tags         # Do not copy tags
 agkan task copy <id> --json            # Output in JSON format
+
+# Run all ready tasks sequentially (mirrors Board's bulk "Run all")
+agkan task run-all
+agkan task run-all --with-pr           # Create a PR for each task instead of running directly
+agkan task run-all --dry-run           # Preview the run order without launching anything
+agkan task run-all --dry-run --json    # Preview the run order as JSON
 \`\`\`
 
 ### Blocking Relationships
