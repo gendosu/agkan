@@ -12,11 +12,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### 追加
 - 優先度順に ready タスクを逐次実行する `agkan task run-all` CLIコマンドを追加（Boardの一括「Run all」機能に相当）。1タスクでも失敗すると以降の実行を停止する。`--with-pr` でタスクごとにPRを作成するモードに切替、`--dry-run` で実行順序をプレビュー、`--json` で機械可読な出力に対応 (#747)
 - `task find` コマンドおよび Board のフリーテキスト検索が、title/body に加えて `task_metadata.value` にもマッチするようにした。PR URL や外部チケット番号等の汎用的な metadata 値でタスクを検索できる (#727)
+- `.agkan.yml` の設定スキーマに任意の `version` フィールドを追加。ファイルに指定がない場合、`loadConfig()` は `1` を返す (#750)
+- Board の一括実行が設定エラーで停止したとき、何も表示されないままボタンが元の状態に戻っていた挙動を改善し、停止理由を `Bulk run stopped: <エラー内容>` のアラートで表示するようにした。ページのリロードや新しいタブで過去のエラーが再表示されることはない (#749)
+- Board のタスク詳細パネルとタスク追加モーダルの Description を Markdown エディタにした。Write / Preview の切替と、見出し・箇条書き・コードブロック・リンクの挿入ボタンを備える。Description の編集中や未保存の変更がある間は、バックグラウンド更新で詳細パネルが再描画されず、更新警告が表示される (#754)
+- Board の依存関係表示（Show dependencies）で、カードにホバーしたときに線を依存の向きで色分けするようにした。ホバーしたカードがブロックしているカード（連鎖を含む）への線は赤、ホバーしたカードをブロックしているカードからの線は青で表示し（従来は強調される線がすべて赤）、該当カードにも同色の枠線を付ける (#751)
 
 ### 修正
 - Board が `permissionMode` 未設定または `dontAsk` で Codex セッションを起動する際、`workspace-write` サンドボックスのネットワークアクセスを許可するようにした（`--config sandbox_workspace_write.network_access=true`）。サンドボックスが agkan CLI から Board への localhost 通知を遮断していたため、Codex セッション内で `agkan task update <id> status ...` を実行しても DB は更新されるのにカードがリロードまで移動しなかった。Codex にはループバックのみを許可する設定がないため、セッション全体の外部通信が許可される点に注意 (#753)
 - agy の起動時に、スラッシュコマンドの代わりに名前ベースのスキル指示（`Use "agkan-subtask" to execute this task`）を渡すようにした。agy は初期プロンプト内のスラッシュコマンドを解釈しないため、スキルが起動されていなかった。Board の単体実行・一括実行、および `agkan task run-all` に適用される。claude / codex / grok のプロンプトは変更なし (#755)
 - catalog 行の `efforts` が空の agy モデル（`claude-sonnet-4-6` / `claude-opus-4-6-thinking` / `gpt-oss-120b-medium`）を選んだとき、config やタスクに effort があると Board の実行・一括実行・`agkan task run-all` が起動前に失敗する問題を修正。effort を捨てて、これらのモデルが拒否する `--effort` を付けずに agy を起動するようにした（`gemini-3.8-flash` など effort 対応モデルは従来どおり `--effort` が付く）(#757)
+- `.agkan.yml` の `modelCatalog` や `agent` の値が不正なとき、Board の一括実行が ready タスクを理由の分からないまま（サーバーログにのみ出力）1件ずつスキップし続けていた問題を修正し、実行を停止するようにした。タスク個別の model / effort の上書きが catalog に無い場合は、従来どおりそのタスクのみスキップして続行する (#734)
+- `models.run.effort` に設定した effort が、設定されたモデルで許可されていない（catalog 外の）とき、Board の一括実行が ready タスクを全てスキップしていた問題を修正し、原因を通知して実行を停止するようにした。タスク個別の model / effort の上書きが原因の場合は、従来どおりそのタスクのみスキップする (#748)
 
 ## [3.25.0] - 2026-09-12
 

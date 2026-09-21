@@ -12,11 +12,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - Add `agkan task run-all` CLI command to sequentially run all ready tasks in priority order (mirroring Board's bulk "Run all"), stopping the whole run on the first task failure; supports `--with-pr` to create a PR per task instead of running directly, `--dry-run` to preview the run order, and `--json` for machine-readable output (#747)
 - `task find` and the Board's free-text search now also match `task_metadata.value` (in addition to title/body), so tasks can be found by generic metadata values such as PR URLs or external ticket IDs (#727)
+- Add an optional `version` field to the `.agkan.yml` config schema; `loadConfig()` reports `1` when the file omits it (#750)
+- Show the stop reason in an alert (`Bulk run stopped: <error>`) when a Board bulk run stops because of a configuration error, instead of the button silently returning to idle; reloading the page or opening a new tab does not re-show a past error (#749)
+- Turn the Board task Description into a Markdown editor in both the task detail panel and the Add Task modal, with Write/Preview tabs and toolbar buttons for heading, bullet list, code block and link; while the description editor is focused or the panel has unsaved edits, background refreshes no longer re-render the detail panel and show the update warning instead (#754)
+- Board: with dependency lines shown, hovering a card now colors its lines by direction (red for cards it blocks, directly or through a chain; blue for cards that block it, where all highlighted lines were red before) and outlines those related cards with a matching red or blue border (#751)
 
 ### Fixed
 - Allow network access in the Codex `workspace-write` sandbox (`--config sandbox_workspace_write.network_access=true`) when the Board starts a Codex session with the default or `dontAsk` permission mode. The sandbox blocked the agkan CLI's localhost notification to the Board, so `agkan task update <id> status ...` run inside a Codex session updated the DB but the card did not move until the page was reloaded (#753)
 - Launch agy sessions with a name-based skill instruction (`Use "agkan-subtask" to execute this task`) instead of a slash command, which agy does not interpret in its initial prompt, so the skill was never invoked. Applies to Board single runs, Board bulk runs and `agkan task run-all`; claude, codex and grok prompts are unchanged (#755)
 - Stop failing Board runs, bulk runs and `agkan task run-all` when an agy model whose catalog row has `efforts: []` (`claude-sonnet-4-6`, `claude-opus-4-6-thinking`, `gpt-oss-120b-medium`) is selected while an effort is configured or set on the task. The effort is now dropped so agy is started without `--effort`, which it rejects for these models; effort-capable models such as `gemini-3.8-flash` keep their `--effort` (#757)
+- Stop a Board bulk run when `.agkan.yml` has an invalid `modelCatalog` or `agent` value, instead of skipping every ready task one by one with the reason only in the server log; a task whose own model/effort override is not in the catalog is still skipped individually (#734)
+- Stop a Board bulk run when the effort configured in `models.run.effort` is not allowed for the configured model, instead of skipping every ready task; a conflict caused by a task's own model/effort override still skips only that task (#748)
 
 ## [3.25.0] - 2026-09-12
 
