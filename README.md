@@ -138,8 +138,8 @@ For full options, JSON output formats, and worked examples, see **[documentation
 agkan is designed to be driven by AI coding agents as well as humans:
 
 - **[agkan-skills](https://github.com/gendosu/agkan-skills)** — Claude Code skills for automated task execution, planning, and review
-- **Run / Plan**: each task card in the board has a "Run" button that launches `claude` for that task, with a dropdown to run in plan mode instead
-- **Stream modal**: while Claude is running, a modal shows the live output stream in real time, with a "Stop" button and a header indicator for active processes
+- **Run / Plan**: each task card in the board has a "Run" button that launches the configured phase-specific agent for that task, with a dropdown to run in plan mode instead
+- **Stream modal**: while an agent is running, a modal shows the live output stream in real time, with a "Stop" button and a header indicator for active processes
 - **Run Logs**: the task detail panel's "Run Logs" tab keeps the full history of past Claude executions, with timestamps and output
 - **`agkan ps`**: from any terminal, list which Claude processes the board currently has running and which tasks they belong to
 
@@ -148,10 +148,21 @@ agkan is designed to be driven by AI coding agents as well as humans:
 Customize the database location and board via a `.agkan.yml` file in your project root:
 
 ```yaml
+version: 2
 path: ./.agkan/data.db
 
 board:
   port: 8080
+
+models:
+  planning:
+    agent: claude
+    model: fable
+    effort: high
+  run:
+    agent: codex
+    model: gpt-5.6-sol
+    effort: high
 ```
 
 The database path can also be overridden with the `AGENT_KANBAN_DB_PATH` environment variable, which takes priority over `.agkan.yml`.

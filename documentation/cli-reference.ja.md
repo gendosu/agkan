@@ -80,7 +80,7 @@ agkan task add "設計書レビュー" --file ./design-doc.md --status backlog
 agkan task add "パーサーのリファクタ" --model-run sonnet --effort-run high
 ```
 
-`--model-planning` / `--model-run` に指定できるのは[モデルカタログ](configuration.ja.md#モデルカタログ)の `model` 名です。モデルを選ぶと、そのタスクを実行する cli も決まります。`--effort-planning` / `--effort-run` に指定できるのはそのモデルの `efforts`（モデル未指定なら既定の `agent:` に属する行の和集合）です。解決後のカタログは `agkan config get modelCatalog --json` で確認できます。
+`--model-planning` / `--model-run` に指定できるのは[モデルカタログ](configuration.ja.md#モデルカタログ)の `model` 名です。モデルを選ぶと、そのタスクを実行する cli も決まります。`--effort-planning` / `--effort-run` に指定できるのはそのモデルの `efforts` です。モデル未指定なら、各phaseの解決済みversion 2モデル/agent（version 1では既定agent）を基準にします。解決後のカタログは `agkan config get modelCatalog --json` で確認できます。
 
 タグ付きでタスク作成（カンマ区切りのタグ名またはID、同じコマンドで付与）:
 ```bash
@@ -270,7 +270,7 @@ agkan task update 1 --model-run haiku --effort-run low
 agkan task update 1 --model-run "" --effort-run ""
 ```
 
-値は[モデルカタログ](configuration.ja.md#モデルカタログ)に対してペアで検証されます。指定しなかった側は、タスクに保存済みの値が使われます。
+値は[モデルカタログ](configuration.ja.md#モデルカタログ)に対してペアで検証されます。指定しなかった側は、タスクに保存済みの値が使われます。タスク側モデルがない場合、各phaseの解決済み設定を使用します。
 
 ### 親子関係の管理
 
@@ -615,8 +615,16 @@ agkan config get --json       # JSON出力
 ```
 ✓ Resolved config
 
+version: 2
+agent: claude
 path: /workspace/.agkan/data.db
 board.port: 8080
+models.planning.agent: claude
+models.planning.model: fable
+models.planning.effort: high
+models.run.agent: codex
+models.run.model: gpt-5.6-sol
+models.run.effort: high
 modelCatalog: claude fable (low, medium, high, xhigh, max)
 modelCatalog: claude opus (low, medium, high, xhigh, max)
 modelCatalog: claude sonnet (low, medium, high, xhigh, max)

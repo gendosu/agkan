@@ -12,14 +12,13 @@ import { installSessionStartHook } from '../integrations/claudeSettings';
 const DEFAULT_CONFIG_CONTENT = `# agkan configuration file
 #
 # This file controls the behavior of agkan (Agent Kanban).
-# Uncomment and modify the settings below to customize your agkan instance.
+# Uncomment and modify optional settings below to customize your agkan instance.
 
-# Default AI coding agent used by the board
-# Applies to tasks with no model override. A task that selects a model from
-# modelCatalog runs on that row's cli instead.
-# Valid values: claude | codex | agy | grok
-# Default: claude
-agent: claude
+version: 2
+
+# Fallback agent when a phase omits its agent. Version 1 configurations also
+# use this as their single default agent.
+# agent: claude
 
 # Database path
 # Location where agkan stores task data.
@@ -38,41 +37,18 @@ agent: claude
 #   # Title displayed in the board UI
 #   title: Agent Kanban
 
-# Model configuration
-# Model used when executing planning and run commands via the board.
-# The value is passed to the selected agent CLI.
+# Phase-specific launch configuration.
+# A task-level model override still takes precedence and selects its catalog row's cli.
 # Valid effort values come from the model's modelCatalog row (see below).
-# If omitted for claude, the Claude CLI's own default model is used.
-# If omitted for codex, agkan defaults to gpt-5.6-sol instead of the Codex CLI's own default.
-# models:
-#   claude:
-#     planning:
-#       model: opus
-#       effort: high
-#     run:
-#       model: sonnet
-#       effort: high
-#   codex:
-#     planning:
-#       model: gpt-5.6-sol
-#       effort: high
-#     run:
-#       model: gpt-5.6-sol
-#       effort: high
-#   agy:
-#     planning:
-#       model: gemini-3.8-flash
-#       effort: high
-#     run:
-#       model: gemini-3.8-flash
-#       effort: high
-#   grok:
-#     planning:
-#       model: grok-4.7
-#       effort: high
-#     run:
-#       model: grok-4.7
-#       effort: high
+models:
+  planning:
+    agent: claude
+    model: fable
+    effort: high
+  run:
+    agent: codex
+    model: gpt-5.6-sol
+    effort: high
 
 # Model catalog
 # Rows of cli + model + selectable efforts. Selecting a model on a task also

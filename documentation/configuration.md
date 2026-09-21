@@ -213,7 +213,7 @@ board:
 
 ## Agent Settings
 
-The `agent` field in `.agkan.yml` selects which AI coding agent the board launches to execute tasks.
+In version 2, `models.<phase>.agent` selects the CLI independently for planning and run. The top-level `agent` is a fallback when a phase omits `agent`; it remains the single selected CLI for version 1 configurations.
 
 ### Available Values
 
@@ -300,78 +300,50 @@ Setting `modelCatalog` **replaces the built-in catalog entirely** — rows are n
 
 ### How a task uses the catalog
 
-- Selecting a model on a task also selects the cli that runs it, overriding `agent:` for that task only.
-- An effort is valid only if it appears in the `efforts` of the selected model's row. With no model selected, the candidates are the union of every row belonging to the default `agent:`.
+- Selecting a model on a task also selects the cli that runs it, overriding the phase default for that task only.
+- An effort is valid only if it appears in the selected task model's row. With no task model selected, validation uses that phase's resolved model, or the union of rows for that phase's resolved agent when no model is configured.
 - Running a task whose stored model is no longer in the catalog fails with a 400 rather than falling back to the default cli. The Board's detail panel shows such a value as `(not in catalog) <model>` so it can be corrected.
-- Model names coming from `models.<agent>.<kind>.model` are not validated against the catalog; their effort is validated only when the model matches a catalog row for that cli.
+- Version 2 phase model and effort values are validated against a catalog row with the same cli. Version 1 preserves the legacy pass-through behavior.
 
 ## Models Settings
 
-The `models` section in `.agkan.yml` specifies the model and effort level used by the selected agent when executing planning and run commands via the board.
+Version 2 groups `agent`, `model`, and `effort` under each phase. `pr` uses the `run` bundle.
 
 ### Available Fields
 
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
-| `models.<agent>.planning.model` | string | claude: selected CLI default; codex: `gpt-5.6-sol`; agy: selected CLI default; grok: selected CLI default | Model used for planning command execution |
-| `models.<agent>.planning.effort` | string | (selected CLI default) | Effort level for planning command (see [Model Catalog](#model-catalog)) |
-| `models.<agent>.run.model` | string | claude: selected CLI default; codex: `gpt-5.6-sol`; agy: selected CLI default; grok: selected CLI default | Model used for run/pr command execution |
-| `models.<agent>.run.effort` | string | (selected CLI default) | Effort level for run/pr command (see [Model Catalog](#model-catalog)) |
+| `models.<phase>.agent` | string | top-level `agent`, then `claude` | CLI for `planning` or `run` |
+| `models.<phase>.model` | string | selected CLI default | Model passed to the selected CLI |
+| `models.<phase>.effort` | string | selected CLI default | Effort accepted by that model's catalog row |
 
-`<agent>` is `claude`, `codex`, `agy`, or `grok`. `models.claude`, `models.codex`, `models.agy`, and `models.grok` can all be configured at the same time; only the profile matching the selected `agent` is used. Both `model` and `effort` are optional within each entry.
+`<phase>` is `planning` or `run`; `agent` is `claude`, `codex`, `agy`, or `grok`. The configured model must belong to that agent in `modelCatalog`, and effort must be accepted by the same row. An unsupported config version, mismatched model, or invalid effort is reported as a configuration error.
 
-If `models.codex.planning.model` / `models.codex.run.model` is not set, agkan defaults to `gpt-5.6-sol` rather than deferring to the Codex CLI's own default. `claude`, `agy`, and `grok` have no such agkan-side default; if unset, the CLI's own default model is used.
-
-> **Breaking Change**: Prior to this default, an unset Codex model omitted `--model` entirely and deferred to the Codex CLI's own default model. agkan now always passes `--model`, defaulting to `gpt-5.6-sol` when unset. If you rely on the Codex CLI's own default, set `models.codex.planning.model` / `models.codex.run.model` explicitly to that model name.
-
-For backward compatibility, the legacy flat `models.planning` / `models.run` form (without an agent key) is still supported as a fallback: if `models.<agent>.planning` (or `.run`) is not set, agkan falls back to `models.planning` (or `.run`). Agent-specific settings always take priority over the legacy flat form.
-
-Model names are passed through as-is to the selected agent's CLI (`--model` for `claude`, `codex`, `agy`, and `grok`). Claude CLI aliases such as `opus`, `sonnet`, and `haiku` are resolved by the Claude CLI itself, not by agkan; agkan does not resolve or validate model aliases for any agent. For Codex, `effort` is passed via `--config model_reasoning_effort=<effort>` instead of a `--effort` flag; for agy and grok, `effort` is passed via a plain `--effort` flag.
+Launch precedence is: task model/effort override, version 2 phase bundle, then version 1/default behavior. Board single run, Bulk Run, and `task run-all` share this resolution.
 
 ### Configuration Example
 
 ```yaml
-# Database path
-path: ./.agkan/data.db
+version: 2
 
-# Model settings
-agent: codex
 models:
-  claude:
-    planning:
-      model: claude-opus-4-7
-      effort: high
-    run:
-      model: claude-sonnet-4-6
-      effort: low
-  codex:
-    planning:
-      model: gpt-5.6-sol
-      effort: high
-    run:
-      model: gpt-5.6-sol
-      effort: high
-  agy:
-    planning:
-      model: gemini-3.8-flash
-      effort: high
-    run:
-      model: gemini-3.8-flash
-      effort: high
-  grok:
-    planning:
-      model: grok-4.7
-      effort: high
-    run:
-      model: grok-4.7
-      effort: high
+  planning:
+    agent: claude
+    model: fable
+    effort: high
+  run:
+    agent: codex
+    model: gpt-5.6-sol
+    effort: high
 ```
 
-### Using Aliases
+### Version 1 compatibility and migration
 
-You can use short aliases instead of full model names when `agent: claude` is selected:
+An omitted version means version 1. Existing agent-specific settings keep their previous meaning:
 
 ```yaml
+version: 1 # optional
+agent: claude
 models:
   claude:
     planning:
@@ -381,27 +353,9 @@ models:
       model: sonnet
 ```
 
-Supported aliases: `opus`, `sonnet`, `haiku` (resolved by the Claude CLI; agkan does not resolve aliases for Codex)
+To migrate, add `version: 2`, move each phase directly under `models`, and add its `agent`. The legacy flat `models.planning` / `models.run` fallback also remains unchanged in version 1. Future unsupported versions are rejected instead of being interpreted as version 1 or 2. `agkan init` now writes version 2 with Claude/Fable/high for planning and Codex/gpt-5.6-sol/high for run.
 
-### Field Details
-
-- **`models.<agent>.planning`**: Specifies the model and effort level used by the target agent for planning tasks. Recommended to use a high-capability model and effort level such as `opus` with `high` for `claude`.
-  ```yaml
-  models:
-    claude:
-      planning:
-        model: opus
-        effort: high
-  ```
-
-- **`models.<agent>.run`**: Specifies the model and effort level used by the target agent for run or pr commands. The `pr` command also uses this value.
-  ```yaml
-  models:
-    claude:
-      run:
-        model: sonnet
-        effort: low
-  ```
+Use `agkan config get`, `agkan config get models.planning.agent`, or JSON output to inspect the resolved version and both phase bundles.
 
 ## Permission Mode Settings
 

@@ -7,7 +7,7 @@ import { TaskBlockService } from '../../services/TaskBlockService';
 import { TaskStatus, isPriority, Priority } from '../../models';
 import { STATUSES } from '../boardRenderer';
 import { persistTaskModelOverrides, persistTaskEffortOverrides } from '../taskModelOverride';
-import { loadConfig, resolveAgentTool } from '../../db/config';
+import { loadConfig, resolvePhaseSettings } from '../../db/config';
 import { resolveModelCatalog, validateOverridePair } from '../../db/modelCatalog';
 
 type BoardTaskStatus = TaskStatus;
@@ -139,15 +139,20 @@ function validateOverrideBody(
   stored?: StoredOverrides
 ): string | undefined {
   const pairs = (['planning', 'run'] as const)
-    .map((kind) => resolveOverridePair(body, stored, kind))
-    .filter((pair): pair is { model: string | null; effort: string | null } => pair !== undefined);
+    .map((kind) => {
+      const pair = resolveOverridePair(body, stored, kind);
+      return pair ? { kind, ...pair } : undefined;
+    })
+    .filter(
+      (pair): pair is { kind: 'planning' | 'run'; model: string | null; effort: string | null } => pair !== undefined
+    );
   if (pairs.length === 0) return undefined;
 
   const config = loadConfig();
   const catalog = resolveModelCatalog(config);
-  const defaultCli = resolveAgentTool(config);
   for (const pair of pairs) {
-    const error = validateOverridePair(catalog, defaultCli, pair.model, pair.effort);
+    const phase = resolvePhaseSettings(config, pair.kind);
+    const error = validateOverridePair(catalog, phase.agent, pair.model, pair.effort, phase.model);
     if (error) return error;
   }
   return undefined;

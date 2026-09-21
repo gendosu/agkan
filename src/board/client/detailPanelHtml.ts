@@ -128,8 +128,8 @@ function renderModelSelect(id: string, currentValue: string): string {
   return html;
 }
 
-function renderEffortSelect(id: string, currentValue: string, modelValue: string): string {
-  const efforts = effortsForModel(modelValue);
+function renderEffortSelect(id: string, currentValue: string, modelValue: string, phase: 'planning' | 'run'): string {
+  const efforts = effortsForModel(modelValue, phase);
   let html = '<select id="' + id + '" class="detail-edit-select">';
   html += '<option value="">Effort: default</option>';
   efforts.forEach((effort) => {
@@ -154,14 +154,14 @@ export function renderModelFields(task: TaskDetail['task']): string {
   html += '<div class="detail-field-label">Planning Model</div>';
   html += '<div class="detail-field-row">';
   html += renderModelSelect('detail-edit-model-planning', planningValue);
-  html += renderEffortSelect('detail-edit-effort-planning', planningEffort, planningValue);
+  html += renderEffortSelect('detail-edit-effort-planning', planningEffort, planningValue, 'planning');
   html += '</div>';
   html += '</div>';
   html += '<div class="detail-field">';
   html += '<div class="detail-field-label">Run Model</div>';
   html += '<div class="detail-field-row">';
   html += renderModelSelect('detail-edit-model-run', runValue);
-  html += renderEffortSelect('detail-edit-effort-run', runEffort, runValue);
+  html += renderEffortSelect('detail-edit-effort-run', runEffort, runValue, 'run');
   html += '</div>';
   html += '</div>';
   return html;

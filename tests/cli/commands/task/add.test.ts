@@ -769,6 +769,32 @@ describe('setupTaskAddCommand', () => {
       expect(task.effort_run).toBe('xhigh');
     });
 
+    it('validates an effort-only override against the version 2 phase model', async () => {
+      const tmpCwd = fs.mkdtempSync(path.join(os.tmpdir(), 'agkan-task-add-v2-test-'));
+      const cwdSpy = vi.spyOn(process, 'cwd').mockReturnValue(tmpCwd);
+      try {
+        fs.writeFileSync(
+          path.join(tmpCwd, '.agkan-test.yml'),
+          yaml.dump({
+            version: 2,
+            modelCatalog: CATALOG_WITH_CODEX,
+            models: {
+              planning: { agent: 'claude', model: 'fable' },
+              run: { agent: 'codex', model: 'gpt-5.6-sol' },
+            },
+          })
+        );
+
+        const { exitCode } = await runCommand(program, ['task', 'add', 'Codex Effort', '--effort-run', 'none']);
+
+        expect(exitCode).toBeUndefined();
+        expect(new TaskService().listTasks()[0].effort_run).toBe('none');
+      } finally {
+        cwdSpy.mockRestore();
+        fs.rmSync(tmpCwd, { recursive: true, force: true });
+      }
+    });
+
     it('should reject an effort that does not belong to the selected model row', async () => {
       const { exitCode, errors } = await runCommand(program, [
         'task',
