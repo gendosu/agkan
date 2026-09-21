@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - Allow network access in the Codex `workspace-write` sandbox (`--config sandbox_workspace_write.network_access=true`) when the Board starts a Codex session with the default or `dontAsk` permission mode. The sandbox blocked the agkan CLI's localhost notification to the Board, so `agkan task update <id> status ...` run inside a Codex session updated the DB but the card did not move until the page was reloaded (#753)
 - Launch agy sessions with a name-based skill instruction (`Use "agkan-subtask" to execute this task`) instead of a slash command, which agy does not interpret in its initial prompt, so the skill was never invoked. Applies to Board single runs, Board bulk runs and `agkan task run-all`; claude, codex and grok prompts are unchanged (#755)
+- Stop failing Board runs, bulk runs and `agkan task run-all` when an agy model whose catalog row has `efforts: []` (`claude-sonnet-4-6`, `claude-opus-4-6-thinking`, `gpt-oss-120b-medium`) is selected while an effort is configured or set on the task. The effort is now dropped so agy is started without `--effort`, which it rejects for these models; effort-capable models such as `gemini-3.8-flash` keep their `--effort` (#757)
 
 ## [3.25.0] - 2026-09-12
 
