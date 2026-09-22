@@ -73,6 +73,13 @@ describe('effortsForModel', () => {
     expect(effortsForModel('', 'run')).toEqual(['none', 'low']);
   });
 
+  it('uses the agent effort choices for a legacy configured model outside the catalog', () => {
+    (window as unknown as Record<string, unknown>).phaseDefaults = {
+      planning: { agent: 'claude', model: 'legacy-model' },
+    };
+    expect(effortsForModel('', 'planning')).toEqual(['low', 'medium', 'high', 'max']);
+  });
+
   it('returns an empty list for a model that is not in the catalog', () => {
     expect(effortsForModel('gpt-5')).toEqual([]);
   });

@@ -320,6 +320,7 @@ Version 2 groups `agent`, `model`, and `effort` under each phase. `pr` uses the 
 `<phase>` is `planning` or `run`; `agent` is `claude`, `codex`, `agy`, or `grok`. The configured model must belong to that agent in `modelCatalog`, and effort must be accepted by the same row. An unsupported config version, mismatched model, or invalid effort is reported as a configuration error.
 
 Launch precedence is: task model/effort override, version 2 phase bundle, then version 1/default behavior. Board single run, Bulk Run, and `task run-all` share this resolution.
+When a task selects a different model under version 2, the phase effort is not inherited. Set a task effort explicitly if that model needs one.
 
 ### Configuration Example
 

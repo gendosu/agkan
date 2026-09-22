@@ -283,6 +283,7 @@ version 2 では各 phase の `agent`、`model`、`effort` を一つのまとま
 `<phase>` は `planning` または `run`、`agent` は `claude`、`codex`、`agy`、`grok` のいずれかです。モデルは同じ agent の `modelCatalog` 行に存在し、effort はその行で許可されている必要があります。未対応version、agent/modelの不一致、不正なeffortは設定エラーになります。
 
 起動時の優先順位は、タスク単位のmodel/effort、version 2のphase設定、version 1互換設定または既定値です。Board単体実行、Bulk Run、`task run-all` は同じ解決処理を使います。
+version 2 でタスク側が別のモデルを選んだ場合、phase の effort は引き継ぎません。そのモデルに effort が必要ならタスク側で明示します。
 
 ### 設定例
 

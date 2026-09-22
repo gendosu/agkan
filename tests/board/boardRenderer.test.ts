@@ -436,6 +436,18 @@ describe('renderBoard model catalog wiring', () => {
     expect(html).not.toContain('<option value="max">max</option>');
   });
 
+  it('keeps agent effort choices for a version 1 configured model outside the catalog', () => {
+    vi.mocked(configModule.loadConfig).mockReturnValue({
+      agent: 'claude',
+      models: { claude: { run: { model: 'legacy-model' } } },
+      modelCatalog: CATALOG_WITH_CODEX,
+    });
+
+    const html = render();
+    expect(html).toContain('<option value="max">max</option>');
+    expect(html).toContain('"run":{"agent":"claude","model":"legacy-model"}');
+  });
+
   it('embeds distinct version 2 phase defaults for the client bundle', () => {
     vi.mocked(configModule.loadConfig).mockReturnValue({
       version: 2,

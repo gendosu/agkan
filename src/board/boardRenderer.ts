@@ -125,7 +125,8 @@ function buildEffortOptions(efforts: string[]): string {
 
 function effortsForPhase(catalog: ModelCatalogEntry[], settings: ResolvedPhaseSettings): string[] {
   if (settings.model) {
-    return catalog.find((entry) => entry.cli === settings.agent && entry.model === settings.model)?.efforts ?? [];
+    const entry = catalog.find((candidate) => candidate.cli === settings.agent && candidate.model === settings.model);
+    if (entry) return entry.efforts;
   }
   return effortsForDefaultCli(catalog, settings.agent);
 }

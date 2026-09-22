@@ -31,7 +31,7 @@ export function effortsForModel(model: string, phase: 'planning' | 'run' = 'plan
     const entry = catalog.find(
       (candidate) => candidate.cli === phaseDefault.agent && candidate.model === phaseDefault.model
     );
-    return entry ? [...entry.efforts] : [];
+    if (entry) return [...entry.efforts];
   }
   const agent = phaseDefault.agent;
   const result: string[] = [];

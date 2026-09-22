@@ -63,7 +63,8 @@ export interface LaunchSettings {
 /**
  * Resolve which cli, model and effort a run of this task should use.
  * A task-level model override picks its catalog row's cli; without one the
- * configured `agent:` is the default cli and its `models.<agent>` block applies.
+ * phase settings determine the cli and model. In version 2, the phase effort
+ * belongs to its configured model and is not inherited by a different model.
  * Effort is validated only when a catalog row can be identified.
  */
 export function resolveLaunchSettings(
@@ -100,7 +101,13 @@ export function resolveLaunchSettings(
     entry = model ? findCatalogEntry(catalog, model, agent) : undefined;
   }
 
-  const configuredEffort = taskModel ? resolvePhaseSettings(config, kind, agent).effort : phaseSettings.effort;
+  const configuredEffort = taskModel
+    ? config.version === 2
+      ? taskModel === phaseSettings.model
+        ? phaseSettings.effort
+        : undefined
+      : resolvePhaseSettings(config, kind, agent).effort
+    : phaseSettings.effort;
   const requestedEffort = taskEffort ?? configuredEffort ?? undefined;
   // A row with no efforts (agy's fixed variants) rejects --effort outright, so drop the
   // effort instead of failing the launch; writes are already refused by validateOverridePair.
