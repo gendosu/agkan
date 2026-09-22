@@ -283,6 +283,7 @@ Omitting `modelCatalog` uses this catalog:
 | agy | `claude-sonnet-4-6` | (none) |
 | agy | `claude-opus-4-6-thinking` | (none) |
 | agy | `gpt-oss-120b-medium` | (none) |
+| grok | `grok-4.7` | `low`, `medium`, `high`, `xhigh` |
 | grok | `grok-4.6` | `low`, `medium`, `high`, `xhigh` |
 | grok | `grok-4.5` | `low`, `medium`, `high` |
 
@@ -359,10 +360,10 @@ models:
       effort: high
   grok:
     planning:
-      model: grok-4.6
+      model: grok-4.7
       effort: high
     run:
-      model: grok-4.6
+      model: grok-4.7
       effort: high
 ```
 

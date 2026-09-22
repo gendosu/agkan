@@ -92,6 +92,8 @@ describe('setupInitCommand', () => {
     expect(content).toContain('# modelCatalog:');
     expect(content).toContain('cli: agy');
     expect(content).toContain('cli: grok');
+    expect(content).toContain('#     model: grok-4.7\n#     efforts: [low, medium, high, xhigh]');
+    expect(content).toContain('#       model: grok-4.7');
   });
 
   it('should display success messages after creation', async () => {

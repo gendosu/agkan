@@ -30,6 +30,7 @@ describe('DEFAULT_MODEL_CATALOG', () => {
       'agy[claude-sonnet-4-6]',
       'agy[claude-opus-4-6-thinking]',
       'agy[gpt-oss-120b-medium]',
+      'grok[grok-4.7]',
       'grok[grok-4.6]',
       'grok[grok-4.5]',
     ]);
@@ -71,6 +72,7 @@ describe('DEFAULT_MODEL_CATALOG', () => {
       DEFAULT_MODEL_CATALOG.filter((e) => e.cli === 'grok').map((e) => [e.model, e.efforts])
     );
     expect(grokEfforts).toEqual({
+      'grok-4.7': ['low', 'medium', 'high', 'xhigh'],
       'grok-4.6': ['low', 'medium', 'high', 'xhigh'],
       'grok-4.5': ['low', 'medium', 'high'],
     });
@@ -202,6 +204,15 @@ describe('validateOverridePair', () => {
     );
     expect(validateOverridePair(catalog, 'claude', 'opus', 'ultra')).toBe(
       'Invalid effort "ultra" for model "opus". Must be one of: low, medium, high, xhigh, max'
+    );
+  });
+
+  it('accepts all Grok 4.7 efforts and preserves the Grok 4.5 limit', () => {
+    for (const effort of ['low', 'medium', 'high', 'xhigh']) {
+      expect(validateOverridePair(catalog, 'claude', 'grok-4.7', effort)).toBeUndefined();
+    }
+    expect(validateOverridePair(catalog, 'claude', 'grok-4.5', 'xhigh')).toBe(
+      'Invalid effort "xhigh" for model "grok-4.5". Must be one of: low, medium, high'
     );
   });
 

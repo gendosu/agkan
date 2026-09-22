@@ -854,11 +854,11 @@ describe('PtySessionService - model/effort/boardApiUrl args', () => {
   it('starts grok with model, effort, permissions, and the prompt behind --', async () => {
     vi.mocked(configModule.loadConfig).mockReturnValue({ agent: 'grok' });
     const svc = new PtySessionService();
-    await svc.startProcess(1, 'Task ID: 1', 'run', 'grok-4.6', 'high');
+    await svc.startProcess(1, 'Task ID: 1', 'run', 'grok-4.7', 'xhigh');
 
     expect(spawnMock.mock.calls[0][0]).toBe('grok');
     const args = spawnMock.mock.calls[0][1] as string[];
-    expect(args).toEqual(['--model', 'grok-4.6', '--effort', 'high', '--permission-mode', 'auto', '--', 'Task ID: 1']);
+    expect(args).toEqual(['--model', 'grok-4.7', '--effort', 'xhigh', '--permission-mode', 'auto', '--', 'Task ID: 1']);
   });
 
   it('spawns grok when passed as the trailing agent argument', async () => {

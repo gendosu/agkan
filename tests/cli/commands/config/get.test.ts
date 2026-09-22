@@ -72,6 +72,7 @@ describe('setupConfigGetCommand', () => {
       { cli: 'agy', model: 'claude-sonnet-4-6', efforts: [] },
       { cli: 'agy', model: 'claude-opus-4-6-thinking', efforts: [] },
       { cli: 'agy', model: 'gpt-oss-120b-medium', efforts: [] },
+      { cli: 'grok', model: 'grok-4.7', efforts: ['low', 'medium', 'high', 'xhigh'] },
       { cli: 'grok', model: 'grok-4.6', efforts: ['low', 'medium', 'high', 'xhigh'] },
       { cli: 'grok', model: 'grok-4.5', efforts: ['low', 'medium', 'high'] },
     ]);

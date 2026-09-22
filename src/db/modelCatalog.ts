@@ -34,7 +34,7 @@ const AGY_MODELS: Array<{ model: string; efforts: string[] }> = [
   { model: 'gpt-oss-120b-medium', efforts: [] },
 ];
 
-const GROK_46_EFFORTS = ['low', 'medium', 'high', 'xhigh'];
+const GROK_47_46_EFFORTS = ['low', 'medium', 'high', 'xhigh'];
 const GROK_45_EFFORTS = ['low', 'medium', 'high'];
 
 export const DEFAULT_MODEL_CATALOG: readonly ModelCatalogEntry[] = [
@@ -47,7 +47,8 @@ export const DEFAULT_MODEL_CATALOG: readonly ModelCatalogEntry[] = [
   { cli: 'codex', model: 'gpt-5.6-terra', efforts: CODEX_EFFORTS },
   { cli: 'codex', model: 'gpt-5.6-luna', efforts: CODEX_EFFORTS_NO_ULTRA },
   ...AGY_MODELS.map(({ model, efforts }) => ({ cli: 'agy' as const, model, efforts })),
-  { cli: 'grok', model: 'grok-4.6', efforts: GROK_46_EFFORTS },
+  { cli: 'grok', model: 'grok-4.7', efforts: GROK_47_46_EFFORTS },
+  { cli: 'grok', model: 'grok-4.6', efforts: GROK_47_46_EFFORTS },
   { cli: 'grok', model: 'grok-4.5', efforts: GROK_45_EFFORTS },
 ];
 
