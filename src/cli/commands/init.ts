@@ -68,10 +68,10 @@ agent: claude
 #       effort: high
 #   grok:
 #     planning:
-#       model: grok-4.6
+#       model: grok-4.7
 #       effort: high
 #     run:
-#       model: grok-4.6
+#       model: grok-4.7
 #       effort: high
 
 # Model catalog
@@ -119,6 +119,9 @@ agent: claude
 #   - cli: agy
 #     model: gpt-oss-120b-medium
 #     efforts: []
+#   - cli: grok
+#     model: grok-4.7
+#     efforts: [low, medium, high, xhigh]
 #   - cli: grok
 #     model: grok-4.6
 #     efforts: [low, medium, high, xhigh]

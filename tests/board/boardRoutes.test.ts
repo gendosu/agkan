@@ -659,6 +659,22 @@ describe('PATCH /api/tasks/:id', () => {
     expect(updated.effort_planning).toBe('medium');
   });
 
+  it('accepts Grok 4.7 with xhigh through the task API', async () => {
+    const services = buildServices();
+    const task = services.ts.createTask({ title: 'Grok Task', status: 'backlog' });
+    const app = buildApp(services);
+    const res = await app.fetch(
+      new Request(`http://localhost/api/tasks/${task.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ models: { run: 'grok-4.7' }, efforts: { run: 'xhigh' } }),
+      })
+    );
+    expect(res.status).toBe(200);
+    expect(services.ts.getTask(task.id)?.model_run).toBe('grok-4.7');
+    expect(services.ts.getTask(task.id)?.effort_run).toBe('xhigh');
+  });
+
   it('returns 400 for an invalid model alias and leaves the task unchanged', async () => {
     const services = buildServices();
     const task = services.ts.createTask({ title: 'Original', status: 'backlog', model_run: 'sonnet' });

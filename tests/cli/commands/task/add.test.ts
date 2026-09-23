@@ -752,6 +752,23 @@ describe('setupTaskAddCommand', () => {
       }
     });
 
+    it('accepts Grok 4.7 with xhigh from the built-in catalog', async () => {
+      const { exitCode } = await runCommand(program, [
+        'task',
+        'add',
+        'Grok Task',
+        '--model-run',
+        'grok-4.7',
+        '--effort-run',
+        'xhigh',
+      ]);
+      expect(exitCode).toBeUndefined();
+
+      const task = new TaskService().listTasks()[0];
+      expect(task.model_run).toBe('grok-4.7');
+      expect(task.effort_run).toBe('xhigh');
+    });
+
     it('should reject an effort that does not belong to the selected model row', async () => {
       const { exitCode, errors } = await runCommand(program, [
         'task',

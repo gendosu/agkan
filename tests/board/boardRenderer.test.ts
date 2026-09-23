@@ -416,6 +416,12 @@ describe('renderBoard model catalog wiring', () => {
     expect(html).not.toContain('claude[Fable]');
   });
 
+  it('renders Grok 4.7 from the built-in catalog', () => {
+    vi.mocked(configModule.loadConfig).mockReturnValue({});
+    const html = render();
+    expect(html).toContain('<option value="grok-4.7">grok[grok-4.7]</option>');
+  });
+
   it('seeds the add-modal effort options from the default cli union', () => {
     const html = render();
     expect(html).toContain('<option value="max">max</option>');
