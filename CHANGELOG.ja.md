@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### 追加
+- 組み込みの `modelCatalog` に codex の `gpt-6-sol`（effort は `low`, `medium`, `high`, `xhigh`, `max`, `ultra`）と `gpt-6-luna`（同じ一覧から `ultra` を除いたもの）を `gpt-6-astra` の後に追加。既存の codex の行は変更しない (#760)
+
 ## [3.26.0] - 2026-09-21
 
 ### 追加
