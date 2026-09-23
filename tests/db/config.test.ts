@@ -27,6 +27,7 @@ import {
   loadConfig,
   resolveAgentTool,
   resolveModelSettings,
+  resolvePhaseSettings,
   buildCodexPermissionArgs,
   buildAgyPermissionArgs,
   buildGrokPermissionArgs,
@@ -93,6 +94,50 @@ describe('Agent tool resolution', () => {
     expect(() => resolveAgentTool({ agent: 'other' as 'claude' })).toThrow(
       'Invalid agent "other". Must be one of: claude, codex, agy, grok'
     );
+  });
+
+  it('resolves different version 2 agents for planning and run', () => {
+    const config = {
+      version: 2,
+      models: {
+        planning: { agent: 'claude' as const, model: 'fable', effort: 'high' },
+        run: { agent: 'codex' as const, model: 'gpt-5.6-sol', effort: 'high' },
+      },
+    };
+
+    expect(resolvePhaseSettings(config, 'planning')).toEqual({ agent: 'claude', model: 'fable', effort: 'high' });
+    expect(resolvePhaseSettings(config, 'run')).toEqual({ agent: 'codex', model: 'gpt-5.6-sol', effort: 'high' });
+  });
+
+  it('falls back from a version 2 phase to the top-level agent and then claude', () => {
+    expect(resolvePhaseSettings({ version: 2, agent: 'grok', models: { run: { model: 'grok-4.5' } } }, 'run')).toEqual({
+      agent: 'grok',
+      model: 'grok-4.5',
+      effort: undefined,
+    });
+    expect(resolvePhaseSettings({ version: 2 }, 'planning')).toEqual({
+      agent: 'claude',
+      model: undefined,
+      effort: undefined,
+    });
+  });
+
+  it('rejects a version 2 model owned by another agent', () => {
+    expect(() =>
+      resolvePhaseSettings(
+        { version: 2, models: { run: { agent: 'claude', model: 'gpt-5.6-sol', effort: 'high' } } },
+        'run'
+      )
+    ).toThrow('model "gpt-5.6-sol" belongs to agent "codex", not "claude"');
+  });
+
+  it('rejects an invalid version 2 effort', () => {
+    expect(() =>
+      resolvePhaseSettings(
+        { version: 2, models: { run: { agent: 'grok', model: 'grok-4.5', effort: 'xhigh' } } },
+        'run'
+      )
+    ).toThrow('Invalid models.run.effort "xhigh"');
   });
 });
 
@@ -577,6 +622,13 @@ describe('Database Path Resolution', () => {
 
       const config = loadConfig();
       expect(config.version).toBe(2);
+    });
+
+    it('should reject an unsupported future version', () => {
+      const configPath = path.join(process.cwd(), testConfigFileTest);
+      fs.writeFileSync(configPath, yaml.dump({ version: 3 }));
+
+      expect(() => loadConfig()).toThrow('Unsupported config version "3". Supported versions: 1, 2');
     });
 
     it('should return parsed config with path field', () => {

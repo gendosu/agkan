@@ -12,17 +12,28 @@ export function getDefaultAgent(): string {
   return window.defaultAgent ?? 'claude';
 }
 
+function getPhaseDefault(phase: 'planning' | 'run'): { agent: string; model?: string } {
+  return window.phaseDefaults?.[phase] ?? { agent: getDefaultAgent() };
+}
+
 /**
- * Effort values selectable for a model. An empty model means "Default (config)",
- * whose candidates are the union of every row belonging to the default cli.
+ * Effort values selectable for a model. An empty model means "Default (config)"
+ * and uses the resolved model or agent for the requested phase.
  */
-export function effortsForModel(model: string): string[] {
+export function effortsForModel(model: string, phase: 'planning' | 'run' = 'planning'): string[] {
   const catalog = getModelCatalog();
   if (model) {
     const entry = catalog.find((e) => e.model === model);
     return entry ? [...entry.efforts] : [];
   }
-  const agent = getDefaultAgent();
+  const phaseDefault = getPhaseDefault(phase);
+  if (phaseDefault.model) {
+    const entry = catalog.find(
+      (candidate) => candidate.cli === phaseDefault.agent && candidate.model === phaseDefault.model
+    );
+    if (entry) return [...entry.efforts];
+  }
+  const agent = phaseDefault.agent;
   const result: string[] = [];
   for (const entry of catalog) {
     if (entry.cli !== agent) continue;
@@ -37,9 +48,13 @@ export function effortsForModel(model: string): string[] {
  * Rebuild an effort select's options for the currently selected model.
  * The current selection survives only when it is still a candidate.
  */
-export function rebuildEffortOptions(modelSelect: HTMLSelectElement, effortSelect: HTMLSelectElement): void {
+export function rebuildEffortOptions(
+  modelSelect: HTMLSelectElement,
+  effortSelect: HTMLSelectElement,
+  phase: 'planning' | 'run' = 'planning'
+): void {
   const current = effortSelect.value;
-  const efforts = effortsForModel(modelSelect.value);
+  const efforts = effortsForModel(modelSelect.value, phase);
 
   effortSelect.innerHTML = '';
   const defaultOption = document.createElement('option');
@@ -57,9 +72,9 @@ export function rebuildEffortOptions(modelSelect: HTMLSelectElement, effortSelec
 }
 
 /** Wire a model select so changing it rebuilds its paired effort select. */
-export function wireModelEffortSync(modelId: string, effortId: string): void {
+export function wireModelEffortSync(modelId: string, effortId: string, phase: 'planning' | 'run' = 'planning'): void {
   const modelSelect = document.getElementById(modelId) as HTMLSelectElement | null;
   const effortSelect = document.getElementById(effortId) as HTMLSelectElement | null;
   if (!modelSelect || !effortSelect) return;
-  modelSelect.addEventListener('change', () => rebuildEffortOptions(modelSelect, effortSelect));
+  modelSelect.addEventListener('change', () => rebuildEffortOptions(modelSelect, effortSelect, phase));
 }

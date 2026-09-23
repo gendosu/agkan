@@ -4,7 +4,7 @@ import {
   loadConfig,
   resolveAgentTool,
   resolveDatabasePath,
-  resolveModelSettings,
+  resolvePhaseSettings,
   type AgentModelSettings,
   type AgentTool,
 } from '../../../db/config';
@@ -15,6 +15,7 @@ import { resolveModelCatalog, type ModelCatalogEntry } from '../../../db/modelCa
 export { DEFAULT_BOARD_PORT };
 
 type ResolvedConfig = {
+  version: 1 | 2;
   agent: AgentTool;
   path: string;
   board: {
@@ -22,8 +23,8 @@ type ResolvedConfig = {
     title: string | undefined;
   };
   models: {
-    planning: { model?: string; effort?: string } | undefined;
-    run: { model?: string; effort?: string } | undefined;
+    planning: { agent: AgentTool; model?: string; effort?: string };
+    run: { agent: AgentTool; model?: string; effort?: string };
     claude: AgentModelSettings | undefined;
     codex: AgentModelSettings | undefined;
     agy: AgentModelSettings | undefined;
@@ -35,6 +36,7 @@ type ResolvedConfig = {
 function buildResolvedConfig(): ResolvedConfig {
   const config = loadConfig();
   return {
+    version: (config.version ?? 1) as 1 | 2,
     agent: resolveAgentTool(config),
     path: resolveDatabasePath(),
     board: {
@@ -42,8 +44,8 @@ function buildResolvedConfig(): ResolvedConfig {
       title: config.board?.title,
     },
     models: {
-      planning: resolveModelSettings(config, 'planning'),
-      run: resolveModelSettings(config, 'run'),
+      planning: resolvePhaseSettings(config, 'planning'),
+      run: resolvePhaseSettings(config, 'run'),
       claude: config.models?.claude,
       codex: config.models?.codex,
       agy: config.models?.agy,
@@ -100,6 +102,7 @@ export function setupConfigGetCommand(program: Command): void {
             () => ({ success: true, config: resolved }),
             () => {
               console.log(chalk.green('\n✓ Resolved config\n'));
+              console.log('version: ' + resolved.version);
               console.log('agent: ' + resolved.agent);
               console.log('path: ' + resolved.path);
               console.log(`board.port: ${resolved.board.port}`);
@@ -107,12 +110,14 @@ export function setupConfigGetCommand(program: Command): void {
                 console.log(`board.title: ${resolved.board.title}`);
               }
               if (resolved.models.planning) {
+                console.log(`models.planning.agent: ${resolved.models.planning.agent}`);
                 if (resolved.models.planning.model)
                   console.log(`models.planning.model: ${resolved.models.planning.model}`);
                 if (resolved.models.planning.effort)
                   console.log(`models.planning.effort: ${resolved.models.planning.effort}`);
               }
               if (resolved.models.run) {
+                console.log(`models.run.agent: ${resolved.models.run.agent}`);
                 if (resolved.models.run.model) console.log(`models.run.model: ${resolved.models.run.model}`);
                 if (resolved.models.run.effort) console.log(`models.run.effort: ${resolved.models.run.effort}`);
               }

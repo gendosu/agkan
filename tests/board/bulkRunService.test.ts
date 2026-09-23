@@ -63,6 +63,33 @@ describe('BulkRunService task selection', () => {
     expect(startProcess).toHaveBeenCalledWith(high.id, expect.any(String), 'run', undefined, undefined, 'claude');
   });
 
+  it('passes the version 2 run bundle to the PTY', async () => {
+    const db = getStorageBackend();
+    const ts = new TaskService(db);
+    const tbs = new TaskBlockService(db);
+    const task = ts.createTask({ title: 'task', status: 'ready', priority: 'medium' });
+    const startProcess = vi.fn().mockResolvedValue(undefined);
+    const service = new BulkRunService(ts, tbs, buildMockPty({ startProcess }));
+    const tmpCwd = fs.mkdtempSync(path.join(os.tmpdir(), 'agkan-bulk-v2-test-'));
+    const cwdSpy = vi.spyOn(process, 'cwd').mockReturnValue(tmpCwd);
+    try {
+      fs.writeFileSync(
+        path.join(tmpCwd, '.agkan-test.yml'),
+        yaml.dump({
+          version: 2,
+          models: { run: { agent: 'codex', model: 'gpt-5.6-sol', effort: 'high' } },
+        })
+      );
+
+      await service.start('direct');
+
+      expect(startProcess).toHaveBeenCalledWith(task.id, expect.any(String), 'run', 'gpt-5.6-sol', 'high', 'codex');
+    } finally {
+      cwdSpy.mockRestore();
+      fs.rmSync(tmpCwd, { recursive: true, force: true });
+    }
+  });
+
   it('excludes tasks with unresolved blockers', async () => {
     const db = getStorageBackend();
     const ts = new TaskService(db);

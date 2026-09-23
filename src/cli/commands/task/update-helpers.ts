@@ -8,7 +8,7 @@ import { validateTaskStatus } from '../../utils/validators';
 import { OutputFormatter } from '../../utils/output-formatter';
 import { readBodyFromFile } from './add-helpers';
 import type { Task } from '../../../models';
-import { loadConfig, resolveAgentTool } from '../../../db/config';
+import { loadConfig, resolvePhaseSettings } from '../../../db/config';
 import { resolveModelCatalog, validateOverridePair } from '../../../db/modelCatalog';
 
 export interface UpdateOptions {
@@ -103,19 +103,22 @@ export function validateModelEffortUpdate(updateInput: Record<string, string>, s
       const effortTouched = kind.effort in updateInput;
       if (!modelTouched && !effortTouched) return undefined;
       return {
+        phase: kind.model === 'model_planning' ? ('planning' as const) : ('run' as const),
         model: modelTouched ? updateInput[kind.model] : kind.storedModel,
         effort: effortTouched ? updateInput[kind.effort] : kind.storedEffort,
       };
     })
-    .filter((pair): pair is { model: string | null; effort: string | null } => pair !== undefined);
+    .filter(
+      (pair): pair is { phase: 'planning' | 'run'; model: string | null; effort: string | null } => pair !== undefined
+    );
 
   if (touchedPairs.length === 0) return null;
 
   const config = loadConfig();
   const catalog = resolveModelCatalog(config);
-  const defaultCli = resolveAgentTool(config);
   for (const pair of touchedPairs) {
-    const error = validateOverridePair(catalog, defaultCli, pair.model, pair.effort);
+    const phase = resolvePhaseSettings(config, pair.phase);
+    const error = validateOverridePair(catalog, phase.agent, pair.model, pair.effort, phase.model);
     if (error) return error;
   }
   return null;

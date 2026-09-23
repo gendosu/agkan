@@ -4,7 +4,7 @@
 // concern itself with how they were derived.
 
 import { TaskService } from '../services/TaskService';
-import { loadConfig, resolveAgentTool, resolveModelSettings, type AgentTool } from '../db/config';
+import { loadConfig, resolvePhaseSettings, type AgentTool } from '../db/config';
 import { resolveModelCatalog, findCatalogEntry, type ModelCatalogEntry } from '../db/modelCatalog';
 import { BRANCH_AUTO_GENERATE } from '../models/Task';
 import { getTaskModelOverride, getTaskEffortOverride, ModelOverrideKind } from './taskModelOverride';
@@ -63,7 +63,8 @@ export interface LaunchSettings {
 /**
  * Resolve which cli, model and effort a run of this task should use.
  * A task-level model override picks its catalog row's cli; without one the
- * configured `agent:` is the default cli and its `models.<agent>` block applies.
+ * phase settings determine the cli and model. In version 2, the phase effort
+ * belongs to its configured model and is not inherited by a different model.
  * Effort is validated only when a catalog row can be identified.
  */
 export function resolveLaunchSettings(
@@ -73,8 +74,8 @@ export function resolveLaunchSettings(
 ): LaunchSettings {
   const config = loadConfig();
   const catalog = resolveModelCatalog(config);
-  const defaultCli = resolveAgentTool(config);
   const kind: ModelOverrideKind = command === 'planning' ? 'planning' : 'run';
+  const phaseSettings = resolvePhaseSettings(config, kind);
 
   const taskModel = taskService ? getTaskModelOverride(taskService, taskId, kind) : undefined;
   const taskEffort = taskService ? getTaskEffortOverride(taskService, taskId, kind) : undefined;
@@ -94,13 +95,20 @@ export function resolveLaunchSettings(
     agent = entry.cli;
     model = entry.model;
   } else {
-    agent = defaultCli;
-    model = resolveModelSettings(config, kind, agent)?.model?.trim() || undefined;
+    agent = phaseSettings.agent;
+    model = phaseSettings.model;
     // Match the cli too: `agent:` wins over a same-named row of the other cli.
     entry = model ? findCatalogEntry(catalog, model, agent) : undefined;
   }
 
-  const requestedEffort = taskEffort ?? resolveModelSettings(config, kind, agent)?.effort?.trim() ?? undefined;
+  const configuredEffort = taskModel
+    ? config.version === 2
+      ? taskModel === phaseSettings.model
+        ? phaseSettings.effort
+        : undefined
+      : resolvePhaseSettings(config, kind, agent).effort
+    : phaseSettings.effort;
+  const requestedEffort = taskEffort ?? configuredEffort ?? undefined;
   // A row with no efforts (agy's fixed variants) rejects --effort outright, so drop the
   // effort instead of failing the launch; writes are already refused by validateOverridePair.
   const effort = entry && entry.efforts.length === 0 ? undefined : requestedEffort;

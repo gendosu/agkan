@@ -10,7 +10,7 @@ import { parseNumericArray } from '../../utils/error-handler';
 import { getStatusColor, formatDate } from '../../../utils/format';
 import { filterNonNull } from '../../utils/array-utils';
 import { resolveTag } from '../../utils/tag-resolver';
-import { loadConfig, resolveAgentTool } from '../../../db/config';
+import { loadConfig, resolvePhaseSettings } from '../../../db/config';
 import {
   DEFAULT_MODEL_CATALOG,
   resolveModelCatalog,
@@ -117,7 +117,16 @@ export function modelEffortHelpText(): { models: string; efforts: string } {
     const catalog = resolveModelCatalog(config);
     return {
       models: catalog.map((entry) => entry.model).join(', '),
-      efforts: effortsForDefaultCli(catalog, resolveAgentTool(config)).join(', '),
+      efforts: [
+        ...new Set(
+          ['planning', 'run'].flatMap((phase) => {
+            const settings = resolvePhaseSettings(config, phase as 'planning' | 'run');
+            return settings.model
+              ? (catalog.find((entry) => entry.cli === settings.agent && entry.model === settings.model)?.efforts ?? [])
+              : effortsForDefaultCli(catalog, settings.agent);
+          })
+        ),
+      ].join(', '),
     };
   } catch {
     return {
@@ -146,10 +155,11 @@ export function validateModelEffortOptions(options: ModelEffortOptions): string 
 
   const config = loadConfig();
   const catalog = resolveModelCatalog(config);
-  const defaultCli = resolveAgentTool(config);
+  const planning = resolvePhaseSettings(config, 'planning');
+  const run = resolvePhaseSettings(config, 'run');
   return (
-    validateOverridePair(catalog, defaultCli, options.modelPlanning, options.effortPlanning) ??
-    validateOverridePair(catalog, defaultCli, options.modelRun, options.effortRun) ??
+    validateOverridePair(catalog, planning.agent, options.modelPlanning, options.effortPlanning, planning.model) ??
+    validateOverridePair(catalog, run.agent, options.modelRun, options.effortRun, run.model) ??
     null
   );
 }

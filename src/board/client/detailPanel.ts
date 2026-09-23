@@ -641,8 +641,8 @@ export function renderDetailPanel(data: TaskDetail): void {
   }
 
   // Elements are rebuilt on every render, so re-wire the model -> effort linkage.
-  wireModelEffortSync('detail-edit-model-planning', 'detail-edit-effort-planning');
-  wireModelEffortSync('detail-edit-model-run', 'detail-edit-effort-run');
+  wireModelEffortSync('detail-edit-model-planning', 'detail-edit-effort-planning', 'planning');
+  wireModelEffortSync('detail-edit-model-run', 'detail-edit-effort-run', 'run');
 
   // Wire branch field interactions (elements are rebuilt above, so re-init each render)
   branchSelector = initBranchSelector({

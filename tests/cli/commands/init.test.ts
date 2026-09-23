@@ -83,17 +83,13 @@ describe('setupInitCommand', () => {
     const content = fs.readFileSync(configPath, 'utf8');
     expect(content).toContain('path:');
     expect(content).toContain('.agkan/data.db');
-    expect(content).toContain('agent: claude');
-    expect(content).toContain('Valid values: claude | codex | agy | grok');
-    expect(content).toContain('  claude:');
-    expect(content).toContain('  codex:');
-    expect(content).toContain('  agy:');
-    expect(content).toContain('  grok:');
+    expect(content).toContain('version: 2');
+    expect(content).toContain('planning:\n    agent: claude\n    model: fable\n    effort: high');
+    expect(content).toContain('run:\n    agent: codex\n    model: gpt-5.6-sol\n    effort: high');
     expect(content).toContain('# modelCatalog:');
     expect(content).toContain('cli: agy');
     expect(content).toContain('cli: grok');
     expect(content).toContain('#     model: grok-4.7\n#     efforts: [low, medium, high, xhigh]');
-    expect(content).toContain('#       model: grok-4.7');
   });
 
   it('should display success messages after creation', async () => {

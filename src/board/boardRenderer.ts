@@ -3,7 +3,13 @@ import { Tag } from '../models/Tag';
 import { StorageBackend } from '../db/types/repository';
 import { BOARD_STYLES } from './boardStyles';
 import { BOARD_FAVICON_BASE64 } from './boardFavicon';
-import { loadConfig, resolveAgentTool, type AgentTool } from '../db/config';
+import {
+  loadConfig,
+  resolveAgentTool,
+  resolvePhaseSettings,
+  type AgentTool,
+  type ResolvedPhaseSettings,
+} from '../db/config';
 import { resolveModelCatalog, effortsForDefaultCli, type ModelCatalogEntry } from '../db/modelCatalog';
 
 type BoardStatus = TaskStatus;
@@ -117,11 +123,21 @@ function buildEffortOptions(efforts: string[]): string {
   return efforts.map((e) => `<option value="${escapeHtml(e)}">${escapeHtml(e)}</option>`).join('\n          ');
 }
 
-function getAddTaskModal(catalog: ModelCatalogEntry[], defaultAgent: AgentTool): string {
+function effortsForPhase(catalog: ModelCatalogEntry[], settings: ResolvedPhaseSettings): string[] {
+  if (settings.model) {
+    const entry = catalog.find((candidate) => candidate.cli === settings.agent && candidate.model === settings.model);
+    if (entry) return entry.efforts;
+  }
+  return effortsForDefaultCli(catalog, settings.agent);
+}
+
+function getAddTaskModal(
+  catalog: ModelCatalogEntry[],
+  phaseDefaults: Record<'planning' | 'run', ResolvedPhaseSettings>
+): string {
   const modelOptions = buildModelOptions(catalog);
-  // The model select starts on "Default (config)", so the initial effort list is
-  // the union for the default cli. rebuildEffortOptions narrows it client-side.
-  const effortOptions = buildEffortOptions(effortsForDefaultCli(catalog, defaultAgent));
+  const planningEffortOptions = buildEffortOptions(effortsForPhase(catalog, phaseDefaults.planning));
+  const runEffortOptions = buildEffortOptions(effortsForPhase(catalog, phaseDefaults.run));
   return `
   <div class="modal-overlay" id="add-modal">
     <div class="modal">
@@ -168,7 +184,7 @@ function getAddTaskModal(catalog: ModelCatalogEntry[], defaultAgent: AgentTool):
         </select>
         <select id="add-effort-planning">
           <option value="">Effort: default</option>
-          ${effortOptions}
+          ${planningEffortOptions}
         </select>
       </div>
       <label for="add-model-run">Run Model</label>
@@ -179,7 +195,7 @@ function getAddTaskModal(catalog: ModelCatalogEntry[], defaultAgent: AgentTool):
         </select>
         <select id="add-effort-run">
           <option value="">Effort: default</option>
-          ${effortOptions}
+          ${runEffortOptions}
         </select>
       </div>
       <label>Tags</label>
@@ -282,15 +298,20 @@ function jsonForScript(value: unknown): string {
   return JSON.stringify(value).replace(/</g, '\\u003c');
 }
 
-function getBoardBodyStatic(catalog: ModelCatalogEntry[], defaultAgent: AgentTool): string {
+function getBoardBodyStatic(
+  catalog: ModelCatalogEntry[],
+  defaultAgent: AgentTool,
+  phaseDefaults: Record<'planning' | 'run', ResolvedPhaseSettings>
+): string {
   const configScript = `var statusColors = ${JSON.stringify(STATUS_COLORS)};
     var allStatuses = ${JSON.stringify(STATUSES)};
     var statusLabels = ${JSON.stringify(STATUS_LABELS)};
     var allPriorities = ${JSON.stringify(PRIORITIES)};
     var modelCatalog = ${jsonForScript(catalog)};
-    var defaultAgent = ${jsonForScript(defaultAgent)};`;
+    var defaultAgent = ${jsonForScript(defaultAgent)};
+    var phaseDefaults = ${jsonForScript(phaseDefaults)};`;
 
-  return `${getAddTaskModal(catalog, defaultAgent)}${getContextMenuAndToast()}${getPurgeAndVersionModals()}
+  return `${getAddTaskModal(catalog, phaseDefaults)}${getContextMenuAndToast()}${getPurgeAndVersionModals()}
   <script>${configScript}
   </script>
   <link rel="stylesheet" href="/static/main.css">
@@ -337,6 +358,10 @@ export function renderBoard(
   const config = loadConfig();
   const catalog = resolveModelCatalog(config);
   const defaultAgent = resolveAgentTool(config);
+  const phaseDefaults = {
+    planning: resolvePhaseSettings(config, 'planning'),
+    run: resolvePhaseSettings(config, 'run'),
+  };
   const columns = STATUSES.map((status) =>
     renderColumn(status, tasksByStatus.get(status) || [], tagMap, blockMap)
   ).join('');
@@ -356,7 +381,7 @@ export function renderBoard(
   ${renderBoardHeader(boardTitle)}
   ${renderFilterBar()}
   <div class="board-container">
-    <div class="board">${columns}</div>${getBoardBodyStatic(catalog, defaultAgent)}
+    <div class="board">${columns}</div>${getBoardBodyStatic(catalog, defaultAgent, phaseDefaults)}
   </div>
 </body>
 </html>`;

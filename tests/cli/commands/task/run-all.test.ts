@@ -82,6 +82,37 @@ describe('runLoop', () => {
     expect(ts.getTask(high.id)?.status).toBe('done');
   });
 
+  it('passes the version 2 run bundle to the PTY', async () => {
+    const db = getStorageBackend();
+    const ts = new TaskService(db);
+    const tbs = new TaskBlockService(db);
+    const task = ts.createTask({ title: 'task', status: 'ready', priority: 'medium' });
+    const startProcess = vi.fn().mockResolvedValue(undefined);
+    const subscribeOutput = vi.fn().mockImplementation((_id: number, callback: OutputCallback) => {
+      callback({ kind: 'done', exitCode: 0 });
+      return () => {};
+    });
+    const container = buildContainer(buildMockPty({ startProcess, subscribeOutput }), ts, tbs);
+    const tmpCwd = fs.mkdtempSync(path.join(os.tmpdir(), 'agkan-run-all-v2-test-'));
+    const cwdSpy = vi.spyOn(process, 'cwd').mockReturnValue(tmpCwd);
+    try {
+      fs.writeFileSync(
+        path.join(tmpCwd, '.agkan-test.yml'),
+        yaml.dump({
+          version: 2,
+          models: { run: { agent: 'codex', model: 'gpt-5.6-sol', effort: 'high' } },
+        })
+      );
+
+      expect(await runLoop(container, false)).toBe(0);
+
+      expect(startProcess).toHaveBeenCalledWith(task.id, expect.any(String), 'run', 'gpt-5.6-sol', 'high', 'codex');
+    } finally {
+      cwdSpy.mockRestore();
+      fs.rmSync(tmpCwd, { recursive: true, force: true });
+    }
+  });
+
   it('streams live raw PTY output to stdout as it arrives, not just a completion summary', async () => {
     const db = getStorageBackend();
     const ts = new TaskService(db);

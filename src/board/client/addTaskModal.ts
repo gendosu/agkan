@@ -252,8 +252,8 @@ function resetAddModal(elements: AddModalElements): void {
   elements.addEffortRun.value = '';
   // Model is back on "Default (config)", so the effort lists go back to the
   // default cli union (and lose any effort left over from the previous model).
-  rebuildEffortOptions(elements.addModelPlanning, elements.addEffortPlanning);
-  rebuildEffortOptions(elements.addModelRun, elements.addEffortRun);
+  rebuildEffortOptions(elements.addModelPlanning, elements.addEffortPlanning, 'planning');
+  rebuildEffortOptions(elements.addModelRun, elements.addEffortRun, 'run');
   // Reset tags
   selectedTags = [];
   tagInputValue = '';
@@ -335,8 +335,8 @@ export function initAddTaskModal(): void {
     addEffortRun: document.getElementById('add-effort-run') as HTMLSelectElement,
   };
 
-  wireModelEffortSync('add-model-planning', 'add-effort-planning');
-  wireModelEffortSync('add-model-run', 'add-effort-run');
+  wireModelEffortSync('add-model-planning', 'add-effort-planning', 'planning');
+  wireModelEffortSync('add-model-run', 'add-effort-run', 'run');
 
   if (elements.addBody) {
     addMarkdownEditor = createMarkdownEditor(elements.addBody);

@@ -34,6 +34,7 @@ beforeEach(() => {
   document.body.innerHTML = '';
   delete (window as unknown as Record<string, unknown>).modelCatalog;
   delete (window as unknown as Record<string, unknown>).defaultAgent;
+  delete (window as unknown as Record<string, unknown>).phaseDefaults;
 });
 
 describe('getModelCatalog', () => {
@@ -61,6 +62,22 @@ describe('effortsForModel', () => {
   it('follows defaultAgent when it is codex', () => {
     (window as unknown as Record<string, unknown>).defaultAgent = 'codex';
     expect(effortsForModel('')).toEqual(['none', 'low']);
+  });
+
+  it('uses the configured model row for each phase default', () => {
+    (window as unknown as Record<string, unknown>).phaseDefaults = {
+      planning: { agent: 'claude', model: 'fable' },
+      run: { agent: 'codex', model: 'gpt-5.6-sol' },
+    };
+    expect(effortsForModel('', 'planning')).toEqual(['low', 'medium', 'high']);
+    expect(effortsForModel('', 'run')).toEqual(['none', 'low']);
+  });
+
+  it('uses the agent effort choices for a legacy configured model outside the catalog', () => {
+    (window as unknown as Record<string, unknown>).phaseDefaults = {
+      planning: { agent: 'claude', model: 'legacy-model' },
+    };
+    expect(effortsForModel('', 'planning')).toEqual(['low', 'medium', 'high', 'max']);
   });
 
   it('returns an empty list for a model that is not in the catalog', () => {

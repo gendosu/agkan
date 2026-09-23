@@ -148,12 +148,17 @@ export function validateOverridePair(
   catalog: readonly ModelCatalogEntry[],
   defaultCli: AgentTool,
   model: string | null | undefined,
-  effort: string | null | undefined
+  effort: string | null | undefined,
+  defaultModel?: string
 ): string | undefined {
   const trimmedModel = typeof model === 'string' ? model.trim() : '';
   const trimmedEffort = typeof effort === 'string' ? effort.trim() : '';
 
-  const entry = trimmedModel ? findCatalogEntry(catalog, trimmedModel) : undefined;
+  const entry = trimmedModel
+    ? findCatalogEntry(catalog, trimmedModel)
+    : defaultModel
+      ? findCatalogEntry(catalog, defaultModel, defaultCli)
+      : undefined;
   if (trimmedModel && !entry) {
     return `Invalid model "${trimmedModel}". Must be one of: ${catalog.map((e) => e.model).join(', ')}`;
   }

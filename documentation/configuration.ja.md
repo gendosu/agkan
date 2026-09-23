@@ -176,7 +176,7 @@ board:
 
 ## エージェント設定
 
-`.agkan.yml` の `agent` フィールドで、ボードがタスク実行に使用するAIコーディングエージェントを選択します。
+version 2 では `models.<phase>.agent` で planning と run の CLI を別々に選択します。トップレベルの `agent` は phase 側で省略した場合のフォールバックで、version 1 では従来どおり単一の既定 CLI です。
 
 ### 利用可能な値
 
@@ -263,78 +263,51 @@ modelCatalog:
 
 ### タスクからの使われ方
 
-- タスクでモデルを選ぶと、そのタスクを実行する cli も決まります（そのタスクに限り `agent:` を上書きします）。
-- effort は、選択したモデルの行の `efforts` に含まれる場合のみ有効です。モデル未選択のときは、既定の `agent:` に属する全行の efforts の和集合が候補になります。
+- タスクでモデルを選ぶと、そのタスクを実行する cli も決まり、そのタスクに限り phase の既定値を上書きします。
+- effort は、タスクで選択したモデルの行の `efforts` に含まれる場合のみ有効です。タスク側モデル未選択時は phase の解決済みモデル、phase にモデルがなければ解決済み agent の全行を基準に検証します。
 - 保存済みのモデルがカタログから消えている場合、実行は既定 cli にフォールバックせず 400 で失敗します。Board の詳細パネルはその値を `(not in catalog) <model>` として表示し、修正できるようにします。
-- `models.<agent>.<kind>.model` の値はカタログで検証しません。その effort は、モデルが同じ cli のカタログ行に一致するときだけ検証されます。
+- version 2 の phase モデルと effort は、同じ cli のカタログ行に対して検証します。version 1 は従来のパススルー動作を維持します。
 
 ## モデル設定
 
-`.agkan.yml` の `models` セクションでは、ボード経由でplanningおよびrunコマンドを実行する際に、選択したエージェントが使用するモデルとeffortレベルを指定できます。
+version 2 では各 phase の `agent`、`model`、`effort` を一つのまとまりとして指定します。`pr` は `run` の設定を使います。
 
 ### 利用可能なフィールド
 
 | フィールド | 型 | デフォルト値 | 説明 |
 |----------|-----|------------|------|
-| `models.<agent>.planning.model` | string | claude: 選択したCLIのデフォルト / codex: `gpt-5.6-sol` / agy: 選択したCLIのデフォルト / grok: 選択したCLIのデフォルト | planningコマンド実行時に使用するモデル |
-| `models.<agent>.planning.effort` | string | (選択したCLIのデフォルト) | planningコマンドのeffortレベル（[モデルカタログ](#モデルカタログ)を参照） |
-| `models.<agent>.run.model` | string | claude: 選択したCLIのデフォルト / codex: `gpt-5.6-sol` / agy: 選択したCLIのデフォルト / grok: 選択したCLIのデフォルト | run/prコマンド実行時に使用するモデル |
-| `models.<agent>.run.effort` | string | (選択したCLIのデフォルト) | run/prコマンドのeffortレベル（[モデルカタログ](#モデルカタログ)を参照） |
+| `models.<phase>.agent` | string | トップレベル `agent`、次に `claude` | `planning` または `run` を実行する CLI |
+| `models.<phase>.model` | string | 選択した CLI の既定値 | CLI に渡すモデル |
+| `models.<phase>.effort` | string | 選択した CLI の既定値 | 同じモデルのカタログ行で許可された effort |
 
-`<agent>` は `claude`、`codex`、`agy`、`grok` のいずれかです。`models.claude`、`models.codex`、`models.agy`、`models.grok` はすべて同時に定義でき、`agent` で選択した側の設定のみが使用されます。`model` と `effort` はいずれも省略可能です。
+`<phase>` は `planning` または `run`、`agent` は `claude`、`codex`、`agy`、`grok` のいずれかです。モデルは同じ agent の `modelCatalog` 行に存在し、effort はその行で許可されている必要があります。未対応version、agent/modelの不一致、不正なeffortは設定エラーになります。
 
-`models.codex.planning.model` / `models.codex.run.model` が未設定の場合、Codex CLI自身のデフォルトに委ねるのではなく、agkanが `gpt-5.6-sol` をデフォルトとして使用します。`claude`、`agy`、`grok` にはagkan側のデフォルトはなく、未設定の場合はCLI自身のデフォルトモデルが使用されます。
-
-> **破壊的変更**: この機能導入以前は、Codexのモデルが未設定の場合 `--model` 自体が渡されず、Codex CLI自身のデフォルトモデルに委ねられていました。agkanは今後常に `--model` を渡し、未設定時は `gpt-5.6-sol` をデフォルトとします。Codex CLI自身のデフォルトに依存していた場合は、`models.codex.planning.model` / `models.codex.run.model` にそのモデル名を明示的に設定してください。
-
-後方互換のため、エージェントキーを持たない従来のフラット形式 `models.planning` / `models.run` も引き続きフォールバックとしてサポートされます: `models.<agent>.planning`（または `.run`）が未設定の場合、`models.planning`（または `.run`）にフォールバックします。エージェント固有の設定は常に従来のフラット形式より優先されます。
-
-モデル名は選択したエージェントのCLIにそのまま渡されます（`claude`、`codex`、`agy`、`grok` のいずれも `--model` フラグ）。`opus`、`sonnet`、`haiku` などのClaude CLIのエイリアスは、agkanではなくClaude CLI自身が解決します。agkanはどのエージェントについてもモデルのエイリアス解決やバリデーションは行いません。Codexの場合、`effort` は `--effort` フラグではなく `--config model_reasoning_effort=<effort>` として渡されます。agyおよびgrokの場合は素の `--effort` フラグとして渡されます。
+起動時の優先順位は、タスク単位のmodel/effort、version 2のphase設定、version 1互換設定または既定値です。Board単体実行、Bulk Run、`task run-all` は同じ解決処理を使います。
+version 2 でタスク側が別のモデルを選んだ場合、phase の effort は引き継ぎません。そのモデルに effort が必要ならタスク側で明示します。
 
 ### 設定例
 
 ```yaml
-# データベースファイルのパス
-path: ./.agkan/data.db
+version: 2
 
-# モデル設定
-agent: codex
 models:
-  claude:
-    planning:
-      model: claude-opus-4-7
-      effort: high
-    run:
-      model: claude-sonnet-4-6
-      effort: low
-  codex:
-    planning:
-      model: gpt-5.6-sol
-      effort: high
-    run:
-      model: gpt-5.6-sol
-      effort: high
-  agy:
-    planning:
-      model: gemini-3.8-flash
-      effort: high
-    run:
-      model: gemini-3.8-flash
-      effort: high
-  grok:
-    planning:
-      model: grok-4.7
-      effort: high
-    run:
-      model: grok-4.7
-      effort: high
+  planning:
+    agent: claude
+    model: fable
+    effort: high
+  run:
+    agent: codex
+    model: gpt-5.6-sol
+    effort: high
 ```
 
-### エイリアスの使用
+### version 1 の互換性と移行
 
-`agent: claude` を選択している場合、フルモデル名の代わりに短いエイリアスを使用できます：
+version 未指定は version 1 として扱われ、既存の agent 別設定は従来どおり動作します。
 
 ```yaml
+version: 1 # 省略可
+agent: claude
 models:
   claude:
     planning:
@@ -344,27 +317,9 @@ models:
       model: sonnet
 ```
 
-使用可能なエイリアス: `opus`、`sonnet`、`haiku`（Claude CLIが解決します。Codexについてagkanはエイリアスを解決しません）
+移行するには `version: 2` を追加し、各 phase を `models` 直下へ移して `agent` を加えます。version 1 の従来のフラット形式 `models.planning` / `models.run` も維持されます。将来の未対応versionはversion 1/2として解釈せず拒否します。`agkan init` は planning = Claude/Fable/high、run = Codex/gpt-5.6-sol/high のversion 2設定を生成します。
 
-### フィールドの詳細
-
-- **`models.<agent>.planning`**: ボードがplanningタスクを実行する際に、対象エージェントが使用するモデルとeffortレベルを指定します。`claude` の場合は `opus` など高性能なモデルと高いeffortレベルの使用を推奨します。
-  ```yaml
-  models:
-    claude:
-      planning:
-        model: opus
-        effort: high
-  ```
-
-- **`models.<agent>.run`**: ボードがrunまたはprコマンドを実行する際に、対象エージェントが使用するモデルとeffortレベルを指定します。`pr` コマンドもこの値を使用します。
-  ```yaml
-  models:
-    claude:
-      run:
-        model: sonnet
-        effort: low
-  ```
+解決済みversionと各phaseは、`agkan config get`、`agkan config get models.planning.agent`、またはJSON出力で確認できます。
 
 ## パーミッションモード設定
 

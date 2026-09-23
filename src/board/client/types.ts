@@ -14,6 +14,7 @@ declare global {
     allPriorities: string[];
     modelCatalog: ModelCatalogEntry[];
     defaultAgent: string;
+    phaseDefaults: Record<'planning' | 'run', { agent: string; model?: string; effort?: string }>;
   }
 }
 

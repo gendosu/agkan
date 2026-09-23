@@ -274,7 +274,7 @@ agkan task update 1 --model-run haiku --effort-run low
 agkan task update 1 --model-run "" --effort-run ""
 ```
 
-The values are validated as a pair against the [model catalog](configuration.md#model-catalog):
+The values are validated as a pair against the [model catalog](configuration.md#model-catalog). With no task model, effort is validated against that phase's resolved version 2 model/agent (or the version 1 default agent):
 a flag you omit is checked against the value already stored on the task.
 
 ### Manage Parent-Child Relationships
@@ -620,8 +620,16 @@ Example output:
 ```
 ✓ Resolved config
 
+version: 2
+agent: claude
 path: /workspace/.agkan/data.db
 board.port: 8080
+models.planning.agent: claude
+models.planning.model: fable
+models.planning.effort: high
+models.run.agent: codex
+models.run.model: gpt-5.6-sol
+models.run.effort: high
 modelCatalog: claude fable (low, medium, high, xhigh, max)
 modelCatalog: claude opus (low, medium, high, xhigh, max)
 modelCatalog: claude sonnet (low, medium, high, xhigh, max)

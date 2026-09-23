@@ -222,6 +222,78 @@ describe('resolveLaunchSettings', () => {
     });
   });
 
+  it('uses version 2 planning and run bundles, with pr mapped to run', () => {
+    const { ts } = buildServices();
+    const task = ts.createTask({ title: 'Task', status: 'backlog' });
+    writeConfig({
+      version: 2,
+      models: {
+        planning: { agent: 'claude', model: 'fable', effort: 'high' },
+        run: { agent: 'codex', model: 'gpt-5.6-sol', effort: 'medium' },
+      },
+    });
+
+    expect(resolveLaunchSettings(ts, task.id, 'planning')).toEqual({
+      agent: 'claude',
+      model: 'fable',
+      effort: 'high',
+    });
+    expect(resolveLaunchSettings(ts, task.id, 'run')).toEqual({
+      agent: 'codex',
+      model: 'gpt-5.6-sol',
+      effort: 'medium',
+    });
+    expect(resolveLaunchSettings(ts, task.id, 'pr')).toEqual({
+      agent: 'codex',
+      model: 'gpt-5.6-sol',
+      effort: 'medium',
+    });
+  });
+
+  it('lets a task model override the version 2 phase agent and model', () => {
+    const { ts } = buildServices();
+    const task = ts.createTask({ title: 'Task', status: 'backlog' });
+    writeConfig({
+      version: 2,
+      models: { run: { agent: 'codex', model: 'gpt-5.6-sol', effort: 'high' } },
+    });
+    ts.updateTask(task.id, { model_run: 'opus', effort_run: 'low' });
+
+    expect(resolveLaunchSettings(ts, task.id, 'run')).toEqual({ agent: 'claude', model: 'opus', effort: 'low' });
+  });
+
+  it('does not carry a version 2 effort to a task model on another cli', () => {
+    const { ts } = buildServices();
+    const task = ts.createTask({ title: 'Task', status: 'backlog' });
+    writeConfig({
+      version: 2,
+      models: { run: { agent: 'codex', model: 'gpt-5.6-sol', effort: 'ultra' } },
+    });
+    ts.updateTask(task.id, { model_run: 'grok-4.6' });
+
+    expect(resolveLaunchSettings(ts, task.id, 'run')).toEqual({
+      agent: 'grok',
+      model: 'grok-4.6',
+      effort: undefined,
+    });
+  });
+
+  it('does not carry a version 2 effort to a different model on the same cli', () => {
+    const { ts } = buildServices();
+    const task = ts.createTask({ title: 'Task', status: 'backlog' });
+    writeConfig({
+      version: 2,
+      models: { run: { agent: 'codex', model: 'gpt-5.6-sol', effort: 'ultra' } },
+    });
+    ts.updateTask(task.id, { model_run: 'gpt-5.6-luna' });
+
+    expect(resolveLaunchSettings(ts, task.id, 'run')).toEqual({
+      agent: 'codex',
+      model: 'gpt-5.6-luna',
+      effort: undefined,
+    });
+  });
+
   it('validates the effort against the catalog row of the task-level model', () => {
     const { ts } = buildServices();
     const task = ts.createTask({ title: 'Task', status: 'backlog' });

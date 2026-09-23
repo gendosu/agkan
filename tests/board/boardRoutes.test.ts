@@ -708,6 +708,51 @@ describe('PATCH /api/tasks/:id', () => {
     expect(data.error).toMatch(/Invalid effort "ultra"/);
   });
 
+  it('validates effort-only API overrides against the version 2 phase model', async () => {
+    const services = buildServices();
+    const task = services.ts.createTask({ title: 'Phase defaults', status: 'backlog' });
+    const app = buildApp(services);
+    const tmpCwd = fs.mkdtempSync(path.join(os.tmpdir(), 'agkan-board-routes-v2-test-'));
+    const cwdSpy = vi.spyOn(process, 'cwd').mockReturnValue(tmpCwd);
+    try {
+      fs.writeFileSync(
+        path.join(tmpCwd, '.agkan-test.yml'),
+        yaml.dump({
+          version: 2,
+          modelCatalog: CATALOG_WITH_CODEX,
+          models: {
+            planning: { agent: 'claude', model: 'fable' },
+            run: { agent: 'codex', model: 'gpt-5.6-sol' },
+          },
+        })
+      );
+
+      const runResponse = await app.fetch(
+        new Request(`http://localhost/api/tasks/${task.id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ efforts: { run: 'none' } }),
+        })
+      );
+      const planningResponse = await app.fetch(
+        new Request(`http://localhost/api/tasks/${task.id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ efforts: { planning: 'none' } }),
+        })
+      );
+
+      expect(runResponse.status).toBe(200);
+      expect(planningResponse.status).toBe(400);
+      expect(((await planningResponse.json()) as { error: string }).error).toContain(
+        'Invalid effort "none" for model "fable"'
+      );
+    } finally {
+      cwdSpy.mockRestore();
+      fs.rmSync(tmpCwd, { recursive: true, force: true });
+    }
+  });
+
   it('validates a new model against the stored effort', async () => {
     const services = buildServices();
     const task = services.ts.createTask({ title: 'Stored Effort', status: 'backlog', effort_run: 'max' });

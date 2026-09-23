@@ -436,6 +436,35 @@ describe('renderBoard model catalog wiring', () => {
     expect(html).not.toContain('<option value="max">max</option>');
   });
 
+  it('keeps agent effort choices for a version 1 configured model outside the catalog', () => {
+    vi.mocked(configModule.loadConfig).mockReturnValue({
+      agent: 'claude',
+      models: { claude: { run: { model: 'legacy-model' } } },
+      modelCatalog: CATALOG_WITH_CODEX,
+    });
+
+    const html = render();
+    expect(html).toContain('<option value="max">max</option>');
+    expect(html).toContain('"run":{"agent":"claude","model":"legacy-model"}');
+  });
+
+  it('embeds distinct version 2 phase defaults for the client bundle', () => {
+    vi.mocked(configModule.loadConfig).mockReturnValue({
+      version: 2,
+      modelCatalog: CATALOG_WITH_CODEX,
+      models: {
+        planning: { agent: 'claude', model: 'fable', effort: 'high' },
+        run: { agent: 'codex', model: 'gpt-5.6-sol', effort: 'low' },
+      },
+    });
+
+    const html = render();
+
+    expect(html).toContain(
+      'var phaseDefaults = {"planning":{"agent":"claude","model":"fable","effort":"high"},"run":{"agent":"codex","model":"gpt-5.6-sol","effort":"low"}};'
+    );
+  });
+
   it('uses the configured catalog when one is set', () => {
     vi.mocked(configModule.loadConfig).mockReturnValue({
       modelCatalog: [{ cli: 'claude', model: 'only-one', efforts: ['high'] }],

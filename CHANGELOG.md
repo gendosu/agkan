@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Add `.agkan.yml` configuration version 2, where `models.planning` and `models.run` each select their own `agent`, `model`, and `effort`. Task overrides remain highest priority, `pr` uses the run bundle, phase values are validated against `modelCatalog`, and unsupported future versions now fail clearly. `agkan init` generates Claude/Fable/high for planning and Codex/gpt-5.6-sol/high for run; version 1 configurations remain compatible (#758)
+
 ## [3.26.0] - 2026-09-21
 
 ### Added

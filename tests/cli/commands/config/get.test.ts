@@ -124,6 +124,36 @@ describe('setupConfigGetCommand', () => {
     expect(JSON.parse(output).value).toBe('codex');
   });
 
+  it('outputs resolved version 2 phase agents, models, and efforts', async () => {
+    vi.spyOn(configModule, 'loadConfig').mockReturnValue({
+      version: 2,
+      models: {
+        planning: { agent: 'claude', model: 'fable', effort: 'high' },
+        run: { agent: 'codex', model: 'gpt-5.6-sol', effort: 'medium' },
+      },
+    });
+    vi.spyOn(configModule, 'resolveDatabasePath').mockReturnValue('/fake/data.db');
+
+    await program.parseAsync(['node', 'agkan', 'config', 'get', '--json']);
+
+    const parsed = JSON.parse(consoleLogSpy.mock.calls.map((c) => c[0]).join(''));
+    expect(parsed.config.version).toBe(2);
+    expect(parsed.config.models.planning).toEqual({ agent: 'claude', model: 'fable', effort: 'high' });
+    expect(parsed.config.models.run).toEqual({ agent: 'codex', model: 'gpt-5.6-sol', effort: 'medium' });
+  });
+
+  it('resolves a version 2 phase agent by dot notation', async () => {
+    vi.spyOn(configModule, 'loadConfig').mockReturnValue({
+      version: 2,
+      models: { run: { agent: 'codex', model: 'gpt-5.6-sol' } },
+    });
+    vi.spyOn(configModule, 'resolveDatabasePath').mockReturnValue('/fake/data.db');
+
+    await program.parseAsync(['node', 'agkan', 'config', 'get', 'models.run.agent', '--json']);
+
+    expect(JSON.parse(consoleLogSpy.mock.calls.map((c) => c[0]).join('')).value).toBe('codex');
+  });
+
   it('outputs agent-specific model settings by dot notation', async () => {
     vi.spyOn(configModule, 'loadConfig').mockReturnValue({
       agent: 'codex',

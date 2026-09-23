@@ -1,13 +1,19 @@
 import fs from 'fs';
 import path from 'path';
 import yaml from 'js-yaml';
-import type { ModelCatalogEntry } from './modelCatalog';
+import { effortsForDefaultCli, findCatalogEntry, resolveModelCatalog, type ModelCatalogEntry } from './modelCatalog';
 
 export type AgentTool = 'claude' | 'codex' | 'agy' | 'grok';
 export type ModelSettings = { model?: string; effort?: string };
+export type PhaseModelSettings = ModelSettings & { agent?: AgentTool };
 export type AgentModelSettings = {
   planning?: ModelSettings;
   run?: ModelSettings;
+};
+export type ResolvedPhaseSettings = {
+  agent: AgentTool;
+  model?: string;
+  effort?: string;
 };
 
 /**
@@ -21,7 +27,9 @@ export interface Config {
     port?: number;
     title?: string;
   };
-  models?: AgentModelSettings & {
+  models?: {
+    planning?: PhaseModelSettings;
+    run?: PhaseModelSettings;
     claude?: AgentModelSettings;
     codex?: AgentModelSettings;
     agy?: AgentModelSettings;
@@ -43,6 +51,14 @@ export function resolveAgentTool(config: Config): AgentTool {
   return agent;
 }
 
+function resolveConfigVersion(config: Config): 1 | 2 {
+  const version = config.version ?? 1;
+  if (version !== 1 && version !== 2) {
+    throw new Error(`Unsupported config version "${String(version)}". Supported versions: 1, 2`);
+  }
+  return version;
+}
+
 /**
  * Resolve model settings for the selected agent. Agent-specific settings take
  * precedence over the legacy flat planning/run settings.
@@ -54,7 +70,61 @@ export function resolveModelSettings(
   command: 'planning' | 'run',
   agent: AgentTool = resolveAgentTool(config)
 ): ModelSettings | undefined {
+  resolveConfigVersion(config);
+  if (config.version === 2) return config.models?.[command];
   return config.models?.[agent]?.[command] ?? config.models?.[command];
+}
+
+/** Resolve and validate the cli/model/effort bundle for one execution phase. */
+export function resolvePhaseSettings(
+  config: Config,
+  phase: 'planning' | 'run',
+  legacyAgentOverride?: AgentTool
+): ResolvedPhaseSettings {
+  const version = resolveConfigVersion(config);
+  const phaseSettings = config.models?.[phase];
+  if (version === 2 && phaseSettings !== undefined && (!phaseSettings || typeof phaseSettings !== 'object')) {
+    throw new Error(`Invalid models.${phase}: must be an object with agent, model, and effort`);
+  }
+  const agent =
+    version === 2
+      ? phaseSettings?.agent !== undefined
+        ? resolveAgentTool({ agent: phaseSettings.agent })
+        : resolveAgentTool(config)
+      : (legacyAgentOverride ?? resolveAgentTool(config));
+  const settings = version === 2 ? phaseSettings : (config.models?.[agent]?.[phase] ?? config.models?.[phase]);
+  if (version === 2 && settings?.model !== undefined && typeof settings.model !== 'string') {
+    throw new Error(`Invalid models.${phase}.model: must be a string`);
+  }
+  if (version === 2 && settings?.effort !== undefined && typeof settings.effort !== 'string') {
+    throw new Error(`Invalid models.${phase}.effort: must be a string`);
+  }
+  const model = settings?.model?.trim() || undefined;
+  const effort = settings?.effort?.trim() || undefined;
+
+  if (version === 2 && (model || effort)) {
+    const catalog = resolveModelCatalog(config);
+    const entry = model ? findCatalogEntry(catalog, model) : undefined;
+    if (model && !entry) {
+      throw new Error(`Invalid models.${phase}.model "${model}": model is not in modelCatalog`);
+    }
+    if (entry && entry.cli !== agent) {
+      throw new Error(`Invalid models.${phase}: model "${model}" belongs to agent "${entry.cli}", not "${agent}"`);
+    }
+    const allowedEfforts = entry?.efforts ?? effortsForDefaultCli(catalog, agent);
+    if (effort && !allowedEfforts.includes(effort)) {
+      const allowed =
+        allowedEfforts.length > 0
+          ? `Must be one of: ${allowedEfforts.join(', ')}`
+          : entry
+            ? 'This model does not accept an effort'
+            : `Agent "${agent}" has no models that accept an effort`;
+      const target = model ? ` for model "${model}"` : ` for agent "${agent}"`;
+      throw new Error(`Invalid models.${phase}.effort "${effort}"${target}. ${allowed}`);
+    }
+  }
+
+  return { agent, model, effort };
 }
 
 /**
@@ -203,19 +273,17 @@ export function loadConfig(): Config {
   const configPath = path.join(resolveProjectRoot(), configFileName);
 
   if (fs.existsSync(configPath)) {
+    let parsed: Config | null | undefined;
     try {
       const configContent = fs.readFileSync(configPath, 'utf8');
-      const parsed = yaml.load(configContent) as Config | null | undefined;
-      if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
-        return {};
-      }
-      return {
-        ...parsed,
-        version: parsed.version ?? 1,
-      };
+      parsed = yaml.load(configContent) as Config | null | undefined;
     } catch {
       return {};
     }
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return {};
+    const normalized = { ...parsed, version: parsed.version ?? 1 };
+    resolveConfigVersion(normalized);
+    return normalized;
   }
 
   return {};
