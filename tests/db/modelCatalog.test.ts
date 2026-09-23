@@ -15,13 +15,15 @@ const CODEX_EFFORTS = ['low', 'medium', 'high', 'xhigh', 'max', 'ultra'];
 const CATALOG_WITH_CODEX: ModelCatalogEntry[] = DEFAULT_MODEL_CATALOG.map((e) => ({ ...e, efforts: [...e.efforts] }));
 
 describe('DEFAULT_MODEL_CATALOG', () => {
-  it('lists the four claude models, four codex models, agy models, then the grok models', () => {
+  it('lists the four claude models, six codex models, agy models, then the grok models', () => {
     expect(DEFAULT_MODEL_CATALOG.map((e) => `${e.cli}[${e.model}]`)).toEqual([
       'claude[fable]',
       'claude[opus]',
       'claude[sonnet]',
       'claude[haiku]',
       'codex[gpt-6-astra]',
+      'codex[gpt-6-sol]',
+      'codex[gpt-6-luna]',
       'codex[gpt-5.6-sol]',
       'codex[gpt-5.6-terra]',
       'codex[gpt-5.6-luna]',
@@ -48,6 +50,8 @@ describe('DEFAULT_MODEL_CATALOG', () => {
     );
     expect(codexEfforts).toEqual({
       'gpt-6-astra': CODEX_EFFORTS,
+      'gpt-6-sol': CODEX_EFFORTS,
+      'gpt-6-luna': ['low', 'medium', 'high', 'xhigh', 'max'],
       'gpt-5.6-sol': CODEX_EFFORTS,
       'gpt-5.6-terra': CODEX_EFFORTS,
       'gpt-5.6-luna': ['low', 'medium', 'high', 'xhigh', 'max'],
@@ -204,6 +208,14 @@ describe('validateOverridePair', () => {
     );
     expect(validateOverridePair(catalog, 'claude', 'opus', 'ultra')).toBe(
       'Invalid effort "ultra" for model "opus". Must be one of: low, medium, high, xhigh, max'
+    );
+  });
+
+  it('accepts ultra for gpt-6-sol and rejects it for gpt-6-luna', () => {
+    expect(validateOverridePair(catalog, 'codex', 'gpt-6-sol', 'ultra')).toBeUndefined();
+    expect(validateOverridePair(catalog, 'codex', 'gpt-6-luna', 'max')).toBeUndefined();
+    expect(validateOverridePair(catalog, 'codex', 'gpt-6-luna', 'ultra')).toBe(
+      'Invalid effort "ultra" for model "gpt-6-luna". Must be one of: low, medium, high, xhigh, max'
     );
   });
 
