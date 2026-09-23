@@ -238,6 +238,8 @@ modelCatalog:
 | claude | `sonnet` | `low`, `medium`, `high`, `xhigh`, `max` |
 | claude | `haiku` | `low`, `medium`, `high`, `xhigh`, `max` |
 | codex | `gpt-6-astra` | `low`, `medium`, `high`, `xhigh`, `max`, `ultra` |
+| codex | `gpt-6-sol` | `low`, `medium`, `high`, `xhigh`, `max`, `ultra` |
+| codex | `gpt-6-luna` | `low`, `medium`, `high`, `xhigh`, `max` |
 | codex | `gpt-5.6-sol` | `low`, `medium`, `high`, `xhigh`, `max`, `ultra` |
 | codex | `gpt-5.6-terra` | `low`, `medium`, `high`, `xhigh`, `max`, `ultra` |
 | codex | `gpt-5.6-luna` | `low`, `medium`, `high`, `xhigh`, `max` |
