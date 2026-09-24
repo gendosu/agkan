@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 - Keep the board page and task model/effort edits working when a version 2 `models.planning` or `models.run` names a model outside `modelCatalog`. Launching that phase still fails with the catalog error
+- Stop `agkan task run-all` cleanly on SIGINT (Ctrl+C) or SIGTERM: the running agent process is stopped, no further ready task is launched, and the command exits with code 130 (SIGINT) or 143 (SIGTERM). The interrupted task is left in its current status instead of being marked done
 
 ## [3.27.0] - 2026-09-24
 
