@@ -85,7 +85,7 @@ describe('setupInitCommand', () => {
     expect(content).toContain('.agkan/data.db');
     expect(content).toContain('version: 2');
     expect(content).toContain('planning:\n    agent: claude\n    model: fable\n    effort: high');
-    expect(content).toContain('run:\n    agent: codex\n    model: gpt-5.6-sol\n    effort: high');
+    expect(content).toContain('run:\n    agent: codex\n    model: gpt-6-astra\n    effort: high');
     expect(content).toContain('# modelCatalog:');
     expect(content).toContain('cli: agy');
     expect(content).toContain('cli: grok');

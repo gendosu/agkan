@@ -47,7 +47,7 @@ models:
     effort: high
   run:
     agent: codex
-    model: gpt-5.6-sol
+    model: gpt-6-astra
     effort: high
 
 # Model catalog

@@ -299,7 +299,7 @@ models:
     effort: high
   run:
     agent: codex
-    model: gpt-5.6-sol
+    model: gpt-6-astra
     effort: high
 ```
 
@@ -319,7 +319,7 @@ models:
       model: sonnet
 ```
 
-移行するには `version: 2` を追加し、各 phase を `models` 直下へ移して `agent` を加えます。version 1 の従来のフラット形式 `models.planning` / `models.run` も維持されます。将来の未対応versionはversion 1/2として解釈せず拒否します。`agkan init` は planning = Claude/Fable/high、run = Codex/gpt-5.6-sol/high のversion 2設定を生成します。
+移行するには `version: 2` を追加し、各 phase を `models` 直下へ移して `agent` を加えます。version 1 の従来のフラット形式 `models.planning` / `models.run` も維持されます。将来の未対応versionはversion 1/2として解釈せず拒否します。`agkan init` は planning = Claude/Fable/high、run = Codex/gpt-6-astra/high のversion 2設定を生成します。
 
 解決済みversionと各phaseは、`agkan config get`、`agkan config get models.planning.agent`、またはJSON出力で確認できます。
 

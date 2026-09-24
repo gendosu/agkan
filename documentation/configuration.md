@@ -336,7 +336,7 @@ models:
     effort: high
   run:
     agent: codex
-    model: gpt-5.6-sol
+    model: gpt-6-astra
     effort: high
 ```
 
@@ -356,7 +356,7 @@ models:
       model: sonnet
 ```
 
-To migrate, add `version: 2`, move each phase directly under `models`, and add its `agent`. The legacy flat `models.planning` / `models.run` fallback also remains unchanged in version 1. Future unsupported versions are rejected instead of being interpreted as version 1 or 2. `agkan init` now writes version 2 with Claude/Fable/high for planning and Codex/gpt-5.6-sol/high for run.
+To migrate, add `version: 2`, move each phase directly under `models`, and add its `agent`. The legacy flat `models.planning` / `models.run` fallback also remains unchanged in version 1. Future unsupported versions are rejected instead of being interpreted as version 1 or 2. `agkan init` now writes version 2 with Claude/Fable/high for planning and Codex/gpt-6-astra/high for run.
 
 Use `agkan config get`, `agkan config get models.planning.agent`, or JSON output to inspect the resolved version and both phase bundles.
 

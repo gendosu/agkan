@@ -623,7 +623,7 @@ models.planning.agent: claude
 models.planning.model: fable
 models.planning.effort: high
 models.run.agent: codex
-models.run.model: gpt-5.6-sol
+models.run.model: gpt-6-astra
 models.run.effort: high
 modelCatalog: claude fable (low, medium, high, xhigh, max)
 modelCatalog: claude opus (low, medium, high, xhigh, max)
