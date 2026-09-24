@@ -10,6 +10,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - Update the `agkan init` run model from `gpt-5.6-sol` to `gpt-6-astra`, and align the README and configuration examples with the generated setting (#761)
 
+### Fixed
+- Keep the board page and task model/effort edits working when a version 2 `models.planning` or `models.run` names a model outside `modelCatalog`. Launching that phase still fails with the catalog error
+
 ## [3.27.0] - 2026-09-24
 
 ### Added

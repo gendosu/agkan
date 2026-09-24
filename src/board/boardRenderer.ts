@@ -6,7 +6,7 @@ import { BOARD_FAVICON_BASE64 } from './boardFavicon';
 import {
   loadConfig,
   resolveAgentTool,
-  resolvePhaseSettings,
+  readPhaseSettings,
   type AgentTool,
   type ResolvedPhaseSettings,
 } from '../db/config';
@@ -359,8 +359,8 @@ export function renderBoard(
   const catalog = resolveModelCatalog(config);
   const defaultAgent = resolveAgentTool(config);
   const phaseDefaults = {
-    planning: resolvePhaseSettings(config, 'planning'),
-    run: resolvePhaseSettings(config, 'run'),
+    planning: readPhaseSettings(config, 'planning'),
+    run: readPhaseSettings(config, 'run'),
   };
   const columns = STATUSES.map((status) =>
     renderColumn(status, tasksByStatus.get(status) || [], tagMap, blockMap)

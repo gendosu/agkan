@@ -753,6 +753,37 @@ describe('PATCH /api/tasks/:id', () => {
     }
   });
 
+  it('accepts an override write when the version 2 phase model is outside the catalog', async () => {
+    const services = buildServices();
+    const task = services.ts.createTask({ title: 'Unknown phase model', status: 'backlog' });
+    const app = buildApp(services);
+    const tmpCwd = fs.mkdtempSync(path.join(os.tmpdir(), 'agkan-board-routes-v2-test-'));
+    const cwdSpy = vi.spyOn(process, 'cwd').mockReturnValue(tmpCwd);
+    try {
+      fs.writeFileSync(
+        path.join(tmpCwd, '.agkan-test.yml'),
+        yaml.dump({
+          version: 2,
+          modelCatalog: CATALOG_WITH_CODEX,
+          models: { run: { agent: 'claude', model: 'unknown-model' } },
+        })
+      );
+
+      const res = await app.fetch(
+        new Request(`http://localhost/api/tasks/${task.id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ efforts: { run: 'max' } }),
+        })
+      );
+
+      expect(res.status).toBe(200);
+    } finally {
+      cwdSpy.mockRestore();
+      fs.rmSync(tmpCwd, { recursive: true, force: true });
+    }
+  });
+
   it('validates a new model against the stored effort', async () => {
     const services = buildServices();
     const task = services.ts.createTask({ title: 'Stored Effort', status: 'backlog', effort_run: 'max' });
@@ -1704,6 +1735,24 @@ describe('GET /', () => {
   // "returns 200 for a status-only PATCH..." / "fails an override write...")
   // so an invalid modelCatalog written here cannot leak into other tests
   // in this concurrently-run file.
+  it('returns 200 when a version 2 phase model is outside the catalog', async () => {
+    const services = buildServices();
+    const app = buildApp(services);
+    const tmpCwd = fs.mkdtempSync(path.join(os.tmpdir(), 'agkan-board-routes-test-'));
+    const cwdSpy = vi.spyOn(process, 'cwd').mockReturnValue(tmpCwd);
+    try {
+      fs.writeFileSync(
+        path.join(tmpCwd, '.agkan-test.yml'),
+        yaml.dump({ version: 2, models: { planning: { agent: 'claude', model: 'unknown-model' } } })
+      );
+      const res = await app.fetch(new Request('http://localhost/'));
+      expect(res.status).toBe(200);
+    } finally {
+      cwdSpy.mockRestore();
+      fs.rmSync(tmpCwd, { recursive: true, force: true });
+    }
+  });
+
   it('returns 500 when the configured catalog is invalid', async () => {
     const services = buildServices();
     const app = buildApp(services);

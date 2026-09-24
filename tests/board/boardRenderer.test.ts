@@ -448,6 +448,19 @@ describe('renderBoard model catalog wiring', () => {
     expect(html).toContain('"run":{"agent":"claude","model":"legacy-model"}');
   });
 
+  it('renders instead of throwing when a version 2 phase model is outside the catalog', () => {
+    vi.mocked(configModule.loadConfig).mockReturnValue({
+      version: 2,
+      modelCatalog: CATALOG_WITH_CODEX,
+      models: { run: { agent: 'claude', model: 'unknown-model', effort: 'high' } },
+    });
+
+    const html = render();
+
+    expect(html).toContain('<option value="max">max</option>');
+    expect(html).toContain('"run":{"agent":"claude","model":"unknown-model","effort":"high"}');
+  });
+
   it('embeds distinct version 2 phase defaults for the client bundle', () => {
     vi.mocked(configModule.loadConfig).mockReturnValue({
       version: 2,

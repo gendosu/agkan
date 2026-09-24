@@ -10,6 +10,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### 変更
 - `agkan init` が生成する run のモデルを `gpt-5.6-sol` から `gpt-6-astra` に更新し、README と設定例も生成内容に揃えた (#761)
 
+### 修正
+- version 2 の `models.planning` / `models.run` に `modelCatalog` にないモデルが設定されていても、ボード画面の表示とタスクのモデル・effort 編集が失敗しないようにした。そのフェーズの起動は従来どおりカタログエラーで失敗する
+
 ## [3.27.0] - 2026-09-24
 
 ### 追加
