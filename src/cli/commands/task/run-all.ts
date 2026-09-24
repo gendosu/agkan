@@ -118,7 +118,7 @@ interface StopControl {
  * Registers SIGINT/SIGTERM handlers for the duration of one run. Once a listener exists Node
  * no longer exits on the signal by itself, so the handler only records the request and stops
  * the running agent's PTY; the loop then returns and the process ends naturally, the same way
- * a normal finish does. Later signals are no-ops.
+ * a normal finish does.
  *
  * Board's BulkRunService.stop() needs a stop flag for the same reason: PtySessionService.stopProcess()
  * reports a synthetic successful 'done' to subscribers, which alone would let the loop move on
