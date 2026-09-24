@@ -75,8 +75,12 @@ export function resolveModelSettings(
   return config.models?.[agent]?.[command] ?? config.models?.[command];
 }
 
-/** Resolve and validate the cli/model/effort bundle for one execution phase. */
-export function resolvePhaseSettings(
+/**
+ * Read the cli/model/effort bundle for one execution phase without checking it
+ * against modelCatalog. For display and defaults, where a model missing from
+ * the catalog must not break the caller; launches use resolvePhaseSettings.
+ */
+export function readPhaseSettings(
   config: Config,
   phase: 'planning' | 'run',
   legacyAgentOverride?: AgentTool
@@ -101,8 +105,18 @@ export function resolvePhaseSettings(
   }
   const model = settings?.model?.trim() || undefined;
   const effort = settings?.effort?.trim() || undefined;
+  return { agent, model, effort };
+}
 
-  if (version === 2 && (model || effort)) {
+/** Resolve and validate the cli/model/effort bundle for one execution phase. */
+export function resolvePhaseSettings(
+  config: Config,
+  phase: 'planning' | 'run',
+  legacyAgentOverride?: AgentTool
+): ResolvedPhaseSettings {
+  const { agent, model, effort } = readPhaseSettings(config, phase, legacyAgentOverride);
+
+  if (resolveConfigVersion(config) === 2 && (model || effort)) {
     const catalog = resolveModelCatalog(config);
     const entry = model ? findCatalogEntry(catalog, model) : undefined;
     if (model && !entry) {

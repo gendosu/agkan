@@ -7,7 +7,7 @@ import { TaskBlockService } from '../../services/TaskBlockService';
 import { TaskStatus, isPriority, Priority } from '../../models';
 import { STATUSES } from '../boardRenderer';
 import { persistTaskModelOverrides, persistTaskEffortOverrides } from '../taskModelOverride';
-import { loadConfig, resolvePhaseSettings } from '../../db/config';
+import { loadConfig, readPhaseSettings } from '../../db/config';
 import { resolveModelCatalog, validateOverridePair } from '../../db/modelCatalog';
 
 type BoardTaskStatus = TaskStatus;
@@ -151,7 +151,7 @@ function validateOverrideBody(
   const config = loadConfig();
   const catalog = resolveModelCatalog(config);
   for (const pair of pairs) {
-    const phase = resolvePhaseSettings(config, pair.kind);
+    const phase = readPhaseSettings(config, pair.kind);
     const error = validateOverridePair(catalog, phase.agent, pair.model, pair.effort, phase.model);
     if (error) return error;
   }
