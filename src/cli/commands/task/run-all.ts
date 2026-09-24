@@ -102,12 +102,75 @@ function waitForOutcome(pty: ServiceContainer['ptySessionService'], taskId: numb
   });
 }
 
+// Conventional shell exit codes for a process ended by a signal: 128 + signal number.
+const SIGNAL_EXIT_CODES = { SIGINT: 130, SIGTERM: 143 } as const;
+type StopSignal = keyof typeof SIGNAL_EXIT_CODES;
+
+interface StopControl {
+  /** Exit code for the received signal; null while no SIGINT/SIGTERM has arrived. */
+  signalExitCode(): number | null;
+  /** Names the task whose agent process a signal must stop; null while none is running. */
+  setRunningTask(taskId: number | null): void;
+  dispose(): void;
+}
+
+/**
+ * Registers SIGINT/SIGTERM handlers for the duration of one run. Once a listener exists Node
+ * no longer exits on the signal by itself, so the handler only records the request and stops
+ * the running agent's PTY; the loop then returns and the process ends naturally, the same way
+ * a normal finish does. Later signals are no-ops.
+ *
+ * Board's BulkRunService.stop() needs a stop flag for the same reason: PtySessionService.stopProcess()
+ * reports a synthetic successful 'done' to subscribers, which alone would let the loop move on
+ * to the next ready task.
+ */
+function installStopHandlers(pty: ServiceContainer['ptySessionService']): StopControl {
+  let signalExitCode: number | null = null;
+  let runningTaskId: number | null = null;
+
+  const listeners = (Object.keys(SIGNAL_EXIT_CODES) as StopSignal[]).map((signal) => {
+    const listener = (): void => {
+      if (signalExitCode !== null) return;
+      signalExitCode = SIGNAL_EXIT_CODES[signal];
+      console.error(chalk.yellow(`\nReceived ${signal}, stopping run-all...\n`));
+      if (runningTaskId !== null) {
+        pty.stopProcess(runningTaskId);
+      }
+    };
+    process.on(signal, listener);
+    return { signal, listener };
+  });
+
+  return {
+    signalExitCode: () => signalExitCode,
+    setRunningTask: (taskId) => {
+      runningTaskId = taskId;
+    },
+    dispose: () => {
+      for (const { signal, listener } of listeners) {
+        process.off(signal, listener);
+      }
+    },
+  };
+}
+
 /**
  * Sequential launch loop. Returns the process exit code: 0 when the run
  * completes normally (including "nothing left to run"), 1 when a task fails
- * or a config-level launch-settings error stops the run outright.
+ * or a config-level launch-settings error stops the run outright, and
+ * 130 / 143 when SIGINT / SIGTERM stopped it (the running agent is stopped
+ * and no further task is launched).
  */
 export async function runLoop(container: ServiceContainer, withPr: boolean): Promise<number> {
+  const stop = installStopHandlers(container.ptySessionService);
+  try {
+    return await runTasks(container, withPr, stop);
+  } finally {
+    stop.dispose();
+  }
+}
+
+async function runTasks(container: ServiceContainer, withPr: boolean, stop: StopControl): Promise<number> {
   const { taskService, taskBlockService, ptySessionService } = container;
   const skippedTaskIds = new Set<number>();
   const ptyCommand: 'pr' | 'run' = withPr ? 'pr' : 'run';
@@ -142,6 +205,14 @@ export async function runLoop(container: ServiceContainer, withPr: boolean): Pro
 
     console.log(chalk.bold(`\n▶ Running task ${taskId} (${ptyCommand})...\n`));
     await ptySessionService.startProcess(taskId, prompt, ptyCommand, model, effort, agent);
+    stop.setRunningTask(taskId);
+    // A signal that arrived while startProcess was pending found no session to stop (the PTY is
+    // registered only as startProcess resolves), so stop it now instead of waiting on it.
+    const signalDuringStart = stop.signalExitCode();
+    if (signalDuringStart !== null) {
+      ptySessionService.stopProcess(taskId);
+      return signalDuringStart;
+    }
     // PtySessionService always spawns at a fixed 220x50 (sized for Board's browser terminal);
     // resize to the real terminal so TUI escape sequences render correctly here. Guard for
     // non-TTY stdout (piped/redirected), where columns/rows are undefined.
@@ -149,6 +220,15 @@ export async function runLoop(container: ServiceContainer, withPr: boolean): Pro
       ptySessionService.resize(taskId, process.stdout.columns, process.stdout.rows);
     }
     const outcome = await waitForOutcome(ptySessionService, taskId);
+    stop.setRunningTask(null);
+
+    // Checked before the outcome: the stopped task reports a synthetic successful 'done', which
+    // must neither mark it done nor start the next task.
+    const signalDuringRun = stop.signalExitCode();
+    if (signalDuringRun !== null) {
+      console.error(chalk.yellow(`\n■ Task ${taskId} stopped\n`));
+      return signalDuringRun;
+    }
 
     if (outcome.kind === 'error') {
       console.error(chalk.red(`\n✗ Task ${taskId} errored: ${outcome.message}\n`));
