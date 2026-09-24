@@ -512,6 +512,14 @@ describe('runLoop signal handling', () => {
     }
   });
 
+  /** Calls only the listeners the run under test added, not any owned by the test runner. */
+  function sendSignal(signal: (typeof SIGNALS)[number]): void {
+    process
+      .listeners(signal)
+      .filter((l) => !baseline[signal].includes(l))
+      .forEach((l) => l(signal));
+  }
+
   /**
    * Mimics PtySessionService.stopProcess(): subscribers get a synthetic successful 'done'
    * before the process is killed, which is what makes a stop look like a normal completion.
@@ -545,7 +553,7 @@ describe('runLoop signal handling', () => {
 
       const runPromise = runLoop(buildContainer(pty, ts, tbs), false);
       await vi.waitFor(() => expect(outputCallbacks.has(first.id)).toBe(true));
-      process.emit(signal);
+      sendSignal(signal);
       const exitCode = await runPromise;
 
       expect(exitCode).toBe(expectedExitCode);
@@ -576,7 +584,7 @@ describe('runLoop signal handling', () => {
 
     const runPromise = runLoop(buildContainer(pty, ts, tbs), false);
     expect(startProcess).toHaveBeenCalledTimes(1);
-    process.emit('SIGINT');
+    sendSignal('SIGINT');
     // No session exists yet, so the handler has nothing to stop until startProcess resolves.
     expect(stopProcess).not.toHaveBeenCalled();
     resolveStart();
@@ -598,8 +606,8 @@ describe('runLoop signal handling', () => {
 
     const runPromise = runLoop(buildContainer(pty, ts, tbs), false);
     await vi.waitFor(() => expect(outputCallbacks.has(task.id)).toBe(true));
-    process.emit('SIGINT');
-    process.emit('SIGTERM');
+    sendSignal('SIGINT');
+    sendSignal('SIGTERM');
     const exitCode = await runPromise;
 
     expect(exitCode).toBe(130);
@@ -640,6 +648,22 @@ describe('runLoop signal handling', () => {
       return () => {};
     });
     expect(await runLoop(buildContainer(buildMockPty({ subscribeOutput }), ts, tbs), false)).toBe(1);
+
+    for (const s of SIGNALS) {
+      expect(process.listenerCount(s)).toBe(baseline[s].length);
+    }
+  });
+
+  it('removes its signal listeners when the run throws', async () => {
+    const db = getStorageBackend();
+    const ts = new TaskService(db);
+    const tbs = new TaskBlockService(db);
+    ts.createTask({ title: 'task', status: 'ready', priority: 'medium' });
+    const startProcess = vi.fn().mockRejectedValue(new Error('spawn failed'));
+
+    await expect(runLoop(buildContainer(buildMockPty({ startProcess }), ts, tbs), false)).rejects.toThrow(
+      'spawn failed'
+    );
 
     for (const s of SIGNALS) {
       expect(process.listenerCount(s)).toBe(baseline[s].length);
