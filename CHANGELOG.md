@@ -7,7 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.27.0] - 2026-09-24
+
 ### Added
+- Add grok row `grok-4.7` (efforts `low`, `medium`, `high`, `xhigh`) to the built-in `modelCatalog`, ahead of `grok-4.6`, and use it in the grok example of the `agkan init` template. The existing grok rows are unchanged (#759)
 - Add `.agkan.yml` configuration version 2, where `models.planning` and `models.run` each select their own `agent`, `model`, and `effort`. Task overrides remain highest priority, `pr` uses the run bundle, phase values are validated against `modelCatalog`, and unsupported future versions now fail clearly. `agkan init` generates Claude/Fable/high for planning and Codex/gpt-5.6-sol/high for run; version 1 configurations remain compatible (#758)
 - Add codex rows `gpt-6-sol` (efforts `low`, `medium`, `high`, `xhigh`, `max`, `ultra`) and `gpt-6-luna` (same list without `ultra`) to the built-in `modelCatalog`, after `gpt-6-astra`. The existing codex rows are unchanged (#760)
 
