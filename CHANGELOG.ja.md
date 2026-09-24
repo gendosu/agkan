@@ -7,7 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.27.0] - 2026-09-24
+
 ### 追加
+- 組み込みの `modelCatalog` に grok の `grok-4.7`（effort は `low`, `medium`, `high`, `xhigh`）を `grok-4.6` の前に追加し、`agkan init` が生成するテンプレートの grok の例でも `grok-4.7` を使うようにした。既存の grok の行は変更しない (#759)
+- `.agkan.yml` の設定バージョン 2 を追加。`models.planning` と `models.run` がそれぞれ独自の `agent`・`model`・`effort` を選べる。タスク個別の上書きは引き続き最優先で、`pr` は run の設定を使い、フェーズごとの値は `modelCatalog` に対して検証され、未対応の将来のバージョンは明確なエラーになる。`agkan init` は planning に Claude/Fable/high、run に Codex/gpt-5.6-sol/high を生成する。バージョン 1 の設定は引き続き互換 (#758)
 - 組み込みの `modelCatalog` に codex の `gpt-6-sol`（effort は `low`, `medium`, `high`, `xhigh`, `max`, `ultra`）と `gpt-6-luna`（同じ一覧から `ultra` を除いたもの）を `gpt-6-astra` の後に追加。既存の codex の行は変更しない (#760)
 
 ## [3.26.0] - 2026-09-21
