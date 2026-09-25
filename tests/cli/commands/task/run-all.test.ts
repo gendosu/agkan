@@ -4,7 +4,7 @@
  * instead of continuing to the next ready task.
  */
 
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { Command } from 'commander';
 import fs from 'fs';
 import os from 'os';
@@ -492,6 +492,182 @@ describe('runLoop', () => {
       undefined,
       'claude'
     );
+  });
+});
+
+describe('runLoop signal handling', () => {
+  const SIGNALS = ['SIGINT', 'SIGTERM'] as const;
+  let baseline: Record<(typeof SIGNALS)[number], NodeJS.SignalsListener[]>;
+
+  beforeEach(() => {
+    baseline = { SIGINT: process.listeners('SIGINT'), SIGTERM: process.listeners('SIGTERM') };
+  });
+
+  afterEach(() => {
+    // A failing test must not leave its run's listeners behind to receive later tests' signals.
+    for (const signal of SIGNALS) {
+      process.listeners(signal).forEach((l) => {
+        if (!baseline[signal].includes(l)) process.off(signal, l);
+      });
+    }
+  });
+
+  /** Calls only the listeners the run under test added, not any owned by the test runner. */
+  function sendSignal(signal: (typeof SIGNALS)[number]): void {
+    process
+      .listeners(signal)
+      .filter((l) => !baseline[signal].includes(l))
+      .forEach((l) => l(signal));
+  }
+
+  /**
+   * Mimics PtySessionService.stopProcess(): subscribers get a synthetic successful 'done'
+   * before the process is killed, which is what makes a stop look like a normal completion.
+   */
+  function buildStoppablePty(startProcess = vi.fn().mockResolvedValue(undefined)) {
+    const outputCallbacks = new Map<number, OutputCallback>();
+    const subscribeOutput = vi.fn().mockImplementation((taskId: number, callback: OutputCallback) => {
+      outputCallbacks.set(taskId, callback);
+      return () => outputCallbacks.delete(taskId);
+    });
+    const stopProcess = vi.fn().mockImplementation((taskId: number) => {
+      outputCallbacks.get(taskId)?.({ kind: 'done', exitCode: 0 });
+      return true;
+    });
+    const pty = buildMockPty({ startProcess, subscribeOutput, stopProcess });
+    return { pty, startProcess, subscribeOutput, stopProcess, outputCallbacks };
+  }
+
+  it.each([
+    ['SIGINT', 130],
+    ['SIGTERM', 143],
+  ] as const)(
+    'stops the running agent on %s, returns %i, and starts no further task',
+    async (signal, expectedExitCode) => {
+      const db = getStorageBackend();
+      const ts = new TaskService(db);
+      const tbs = new TaskBlockService(db);
+      const first = ts.createTask({ title: 'first', status: 'ready', priority: 'high' });
+      const second = ts.createTask({ title: 'second', status: 'ready', priority: 'low' });
+      const { pty, startProcess, stopProcess, outputCallbacks } = buildStoppablePty();
+
+      const runPromise = runLoop(buildContainer(pty, ts, tbs), false);
+      await vi.waitFor(() => expect(outputCallbacks.has(first.id)).toBe(true));
+      sendSignal(signal);
+      const exitCode = await runPromise;
+
+      expect(exitCode).toBe(expectedExitCode);
+      expect(stopProcess).toHaveBeenCalledTimes(1);
+      expect(stopProcess).toHaveBeenCalledWith(first.id);
+      expect(startProcess.mock.calls.map(([taskId]) => taskId)).toEqual([first.id]);
+      expect(ts.getTask(second.id)?.status).toBe('ready');
+      // The synthetic 'done' from stopProcess must not be treated as a normal completion.
+      expect(ts.getTask(first.id)?.status).toBe('ready');
+      for (const s of SIGNALS) {
+        expect(process.listenerCount(s)).toBe(baseline[s].length);
+      }
+    }
+  );
+
+  it('stops the agent as soon as startProcess resolves when the signal arrived while it was pending', async () => {
+    const db = getStorageBackend();
+    const ts = new TaskService(db);
+    const tbs = new TaskBlockService(db);
+    const task = ts.createTask({ title: 'task', status: 'ready', priority: 'medium' });
+    let resolveStart!: () => void;
+    const startProcess = vi.fn().mockReturnValue(
+      new Promise<void>((resolve) => {
+        resolveStart = resolve;
+      })
+    );
+    const { pty, subscribeOutput, stopProcess } = buildStoppablePty(startProcess);
+
+    const runPromise = runLoop(buildContainer(pty, ts, tbs), false);
+    expect(startProcess).toHaveBeenCalledTimes(1);
+    sendSignal('SIGINT');
+    // No session exists yet, so the handler has nothing to stop until startProcess resolves.
+    expect(stopProcess).not.toHaveBeenCalled();
+    resolveStart();
+    const exitCode = await runPromise;
+
+    expect(exitCode).toBe(130);
+    expect(stopProcess).toHaveBeenCalledTimes(1);
+    expect(stopProcess).toHaveBeenCalledWith(task.id);
+    expect(subscribeOutput).not.toHaveBeenCalled();
+    expect(pty.resize).not.toHaveBeenCalled();
+  });
+
+  it('treats repeated signals as a single stop request', async () => {
+    const db = getStorageBackend();
+    const ts = new TaskService(db);
+    const tbs = new TaskBlockService(db);
+    const task = ts.createTask({ title: 'task', status: 'ready', priority: 'medium' });
+    const { pty, stopProcess, outputCallbacks } = buildStoppablePty();
+
+    const runPromise = runLoop(buildContainer(pty, ts, tbs), false);
+    await vi.waitFor(() => expect(outputCallbacks.has(task.id)).toBe(true));
+    sendSignal('SIGINT');
+    sendSignal('SIGTERM');
+    const exitCode = await runPromise;
+
+    expect(exitCode).toBe(130);
+    expect(stopProcess).toHaveBeenCalledTimes(1);
+  });
+
+  it('registers one listener per signal for the run and removes them on a normal finish', async () => {
+    const db = getStorageBackend();
+    const ts = new TaskService(db);
+    const tbs = new TaskBlockService(db);
+    const task = ts.createTask({ title: 'task', status: 'ready', priority: 'medium' });
+    const { pty, stopProcess, outputCallbacks } = buildStoppablePty();
+
+    const runPromise = runLoop(buildContainer(pty, ts, tbs), false);
+    await vi.waitFor(() => expect(outputCallbacks.has(task.id)).toBe(true));
+    for (const s of SIGNALS) {
+      expect(process.listenerCount(s)).toBe(baseline[s].length + 1);
+    }
+    outputCallbacks.get(task.id)?.({ kind: 'done', exitCode: 0 });
+    expect(await runPromise).toBe(0);
+
+    for (const s of SIGNALS) {
+      expect(process.listenerCount(s)).toBe(baseline[s].length);
+    }
+    expect(stopProcess).not.toHaveBeenCalled();
+  });
+
+  it('removes its signal listeners when the run ends on a task failure or with nothing to run', async () => {
+    const db = getStorageBackend();
+    const ts = new TaskService(db);
+    const tbs = new TaskBlockService(db);
+
+    expect(await runLoop(buildContainer(buildMockPty(), ts, tbs), false)).toBe(0);
+
+    ts.createTask({ title: 'task', status: 'ready', priority: 'medium' });
+    const subscribeOutput = vi.fn().mockImplementation((_id: number, callback: OutputCallback) => {
+      callback({ kind: 'error', message: 'boom' });
+      return () => {};
+    });
+    expect(await runLoop(buildContainer(buildMockPty({ subscribeOutput }), ts, tbs), false)).toBe(1);
+
+    for (const s of SIGNALS) {
+      expect(process.listenerCount(s)).toBe(baseline[s].length);
+    }
+  });
+
+  it('removes its signal listeners when the run throws', async () => {
+    const db = getStorageBackend();
+    const ts = new TaskService(db);
+    const tbs = new TaskBlockService(db);
+    ts.createTask({ title: 'task', status: 'ready', priority: 'medium' });
+    const startProcess = vi.fn().mockRejectedValue(new Error('spawn failed'));
+
+    await expect(runLoop(buildContainer(buildMockPty({ startProcess }), ts, tbs), false)).rejects.toThrow(
+      'spawn failed'
+    );
+
+    for (const s of SIGNALS) {
+      expect(process.listenerCount(s)).toBe(baseline[s].length);
+    }
   });
 });
 

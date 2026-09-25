@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### 修正
 - version 2 の `models.planning` / `models.run` に `modelCatalog` にないモデルが設定されていても、ボード画面の表示とタスクのモデル・effort 編集が失敗しないようにした。そのフェーズの起動は従来どおりカタログエラーで失敗する
+- `agkan task run-all` が SIGINT（Ctrl+C）または SIGTERM を受けたとき、実行中のエージェントプロセスを停止し、次の ready タスクを起動せず、終了コード 130（SIGINT）/ 143（SIGTERM）で終了するようにした。中断されたタスクは done にされず、その時点のステータスのまま残る
 
 ## [3.27.0] - 2026-09-24
 
