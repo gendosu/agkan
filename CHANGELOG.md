@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.27.1] - 2026-09-25
+
 ### Changed
 - Update the `agkan init` run model from `gpt-5.6-sol` to `gpt-6-astra`, and align the README and configuration examples with the generated setting (#761)
 
