@@ -468,6 +468,27 @@ describe('PtySessionService', () => {
     expect(service.listRunningTasks()).toEqual([]);
   });
 
+  describe.each(['codex', 'agy', 'grok'] as const)('%s completion hooks', (agent) => {
+    it.each([
+      ['working', '• starting mcp servers (1/3): example (0s • esc to interrupt)'],
+      ['blocked', 'Do you want to proceed?\nesc to cancel'],
+    ] as const)('stops immediately even when the screen looks %s to Claude', async (status, output) => {
+      // The configured agent is Claude; the actual launch override must govern stopping.
+      await service.startProcess(1, 'prompt', 'planning', undefined, undefined, agent);
+      mockOnDataHandler?.(output);
+      expect(detectClaudeScreenStatus(service.getSnapshot(1))).toBe(status);
+
+      expect(service.stopProcessFromHook(1)).toBe(true);
+      expect(mockKill).toHaveBeenCalledTimes(1);
+      expect(service.listRunningTasks()).toEqual([]);
+      expect(service.isExplicitUserStop(1)).toBe(false);
+      expect(service.isUserStopped(1)).toBe(true);
+
+      vi.advanceTimersByTime(30_000);
+      expect(mockKill).toHaveBeenCalledTimes(1);
+    });
+  });
+
   it('stopProcessFromHook does not stop while Claude screen is working', () => {
     service.startProcess(1, 'prompt', 'run');
     mockOnDataHandler?.('\x1b]0;⠋ Thinking\x07');
