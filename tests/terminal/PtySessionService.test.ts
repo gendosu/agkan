@@ -152,7 +152,7 @@ const mockWrite = vi.fn();
 const mockKill = vi.fn();
 const mockResize = vi.fn();
 let mockOnDataHandler: ((data: string) => void) | null = null;
-let mockOnExitHandler: ((e: { exitCode: number }) => void) | null = null;
+let mockOnExitHandler: ((e: { exitCode: number; signal?: number }) => void) | null = null;
 
 vi.mock('node-pty', () => ({
   spawn: vi.fn(() => ({
@@ -163,7 +163,7 @@ vi.mock('node-pty', () => ({
     onData: vi.fn((handler: (data: string) => void) => {
       mockOnDataHandler = handler;
     }),
-    onExit: vi.fn((handler: (e: { exitCode: number }) => void) => {
+    onExit: vi.fn((handler: (e: { exitCode: number; signal?: number }) => void) => {
       mockOnExitHandler = handler;
     }),
   })),
@@ -364,6 +364,39 @@ describe('PtySessionService', () => {
     service.subscribeOutput(1, (evt) => events.push(evt));
     mockOnExitHandler?.({ exitCode: 0 });
     expect(events).toEqual([{ kind: 'done', exitCode: 0 }]);
+  });
+
+  it('reports unsolicited SIGHUP as failure even when node-pty reports exitCode zero', async () => {
+    await service.startProcess(1, 'prompt', 'planning');
+    const callback = vi.fn();
+    service.subscribeOutput(1, callback);
+    const log = vi.spyOn(console, 'error').mockImplementation(() => {});
+    try {
+      mockOnExitHandler?.({ exitCode: 0, signal: 1 });
+      expect(callback).toHaveBeenCalledWith({ kind: 'done', exitCode: 129 });
+      expect(log).toHaveBeenCalledWith(expect.stringContaining('origin=unexpected-signal'));
+      expect(log).toHaveBeenCalledWith(expect.stringContaining('signal=SIGHUP(1)'));
+    } finally {
+      log.mockRestore();
+    }
+  });
+
+  it('records a hook stop separately from an unexpected signal exit', async () => {
+    await service.startProcess(1, 'prompt', 'planning', undefined, undefined, 'codex');
+    const callback = vi.fn();
+    service.subscribeOutput(1, callback);
+    const log = vi.spyOn(console, 'error').mockImplementation(() => {});
+    try {
+      service.stopProcessFromHook(1);
+      expect(mockKill).toHaveBeenCalledWith('SIGHUP');
+      mockOnExitHandler?.({ exitCode: 0, signal: 1 });
+      expect(callback).toHaveBeenCalledTimes(1);
+      expect(callback).toHaveBeenCalledWith({ kind: 'done', exitCode: 0 });
+      expect(log).toHaveBeenCalledWith(expect.stringContaining('[diag][stop-request]'));
+      expect(log).toHaveBeenCalledWith(expect.stringContaining('origin=hook'));
+    } finally {
+      log.mockRestore();
+    }
   });
 
   it('subscribeRawOutput delivers PTY data chunks', () => {
@@ -1240,6 +1273,23 @@ describe('PtySessionService - DB integration on exit', () => {
     await svc.startProcess(1, 'prompt', 'run');
     mockOnExitHandler?.({ exitCode: 0 });
     expect(mockDb.runLogs.deleteMany).toHaveBeenCalledWith([6]);
+  });
+
+  it('persists the signal and stop origin in run history', async () => {
+    const mockDb = { runLogs: createMockRunLogs() };
+    const svc = new PtySessionService(mockDb as never);
+    await svc.startProcess(1, 'prompt', 'planning', undefined, undefined, 'codex');
+    svc.stopProcessFromHook(1);
+    mockOnExitHandler?.({ exitCode: 0, signal: 1 });
+    expect(mockDb.runLogs.updateFinished).toHaveBeenCalledWith(
+      42,
+      expect.any(String),
+      0,
+      expect.stringContaining('origin=hook')
+    );
+    const events = JSON.parse(mockDb.runLogs.updateFinished.mock.calls[0][3]);
+    expect(events.at(-1).text).toContain('signal=SIGHUP(1)');
+    expect(events.at(-1).text).toContain('command=planning');
   });
 
   it('does not call deleteMany when run log count <= 5', async () => {
