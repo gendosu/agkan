@@ -68,7 +68,7 @@ const turnComplete = {
   'turn-id': 'tu-1',
   cwd: '/work',
   'input-messages': ['Task ID: 5'],
-  'last-assistant-message': 'exit',
+  'last-assistant-message': 'Checking the task.',
 };
 
 describe('hook-codex-notify.mjs', () => {
@@ -93,7 +93,8 @@ describe('hook-codex-notify.mjs', () => {
     svr.setStatusHttpCode(200);
   });
 
-  it('posts complete on agent-turn-complete when no target status is configured', async () => {
+  it('posts complete for planning only when the task is ready', async () => {
+    svr.setStatus('ready');
     const before = svr.captured.length;
     const code = await runHook(JSON.stringify(turnComplete), baseEnv);
     expect(code).toBe(0);
@@ -101,6 +102,34 @@ describe('hook-codex-notify.mjs', () => {
     const last = svr.captured.at(-1);
     expect(last?.url).toBe('/api/internal/hooks/stop');
     expect(last?.body).toEqual({ taskId: 5, reason: 'complete' });
+  });
+
+  it.each(['backlog', 'in_progress', null])('keeps unfinished planning alive with status %s', async (status) => {
+    svr.setStatus(status);
+    const before = svr.captured.length;
+    expect(await runHook(JSON.stringify(turnComplete), baseEnv)).toBe(0);
+    expect(svr.captured.length).toBe(before);
+  });
+
+  it('keeps planning alive when the status check fails', async () => {
+    svr.setStatusHttpCode(500);
+    const before = svr.captured.length;
+    expect(await runHook(JSON.stringify(turnComplete), baseEnv)).toBe(0);
+    expect(svr.captured.length).toBe(before);
+  });
+
+  it('stops planning when the task is closed', async () => {
+    svr.setStatus('closed');
+    const before = svr.captured.length;
+    expect(await runHook(JSON.stringify(turnComplete), baseEnv)).toBe(0);
+    expect(svr.captured.length).toBe(before + 1);
+  });
+
+  it('allows an explicit exit message to finish deferred planning in backlog', async () => {
+    svr.setStatus('backlog');
+    const before = svr.captured.length;
+    expect(await runHook(JSON.stringify({ ...turnComplete, 'last-assistant-message': 'exit' }), baseEnv)).toBe(0);
+    expect(svr.captured.length).toBe(before + 1);
   });
 
   it('does NOT post for a payload of another type', async () => {
