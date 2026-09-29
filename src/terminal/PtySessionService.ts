@@ -72,6 +72,7 @@ export type ClaudeScreenStatus = 'working' | 'blocked' | 'idle' | 'unknown';
 interface SessionInfo {
   taskId: number;
   command: string;
+  agent: AgentTool;
   ptyProcess: pty.IPty;
   startedAt: Date;
   outputBuffer: string;
@@ -338,8 +339,7 @@ function buildAgentArgs(
   if (agent === 'codex') {
     const modelArgs = ['--model', model || DEFAULT_CODEX_MODEL];
     const effortArgs = effort ? ['--config', 'model_reasoning_effort=' + JSON.stringify(effort)] : [];
-    // Codex has no Stop hook; its `notify` command is the only way the board learns that a
-    // turn finished, so a Codex session would otherwise never terminate on its own.
+    // Board uses Codex's `notify` command to receive turn-completion signals.
     const notifyArgs = boardHooksEnabled ? buildCodexNotifyArgs() : [];
     // '--' keeps a flag-like or subcommand-like prompt from being parsed as codex options.
     return [...modelArgs, ...effortArgs, ...notifyArgs, ...buildCodexPermissionArgs(config), '--', prompt];
@@ -555,6 +555,7 @@ export class PtySessionService {
     const info: SessionInfo = {
       taskId,
       command,
+      agent,
       ptyProcess,
       startedAt: new Date(),
       outputBuffer: '',
@@ -740,11 +741,15 @@ export class PtySessionService {
     const info = this.sessions.get(taskId);
     if (!info) return false;
 
-    const status = detectClaudeScreenStatus(info.outputBuffer);
-    if (status === 'working' || status === 'blocked') {
-      console.error(`[pty][hook-stop-guard] taskId=${taskId} skipped stopProcess because Claude screen is ${status}`);
-      this.scheduleDeferredHookStop(taskId, info, 0, info.outputBuffer);
-      return false;
+    // Other agents' completion hooks are authoritative; Claude's screen heuristics
+    // can mistake their stale TUI output for ongoing work or a permission prompt.
+    if (info.agent === 'claude') {
+      const status = detectClaudeScreenStatus(info.outputBuffer);
+      if (status === 'working' || status === 'blocked') {
+        console.error(`[pty][hook-stop-guard] taskId=${taskId} skipped stopProcess because Claude screen is ${status}`);
+        this.scheduleDeferredHookStop(taskId, info, 0, info.outputBuffer);
+        return false;
+      }
     }
 
     return this.stopProcess(taskId, 'hook');

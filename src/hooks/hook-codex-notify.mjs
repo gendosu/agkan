@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 // Codex `notify` hook: Codex runs `node <this file> '<json>'` after every agent turn.
-// The payload arrives as a single argv entry (not on stdin) and the only event type Codex
-// emits is `agent-turn-complete`. This is the Codex counterpart of hook-stop.mjs — Codex has
-// no Stop hook, so without it a Board-launched Codex session never terminates on its own.
+// The payload arrives as a single argv entry (not on stdin). Board uses the
+// `agent-turn-complete` notification to terminate completed Codex sessions,
+// serving the same role as hook-stop.mjs does for Claude.
 
 import { isTargetStatusReached, postStopComplete } from './board-stop-client.mjs';
 
