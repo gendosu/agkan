@@ -37,10 +37,17 @@ async function main() {
     return;
   }
 
-  // No target status (planning session): complete unconditionally, as hook-stop.mjs does.
-  // Unlike Claude Code there is no AskUserQuestion/transcript to inspect, so a Codex turn
-  // that ends by asking the user a question also ends the session here.
-  await postStopComplete(apiUrl, token, taskId, LOG_PREFIX);
+  // Planning is complete when the task is ready (or terminal). A notification alone
+  // is not evidence of completion: it can arrive while planning is still in flight.
+  // Deferred planning can legitimately leave the task in backlog. The launch prompt
+  // also specifies an exact 'exit' completion message, which handles that outcome.
+  const lastMessage = payload['last-assistant-message'];
+  const explicitExit = typeof lastMessage === 'string' && lastMessage.trim() === 'exit';
+  const reached = explicitExit || (await isTargetStatusReached(apiUrl, token, taskId, 'ready', LOG_PREFIX));
+  process.stderr.write(
+    `${LOG_PREFIX}: taskId=${taskId} turnId=${JSON.stringify(payload['turn-id'] ?? null)} planningComplete=${reached} explicitExit=${explicitExit}\n`
+  );
+  if (reached) await postStopComplete(apiUrl, token, taskId, LOG_PREFIX);
 }
 
 await main();

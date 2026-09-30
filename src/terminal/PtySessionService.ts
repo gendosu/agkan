@@ -1,5 +1,6 @@
 import * as pty from 'node-pty';
 import { execSync } from 'child_process';
+import { constants } from 'os';
 import type { StorageBackend, RunLogRow } from '../db/types/repository';
 import type { RunLog, OutputEvent as ClaudeOutputEvent, CompletionConfirmCallback } from '../services/types';
 import { ConflictError } from '../errors';
@@ -87,6 +88,7 @@ interface SessionInfo {
   deferredHookStopTimer: ReturnType<typeof setTimeout> | null;
   workspaceTrustHandled: boolean;
   lastEventsUpdate: number;
+  stopOrigin: 'user' | 'hook' | null;
 }
 
 function hasWorkspaceTrustPrompt(text: string): boolean {
@@ -549,7 +551,7 @@ export class PtySessionService {
     }
 
     console.error(
-      `[diag][spawn] taskId=${taskId} pid=${ptyProcess.pid} command=${command} bin=${agentBin} args=${JSON.stringify(args)} at=${new Date().toISOString()}`
+      `[diag][spawn] taskId=${taskId} pid=${ptyProcess.pid} command=${command} agent=${agent} bin=${agentBin} model=${model ?? 'default'} effort=${effort ?? 'default'} cwd=${JSON.stringify(process.cwd())} at=${new Date().toISOString()}`
     );
 
     const info: SessionInfo = {
@@ -570,6 +572,7 @@ export class PtySessionService {
       deferredHookStopTimer: null,
       workspaceTrustHandled: false,
       lastEventsUpdate: 0,
+      stopOrigin: null,
     };
 
     this.sessions.set(taskId, info);
@@ -646,11 +649,16 @@ export class PtySessionService {
     });
 
     ptyProcess.onExit(({ exitCode, signal }) => {
-      const code = exitCode ?? 0;
+      // node-pty can report exitCode=0 even when the process died from a signal.
+      // A requested stop is intentional; an unsolicited signal must not look successful.
+      const code = info.stopOrigin !== null ? 0 : signal ? 128 + signal : (exitCode ?? 1);
+      const signalName = signal
+        ? (Object.entries(constants.signals).find(([, value]) => value === signal)?.[0] ?? `signal-${signal}`)
+        : 'none';
+      const origin = info.stopOrigin ?? (signal ? 'unexpected-signal' : 'process-exit');
+      const summary = `[process-exit] taskId=${taskId} pid=${ptyProcess.pid} command=${command} agent=${agent} origin=${origin} rawExitCode=${String(exitCode)} signal=${signalName}(${signal ?? 0}) exitCode=${code} durationMs=${Date.now() - info.startedAt.getTime()}`;
 
-      console.error(
-        `[diag][onExit] taskId=${taskId} pid=${ptyProcess.pid} rawExitCode=${String(exitCode)} signal=${String(signal)} normalized=${code} exitSubscribers=${info.exitSubscribers.size} at=${new Date().toISOString()}`
-      );
+      console.error(`${summary} exitSubscribers=${info.exitSubscribers.size} at=${new Date().toISOString()}`);
 
       if (info.promptTimer !== null) {
         clearTimeout(info.promptTimer);
@@ -669,7 +677,10 @@ export class PtySessionService {
       if (this.db && info.runLogId) {
         const finishedAt = new Date().toISOString();
         const cleanText = stripAnsi(info.outputBuffer);
-        const events = JSON.stringify([{ kind: 'text', text: cleanText }]);
+        const events = JSON.stringify([
+          { kind: 'text', text: cleanText },
+          { kind: 'text', text: `\n${summary}\n` },
+        ]);
         this.db.runLogs.updateFinished(info.runLogId, finishedAt, code, events);
         const ids = this.db.runLogs.findIdsByTaskId(taskId);
         if (ids.length > 5) {
@@ -706,6 +717,10 @@ export class PtySessionService {
   stopProcess(taskId: number, origin: 'user' | 'hook' = 'user'): boolean {
     const info = this.sessions.get(taskId);
     if (!info) return false;
+    info.stopOrigin = origin;
+    console.error(
+      `[diag][stop-request] taskId=${taskId} pid=${info.ptyProcess.pid} command=${info.command} agent=${info.agent} origin=${origin} signal=SIGHUP at=${new Date().toISOString()}`
+    );
     if (info.promptTimer !== null) {
       clearTimeout(info.promptTimer);
       info.promptTimer = null;
@@ -730,7 +745,7 @@ export class PtySessionService {
     const doneEvent: OutputEvent = { kind: 'done', exitCode: 0 };
     info.exitSubscribers.forEach((cb) => cb(doneEvent));
     info.exitSubscribers.clear();
-    info.ptyProcess.kill();
+    info.ptyProcess.kill('SIGHUP');
     this.sessions.delete(taskId);
     this.attentionStateService?.clearTask(taskId);
     this.notifyRunningTasksChange();
