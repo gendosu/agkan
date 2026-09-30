@@ -40,6 +40,33 @@ describe('stripAnsi', () => {
     expect(stripAnsi('line1\nloading\rdone\nline3')).toBe('line1\ndone\nline3');
   });
 
+  it.each([
+    ['', ''],
+    ['\r', '\r'],
+    ['a\r\nb', 'a\r\nb'],
+    ['abc\r', 'abc\r'],
+    ['abc\rdef\r', 'def\r'],
+    ['a\r\r', '\r'],
+    ['a\r\r\nb', '\r\nb'],
+    ['a\rb\rc', 'c'],
+    ['\r\r\r', '\r'],
+    ['old\rnew\r\nnext\rfinal\r', 'new\r\nfinal\r'],
+    ['old\r\x1b[2K\x1b[31mnew\x1b[0m\r\n', 'new\r\n'],
+    ['old\r\x1b]0;title\x07', 'old\r'],
+  ])('preserves CR boundary behavior for %j', (input, expected) => {
+    expect(stripAnsi(input)).toBe(expected);
+  });
+
+  it('matches the legacy CR behavior for all short combinations of text, CR, and LF', () => {
+    let inputs = [''];
+    for (let length = 0; length <= 7; length++) {
+      for (const input of inputs) {
+        expect(stripAnsi(input)).toBe(input.replace(/[^\n]*\r([^\n])/g, '$1'));
+      }
+      inputs = inputs.flatMap((input) => ['x', '\r', '\n'].map((char) => input + char));
+    }
+  });
+
   it('removes unterminated OSC sequences', () => {
     expect(stripAnsi('\x1b]0;title')).toBe('');
   });
