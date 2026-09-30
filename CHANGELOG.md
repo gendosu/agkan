@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.28.0] - 2026-09-30
+
+### Added
+- Add `gpt-6.1-sol` to the built-in Codex `modelCatalog` with efforts `low`, `medium`, `high`, `xhigh`, `max`, and `ultra`, and include it in the `agkan init` configuration template and English/Japanese documentation (#445)
+
+### Fixed
+- Keep Codex Board planning sessions alive when a turn completion notification arrives before planning is complete. Stop only when the task reaches `ready` or a terminal status, or the final assistant message is exactly `exit` (#444)
+- Treat unexpected PTY signal exits as failures even when node-pty reports exit code zero. Distinguish user and hook stop requests from unexpected exits, and record the stop origin, signal, and exit code in run history (#444)
+
 ## [3.27.2] - 2026-09-29
 
 ### Fixed
