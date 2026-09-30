@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { performance } from 'node:perf_hooks';
 import { stripAnsi } from '../../../src/terminal/PtySessionService';
+import { verifyLongSessionLogs } from './verifyLongSessionLogs';
 
 // Run in a child process: a synchronous regression cannot be interrupted by
 // Vitest's in-process timeout. The parent kills and reaps this process after 30s.
@@ -35,4 +36,6 @@ for (const size of [10_000, 100_000, 500_000]) {
     results.push({ name, size, inputLength: input.length, medianMs, msPerCharacter: medianMs / input.length });
   }
 }
-console.log(JSON.stringify(results));
+// Keep the heavy DB integration paths under the same external timeout too:
+// a regression must not block a separate Vitest worker during log persistence.
+void verifyLongSessionLogs().then(() => console.log(JSON.stringify(results)));

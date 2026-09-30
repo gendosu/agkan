@@ -1345,58 +1345,6 @@ describe('PtySessionService - DB integration on exit', () => {
     mockOnDataHandler?.('data3');
     expect(mockDb.runLogs.updateEvents).toHaveBeenCalledTimes(2);
   });
-
-  it.each(['codex', 'claude'] as const)(
-    'preserves long %s output across periodic saves, truncation, and exit',
-    async (agent) => {
-      const mockDb = { runLogs: createMockRunLogs() };
-      const svc = new PtySessionService(mockDb as never);
-      await svc.startProcess(1, 'prompt', 'run', undefined, undefined, agent);
-      const rawOutput = vi.fn();
-      const updated = vi.fn();
-      const exited = vi.fn();
-      svc.subscribeRawOutput(1, rawOutput);
-      svc.subscribeOutputUpdate(1, updated);
-      svc.subscribeOutput(1, exited);
-
-      const chunk = '\x1b[1A\x1b[2Kx'.repeat(40_000);
-      mockOnDataHandler?.(chunk);
-      const firstSave = JSON.parse(mockDb.runLogs.updateEvents.mock.calls[0][1]);
-      expect(firstSave).toEqual([{ kind: 'text', text: 'x'.repeat(40_000) }]);
-      expect(updated).toHaveBeenCalledTimes(1);
-
-      // Cross the save boundary twice and exceed the 500,000-character buffer.
-      vi.advanceTimersByTime(2001);
-      mockOnDataHandler?.(chunk);
-      const retained = (chunk + chunk).slice(-500_000);
-      const retainedText = retained.replace(/\x1b\[[\x30-\x3F]*[\x20-\x2F]*[\x40-\x7E]/g, '');
-      expect(svc.getSnapshot(1)).toBe(retained);
-      expect(JSON.parse(mockDb.runLogs.updateEvents.mock.calls[1][1])).toEqual([{ kind: 'text', text: retainedText }]);
-
-      vi.advanceTimersByTime(2001);
-      const overwrite = '\rold\r' + 'y'.repeat(100_000) + '\r\n';
-      mockOnDataHandler?.(overwrite);
-      expect(mockDb.runLogs.updateEvents).toHaveBeenCalledTimes(3);
-      expect(JSON.parse(mockDb.runLogs.updateEvents.mock.calls[2][1])).toEqual([
-        { kind: 'text', text: 'y'.repeat(100_000) + '\r\n' },
-      ]);
-      expect(rawOutput.mock.calls).toEqual([[chunk], [chunk], [overwrite]]);
-
-      // Exit must also save a long line with no CR, not just the short overwrite.
-      const tail = 'z'.repeat(500_000);
-      mockOnDataHandler?.(tail);
-      expect(mockDb.runLogs.updateEvents).toHaveBeenCalledTimes(3);
-      mockOnExitHandler?.({ exitCode: 0 });
-      const events = JSON.parse(mockDb.runLogs.updateFinished.mock.calls[0][3]);
-      expect(events[0]).toEqual({ kind: 'text', text: tail });
-      expect(events[1].text).toContain(`agent=${agent} origin=process-exit`);
-      expect(mockDb.runLogs.updateFinished.mock.calls[0].slice(0, 3)).toEqual([42, expect.any(String), 0]);
-      expect(rawOutput).toHaveBeenLastCalledWith(tail);
-      expect(updated).toHaveBeenCalledTimes(4);
-      expect(exited).toHaveBeenCalledWith({ kind: 'done', exitCode: 0 });
-      expect(svc.getSnapshot(1)).toBe(tail);
-    }
-  );
 });
 
 describe('PtySessionService - getRunLogs', () => {

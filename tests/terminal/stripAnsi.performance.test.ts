@@ -1,5 +1,5 @@
 import { execFile } from 'node:child_process';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { promisify } from 'node:util';
@@ -10,6 +10,7 @@ it('processes long terminal lines in a child with an external timeout', async ()
   const directory = mkdtempSync(join(tmpdir(), 'agkan-strip-ansi-'));
   const script = join(directory, 'benchmark.cjs');
   try {
+    writeFileSync(join(directory, '.agkan-test.yml'), 'permissionMode: plan\n');
     buildSync({
       entryPoints: [join(__dirname, 'fixtures/stripAnsi.benchmark.ts')],
       outfile: script,
@@ -17,10 +18,12 @@ it('processes long terminal lines in a child with an external timeout', async ()
       packages: 'external',
       platform: 'node',
       format: 'cjs',
+      alias: { 'node-pty': join(__dirname, 'fixtures/ptyTestDouble.ts') },
     });
     const { stdout } = await promisify(execFile)(process.execPath, [script], {
       timeout: 30_000,
       killSignal: 'SIGKILL',
+      cwd: directory,
       env: { ...process.env, NODE_PATH: join(process.cwd(), 'node_modules') },
     });
     const results = JSON.parse(stdout);
