@@ -3208,6 +3208,7 @@ describe('detail field autosave', () => {
 
 describe('detail panel markdown editor', () => {
   beforeEach(() => {
+    vi.resetModules();
     setupMinimalBoardDOM();
     global.fetch = vi.fn().mockResolvedValue({
       ok: true,
@@ -3215,8 +3216,8 @@ describe('detail panel markdown editor', () => {
     });
   });
 
-  it('renders markdown editor in detail panel and toggles between write and preview', async () => {
-    const { renderDetailPanel } = await import('../../../src/board/client/detailPanel');
+  it('defaults to preview and lets users edit and preview the latest markdown', async () => {
+    const { renderDetailPanel, isDetailDirty } = await import('../../../src/board/client/detailPanel');
     const data = makeTaskDetail({
       task: {
         ...makeTaskDetail().task,
@@ -3232,19 +3233,108 @@ describe('detail panel markdown editor', () => {
 
     expect(textarea).not.toBeNull();
     expect(preview).not.toBeNull();
-    expect(preview.style.display).toBe('none');
-
-    // Toggle to preview
-    previewBtn.click();
     expect(textarea.style.display).toBe('none');
     expect(preview.style.display).toBe('block');
     expect(preview.innerHTML).toContain('<h1>Test Heading</h1>');
     expect(preview.innerHTML).toContain('<li>List Item</li>');
+    expect(previewBtn.classList.contains('active')).toBe(true);
+    expect(previewBtn.getAttribute('aria-selected')).toBe('true');
+    expect(writeBtn.classList.contains('active')).toBe(false);
+    expect(writeBtn.getAttribute('aria-selected')).toBe('false');
+    expect(isDetailDirty()).toBe(false);
+    const headingBtn = document.querySelector('.markdown-toolbar-btn[data-format="heading"]') as HTMLButtonElement;
+    expect(headingBtn.disabled).toBe(true);
 
-    // Toggle back to write
     writeBtn.click();
     expect(textarea.style.display).toBe('');
     expect(preview.style.display).toBe('none');
+    expect(writeBtn.getAttribute('aria-selected')).toBe('true');
+    expect(previewBtn.getAttribute('aria-selected')).toBe('false');
+    expect(headingBtn.disabled).toBe(false);
+    expect(isDetailDirty()).toBe(false);
+
+    Object.defineProperty(textarea, 'scrollHeight', { configurable: true, value: 160 });
+    textarea.value = '## Updated Heading';
+    textarea.dispatchEvent(new Event('input'));
+    expect(textarea.style.height).toBe('160px');
+    expect(isDetailDirty()).toBe(true);
+
+    previewBtn.click();
+    expect(textarea.style.display).toBe('none');
+    expect(preview.innerHTML).toContain('<h2>Updated Heading</h2>');
+    expect(preview.textContent).not.toContain('Test Heading');
+  });
+
+  it.each([null, '', '   '])('defaults to the empty preview for body %j', async (body) => {
+    const { renderDetailPanel } = await import('../../../src/board/client/detailPanel');
+    renderDetailPanel(makeTaskDetail({ task: { ...makeTaskDetail().task, body } }));
+
+    const textarea = document.getElementById('detail-edit-body') as HTMLTextAreaElement;
+    const preview = document.querySelector('.markdown-preview') as HTMLElement;
+    expect(textarea.style.display).toBe('none');
+    expect(preview.style.display).toBe('block');
+    expect(preview.textContent).toBe('No description provided.');
+    expect(document.querySelector('.markdown-mode-btn[data-mode="preview"]')?.getAttribute('aria-selected')).toBe(
+      'true'
+    );
+  });
+
+  it('resets to preview when the panel is reopened or another task is rendered', async () => {
+    const { renderDetailPanel, closeDetailPanel } = await import('../../../src/board/client/detailPanel');
+    const data = makeTaskDetail();
+    renderDetailPanel(data);
+    (document.querySelector('.markdown-mode-btn[data-mode="write"]') as HTMLButtonElement).click();
+    closeDetailPanel();
+    renderDetailPanel(data);
+
+    expect((document.querySelector('.markdown-preview') as HTMLElement).style.display).toBe('block');
+    expect(document.querySelector('.markdown-preview')?.textContent?.trim()).toBe('Task body');
+
+    (document.querySelector('.markdown-mode-btn[data-mode="write"]') as HTMLButtonElement).click();
+    renderDetailPanel(makeTaskDetail({ task: { ...data.task, id: 2, body: '**Second task**' } }));
+
+    expect((document.getElementById('detail-edit-body') as HTMLTextAreaElement).style.display).toBe('none');
+    expect(document.querySelector('.markdown-preview')?.innerHTML).toContain('<strong>Second task</strong>');
+    expect(document.querySelector('.markdown-preview')?.textContent).not.toContain('Task body');
+  });
+
+  it('saves edited markdown from preview and displays the saved body in preview', async () => {
+    let data = makeTaskDetail();
+    const fetchMock = vi.fn().mockImplementation((url: string, init?: RequestInit) => {
+      if (url === '/api/tasks/1') {
+        if (init?.method === 'PATCH') {
+          const fields = JSON.parse(String(init.body));
+          data = makeTaskDetail({ task: { ...data.task, ...fields } });
+        }
+        return Promise.resolve({ ok: true, json: () => Promise.resolve(data) });
+      }
+      return Promise.resolve({ ok: true, json: () => Promise.resolve({ tags: [], comments: [], columns: [] }) });
+    });
+    global.fetch = fetchMock;
+    document.body.insertAdjacentHTML('beforeend', '<div id="toast"></div>');
+    const { renderDetailPanel, isDetailDirty } = await import('../../../src/board/client/detailPanel');
+    renderDetailPanel(data);
+
+    (document.querySelector('.markdown-mode-btn[data-mode="write"]') as HTMLButtonElement).click();
+    const textarea = document.getElementById('detail-edit-body') as HTMLTextAreaElement;
+    textarea.value = '## Saved description';
+    textarea.dispatchEvent(new Event('input'));
+    (document.querySelector('.markdown-mode-btn[data-mode="preview"]') as HTMLButtonElement).click();
+    (document.getElementById('detail-save-btn') as HTMLButtonElement).click();
+
+    await vi.waitFor(() => expect(document.getElementById('toast')?.textContent).toBe('Task saved successfully'));
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/tasks/1',
+      expect.objectContaining({
+        method: 'PATCH',
+        body: expect.stringContaining('"body":"## Saved description"'),
+      })
+    );
+    expect((document.getElementById('detail-edit-body') as HTMLTextAreaElement).value).toBe('## Saved description');
+    expect((document.getElementById('detail-edit-body') as HTMLTextAreaElement).style.display).toBe('none');
+    expect((document.querySelector('.markdown-preview') as HTMLElement).style.display).toBe('block');
+    expect(document.querySelector('.markdown-preview')?.innerHTML).toContain('<h2>Saved description</h2>');
+    expect(isDetailDirty()).toBe(false);
   });
 
   it('formatting toolbar button inserts format into textarea and marks detail dirty', async () => {
@@ -3259,6 +3349,7 @@ describe('detail panel markdown editor', () => {
 
     expect(isDetailDirty()).toBe(false);
 
+    (document.querySelector('.markdown-mode-btn[data-mode="write"]') as HTMLButtonElement).click();
     const textarea = document.getElementById('detail-edit-body') as HTMLTextAreaElement;
     textarea.setSelectionRange(0, 13);
 

@@ -690,6 +690,7 @@ export function renderDetailPanel(data: TaskDetail): void {
         }
       },
     });
+    detailMarkdownEditor.setMode('preview');
 
     // ResizeObserver fires whenever the textarea's content-box width changes —
     // including during the panel's CSS width transition — so autoResizeTextarea
