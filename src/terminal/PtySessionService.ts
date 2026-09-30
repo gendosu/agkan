@@ -22,17 +22,31 @@ import {
 } from '../db/config';
 
 export function stripAnsi(text: string): string {
-  return (
-    text
-      // CSI sequences: ESC [ <param bytes> <intermediate bytes> <final byte>
-      .replace(/\x1b\[[\x30-\x3F]*[\x20-\x2F]*[\x40-\x7E]/g, '')
-      // OSC sequences: ESC ] ... BEL or ESC \ (also handles unterminated)
-      .replace(/\x1b\][^\x07\x1b]*(?:\x07|\x1b\\|$)/g, '')
-      // Single ESC sequences (e.g. ESC = ESC >)
-      .replace(/\x1b[=>]/g, '')
-      // Carriage return overwrite: collapse lines with CR to last segment
-      .replace(/[^\n]*\r([^\n])/g, '$1')
-  );
+  const clean = text
+    // CSI sequences: ESC [ <param bytes> <intermediate bytes> <final byte>
+    .replace(/\x1b\[[\x30-\x3F]*[\x20-\x2F]*[\x40-\x7E]/g, '')
+    // OSC sequences: ESC ] ... BEL or ESC \ (also handles unterminated)
+    .replace(/\x1b\][^\x07\x1b]*(?:\x07|\x1b\\|$)/g, '')
+    // Single ESC sequences (e.g. ESC = ESC >)
+    .replace(/\x1b[=>]/g, '');
+  if (!clean.includes('\r')) return clean;
+
+  // Scan once instead of searching every suffix with a greedy CR regex.
+  // Only CR followed by a non-LF character overwrites the line; preserve CRLF
+  // and a trailing CR, including the last CR in a consecutive run.
+  const segments: string[] = [];
+  let start = 0;
+  for (let index = 0; index < clean.length; index++) {
+    const char = clean[index];
+    if (char === '\r' && index + 1 < clean.length && clean[index + 1] !== '\n') {
+      start = index + 1;
+    } else if (char === '\n') {
+      segments.push(clean.slice(start, index + 1));
+      start = index + 1;
+    }
+  }
+  segments.push(clean.slice(start));
+  return segments.join('');
 }
 
 function resolveClaudePath(): string {
