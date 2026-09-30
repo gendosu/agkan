@@ -888,6 +888,45 @@ describe('BulkRunService model/effort override resolution', () => {
 });
 
 describe('BulkRunService - Codex availability', () => {
+  it.each([
+    ['startup exception', new Error('auto_review is not permitted by administrator policy')],
+    ['output error', { kind: 'error', message: 'auto_review is unavailable for this account' }],
+    ['nonzero exit', { kind: 'done', exitCode: 1 }],
+  ] as const)('stops on Codex %s without repeating a still-ready task', async (_label, failure) => {
+    const db = getStorageBackend();
+    const ts = new TaskService(db);
+    const first = ts.createTask({ title: 'first', status: 'ready', priority: 'high' });
+    const second = ts.createTask({ title: 'second', status: 'ready' });
+    const startProcess =
+      failure instanceof Error ? vi.fn().mockRejectedValue(failure) : vi.fn().mockResolvedValue(undefined);
+    const subscribeOutput = vi.fn().mockImplementation((_id: number, callback: OutputCallback) => {
+      if (!(failure instanceof Error)) callback(failure);
+      return () => {};
+    });
+    const service = new BulkRunService(ts, new TaskBlockService(db), buildMockPty({ startProcess, subscribeOutput }));
+    const tmpCwd = fs.mkdtempSync(path.join(os.tmpdir(), 'agkan-bulk-codex-failure-'));
+    const cwdSpy = vi.spyOn(process, 'cwd').mockReturnValue(tmpCwd);
+    try {
+      fs.writeFileSync(path.join(tmpCwd, '.agkan-test.yml'), yaml.dump({ agent: 'codex' }));
+      await service.start('direct');
+      expect(service.getStatus().mode).toBe('idle');
+      expect(service.getStatus().error).toBe(
+        failure instanceof Error
+          ? failure.message
+          : failure.kind === 'error'
+            ? failure.message
+            : `Codex task ${first.id} exited with code 1. See the task terminal for the failure reason.`
+      );
+      expect(startProcess).toHaveBeenCalledTimes(1);
+      expect(ts.getTask(first.id)?.status).toBe('ready');
+      expect(ts.getTask(second.id)?.status).toBe('ready');
+    } finally {
+      service.stop();
+      cwdSpy.mockRestore();
+      fs.rmSync(tmpCwd, { recursive: true, force: true });
+    }
+  });
+
   it('stops and exposes an auto-review capability failure without retrying or changing tasks', async () => {
     const db = getStorageBackend();
     const ts = new TaskService(db);

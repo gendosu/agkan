@@ -167,9 +167,10 @@ export class BulkRunService {
     try {
       await this.claudeProcess.startProcess(taskId, prompt, ptyCommand, model, effort, agent);
     } catch (e) {
-      if (e instanceof CodexAutoReviewUnavailableError) {
-        console.error(`[BulkRunService] stopping bulk run: ${e.message}`);
-        this.error = e.message;
+      if (agent === 'codex' || e instanceof CodexAutoReviewUnavailableError) {
+        const message = e instanceof Error ? e.message : String(e);
+        console.error(`[BulkRunService] stopping bulk run: ${message}`);
+        this.error = message;
         this.finishLoop();
         return;
       }
@@ -188,6 +189,15 @@ export class BulkRunService {
           this.ts.updateTask(taskId, { status: 'done' });
         }
         unsubscribe?.();
+        if (agent === 'codex' && (evt.kind === 'error' || evt.exitCode !== 0)) {
+          this.error =
+            evt.kind === 'error'
+              ? evt.message
+              : `Codex task ${taskId} exited with code ${evt.exitCode}. See the task terminal for the failure reason.`;
+          console.error(`[BulkRunService] stopping bulk run: ${this.error}`);
+          this.finishLoop();
+          return;
+        }
         advance();
       }
     });
