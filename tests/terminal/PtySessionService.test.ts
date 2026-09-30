@@ -737,15 +737,19 @@ describe('PtySessionService - model/effort/boardApiUrl args', () => {
     expect(args[args.indexOf('--effort') + 1]).toBe('high');
   });
 
-  it('passes the gpt-6-sol catalog model and ultra effort through to codex', async () => {
-    vi.mocked(configModule.loadConfig).mockReturnValue({});
-    const svc = new PtySessionService();
-    await svc.startProcess(1, 'Task ID: 1', 'run', 'gpt-6-sol', 'ultra', 'codex');
+  it.each(['gpt-6.1-sol', 'gpt-6-sol'])(
+    'passes the %s catalog model and ultra effort through to codex',
+    async (model) => {
+      vi.mocked(configModule.loadConfig).mockReturnValue({});
+      const svc = new PtySessionService();
+      await svc.startProcess(1, 'Task ID: 1', 'run', model, 'ultra', 'codex');
 
-    const args = spawnMock.mock.calls[0][1] as string[];
-    expect(args[args.indexOf('--model') + 1]).toBe('gpt-6-sol');
-    expect(args).toContain('model_reasoning_effort="ultra"');
-  });
+      const args = spawnMock.mock.calls[0][1] as string[];
+      expect(spawnMock.mock.calls[0][0]).toBe('codex');
+      expect(args[args.indexOf('--model') + 1]).toBe(model);
+      expect(args).toContain('model_reasoning_effort="ultra"');
+    }
+  );
 
   it('spawns the agent passed as the trailing argument instead of the configured one', async () => {
     vi.mocked(configModule.loadConfig).mockReturnValue({});
