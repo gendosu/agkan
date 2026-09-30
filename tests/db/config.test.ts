@@ -96,17 +96,17 @@ describe('Agent tool resolution', () => {
     );
   });
 
-  it('resolves different version 2 agents for planning and run', () => {
+  it.each(['gpt-6.1-sol', 'gpt-5.6-sol'])('resolves different version 2 agents with %s for run', (model) => {
     const config = {
       version: 2,
       models: {
         planning: { agent: 'claude' as const, model: 'fable', effort: 'high' },
-        run: { agent: 'codex' as const, model: 'gpt-5.6-sol', effort: 'high' },
+        run: { agent: 'codex' as const, model, effort: 'high' },
       },
     };
 
     expect(resolvePhaseSettings(config, 'planning')).toEqual({ agent: 'claude', model: 'fable', effort: 'high' });
-    expect(resolvePhaseSettings(config, 'run')).toEqual({ agent: 'codex', model: 'gpt-5.6-sol', effort: 'high' });
+    expect(resolvePhaseSettings(config, 'run')).toEqual({ agent: 'codex', model, effort: 'high' });
   });
 
   it('falls back from a version 2 phase to the top-level agent and then claude', () => {

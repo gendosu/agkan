@@ -14,7 +14,7 @@ export interface ModelCatalogEntry {
 }
 
 const CLAUDE_EFFORTS = ['low', 'medium', 'high', 'xhigh', 'max'];
-// Reasoning efforts the Codex CLI accepts for each model (its models list as of codex-cli 0.156).
+// Reasoning efforts the Codex CLI accepts for each model (its models list as of codex-cli 0.159.2).
 const CODEX_EFFORTS = ['low', 'medium', 'high', 'xhigh', 'max', 'ultra'];
 const CODEX_EFFORTS_NO_ULTRA = ['low', 'medium', 'high', 'xhigh', 'max'];
 
@@ -42,6 +42,7 @@ export const DEFAULT_MODEL_CATALOG: readonly ModelCatalogEntry[] = [
   { cli: 'claude', model: 'opus', efforts: CLAUDE_EFFORTS },
   { cli: 'claude', model: 'sonnet', efforts: CLAUDE_EFFORTS },
   { cli: 'claude', model: 'haiku', efforts: CLAUDE_EFFORTS },
+  { cli: 'codex', model: 'gpt-6.1-sol', efforts: CODEX_EFFORTS },
   { cli: 'codex', model: 'gpt-6-astra', efforts: CODEX_EFFORTS },
   { cli: 'codex', model: 'gpt-6-sol', efforts: CODEX_EFFORTS },
   { cli: 'codex', model: 'gpt-6-luna', efforts: CODEX_EFFORTS_NO_ULTRA },

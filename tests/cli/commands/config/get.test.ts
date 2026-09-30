@@ -63,6 +63,7 @@ describe('setupConfigGetCommand', () => {
       { cli: 'claude', model: 'opus', efforts: ['low', 'medium', 'high', 'xhigh', 'max'] },
       { cli: 'claude', model: 'sonnet', efforts: ['low', 'medium', 'high', 'xhigh', 'max'] },
       { cli: 'claude', model: 'haiku', efforts: ['low', 'medium', 'high', 'xhigh', 'max'] },
+      { cli: 'codex', model: 'gpt-6.1-sol', efforts: ['low', 'medium', 'high', 'xhigh', 'max', 'ultra'] },
       { cli: 'codex', model: 'gpt-6-astra', efforts: ['low', 'medium', 'high', 'xhigh', 'max', 'ultra'] },
       { cli: 'codex', model: 'gpt-6-sol', efforts: ['low', 'medium', 'high', 'xhigh', 'max', 'ultra'] },
       { cli: 'codex', model: 'gpt-6-luna', efforts: ['low', 'medium', 'high', 'xhigh', 'max'] },
