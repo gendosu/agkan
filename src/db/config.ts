@@ -173,11 +173,20 @@ const CODEX_WORKSPACE_WRITE_WITH_NETWORK_ARGS = [
 
 /**
  * Build Codex CLI approval and sandbox arguments from the existing permission
- * setting. Modes without a direct Codex equivalent use the safe interactive
- * default.
+ * setting. Auto mode keeps the sandbox and routes approval requests to automatic
+ * review. Other modes without a direct equivalent preserve Codex's reviewer setting.
  */
 export function buildCodexPermissionArgs(config: Config): string[] {
   switch (config.permissionMode) {
+    case undefined:
+    case 'auto':
+      return [
+        '--ask-for-approval',
+        'on-request',
+        '--config',
+        'approvals_reviewer="auto_review"',
+        ...CODEX_WORKSPACE_WRITE_WITH_NETWORK_ARGS,
+      ];
     case 'skipPermissions':
     case 'bypassPermissions':
       return ['--dangerously-bypass-approvals-and-sandbox'];

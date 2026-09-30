@@ -4,6 +4,7 @@ import { PtySessionService } from '../terminal/PtySessionService';
 import { buildClaudePrompt, resolveLaunchSettings, LaunchSettingsError } from './claudePromptBuilder';
 import { selectNextTask } from './taskSelection';
 import type { AgentTool } from '../db/config';
+import { CodexAutoReviewUnavailableError } from '../errors';
 
 export type BulkRunCommand = 'direct' | 'pr';
 type BulkRunState = 'idle' | 'running';
@@ -165,7 +166,13 @@ export class BulkRunService {
 
     try {
       await this.claudeProcess.startProcess(taskId, prompt, ptyCommand, model, effort, agent);
-    } catch {
+    } catch (e) {
+      if (e instanceof CodexAutoReviewUnavailableError) {
+        console.error(`[BulkRunService] stopping bulk run: ${e.message}`);
+        this.error = e.message;
+        this.finishLoop();
+        return;
+      }
       advance();
       return;
     }

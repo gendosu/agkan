@@ -20,6 +20,8 @@ import { PtySessionService } from '../../src/terminal/PtySessionService';
 import { getStorageBackend } from '../../src/db/connection';
 import { registerBoardRoutes, BoardServices } from '../../src/board/boardRoutes';
 import type { ModelCatalogEntry } from '../../src/db/modelCatalog';
+import { buildClaudePrompt } from '../../src/board/claudePromptBuilder';
+import { CodexAutoReviewUnavailableError } from '../../src/errors';
 
 const CATALOG_WITH_CODEX: ModelCatalogEntry[] = [
   { cli: 'claude', model: 'fable', efforts: ['low', 'medium', 'high', 'xhigh', 'max'] },
@@ -300,6 +302,49 @@ describe('POST /api/claude/tasks/:taskId/run', () => {
     );
   });
 
+  it.each(['planning', 'run', 'pr'] as const)('uses the Codex phase policy for %s', async (command) => {
+    const phase = command === 'planning' ? 'planning' : 'run';
+    fs.writeFileSync(
+      TEST_AGKAN_CONFIG,
+      yaml.dump({
+        version: 2,
+        agent: 'claude',
+        models: { [phase]: { agent: 'codex', model: 'gpt-5.6-sol', effort: 'high' } },
+      })
+    );
+    const mock = buildMockClaudeProcessService();
+    const services = buildServices(mock);
+    const task = services.ts.createTask({ title: 'Codex phase task', status: 'backlog' });
+    const res = await buildApp(services).request(`/api/claude/tasks/${task.id}/run`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ command }),
+    });
+    expect(res.status).toBe(201);
+    expect(mock.startProcess).toHaveBeenCalledWith(
+      task.id,
+      buildClaudePrompt(task.id, command, task.branch, { agent: 'codex' }),
+      command,
+      'gpt-5.6-sol',
+      'high',
+      'codex'
+    );
+    expect(vi.mocked(mock.startProcess).mock.calls[0][1]).toContain('Do not ask "shall I continue?"');
+  });
+
+  it('returns the Codex capability failure to the Board without retrying', async () => {
+    fs.writeFileSync(TEST_AGKAN_CONFIG, yaml.dump({ agent: 'codex' }));
+    const mock = buildMockClaudeProcessService();
+    const reason = 'Codex CLI does not advertise --approve-for-me';
+    vi.mocked(mock.startProcess).mockRejectedValue(new CodexAutoReviewUnavailableError(reason));
+    const services = buildServices(mock);
+    const task = services.ts.createTask({ title: 'Unsupported Codex', status: 'ready' });
+    const res = await buildApp(services).request(`/api/claude/tasks/${task.id}/run`, { method: 'POST' });
+    expect(res.status).toBe(500);
+    expect(await res.json()).toEqual({ error: reason });
+    expect(mock.startProcess).toHaveBeenCalledTimes(1);
+  });
+
   it('selects model settings for the configured agent', async () => {
     fs.writeFileSync(
       TEST_AGKAN_CONFIG,
@@ -545,6 +590,9 @@ describe('POST /api/claude/tasks/:taskId/run', () => {
 
     expect(res.status).toBe(201);
     expect(mock.startProcess).toHaveBeenCalledWith(task.id, expect.any(String), 'run', 'gpt-5.6-sol', 'none', 'codex');
+    expect(vi.mocked(mock.startProcess).mock.calls[0][1]).toBe(
+      buildClaudePrompt(task.id, 'run', task.branch, { agent: 'codex' })
+    );
   });
 
   it('returns 500 when the configured modelCatalog is invalid', async () => {

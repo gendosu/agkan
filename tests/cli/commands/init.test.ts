@@ -102,6 +102,28 @@ describe('setupInitCommand', () => {
     expect(logs.some((l) => l.includes('.agkan'))).toBe(true);
   });
 
+  it('documents Codex sandboxed automatic review and explicit permission modes in the generated config', async () => {
+    await program.parseAsync(['node', 'test', 'init']);
+    const content = fs.readFileSync(path.join(tmpDir, '.agkan.yml'), 'utf8');
+    expect(content).toContain('Codex unset/auto: on-request + approvals_reviewer="auto_review" + workspace-write');
+    expect(content).toContain('sandbox_workspace_write.network_access=true');
+    expect(content).toContain(
+      'Codex default/acceptEdits/other values: on-request + workspace-write; preserve the configured reviewer'
+    );
+    expect(content).toContain('Codex dontAsk: never + workspace-write (no automatic approval review)');
+    expect(content).toContain('Codex plan: never + read-only (no reviewer or workspace-write network override)');
+    expect(content).toContain(
+      'Only explicit Codex skipPermissions/bypassPermissions disables approvals and sandboxing'
+    );
+    expect(content).toContain('--approve-for-me (verified with 0.159.2)');
+    expect(content).toContain('Unsupported/unverified CLIs fail to launch');
+    expect(content).toContain('administrator/account restrictions still apply');
+    expect(content).toContain('rejection requires a safer alternative or a reasoned user question, never bypass');
+    expect(content).toContain('resolve routine planning/run-all choices autonomously and record assumptions');
+    expect(content).toContain('Approval review and agent questions are separate');
+    expect(content).toContain('planning command normally updates tasks in workspace-write');
+  });
+
   it('should skip creating .agkan.yml if it already exists', async () => {
     const configPath = path.join(tmpDir, '.agkan.yml');
     const originalContent = 'path: custom/path/data.db\n';

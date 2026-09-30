@@ -392,7 +392,29 @@ permissionMode: skipPermissions
 
 ### Mapping for other agents
 
-`permissionMode` values are translated to the selected agent CLI's own flags. For `agent: agy`:
+`permissionMode` values are translated to the CLI resolved for each phase or task. For Codex:
+
+| Value | Approval policy / reviewer | Sandbox / additional arguments |
+|-------|----------------------------|--------------------------------|
+| (not set) / `auto` | `--ask-for-approval on-request --config 'approvals_reviewer="auto_review"'` | `--sandbox workspace-write --config sandbox_workspace_write.network_access=true` |
+| `default` / `acceptEdits` / other fallback values | `--ask-for-approval on-request`; preserves the existing Codex reviewer setting | `--sandbox workspace-write --config sandbox_workspace_write.network_access=true` |
+| `dontAsk` | `--ask-for-approval never`; no automatic approval review | `--sandbox workspace-write --config sandbox_workspace_write.network_access=true` |
+| `plan` | `--ask-for-approval never`; no automatic approval review | `--sandbox read-only`; no reviewer or workspace-write network override |
+| `skipPermissions` / `bypassPermissions` | `--dangerously-bypass-approvals-and-sandbox` | Explicitly disables approvals and sandboxing |
+
+Automatic review changes who reviews eligible approval requests while retaining the sandbox boundary. Routine actions within that boundary proceed directly; requests that need approval go to the reviewer. The unset/`auto` mode explicitly selects `auto_review`. With `default`, `acceptEdits`, or a fallback value, agkan preserves Codex's reviewer configuration (normally `user`, for manual approval). `never` removes approval opportunities, so `dontAsk` and `plan` do not invoke automatic review. Full access is limited to the two explicit bypass modes. See [OpenAI Auto-review](https://learn.chatgpt.com/docs/sandboxing/auto-review) and [Agent approvals & security](https://learn.chatgpt.com/docs/agent-approvals-security).
+
+Workspace-write sessions allow network access so the agkan CLI can notify the Board over localhost HTTP. The setting uses the TOML boolean `true`, not the string `"true"`. Codex has no loopback-only option for this setting, so it also enables outbound network access. Read-only `plan` receives no workspace-write network override.
+
+**CLI requirement:** Unset/`auto` needs a Codex CLI supporting `approvals_reviewer="auto_review"` and advertising `--approve-for-me` in `codex --help` (verified with `codex-cli 0.159.2`; this is not a claimed minimum version). Before each auto launch, agkan checks the same `codex` executable used for the session. A missing capability or failed check produces a startup error with the reason; agkan does not silently switch to manual approval or bypass. The help check verifies CLI support, not account eligibility or administrator policy. Those restrictions still apply, and Codex's actual startup errors remain visible in the terminal. Board run-all also exposes capability failures in its status and stops the run. Other permission modes do not require this capability check.
+
+Approval dialogs and the agent's own questions are separate. All Codex launch prompts share the following policy across Board planning/run/PR and CLI/Board run-all: inspect the task body, comments, repository, configuration, and implementation first; resolve routine decomposition, priority, Ready decisions, reversible implementation choices, validation, and already-authorized Git operations without repeated confirmation; record assumptions. Questions remain for unresolved requirements that materially change the result, essential information only the user knows, unauthorized major destructive or irreversible actions, and confidential data transmission. Higher-priority instructions, administrator policies, prior permissions, and stop requests remain in effect.
+
+If automatic review rejects an action, the agent must use its reason to find a materially safer alternative. If none is available, it must explain the reason and needed decision to the user. It must not circumvent a rejection through another route or automatically switch to full access. If automatic review is unavailable, the reason must be reported.
+
+The `planning` command normally updates task bodies, priorities, and states under unset/`auto` workspace-write permissions. It does not select `permissionMode: plan`. Explicit `plan` remains read-only and cannot perform those updates.
+
+For `agent: agy`:
 
 | Value | agy CLI flag |
 |-------|--------------|

@@ -14,6 +14,8 @@ import { PtySessionService } from '../../src/terminal/PtySessionService';
 import { resetDatabase } from '../../src/db/reset';
 import { getStorageBackend } from '../../src/db/connection';
 import type { ModelCatalogEntry } from '../../src/db/modelCatalog';
+import { buildClaudePrompt } from '../../src/board/claudePromptBuilder';
+import { CodexAutoReviewUnavailableError } from '../../src/errors';
 
 const CATALOG_WITH_CODEX: ModelCatalogEntry[] = [
   { cli: 'claude', model: 'fable', efforts: ['low', 'medium', 'high', 'xhigh', 'max'] },
@@ -63,32 +65,45 @@ describe('BulkRunService task selection', () => {
     expect(startProcess).toHaveBeenCalledWith(high.id, expect.any(String), 'run', undefined, undefined, 'claude');
   });
 
-  it('passes the version 2 run bundle to the PTY', async () => {
-    const db = getStorageBackend();
-    const ts = new TaskService(db);
-    const tbs = new TaskBlockService(db);
-    const task = ts.createTask({ title: 'task', status: 'ready', priority: 'medium' });
-    const startProcess = vi.fn().mockResolvedValue(undefined);
-    const service = new BulkRunService(ts, tbs, buildMockPty({ startProcess }));
-    const tmpCwd = fs.mkdtempSync(path.join(os.tmpdir(), 'agkan-bulk-v2-test-'));
-    const cwdSpy = vi.spyOn(process, 'cwd').mockReturnValue(tmpCwd);
-    try {
-      fs.writeFileSync(
-        path.join(tmpCwd, '.agkan-test.yml'),
-        yaml.dump({
-          version: 2,
-          models: { run: { agent: 'codex', model: 'gpt-5.6-sol', effort: 'high' } },
-        })
-      );
+  it.each(['direct', 'pr'] as const)(
+    'passes the Codex version 2 run bundle and policy to the PTY for %s',
+    async (command) => {
+      const db = getStorageBackend();
+      const ts = new TaskService(db);
+      const tbs = new TaskBlockService(db);
+      const task = ts.createTask({ title: 'task', status: 'ready', priority: 'medium' });
+      const startProcess = vi.fn().mockResolvedValue(undefined);
+      const service = new BulkRunService(ts, tbs, buildMockPty({ startProcess }));
+      const tmpCwd = fs.mkdtempSync(path.join(os.tmpdir(), 'agkan-bulk-v2-test-'));
+      const cwdSpy = vi.spyOn(process, 'cwd').mockReturnValue(tmpCwd);
+      try {
+        fs.writeFileSync(
+          path.join(tmpCwd, '.agkan-test.yml'),
+          yaml.dump({
+            version: 2,
+            models: { run: { agent: 'codex', model: 'gpt-5.6-sol', effort: 'high' } },
+          })
+        );
 
-      await service.start('direct');
+        await service.start(command);
 
-      expect(startProcess).toHaveBeenCalledWith(task.id, expect.any(String), 'run', 'gpt-5.6-sol', 'high', 'codex');
-    } finally {
-      cwdSpy.mockRestore();
-      fs.rmSync(tmpCwd, { recursive: true, force: true });
+        const ptyCommand = command === 'pr' ? 'pr' : 'run';
+        expect(startProcess).toHaveBeenCalledWith(
+          task.id,
+          buildClaudePrompt(task.id, ptyCommand, undefined, { agent: 'codex', includeBranchInstruction: false }),
+          ptyCommand,
+          'gpt-5.6-sol',
+          'high',
+          'codex'
+        );
+        expect(startProcess.mock.calls[0][1]).toContain('Do not ask "shall I continue?"');
+      } finally {
+        service.stop();
+        cwdSpy.mockRestore();
+        fs.rmSync(tmpCwd, { recursive: true, force: true });
+      }
     }
-  });
+  );
 
   it('excludes tasks with unresolved blockers', async () => {
     const db = getStorageBackend();
@@ -734,6 +749,9 @@ describe('BulkRunService model/effort override resolution', () => {
       await service.start('direct');
 
       expect(startProcess).toHaveBeenCalledWith(task.id, expect.any(String), 'run', 'gpt-5.6-sol', 'none', 'codex');
+      expect(startProcess.mock.calls[0][1]).toBe(
+        buildClaudePrompt(task.id, 'run', undefined, { agent: 'codex', includeBranchInstruction: false })
+      );
     } finally {
       service.stop();
       cwdSpy.mockRestore();
@@ -866,6 +884,26 @@ describe('BulkRunService model/effort override resolution', () => {
       cwdSpy.mockRestore();
       fs.rmSync(tmpCwd, { recursive: true, force: true });
     }
+  });
+});
+
+describe('BulkRunService - Codex availability', () => {
+  it('stops and exposes an auto-review capability failure without retrying or changing tasks', async () => {
+    const db = getStorageBackend();
+    const ts = new TaskService(db);
+    const first = ts.createTask({ title: 'first', status: 'ready', priority: 'high' });
+    const second = ts.createTask({ title: 'second', status: 'ready' });
+    const reason = 'Codex CLI does not advertise --approve-for-me';
+    const startProcess = vi.fn().mockRejectedValue(new CodexAutoReviewUnavailableError(reason));
+    const service = new BulkRunService(ts, new TaskBlockService(db), buildMockPty({ startProcess }));
+    const listener = vi.fn();
+    service.subscribeStateChange(listener);
+    await service.start('direct');
+    expect(service.getStatus()).toEqual({ mode: 'idle', command: null, error: reason });
+    expect(listener).toHaveBeenLastCalledWith({ mode: 'idle', command: null, error: reason });
+    expect(startProcess).toHaveBeenCalledTimes(1);
+    expect(ts.getTask(first.id)?.status).toBe('ready');
+    expect(ts.getTask(second.id)?.status).toBe('ready');
   });
 });
 

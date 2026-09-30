@@ -11,6 +11,18 @@ import { getTaskModelOverride, getTaskEffortOverride, ModelOverrideKind } from '
 
 export type ClaudeCommand = 'planning' | 'pr' | 'run';
 
+const CODEX_AUTONOMY_INSTRUCTION = `
+
+Proceed autonomously within this task's scope and the configured permissions. First look for answers in the task body, comments, repository, configuration, and existing implementation. Resolve routine choices, reversible implementation decisions, and minor ambiguities using existing conventions and reasonable assumptions. Record assumptions in the task or result.
+
+Planning task decomposition, priority, and Ready decisions, and run-all implementation, validation, and already-authorized Git operations do not need repeated confirmation. Do not ask "shall I continue?". Do not ask again for permission already granted.
+
+Ask the user only for unresolved requirements that materially change the result, required information only the user knows, unauthorized major destructive or irreversible actions, or external transmission of confidential information. Do not guess answers to important choices. Respect higher-priority instructions, administrator policies, and user stop requests.
+
+Keep the sandbox and approval policy in effect. If automatic approval review rejects an action, use the rejection reason to find a materially safer alternative. If none is available, explain the rejection reason and the decision needed, then ask the user. Do not circumvent a rejection by retrying the same action through another route or switching to bypass or full access. If auto-review is unavailable, report the reason instead of silently weakening permissions.
+
+The planning command updates task bodies, priorities, and states under the normal workspace-write permissions. It does not select read-only permissionMode: plan; when that permission mode is explicitly configured, respect its read-only restriction.`;
+
 export function parseClaudeCommand(rawCommand: unknown): ClaudeCommand {
   return rawCommand === 'planning' ? 'planning' : rawCommand === 'pr' ? 'pr' : 'run';
 }
@@ -36,7 +48,8 @@ export function buildClaudePrompt(
   // agy does not interpret a slash command in its initial prompt, so it is asked for the skill by name.
   const skillLine = agent === 'agy' ? `Use "${skill}" to execute this task` : `/${skill}`;
 
-  return `Task ID: ${taskId}\n${skillLine}${branchInstruction}${exitInstruction}`;
+  const autonomyInstruction = agent === 'codex' ? CODEX_AUTONOMY_INSTRUCTION : '';
+  return `Task ID: ${taskId}\n${skillLine}${branchInstruction}${autonomyInstruction}${exitInstruction}`;
 }
 
 /**
