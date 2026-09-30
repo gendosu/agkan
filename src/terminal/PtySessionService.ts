@@ -1,4 +1,5 @@
 import * as pty from 'node-pty';
+import { TERMINAL_ROWS } from './terminalDimensions';
 import { execSync, execFileSync } from 'child_process';
 import { constants } from 'os';
 import type { StorageBackend, RunLogRow } from '../db/types/repository';
@@ -577,7 +578,7 @@ export class PtySessionService {
       ptyProcess = pty.spawn(agentBin, args, {
         name: 'xterm-256color',
         cols: 220,
-        rows: 50,
+        rows: TERMINAL_ROWS,
         cwd: process.cwd(),
         env: {
           ...process.env,
