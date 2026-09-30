@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.27.2] - 2026-09-29
+
+### 修正
+- Codex・agy・grok のボードセッションで、ターミナル出力が Claude の作業中または権限確認画面に似ていても、完了フックの通知で停止するようにした。画面判定による停止保留は Claude セッションのみに適用する (#763)
+
 ## [3.27.1] - 2026-09-25
 
 ### 変更

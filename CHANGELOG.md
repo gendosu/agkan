@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.27.2] - 2026-09-29
+
+### Fixed
+- Stop Codex, agy, and grok Board sessions when their completion hooks fire, even if their terminal output resembles a Claude working or permission screen. Apply the screen guard only to Claude sessions (#763)
+
 ## [3.27.1] - 2026-09-25
 
 ### Changed
