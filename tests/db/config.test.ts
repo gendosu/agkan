@@ -178,8 +178,20 @@ describe('buildCodexPermissionArgs', () => {
     ]);
   });
 
-  it('maps an unset permission mode to the workspace-write sandbox with network access', () => {
-    expect(buildCodexPermissionArgs({})).toEqual([
+  it.each([undefined, 'auto'])('maps %s to sandboxed automatic review with network access', (permissionMode) => {
+    expect(buildCodexPermissionArgs({ permissionMode })).toEqual([
+      '--ask-for-approval',
+      'on-request',
+      '--config',
+      'approvals_reviewer="auto_review"',
+      '--sandbox',
+      'workspace-write',
+      ...NETWORK_ACCESS,
+    ]);
+  });
+
+  it.each(['default', 'acceptEdits', 'unknown', ''])('preserves the Codex reviewer for %s', (permissionMode) => {
+    expect(buildCodexPermissionArgs({ permissionMode })).toEqual([
       '--ask-for-approval',
       'on-request',
       '--sandbox',

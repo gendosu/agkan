@@ -120,6 +120,19 @@ models:
 # Valid values: auto | acceptEdits | bypassPermissions | default | dontAsk | plan | skipPermissions
 # Permission values are translated to the selected CLI's flags.
 # Note: skipPermissions bypasses permission checks for every agent.
+# Codex unset/auto: on-request + approvals_reviewer="auto_review" + workspace-write.
+# Codex workspace-write also sets sandbox_workspace_write.network_access=true for Board notifications.
+# Codex default/acceptEdits/other values: on-request + workspace-write; preserve the configured reviewer.
+# Codex dontAsk: never + workspace-write (no automatic approval review).
+# Codex plan: never + read-only (no reviewer or workspace-write network override).
+# Only explicit Codex skipPermissions/bypassPermissions disables approvals and sandboxing.
+# Auto-review requires a Codex CLI advertising --approve-for-me (verified with 0.159.2).
+# Unsupported/unverified CLIs fail to launch; administrator/account restrictions still apply.
+# Auto-review retains sandbox boundaries; rejection requires a safer alternative or a reasoned user question, never bypass.
+# Codex prompts resolve routine planning/run-all choices autonomously and record assumptions.
+# Ask only about major unresolved requirements, user-only information, unauthorized irreversible actions or confidential data transmission.
+# Respect prior permissions, administrator policies and stop requests. Approval review and agent questions are separate.
+# The planning command normally updates tasks in workspace-write; explicit permissionMode: plan stays read-only.
 # agy has no "auto" mode, so auto (the default) is passed to agy as --dangerously-skip-permissions.
 # grok natively supports "auto", so permissionMode: auto maps directly to --permission-mode auto.
 # Running board sessions with grok writes ~/.grok/hooks/agkan-board-stop.json to detect turn completion.

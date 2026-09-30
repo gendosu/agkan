@@ -88,10 +88,36 @@ describe('buildClaudePrompt', () => {
     ['pr', 'agkan-subtask'],
     ['run', 'agkan-subtask-direct'],
   ] as const)('%s with an explicit agent', (command, skill) => {
-    it.each(['claude', 'codex', 'grok'] as const)('keeps the slash command for %s', (agent) => {
+    it.each(['claude', 'grok'] as const)('keeps the slash command for %s', (agent) => {
       expect(buildClaudePrompt(2, command, 'feature/foo', { agent })).toBe(`Task ID: 2\n/${skill}${exitInstruction}`);
       expect(buildClaudePrompt(2, command, null, { agent })).toBe(buildClaudePrompt(2, command, null));
     });
+
+    it.each([true, false])(
+      'adds the Codex autonomy policy (includeBranchInstruction=%s)',
+      (includeBranchInstruction) => {
+        const prompt = buildClaudePrompt(2, command, null, { agent: 'codex', includeBranchInstruction });
+        expect(prompt).toContain(`Task ID: 2\n/${skill}`);
+        expect(prompt).toContain('task body, comments, repository, configuration, and existing implementation');
+        expect(prompt).toContain('reversible implementation decisions');
+        expect(prompt).toContain('Record assumptions');
+        expect(prompt).toContain('task decomposition, priority, and Ready decisions');
+        expect(prompt).toContain('implementation, validation, and already-authorized Git operations');
+        expect(prompt).toContain('Do not ask "shall I continue?"');
+        expect(prompt).toContain('Do not ask again for permission already granted');
+        expect(prompt).toContain('materially change the result');
+        expect(prompt).toContain('required information only the user knows');
+        expect(prompt).toContain('unauthorized major destructive or irreversible actions');
+        expect(prompt).toContain('external transmission of confidential information');
+        expect(prompt).toContain('higher-priority instructions, administrator policies, and user stop requests');
+        expect(prompt).toContain('materially safer alternative');
+        expect(prompt).toContain('rejection reason and the decision needed');
+        expect(prompt).toContain('Do not circumvent a rejection');
+        expect(prompt).toContain('read-only permissionMode: plan');
+        expect(prompt.endsWith(exitInstruction)).toBe(true);
+        expect(prompt.includes('No branch specified')).toBe(command !== 'planning' && includeBranchInstruction);
+      }
+    );
 
     it('replaces the slash command with a name-based instruction for agy', () => {
       expect(buildClaudePrompt(2, command, 'feature/foo', { agent: 'agy' })).toBe(

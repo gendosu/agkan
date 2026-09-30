@@ -18,6 +18,8 @@ import { TaskService } from '../../../../src/services/TaskService';
 import { TaskBlockService } from '../../../../src/services/TaskBlockService';
 import type { PtySessionService } from '../../../../src/terminal/PtySessionService';
 import type { ServiceContainer } from '../../../../src/cli/utils/service-container';
+import { buildClaudePrompt } from '../../../../src/board/claudePromptBuilder';
+import { CodexAutoReviewUnavailableError } from '../../../../src/errors';
 
 type OutputCallback = (event: { kind: 'done'; exitCode: number } | { kind: 'error'; message: string }) => void;
 
@@ -82,11 +84,12 @@ describe('runLoop', () => {
     expect(ts.getTask(high.id)?.status).toBe('done');
   });
 
-  it('passes the version 2 run bundle to the PTY', async () => {
+  it.each([false, true])('runs multiple Codex tasks with the shared policy (withPr=%s)', async (withPr) => {
     const db = getStorageBackend();
     const ts = new TaskService(db);
     const tbs = new TaskBlockService(db);
     const task = ts.createTask({ title: 'task', status: 'ready', priority: 'medium' });
+    const second = ts.createTask({ title: 'second', status: 'ready', priority: 'low' });
     const startProcess = vi.fn().mockResolvedValue(undefined);
     const subscribeOutput = vi.fn().mockImplementation((_id: number, callback: OutputCallback) => {
       callback({ kind: 'done', exitCode: 0 });
@@ -104,13 +107,70 @@ describe('runLoop', () => {
         })
       );
 
-      expect(await runLoop(container, false)).toBe(0);
+      expect(await runLoop(container, withPr)).toBe(0);
 
-      expect(startProcess).toHaveBeenCalledWith(task.id, expect.any(String), 'run', 'gpt-5.6-sol', 'high', 'codex');
+      const ptyCommand = withPr ? 'pr' : 'run';
+      for (const [index, id] of [task.id, second.id].entries()) {
+        expect(startProcess).toHaveBeenNthCalledWith(
+          index + 1,
+          id,
+          buildClaudePrompt(id, ptyCommand, undefined, { agent: 'codex', includeBranchInstruction: false }),
+          ptyCommand,
+          'gpt-5.6-sol',
+          'high',
+          'codex'
+        );
+      }
+      expect(startProcess.mock.calls[0][1]).toContain('Do not ask "shall I continue?"');
     } finally {
       cwdSpy.mockRestore();
       fs.rmSync(tmpCwd, { recursive: true, force: true });
     }
+  });
+
+  it('uses the shared Codex policy when a task override selects Codex', async () => {
+    const db = getStorageBackend();
+    const ts = new TaskService(db);
+    const task = ts.createTask({ title: 'Codex override', status: 'ready', model_run: 'gpt-5.6-sol' });
+    const startProcess = vi.fn().mockResolvedValue(undefined);
+    const subscribeOutput = vi.fn().mockImplementation((_id: number, callback: OutputCallback) => {
+      callback({ kind: 'done', exitCode: 0 });
+      return () => {};
+    });
+    const tmpCwd = fs.mkdtempSync(path.join(os.tmpdir(), 'agkan-run-all-codex-test-'));
+    const cwdSpy = vi.spyOn(process, 'cwd').mockReturnValue(tmpCwd);
+    try {
+      fs.writeFileSync(path.join(tmpCwd, '.agkan-test.yml'), yaml.dump({ agent: 'claude' }));
+      await runLoop(
+        buildContainer(buildMockPty({ startProcess, subscribeOutput }), ts, new TaskBlockService(db)),
+        false
+      );
+      expect(startProcess).toHaveBeenCalledWith(
+        task.id,
+        buildClaudePrompt(task.id, 'run', undefined, { agent: 'codex', includeBranchInstruction: false }),
+        'run',
+        'gpt-5.6-sol',
+        undefined,
+        'codex'
+      );
+    } finally {
+      cwdSpy.mockRestore();
+      fs.rmSync(tmpCwd, { recursive: true, force: true });
+    }
+  });
+
+  it('propagates the auto-review capability error without launching the next task', async () => {
+    const db = getStorageBackend();
+    const ts = new TaskService(db);
+    const task = ts.createTask({ title: 'first', status: 'ready', priority: 'high' });
+    ts.createTask({ title: 'second', status: 'ready' });
+    const reason = 'Codex CLI does not advertise --approve-for-me';
+    const startProcess = vi.fn().mockRejectedValue(new CodexAutoReviewUnavailableError(reason));
+    await expect(
+      runLoop(buildContainer(buildMockPty({ startProcess }), ts, new TaskBlockService(db)), false)
+    ).rejects.toThrow(reason);
+    expect(startProcess).toHaveBeenCalledTimes(1);
+    expect(ts.getTask(task.id)?.status).toBe('ready');
   });
 
   it('streams live raw PTY output to stdout as it arrives, not just a completion summary', async () => {

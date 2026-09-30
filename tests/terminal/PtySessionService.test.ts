@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { PtySessionService, detectClaudeScreenStatus, stripAnsi } from '../../src/terminal/PtySessionService';
 import { AttentionStateService } from '../../src/services/AttentionStateService';
 import { ConflictError } from '../../src/errors';
+import { execFileSync } from 'child_process';
 import { existsSync, readFileSync, mkdtempSync, rmSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
@@ -171,6 +172,7 @@ vi.mock('node-pty', () => ({
 
 vi.mock('child_process', () => ({
   execSync: vi.fn(() => '/usr/local/bin/claude'),
+  execFileSync: vi.fn(() => 'Codex CLI\n      --approve-for-me\n'),
 }));
 
 vi.mock('../../src/db/config', async (importOriginal) => {
@@ -182,6 +184,10 @@ vi.mock('../../src/db/config', async (importOriginal) => {
 });
 
 import * as configModule from '../../src/db/config';
+
+beforeEach(() => {
+  vi.mocked(execFileSync).mockReset().mockReturnValue('Codex CLI\n      --approve-for-me\n');
+});
 
 describe('PtySessionService', () => {
   let service: PtySessionService;
@@ -765,6 +771,8 @@ describe('PtySessionService - model/effort/boardApiUrl args', () => {
       'model_reasoning_effort="high"',
       '--ask-for-approval',
       'on-request',
+      '--config',
+      'approvals_reviewer="auto_review"',
       '--sandbox',
       'workspace-write',
       '--config',
@@ -796,6 +804,8 @@ describe('PtySessionService - model/effort/boardApiUrl args', () => {
       'model_reasoning_effort="high"',
       '--ask-for-approval',
       'on-request',
+      '--config',
+      'approvals_reviewer="auto_review"',
       '--sandbox',
       'workspace-write',
       '--config',
@@ -848,6 +858,138 @@ describe('PtySessionService - model/effort/boardApiUrl args', () => {
     const args = spawnMock.mock.calls[0][1] as string[];
     expect(args).toContain('--dangerously-bypass-approvals-and-sandbox');
     expect(args).not.toContain('--permission-mode');
+  });
+
+  it.each([
+    [
+      undefined,
+      [
+        '--ask-for-approval',
+        'on-request',
+        '--config',
+        'approvals_reviewer="auto_review"',
+        '--sandbox',
+        'workspace-write',
+        '--config',
+        'sandbox_workspace_write.network_access=true',
+      ],
+    ],
+    [
+      'auto',
+      [
+        '--ask-for-approval',
+        'on-request',
+        '--config',
+        'approvals_reviewer="auto_review"',
+        '--sandbox',
+        'workspace-write',
+        '--config',
+        'sandbox_workspace_write.network_access=true',
+      ],
+    ],
+    [
+      'default',
+      [
+        '--ask-for-approval',
+        'on-request',
+        '--sandbox',
+        'workspace-write',
+        '--config',
+        'sandbox_workspace_write.network_access=true',
+      ],
+    ],
+    [
+      'acceptEdits',
+      [
+        '--ask-for-approval',
+        'on-request',
+        '--sandbox',
+        'workspace-write',
+        '--config',
+        'sandbox_workspace_write.network_access=true',
+      ],
+    ],
+    [
+      'unknown',
+      [
+        '--ask-for-approval',
+        'on-request',
+        '--sandbox',
+        'workspace-write',
+        '--config',
+        'sandbox_workspace_write.network_access=true',
+      ],
+    ],
+    [
+      'dontAsk',
+      [
+        '--ask-for-approval',
+        'never',
+        '--sandbox',
+        'workspace-write',
+        '--config',
+        'sandbox_workspace_write.network_access=true',
+      ],
+    ],
+    ['plan', ['--ask-for-approval', 'never', '--sandbox', 'read-only']],
+    ['skipPermissions', ['--dangerously-bypass-approvals-and-sandbox']],
+    ['bypassPermissions', ['--dangerously-bypass-approvals-and-sandbox']],
+  ] as const)('launches Codex with exactly the permissions for %s', async (permissionMode, permissionArgs) => {
+    vi.mocked(configModule.loadConfig).mockReturnValue({ agent: 'codex', permissionMode });
+    const svc = new PtySessionService();
+    await svc.startProcess(1, 'prompt', 'planning');
+    expect(spawnMock.mock.calls[0][1]).toEqual(['--model', 'gpt-5.6-sol', ...permissionArgs, '--', 'prompt']);
+    if (permissionMode === undefined || permissionMode === 'auto') {
+      expect(execFileSync).toHaveBeenCalledWith(
+        'codex',
+        ['--help'],
+        expect.objectContaining({ encoding: 'utf8', timeout: 5000 })
+      );
+    } else {
+      expect(execFileSync).not.toHaveBeenCalled();
+    }
+  });
+
+  it.each([undefined, 'auto'])(
+    'refuses %s when Codex lacks auto-review support without spawning',
+    async (permissionMode) => {
+      vi.mocked(execFileSync).mockReturnValue('Codex CLI\n      --sandbox\n');
+      vi.mocked(configModule.loadConfig).mockReturnValue({ agent: 'codex', permissionMode });
+      const svc = new PtySessionService();
+      await expect(svc.startProcess(1, 'prompt')).rejects.toThrow('does not advertise --approve-for-me');
+      expect(spawnMock).not.toHaveBeenCalled();
+      expect(svc.listRunningTasks()).toEqual([]);
+    }
+  );
+
+  it.each(['ENOENT', 'ETIMEDOUT', 'help command failed'])('reports capability check failure: %s', async (reason) => {
+    vi.mocked(execFileSync).mockImplementation(() => {
+      throw new Error(reason);
+    });
+    vi.mocked(configModule.loadConfig).mockReturnValue({ agent: 'codex' });
+    const svc = new PtySessionService();
+    await expect(svc.startProcess(1, 'prompt')).rejects.toThrow(
+      `Could not verify Codex auto-review support: ${reason}`
+    );
+    expect(spawnMock).not.toHaveBeenCalled();
+  });
+
+  it('does not check Codex support for another agent', async () => {
+    await new PtySessionService().startProcess(1, 'prompt');
+    expect(execFileSync).not.toHaveBeenCalled();
+  });
+
+  it('retains a Codex startup policy error in the terminal snapshot without retrying', async () => {
+    vi.mocked(configModule.loadConfig).mockReturnValue({ agent: 'codex' });
+    const svc = new PtySessionService();
+    await svc.startProcess(1, 'prompt');
+    mockOnDataHandler?.('Error: auto_review is not permitted by administrator policy');
+    const subscriber = vi.fn();
+    svc.subscribeOutput(1, subscriber);
+    mockOnExitHandler?.({ exitCode: 1 });
+    expect(svc.getSnapshot(1)).toContain('auto_review is not permitted by administrator policy');
+    expect(subscriber).toHaveBeenCalledWith({ kind: 'done', exitCode: 1 });
+    expect(spawnMock).toHaveBeenCalledTimes(1);
   });
 
   it('does not pass --model or --effort for the default (claude) agent when not provided', async () => {
@@ -1649,6 +1791,10 @@ describe('PtySessionService - codex notify hook', () => {
     // A missing script fails silently inside codex (its notify stderr is swallowed), which
     // would reproduce the very bug this hook fixes — so assert the file really exists.
     expect(existsSync(parsed[1])).toBe(true);
+    expect(args).toContain('model_reasoning_effort="high"');
+    expect(args).toContain('approvals_reviewer="auto_review"');
+    expect(args).toContain('sandbox_workspace_write.network_access=true');
+    expect(args.filter((arg) => arg === '--config')).toHaveLength(4);
     // The prompt stays last, behind the end-of-options sentinel.
     expect(args.slice(-2)).toEqual(['--', 'Task ID: 1']);
     expect(args).not.toContain('--settings');

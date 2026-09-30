@@ -44,3 +44,11 @@ export class ConflictError extends AgkanError {
     Object.setPrototypeOf(this, new.target.prototype);
   }
 }
+
+/** Codex auto mode cannot safely launch with an unsupported or unverified CLI. */
+export class CodexAutoReviewUnavailableError extends AgkanError {
+  constructor(message: string) {
+    super(message);
+    this.name = 'CodexAutoReviewUnavailableError';
+  }
+}

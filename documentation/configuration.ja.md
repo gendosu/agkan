@@ -355,7 +355,29 @@ permissionMode: skipPermissions
 
 ### 他のエージェントへのマッピング
 
-`permissionMode` の値は、選択したエージェントCLI固有のフラグに変換されます。`agent: agy` の場合:
+`permissionMode` の値は、フェーズまたはタスクで解決されたCLI固有のフラグに変換されます。Codex の場合:
+
+| 値 | 承認ポリシー / 承認者 | サンドボックス / 追加引数 |
+|----|------------------------|---------------------------|
+| (未設定) / `auto` | `--ask-for-approval on-request --config 'approvals_reviewer="auto_review"'` | `--sandbox workspace-write --config sandbox_workspace_write.network_access=true` |
+| `default` / `acceptEdits` / その他のフォールバック値 | `--ask-for-approval on-request`。既存の Codex の承認者設定を維持 | `--sandbox workspace-write --config sandbox_workspace_write.network_access=true` |
+| `dontAsk` | `--ask-for-approval never`。自動レビューなし | `--sandbox workspace-write --config sandbox_workspace_write.network_access=true` |
+| `plan` | `--ask-for-approval never`。自動レビューなし | `--sandbox read-only`。承認者・workspace-write 用ネットワークの上書きなし |
+| `skipPermissions` / `bypassPermissions` | `--dangerously-bypass-approvals-and-sandbox` | 明示的に承認とサンドボックスを解除 |
+
+自動レビューは、承認が必要な操作の承認者を変え、サンドボックス境界を維持します。境界内の通常操作はそのまま進み、承認要求はレビュー担当へ回ります。未設定・`auto` は `auto_review` を明示し、`default`・`acceptEdits`・フォールバック値は Codex の既存設定（通常は手動承認の `user`）を維持します。`never` は承認機会をなくすため、`dontAsk`・`plan` では自動レビューは行われません。フルアクセスは明示的な2つの bypass モードに限定します。[OpenAI Auto-review](https://learn.chatgpt.com/docs/sandboxing/auto-review) と [Agent approvals & security](https://learn.chatgpt.com/docs/agent-approvals-security) を参照してください。
+
+workspace-write では、セッション内の agkan CLI が localhost HTTP で Board に通知できるようネットワーク通信を許可します。値は文字列 `"true"` ではなく TOML の真偽値 `true` です。この設定には Codex のループバック限定オプションがないため、外向きの通信も許可されます。read-only の `plan` には workspace-write 用ネットワークの上書きを追加しません。
+
+**CLI の前提:** 未設定・`auto` は `approvals_reviewer="auto_review"` に対応し、`codex --help` に `--approve-for-me` がある Codex CLI が必要です。`codex-cli 0.159.2` で確認済みですが、最小対応版とは断定しません。agkan は auto 起動のたびに実際のセッションと同じ `codex` 実行ファイルを確認します。非対応・確認失敗時は理由付きの起動エラーとし、手動承認や bypass へ無言で切り替えません。ヘルプ確認は CLI の対応確認であり、アカウントや管理者ポリシーによる利用可否を保証しません。それらの制約は引き続き適用され、Codex の実際の起動エラーはターミナルに残ります。Board の run-all は Codex の起動例外・出力エラー・非ゼロ終了で停止し、エラーまたはターミナルへの参照を状態に表示して、タスクを自動で再起動しません。他の権限モードにはこの能力確認を要求しません。
+
+承認ダイアログとエージェント自身の質問は別です。Board の planning / run / PR と CLI / Board の run-all は同じ Codex 起動方針を使います。まず本文、コメント、リポジトリ、設定、既存実装を調べ、通常のタスク分解・優先度・Ready 判定、可逆な実装判断、検証、許可済み Git 操作は毎回確認せず進め、採用した前提を記録します。調査しても結果を大きく変える未解決要件、ユーザーだけが知る必須情報、未承認の重大な破壊的・不可逆な操作、機密情報の外部送信には確認を残します。上位指示、管理者ポリシー、既に得た許可、停止指示を尊重します。
+
+自動レビューが操作を拒否した場合は、その理由を踏まえた安全性の高い代替手段を探します。代替がなければ拒否理由と必要な判断を示してユーザーに確認します。別の実行経路で同じ操作を迂回したり、フルアクセスへ自動で切り替えたりしません。自動レビューが利用できない場合も理由を明示します。
+
+通常の `planning` コマンドは、未設定・`auto` の workspace-write で本文・優先度・状態を更新します。`permissionMode: plan` を選ぶコマンドではありません。明示的な `plan` は read-only を維持するため、これらの更新はできません。
+
+`agent: agy` の場合:
 
 | 値 | agy CLIフラグ |
 |----|---------------|

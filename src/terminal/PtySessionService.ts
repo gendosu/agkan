@@ -1,9 +1,9 @@
 import * as pty from 'node-pty';
-import { execSync } from 'child_process';
+import { execSync, execFileSync } from 'child_process';
 import { constants } from 'os';
 import type { StorageBackend, RunLogRow } from '../db/types/repository';
 import type { RunLog, OutputEvent as ClaudeOutputEvent, CompletionConfirmCallback } from '../services/types';
-import { ConflictError } from '../errors';
+import { ConflictError, CodexAutoReviewUnavailableError } from '../errors';
 import { ensureBoardHookSettings } from '../hooks/claudeHookSettings';
 import { buildCodexNotifyArgs } from '../hooks/codexNotifyArgs';
 import { ensureAgyHookSettings } from '../hooks/agyHookSettings';
@@ -47,6 +47,31 @@ const CLAUDE_BIN = resolveClaudePath();
 const CODEX_BIN = 'codex';
 const AGY_BIN = 'agy';
 const GROK_BIN = 'grok';
+
+function ensureCodexAutoReviewSupport(): void {
+  let help: string;
+  try {
+    // Check the same binary/PATH used by pty.spawn; unknown config keys may otherwise
+    // be silently ignored by older CLIs. Do not infer support from a version number.
+    help = execFileSync(CODEX_BIN, ['--help'], {
+      encoding: 'utf8',
+      timeout: 5000,
+      env: process.env,
+      cwd: process.cwd(),
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+  } catch (e) {
+    throw new CodexAutoReviewUnavailableError(
+      `Could not verify Codex auto-review support: ${e instanceof Error ? e.message : String(e)}. Auto mode requires a CLI supporting --approve-for-me and approvals_reviewer="auto_review"; permissions were not relaxed.`
+    );
+  }
+  if (!/^\s*--approve-for-me\b/m.test(help)) {
+    throw new CodexAutoReviewUnavailableError(
+      'The installed Codex CLI does not advertise --approve-for-me. Auto mode requires a CLI supporting approvals_reviewer="auto_review". Update Codex; permissions were not relaxed.'
+    );
+  }
+}
+
 const DEFAULT_CODEX_MODEL = 'gpt-5.6-sol';
 const PROMPT_FALLBACK_DELAY_MS = 10000;
 const PROMPT_ENTER_DELAY_MS = 200;
@@ -501,6 +526,10 @@ export class PtySessionService {
     // A task whose model override selects another cli passes it explicitly;
     // without one the project-wide `agent:` setting applies.
     const agent = agentOverride ?? resolveAgentTool(config);
+
+    if (agent === 'codex' && (config.permissionMode === undefined || config.permissionMode === 'auto')) {
+      ensureCodexAutoReviewSupport();
+    }
 
     // Board hooks use Claude Code's settings format and are not passed to Codex; Codex gets
     // the equivalent completion signal through its `notify` config instead (buildAgentArgs).
