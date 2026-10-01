@@ -15,6 +15,10 @@ const terminalState = {
   open: vi.fn(),
   reset: vi.fn(),
   loadAddon: vi.fn(),
+  resize: vi.fn((cols: number, rows: number) => {
+    terminalState.cols = cols;
+    terminalState.rows = rows;
+  }),
   onDataDispose: vi.fn(),
   onDataCb: null as ((data: string) => void) | null,
   element: null as HTMLElement | null,
@@ -24,6 +28,7 @@ const terminalState = {
 
 const fitAddonState = {
   fit: vi.fn(),
+  proposeDimensions: vi.fn((): { cols: number; rows: number } | undefined => ({ cols: 80, rows: 24 })),
 };
 
 // Terminal mock class
@@ -34,6 +39,7 @@ vi.mock('@xterm/xterm', () => {
       open = terminalState.open;
       reset = terminalState.reset;
       loadAddon = terminalState.loadAddon;
+      resize = terminalState.resize;
       get element() {
         return terminalState.element;
       }
@@ -55,6 +61,7 @@ vi.mock('@xterm/addon-fit', () => {
   return {
     FitAddon: class MockFitAddon {
       fit = fitAddonState.fit;
+      proposeDimensions = fitAddonState.proposeDimensions;
     },
   };
 });
@@ -133,6 +140,9 @@ beforeEach(() => {
   vi.clearAllMocks();
   terminalState.onDataCb = null;
   terminalState.element = null;
+  terminalState.cols = 80;
+  terminalState.rows = 24;
+  fitAddonState.proposeDimensions.mockReturnValue({ cols: 80, rows: 24 });
   wsInstances = [];
   resizeObserverCb = null;
 
@@ -209,6 +219,46 @@ describe('detachTerminal', () => {
 // ─── attachTerminalToTab ─────────────────────────────────────────────────────
 
 describe('attachTerminalToTab', () => {
+  it('keeps xterm and PTY at 50 rows even when the panel only fits 39', async () => {
+    fitAddonState.proposeDimensions.mockReturnValue({ cols: 99, rows: 39 });
+    const { attachTerminalToTab } = await importFresh();
+    attachTerminalToTab(3, document.createElement('div'));
+    wsInstances[1].readyState = 1;
+    wsInstances[1].onopen!();
+
+    expect(terminalState.resize).toHaveBeenCalledWith(99, 50);
+    expect(fitAddonState.fit).not.toHaveBeenCalled();
+    expect(wsInstances[1].send).toHaveBeenLastCalledWith(JSON.stringify({ type: 'resize', cols: 99, rows: 50 }));
+  });
+
+  it('changes only columns when the panel grows and shrinks', async () => {
+    const { attachTerminalToTab, fitTerminal } = await importFresh();
+    attachTerminalToTab(3, document.createElement('div'));
+    wsInstances[1].readyState = 1;
+    for (const dimensions of [
+      { cols: 120, rows: 70 },
+      { cols: 60, rows: 20 },
+    ]) {
+      fitAddonState.proposeDimensions.mockReturnValue(dimensions);
+      fitTerminal();
+      expect(terminalState.resize).toHaveBeenLastCalledWith(dimensions.cols, 50);
+      expect(wsInstances[1].send).toHaveBeenLastCalledWith(
+        JSON.stringify({ type: 'resize', cols: dimensions.cols, rows: 50 })
+      );
+    }
+  });
+
+  it('preserves dimensions without notifying PTY while the panel is hidden', async () => {
+    const { attachTerminalToTab, fitTerminal } = await importFresh();
+    attachTerminalToTab(3, document.createElement('div'));
+    wsInstances[1].readyState = 1;
+    terminalState.resize.mockClear();
+    fitAddonState.proposeDimensions.mockReturnValue(undefined);
+    fitTerminal();
+    expect(terminalState.resize).not.toHaveBeenCalled();
+    expect(wsInstances[1].send).not.toHaveBeenCalled();
+  });
+
   it('opens terminal into container on first call', async () => {
     const { attachTerminalToTab } = await importFresh();
     const container = document.createElement('div');
@@ -216,12 +266,12 @@ describe('attachTerminalToTab', () => {
     expect(terminalState.open).toHaveBeenCalledWith(container);
   });
 
-  it('loads the FitAddon and calls fit on first call', async () => {
+  it('loads the FitAddon and measures dimensions on first call', async () => {
     const { attachTerminalToTab } = await importFresh();
     const container = document.createElement('div');
     attachTerminalToTab(10, container);
     expect(terminalState.loadAddon).toHaveBeenCalled();
-    expect(fitAddonState.fit).toHaveBeenCalled();
+    expect(fitAddonState.proposeDimensions).toHaveBeenCalled();
   });
 
   it('creates io and control WebSockets with correct URLs', async () => {
@@ -252,11 +302,11 @@ describe('attachTerminalToTab', () => {
     attachTerminalToTab(7, container);
 
     wsInstances[0].readyState = 1; // OPEN
-    fitAddonState.fit.mockClear();
+    fitAddonState.proposeDimensions.mockClear();
 
     attachTerminalToTab(7, container);
 
-    expect(fitAddonState.fit).toHaveBeenCalledTimes(1);
+    expect(fitAddonState.proposeDimensions).toHaveBeenCalledTimes(1);
     expect(wsInstances).toHaveLength(2); // no new WebSockets
   });
 
@@ -387,7 +437,7 @@ describe('attachTerminalToTab', () => {
     wsInstances[1].readyState = 1; // OPEN
     wsInstances[1].onopen!();
 
-    expect(wsInstances[1].send).toHaveBeenCalledWith(JSON.stringify({ type: 'resize', cols: 80, rows: 24 }));
+    expect(wsInstances[1].send).toHaveBeenCalledWith(JSON.stringify({ type: 'resize', cols: 80, rows: 50 }));
   });
 
   it('does not send resize via control WS when not OPEN at onopen', async () => {
@@ -407,13 +457,13 @@ describe('attachTerminalToTab', () => {
     attachTerminalToTab(3, container);
 
     wsInstances[1].readyState = 1; // OPEN
-    fitAddonState.fit.mockClear();
+    fitAddonState.proposeDimensions.mockClear();
 
     expect(resizeObserverCb).not.toBeNull();
     resizeObserverCb!();
 
-    expect(fitAddonState.fit).toHaveBeenCalled();
-    expect(wsInstances[1].send).toHaveBeenCalledWith(JSON.stringify({ type: 'resize', cols: 80, rows: 24 }));
+    expect(fitAddonState.proposeDimensions).toHaveBeenCalled();
+    expect(wsInstances[1].send).toHaveBeenCalledWith(JSON.stringify({ type: 'resize', cols: 80, rows: 50 }));
   });
 
   it('does not send resize when control WS is not OPEN during ResizeObserver callback', async () => {
@@ -463,11 +513,11 @@ describe('fitTerminal', () => {
     const { attachTerminalToTab, fitTerminal } = await importFresh();
     const container = document.createElement('div');
     attachTerminalToTab(1, container);
-    fitAddonState.fit.mockClear();
+    fitAddonState.proposeDimensions.mockClear();
 
     fitTerminal();
 
-    expect(fitAddonState.fit).toHaveBeenCalledTimes(1);
+    expect(fitAddonState.proposeDimensions).toHaveBeenCalledTimes(1);
   });
 
   it('does not throw when called before any attach', async () => {

@@ -1,5 +1,6 @@
 import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
+import { TERMINAL_ROWS } from '../../terminal/terminalDimensions';
 import '@xterm/xterm/css/xterm.css';
 
 let _terminal: Terminal | null = null;
@@ -40,7 +41,7 @@ export function attachTerminalToTab(taskId: number, container: HTMLElement): voi
   // If already attached to this same task, just refit and bail out so we don't
   // tear down a live session.
   if (_currentTaskId === taskId && _ioWs && _ioWs.readyState !== WebSocket.CLOSED) {
-    _fitAddon?.fit();
+    fitTerminal();
     return;
   }
 
@@ -49,6 +50,7 @@ export function attachTerminalToTab(taskId: number, container: HTMLElement): voi
 
   if (!_terminal) {
     _terminal = new Terminal({
+      rows: TERMINAL_ROWS,
       cursorBlink: true,
       fontSize: 13,
       fontFamily: 'Menlo, Monaco, "Courier New", monospace',
@@ -70,7 +72,7 @@ export function attachTerminalToTab(taskId: number, container: HTMLElement): voi
       _terminal.open(container);
     }
   }
-  _fitAddon?.fit();
+  fitTerminal();
 
   const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
   const base = `${proto}//${location.host}`;
@@ -96,19 +98,11 @@ export function attachTerminalToTab(taskId: number, container: HTMLElement): voi
 
   _controlWs = new WebSocket(`${base}/api/terminal/${taskId}/control`);
 
-  const sendResize = () => {
-    _fitAddon?.fit();
-    if (_controlWs?.readyState === WebSocket.OPEN && _terminal) {
-      const { cols, rows } = _terminal;
-      _controlWs.send(JSON.stringify({ type: 'resize', cols, rows }));
-    }
-  };
-
-  _resizeObserver = new ResizeObserver(sendResize);
+  _resizeObserver = new ResizeObserver(fitTerminal);
   _resizeObserver.observe(container);
 
   _controlWs.onopen = () => {
-    sendResize();
+    fitTerminal();
   };
 }
 
@@ -132,11 +126,18 @@ export function reattachTerminalForNewSession(taskId: number): void {
 }
 
 /**
- * Refit the terminal to its current container size. Safe to call when the
+ * Fit the width while preserving the PTY's initial row count. Safe to call when the
  * Terminal tab becomes visible (e.g. after a tab switch).
  */
 export function fitTerminal(): void {
-  _fitAddon?.fit();
+  const dimensions = _fitAddon?.proposeDimensions();
+  if (!_terminal || !dimensions || !Number.isFinite(dimensions.cols) || dimensions.cols < 2) return;
+
+  // Do not call fit(): it would briefly shrink xterm below the fixed PTY height.
+  _terminal.resize(dimensions.cols, TERMINAL_ROWS);
+  if (_controlWs?.readyState === WebSocket.OPEN) {
+    _controlWs.send(JSON.stringify({ type: 'resize', cols: _terminal.cols, rows: _terminal.rows }));
+  }
 }
 
 /**
