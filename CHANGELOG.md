@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.28.2] - 2026-10-01
+
+### Fixed
+- Keep the Board terminal modal and the PTY session at a fixed height of 50 rows so the browser view and the PTY stay in sync (#450)
+- Show the task description in preview mode by default in the Board task detail panel (#451)
+
 ## [3.28.1] - 2026-09-30
 
 ### Fixed
