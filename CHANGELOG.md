@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.28.1] - 2026-09-30
+
+### Fixed
+- Keep the Codex `workspace-write` sandbox when the permission mode is unset or `auto`: sessions now launch with `on-request` approvals handled by automatic review (`approvals_reviewer="auto_review"`). Board bulk runs stop with a visible reason when Codex fails to launch or exits with errors instead of restarting the same Ready task (#447)
+- Prevent terminal log persistence from blocking on long Codex session lines by processing carriage-return overwrites in linear time (#448)
+
 ## [3.28.0] - 2026-09-30
 
 ### Added
