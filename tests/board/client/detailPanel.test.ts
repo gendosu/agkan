@@ -1610,6 +1610,25 @@ describe('metadata URL link styles - dark mode visibility', () => {
   });
 });
 
+describe('terminal host styles - bottom-anchored display', () => {
+  it('BOARD_STYLES .detail-terminal-host is a column-reverse flex container so overflow is clipped from the top', async () => {
+    const { BOARD_STYLES } = await import('../../../src/board/boardStyles');
+    const hostMatch = BOARD_STYLES.match(/\.detail-terminal-host\s*\{[^}]*\}/);
+    expect(hostMatch).not.toBeNull();
+    expect(hostMatch?.[0]).toContain('display: flex');
+    expect(hostMatch?.[0]).toContain('flex-direction: column-reverse');
+    expect(hostMatch?.[0]).toContain('overflow-y: auto');
+  });
+
+  it('BOARD_STYLES .detail-terminal-host > .xterm keeps its 50-row height and stays top-aligned when the host is taller', async () => {
+    const { BOARD_STYLES } = await import('../../../src/board/boardStyles');
+    const xtermMatch = BOARD_STYLES.match(/\.detail-terminal-host > \.xterm\s*\{[^}]*\}/);
+    expect(xtermMatch).not.toBeNull();
+    expect(xtermMatch?.[0]).toContain('flex-shrink: 0');
+    expect(xtermMatch?.[0]).toContain('margin-bottom: auto');
+  });
+});
+
 describe('loadComments race condition - stale task ignored', () => {
   beforeEach(() => {
     vi.resetModules();
