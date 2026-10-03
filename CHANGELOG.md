@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.28.3] - 2026-10-03
+
+### Fixed
+- Anchor the Board task panel terminal to the bottom edge of the panel (#453)
+
 ## [3.28.2] - 2026-10-01
 
 ### Fixed
