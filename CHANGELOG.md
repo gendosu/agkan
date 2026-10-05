@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.28.4] - 2026-10-06
+
+### Changed
+- Upgrade `better-sqlite3` from `^11.7.0` to `^13.0.3` and raise the minimum supported Node.js version from 20 to 22 (`engines.node` is now `>=22.0.0`; CI workflows run on Node.js 22) (#454)
+- Add the 3.28.1–3.28.3 entries to the Japanese changelog (`CHANGELOG.ja.md`) (#456)
+
+### Fixed
+- Size the Board page with flex instead of `calc(100vh - 92px)`, so the detail panel bottom matches the viewport bottom and the last xterm row in the Terminal tab is no longer clipped (#458)
+
 ## [3.28.3] - 2026-10-03
 
 ### Fixed
