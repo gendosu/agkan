@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.28.4] - 2026-10-05
+
+### 変更
+- `better-sqlite3` を `^11.7.0` から `^13.0.3` に更新し、対応する Node.js の最低バージョンを 20 から 22 に引き上げた（`engines.node` は `>=22.0.0`、CI も Node.js 22 で実行） (#454)
+- 日本語版 changelog（`CHANGELOG.ja.md`）に 3.28.1〜3.28.3 の項目を追加した (#456)
+
 ## [3.28.3] - 2026-10-03
 
 ### 修正
