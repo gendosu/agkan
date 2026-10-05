@@ -38,11 +38,11 @@ export const BOARD_STYLES = `
       --drag-over-bg: #1e3a5f;
     }
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg-page); color: var(--text-primary); }
-    header { background: var(--header-bg); color: white; padding: 12px 20px; display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg-page); color: var(--text-primary); display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+    header { background: var(--header-bg); color: white; padding: 12px 20px; display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; flex-shrink: 0; }
     header h1 { font-size: 18px; font-weight: 700; text-align: left; }
     .board-title { font-size: 14px; font-weight: 400; opacity: 0.75; }
-    .board-container { display: flex; width: 100%; height: calc(100vh - 92px); gap: 0; }
+    .board-container { display: flex; width: 100%; flex: 1; min-height: 0; gap: 0; }
     .board { display: flex; gap: 12px; padding: 16px; overflow-x: auto; flex: 1; align-items: stretch; min-width: 0; }
     .board.with-panel { padding-right: 0; }
     .column { background: var(--bg-surface-subtle); border: 1px solid var(--border-color); border-radius: 8px; width: 240px; flex-shrink: 0; display: flex; flex-direction: column; border-top: 3px solid transparent; }
@@ -129,7 +129,7 @@ export const BOARD_STYLES = `
     .modal-actions button.primary:hover { background: #2563eb; }
     .toast { position: fixed; bottom: 20px; right: 20px; z-index: 100; background: #ef4444; color: white; padding: 10px 16px; border-radius: 6px; font-size: 13px; opacity: 0; transition: opacity 0.3s; pointer-events: none; }
     .toast.show { opacity: 1; }
-    .detail-panel { position: relative; z-index: 6; width: 0; height: calc(100vh - 92px); background: var(--bg-surface); box-shadow: none; border-left: 0 solid var(--border-color); display: flex; flex-direction: column; max-width: 800px; overflow: hidden; transition: width 0.25s ease; }
+    .detail-panel { position: relative; z-index: 6; width: 0; min-height: 0; background: var(--bg-surface); box-shadow: none; border-left: 0 solid var(--border-color); display: flex; flex-direction: column; max-width: 800px; overflow: hidden; transition: width 0.25s ease; }
     .detail-panel-resize-handle { position: absolute; top: 0; left: 0; width: 6px; height: 100%; cursor: col-resize; z-index: 10; background: transparent; }
     .detail-panel-resize-handle:hover, .detail-panel-resize-handle.dragging { background: rgba(59,130,246,0.3); }
     .detail-panel.open { width: 400px; min-width: 280px; border-left-width: 1px; }

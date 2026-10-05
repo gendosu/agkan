@@ -3379,3 +3379,44 @@ describe('detail panel markdown editor', () => {
     expect(isDetailDirty()).toBe(true);
   });
 });
+
+describe('page layout styles - viewport height is allotted by flex, not a magic number', () => {
+  async function ruleOf(selector: string): Promise<string> {
+    const { BOARD_STYLES } = await import('../../../src/board/boardStyles');
+    const escaped = selector.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const match = BOARD_STYLES.match(new RegExp(`(?:^|\\s)${escaped}\\s*\\{[^}]*\\}`));
+    expect(match).not.toBeNull();
+    return match?.[0] ?? '';
+  }
+
+  it('BOARD_STYLES does not size anything with a hard-coded calc(100vh - Npx)', async () => {
+    const { BOARD_STYLES } = await import('../../../src/board/boardStyles');
+    expect(BOARD_STYLES).not.toMatch(/calc\(100vh\s*-\s*\d+px\)/);
+  });
+
+  it('BOARD_STYLES body is a viewport-high column flex container that does not scroll', async () => {
+    const rule = await ruleOf('body');
+    expect(rule).toContain('display: flex');
+    expect(rule).toContain('flex-direction: column');
+    expect(rule).toContain('height: 100vh');
+    expect(rule).toContain('overflow: hidden');
+  });
+
+  it('BOARD_STYLES header and filter-bar keep their own height (flex-shrink: 0)', async () => {
+    expect(await ruleOf('header')).toContain('flex-shrink: 0');
+    expect(await ruleOf('.filter-bar')).toContain('flex-shrink: 0');
+  });
+
+  it('BOARD_STYLES .board-container takes the remaining height via flex: 1 and min-height: 0', async () => {
+    const rule = await ruleOf('.board-container');
+    expect(rule).toContain('flex: 1');
+    expect(rule).toContain('min-height: 0');
+    expect(rule).not.toMatch(/(?:^|[\s;{])height:/);
+  });
+
+  it('BOARD_STYLES .detail-panel gets its height from the parent stretch (no fixed height)', async () => {
+    const rule = await ruleOf('.detail-panel');
+    expect(rule).toContain('min-height: 0');
+    expect(rule).not.toMatch(/(?:^|[\s;{])height:/);
+  });
+});
