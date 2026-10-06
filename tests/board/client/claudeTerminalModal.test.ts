@@ -231,19 +231,19 @@ describe('attachTerminalToTab', () => {
     expect(wsInstances[1].send).toHaveBeenLastCalledWith(JSON.stringify({ type: 'resize', cols: 99, rows: 50 }));
   });
 
-  it('changes only columns when the panel grows and shrinks', async () => {
+  it('fills a panel taller than 50 rows but never drops below 50 rows when it shrinks', async () => {
     const { attachTerminalToTab, fitTerminal } = await importFresh();
     attachTerminalToTab(3, document.createElement('div'));
     wsInstances[1].readyState = 1;
-    for (const dimensions of [
-      { cols: 120, rows: 70 },
-      { cols: 60, rows: 20 },
-    ]) {
+    for (const [dimensions, expectedRows] of [
+      [{ cols: 120, rows: 70 }, 70],
+      [{ cols: 60, rows: 20 }, 50],
+    ] as const) {
       fitAddonState.proposeDimensions.mockReturnValue(dimensions);
       fitTerminal();
-      expect(terminalState.resize).toHaveBeenLastCalledWith(dimensions.cols, 50);
+      expect(terminalState.resize).toHaveBeenLastCalledWith(dimensions.cols, expectedRows);
       expect(wsInstances[1].send).toHaveBeenLastCalledWith(
-        JSON.stringify({ type: 'resize', cols: dimensions.cols, rows: 50 })
+        JSON.stringify({ type: 'resize', cols: dimensions.cols, rows: expectedRows })
       );
     }
   });

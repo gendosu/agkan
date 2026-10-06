@@ -126,15 +126,17 @@ export function reattachTerminalForNewSession(taskId: number): void {
 }
 
 /**
- * Fit the width while preserving the PTY's initial row count. Safe to call when the
- * Terminal tab becomes visible (e.g. after a tab switch).
+ * Fit the width, and grow the height to fill a panel taller than the PTY's initial row
+ * count without ever shrinking below it. Safe to call when the Terminal tab becomes
+ * visible (e.g. after a tab switch).
  */
 export function fitTerminal(): void {
   const dimensions = _fitAddon?.proposeDimensions();
   if (!_terminal || !dimensions || !Number.isFinite(dimensions.cols) || dimensions.cols < 2) return;
 
   // Do not call fit(): it would briefly shrink xterm below the fixed PTY height.
-  _terminal.resize(dimensions.cols, TERMINAL_ROWS);
+  const rows = Number.isFinite(dimensions.rows) ? Math.max(TERMINAL_ROWS, dimensions.rows) : TERMINAL_ROWS;
+  _terminal.resize(dimensions.cols, rows);
   if (_controlWs?.readyState === WebSocket.OPEN) {
     _controlWs.send(JSON.stringify({ type: 'resize', cols: _terminal.cols, rows: _terminal.rows }));
   }
