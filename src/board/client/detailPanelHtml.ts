@@ -379,6 +379,7 @@ export function buildDetailPanelHtml(): string {
     '<div class="detail-tab-content" id="detail-tab-content-run-logs"></div>' +
     '<div class="detail-tab-content detail-terminal-pane" id="detail-tab-content-terminal">' +
     '<div class="detail-terminal-toolbar">' +
+    '<span class="detail-terminal-hint" title="Apps such as Codex capture the mouse, so a plain drag is sent to them instead of selecting text.">Select text: hold Shift (Option on macOS) and drag</span>' +
     '<button id="detail-terminal-stop-btn" class="claude-stream-stop-btn" style="display:none;">Stop</button>' +
     '</div>' +
     '<div class="detail-terminal-host" id="detail-terminal-host">' +

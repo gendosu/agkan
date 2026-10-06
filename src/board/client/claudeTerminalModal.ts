@@ -61,6 +61,9 @@ export function attachTerminalToTab(taskId: number, container: HTMLElement): voi
         selectionBackground: 'rgba(100,150,255,0.3)',
       },
       scrollback: 5000,
+      // Apps like Codex track the mouse, so xterm only selects text while a modifier is held:
+      // Shift everywhere, plus Option on macOS once this is enabled.
+      macOptionClickForcesSelection: true,
     });
     _fitAddon = new FitAddon();
     _terminal.loadAddon(_fitAddon);

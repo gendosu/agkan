@@ -24,6 +24,7 @@ const terminalState = {
   element: null as HTMLElement | null,
   cols: 80,
   rows: 24,
+  options: null as Record<string, unknown> | null,
 };
 
 const fitAddonState = {
@@ -35,6 +36,9 @@ const fitAddonState = {
 vi.mock('@xterm/xterm', () => {
   return {
     Terminal: class MockTerminal {
+      constructor(options: Record<string, unknown>) {
+        terminalState.options = options;
+      }
       write = terminalState.write;
       open = terminalState.open;
       reset = terminalState.reset;
@@ -142,6 +146,7 @@ beforeEach(() => {
   terminalState.element = null;
   terminalState.cols = 80;
   terminalState.rows = 24;
+  terminalState.options = null;
   fitAddonState.proposeDimensions.mockReturnValue({ cols: 80, rows: 24 });
   wsInstances = [];
   resizeObserverCb = null;
@@ -246,6 +251,12 @@ describe('attachTerminalToTab', () => {
         JSON.stringify({ type: 'resize', cols: dimensions.cols, rows: expectedRows })
       );
     }
+  });
+
+  it('lets a modifier-drag select text on macOS while an app tracks the mouse', async () => {
+    const { attachTerminalToTab } = await importFresh();
+    attachTerminalToTab(3, document.createElement('div'));
+    expect(terminalState.options).toMatchObject({ macOptionClickForcesSelection: true });
   });
 
   it('preserves dimensions without notifying PTY while the panel is hidden', async () => {

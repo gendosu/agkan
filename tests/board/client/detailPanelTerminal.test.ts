@@ -147,6 +147,18 @@ describe('detailPanel terminal-related behavior', () => {
     vi.restoreAllMocks();
   });
 
+  describe('terminal selection hint', () => {
+    it('tells users how to select text while an app is tracking the mouse', async () => {
+      const { initDetailPanel, renderDetailPanel } = await import('../../../src/board/client/detailPanel');
+      initDetailPanel();
+      renderDetailPanel(makeTaskDetail());
+
+      const hint = document.querySelector('.detail-terminal-toolbar .detail-terminal-hint');
+      expect(hint?.textContent).toContain('Shift');
+      expect(hint?.textContent).toContain('Option');
+    });
+  });
+
   describe('updateTerminalTabUi', () => {
     it('does not throw when the terminal placeholder or stop button is missing', async () => {
       document.body.innerHTML = '<div class="board-container"></div>';

@@ -339,6 +339,7 @@ export const BOARD_STYLES = `
     .detail-tab-content.detail-terminal-pane { padding: 0; flex-direction: column; }
     .detail-tab-content.detail-terminal-pane.active { display: flex; overflow: hidden; }
     .detail-terminal-toolbar { display: flex; justify-content: flex-end; gap: 8px; padding: 8px 12px; border-bottom: 1px solid var(--border-color); background: var(--bg-surface-subtle, #f8fafc); flex-shrink: 0; }
+    .detail-terminal-hint { margin-right: auto; align-self: center; font-size: 11px; color: var(--text-secondary); }
     .detail-terminal-host { flex: 1; min-height: 0; position: relative; display: flex; flex-direction: column-reverse; overflow-y: auto; overflow-x: hidden; scrollbar-gutter: stable; background: #0d1117; }
     .detail-terminal-host > .xterm { flex-shrink: 0; margin-bottom: auto; }
     .detail-terminal-placeholder { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: #94a3b8; font-size: 12px; background: #0d1117; z-index: 1; }
