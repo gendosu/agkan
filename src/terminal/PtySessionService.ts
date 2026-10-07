@@ -104,6 +104,10 @@ const MAX_STALLED_DEFERRED_HOOK_STOP_CHECKS = 5;
 const CLAUDE_BUSY_SIGNAL = 'esc to interrupt';
 const MAX_SNAPSHOT_BYTES = 500_000;
 const MAX_COMPLETED_SNAPSHOTS = 10;
+// Width used until a browser has reported its own, and the range of reported widths we trust.
+const DEFAULT_PTY_COLS = 220;
+const MIN_CLIENT_COLS = 20;
+const MAX_CLIENT_COLS = 500;
 const RECENT_SCREEN_LINE_LIMIT = 80;
 
 type OutputEvent = { kind: 'done'; exitCode: number } | { kind: 'error'; message: string };
@@ -425,6 +429,9 @@ export interface PtySessionServiceOptions {
 export class PtySessionService {
   private sessions: Map<number, SessionInfo> = new Map();
   private completedSnapshots: Map<number, string> = new Map();
+  // Output printed before the terminal attaches (or while its tab is hidden) is laid out at the
+  // PTY's width and never reflowed, so new sessions start at the width the browser last used.
+  private lastClientCols: number | null = null;
   private db: StorageBackend | null;
   private runningTasksChangeSubscribers: Set<() => void> = new Set();
   private userStoppedTasks: Set<number> = new Set();
@@ -577,7 +584,7 @@ export class PtySessionService {
     try {
       ptyProcess = pty.spawn(agentBin, args, {
         name: 'xterm-256color',
-        cols: 220,
+        cols: this.lastClientCols ?? DEFAULT_PTY_COLS,
         rows: TERMINAL_ROWS,
         cwd: process.cwd(),
         env: {
@@ -932,6 +939,9 @@ export class PtySessionService {
   }
 
   resize(taskId: number, cols: number, rows: number): void {
+    if (Number.isInteger(cols) && cols >= MIN_CLIENT_COLS && cols <= MAX_CLIENT_COLS) {
+      this.lastClientCols = cols;
+    }
     this.sessions.get(taskId)?.ptyProcess.resize(cols, rows);
   }
 
