@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- Copy selected Board terminal text with the OS shortcut (Cmd+C on macOS, Ctrl+C on Windows/Linux), with a fallback when clipboard access is unavailable. Ctrl+C still interrupts when no text is selected (#770)
+
 ## [3.28.4] - 2026-10-06
 
 ### Changed

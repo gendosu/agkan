@@ -21,6 +21,47 @@ function closeWebSockets(): void {
   _controlWs = null;
 }
 
+function copySelectionFallback(terminal: Terminal, selection: string): boolean {
+  // The existing xterm copy handler reads the current selection, so do not copy
+  // another task's output if the selection changed while writeText was pending.
+  if (terminal.getSelection() !== selection) return false;
+  try {
+    return document.execCommand('copy');
+  } catch {
+    return false;
+  }
+}
+
+async function copyTerminalSelection(terminal: Terminal, clearSelection: boolean): Promise<void> {
+  const selection = terminal.getSelection();
+  let copied = false;
+  try {
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(selection);
+      copied = true;
+    }
+  } catch {
+    // Embedded browsers may deny clipboard access; try xterm's copy event path.
+  }
+  if (!copied) copied = copySelectionFallback(terminal, selection);
+  // Keep the selection until fallback has read it, and preserve a newer selection.
+  if (copied && clearSelection && terminal.getSelection() === selection) terminal.clearSelection();
+}
+
+function registerCopyShortcut(terminal: Terminal): void {
+  const isMac = /Mac/i.test(navigator.platform);
+  terminal.attachCustomKeyEventHandler((event) => {
+    const copyModifier = isMac ? event.metaKey && !event.ctrlKey : event.ctrlKey && !event.metaKey && !event.shiftKey;
+    if (event.key.toLowerCase() !== 'c' || event.altKey || !copyModifier || !terminal.hasSelection()) return true;
+    if (event.type === 'keydown') {
+      event.preventDefault();
+      event.stopPropagation();
+      void copyTerminalSelection(terminal, !isMac);
+    }
+    return false;
+  });
+}
+
 /**
  * Disconnect WebSockets and resize observer, but preserve the xterm.js display
  * (so output remains visible after a session completes).
@@ -65,6 +106,7 @@ export function attachTerminalToTab(taskId: number, container: HTMLElement): voi
       // Shift everywhere, plus Option on macOS once this is enabled.
       macOptionClickForcesSelection: true,
     });
+    registerCopyShortcut(_terminal);
     _fitAddon = new FitAddon();
     _terminal.loadAddon(_fitAddon);
     _terminal.open(container);

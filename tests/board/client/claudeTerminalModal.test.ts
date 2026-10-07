@@ -4,7 +4,7 @@
  * Tests for claudeTerminalModal module
  */
 
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 // Mock xterm CSS import
 vi.mock('@xterm/xterm/css/xterm.css', () => ({}));
@@ -21,6 +21,16 @@ const terminalState = {
   }),
   onDataDispose: vi.fn(),
   onDataCb: null as ((data: string) => void) | null,
+  attachCustomKeyEventHandler: vi.fn((handler: (event: KeyboardEvent) => boolean) => {
+    terminalState.keyEventHandler = handler;
+  }),
+  keyEventHandler: null as ((event: KeyboardEvent) => boolean) | null,
+  hasSelection: vi.fn(() => terminalState.selection.length > 0),
+  getSelection: vi.fn(() => terminalState.selection),
+  clearSelection: vi.fn(() => {
+    terminalState.selection = '';
+  }),
+  selection: '',
   element: null as HTMLElement | null,
   cols: 80,
   rows: 24,
@@ -44,6 +54,10 @@ vi.mock('@xterm/xterm', () => {
       reset = terminalState.reset;
       loadAddon = terminalState.loadAddon;
       resize = terminalState.resize;
+      attachCustomKeyEventHandler = terminalState.attachCustomKeyEventHandler;
+      hasSelection = terminalState.hasSelection;
+      getSelection = terminalState.getSelection;
+      clearSelection = terminalState.clearSelection;
       get element() {
         return terminalState.element;
       }
@@ -143,6 +157,8 @@ beforeEach(() => {
   // Reset all mock state
   vi.clearAllMocks();
   terminalState.onDataCb = null;
+  terminalState.keyEventHandler = null;
+  terminalState.selection = '';
   terminalState.element = null;
   terminalState.cols = 80;
   terminalState.rows = 24;
@@ -155,6 +171,10 @@ beforeEach(() => {
 
   // Reset module so module-level variables (_terminal, _ioWs, etc.) start fresh
   vi.resetModules();
+});
+
+afterEach(() => {
+  vi.restoreAllMocks();
 });
 
 async function importFresh() {
@@ -515,6 +535,180 @@ describe('attachTerminalToTab', () => {
     // We'll rely on wsInstances being created (this validates the branch is hit)
     expect(wsInstances).toHaveLength(2);
   });
+});
+
+// ─── terminal copy shortcuts ─────────────────────────────────────────────────
+
+describe('terminal copy shortcuts', () => {
+  let writeText: ReturnType<typeof vi.fn>;
+  let execCommand: ReturnType<typeof vi.fn>;
+
+  beforeEach(() => {
+    writeText = vi.fn().mockResolvedValue(undefined);
+    execCommand = vi.fn().mockReturnValue(true);
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: { writeText },
+    });
+    Object.defineProperty(document, 'execCommand', { configurable: true, value: execCommand });
+    vi.spyOn(navigator, 'platform', 'get').mockReturnValue('MacIntel');
+    terminalState.selection = 'selected terminal text\n次の行';
+  });
+
+  async function attach(platform = 'MacIntel') {
+    vi.spyOn(navigator, 'platform', 'get').mockReturnValue(platform);
+    const module = await importFresh();
+    module.attachTerminalToTab(770, document.createElement('div'));
+    expect(terminalState.keyEventHandler).not.toBeNull();
+    return module;
+  }
+
+  function keyEvent(init: KeyboardEventInit = {}, type = 'keydown') {
+    return new KeyboardEvent(type, { key: 'c', bubbles: true, cancelable: true, ...init });
+  }
+
+  it('copies on macOS Cmd+C and preserves the selection', async () => {
+    await attach();
+    const event = keyEvent({ metaKey: true });
+    const stopPropagation = vi.spyOn(event, 'stopPropagation');
+
+    expect(terminalState.keyEventHandler!(event)).toBe(false);
+    expect(event.defaultPrevented).toBe(true);
+    expect(stopPropagation).toHaveBeenCalled();
+    expect(writeText).toHaveBeenCalledWith('selected terminal text\n次の行');
+    await Promise.resolve();
+    expect(terminalState.clearSelection).not.toHaveBeenCalled();
+    expect(execCommand).not.toHaveBeenCalled();
+  });
+
+  it.each(['Win32', 'Linux x86_64'])(
+    'copies on %s Ctrl+C and allows the next Ctrl+C to interrupt',
+    async (platform) => {
+      await attach(platform);
+      wsInstances[0].readyState = 1;
+      const event = keyEvent({ ctrlKey: true });
+      expect(terminalState.keyEventHandler!(event)).toBe(false);
+      expect(writeText).toHaveBeenCalledWith('selected terminal text\n次の行');
+      expect(wsInstances[0].send).not.toHaveBeenCalled();
+      await Promise.resolve();
+      expect(terminalState.clearSelection).toHaveBeenCalledTimes(1);
+
+      const interrupt = keyEvent({ ctrlKey: true });
+      expect(terminalState.keyEventHandler!(interrupt)).toBe(true);
+      expect(interrupt.defaultPrevented).toBe(false);
+      // xterm processes allowed keys and forwards Ctrl+C through onData.
+      terminalState.onDataCb!('\x03');
+      expect(wsInstances[0].send).toHaveBeenCalledWith('\x03');
+    }
+  );
+
+  it.each([
+    ['MacIntel', { metaKey: true }],
+    ['Win32', { ctrlKey: true }],
+  ])('passes through the %s shortcut when there is no selection', async (platform, modifiers) => {
+    await attach(platform);
+    terminalState.selection = '';
+    const event = keyEvent(modifiers);
+    expect(terminalState.keyEventHandler!(event)).toBe(true);
+    expect(event.defaultPrevented).toBe(false);
+    expect(writeText).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ['MacIntel', { ctrlKey: true }],
+    ['MacIntel', { metaKey: true, ctrlKey: true }],
+    ['MacIntel', { metaKey: true, altKey: true }],
+    ['MacIntel', { metaKey: true, key: 'v' }],
+    ['Win32', { metaKey: true }],
+    ['Win32', { ctrlKey: true, metaKey: true }],
+    ['Win32', { ctrlKey: true, altKey: true }],
+    ['Win32', { ctrlKey: true, shiftKey: true }],
+    ['Win32', { ctrlKey: true, key: 'v' }],
+  ])('passes through unrelated keys on %s (%j)', async (platform, modifiers) => {
+    await attach(platform);
+    const event = keyEvent(modifiers);
+    expect(terminalState.keyEventHandler!(event)).toBe(true);
+    expect(event.defaultPrevented).toBe(false);
+    expect(writeText).not.toHaveBeenCalled();
+  });
+
+  it('recognizes uppercase C when Caps Lock is enabled', async () => {
+    await attach('Win32');
+    expect(terminalState.keyEventHandler!(keyEvent({ ctrlKey: true, key: 'C' }))).toBe(false);
+    expect(writeText).toHaveBeenCalledTimes(1);
+  });
+
+  it.each(['keyup', 'keypress'])('does not copy again on %s', async (type) => {
+    await attach();
+    expect(terminalState.keyEventHandler!(keyEvent({ metaKey: true }, type))).toBe(false);
+    expect(writeText).not.toHaveBeenCalled();
+    expect(execCommand).not.toHaveBeenCalled();
+  });
+
+  it('registers the handler once when the terminal is reused', async () => {
+    const { attachTerminalToTab } = await attach();
+    attachTerminalToTab(771, document.createElement('div'));
+    expect(terminalState.attachCustomKeyEventHandler).toHaveBeenCalledTimes(1);
+  });
+
+  it('falls back to the existing copy handler when the Clipboard API is unavailable', async () => {
+    Object.defineProperty(navigator, 'clipboard', { configurable: true, value: undefined });
+    await attach('Win32');
+    execCommand.mockImplementation(() => {
+      expect(terminalState.selection).toBe('selected terminal text\n次の行');
+      return true;
+    });
+    expect(terminalState.keyEventHandler!(keyEvent({ ctrlKey: true }))).toBe(false);
+    expect(execCommand).toHaveBeenCalledWith('copy');
+    expect(terminalState.clearSelection).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps the selection available for fallback after the Clipboard API rejects', async () => {
+    writeText.mockRejectedValue(new Error('Clipboard access denied'));
+    await attach('Win32');
+    expect(terminalState.keyEventHandler!(keyEvent({ ctrlKey: true }))).toBe(false);
+    expect(terminalState.clearSelection).not.toHaveBeenCalled();
+    execCommand.mockImplementation(() => {
+      expect(terminalState.selection).toBe('selected terminal text\n次の行');
+      return true;
+    });
+    await Promise.resolve();
+    expect(execCommand).toHaveBeenCalledWith('copy');
+    expect(terminalState.clearSelection).toHaveBeenCalledTimes(1);
+  });
+
+  it.each([false, 'throws'])('preserves selection if both copy methods fail (%s)', async (fallbackResult) => {
+    writeText.mockRejectedValue(new Error('Clipboard access denied'));
+    execCommand.mockImplementation(() => {
+      if (fallbackResult === 'throws') throw new Error('Copy unavailable');
+      return fallbackResult;
+    });
+    await attach('Win32');
+    expect(terminalState.keyEventHandler!(keyEvent({ ctrlKey: true }))).toBe(false);
+    await Promise.resolve();
+    expect(execCommand).toHaveBeenCalledWith('copy');
+    expect(terminalState.clearSelection).not.toHaveBeenCalled();
+  });
+
+  it.each([true, false])(
+    'does not clear or copy a new selection after a pending write (success=%s)',
+    async (success) => {
+      let settle!: () => void;
+      writeText.mockImplementation(
+        () =>
+          new Promise<void>((resolve, reject) => {
+            settle = () => (success ? resolve() : reject(new Error('Clipboard access denied')));
+          })
+      );
+      await attach('Win32');
+      terminalState.keyEventHandler!(keyEvent({ ctrlKey: true }));
+      terminalState.selection = 'new selection';
+      settle();
+      await Promise.resolve();
+      expect(execCommand).not.toHaveBeenCalled();
+      expect(terminalState.clearSelection).not.toHaveBeenCalled();
+    }
+  );
 });
 
 // ─── fitTerminal ─────────────────────────────────────────────────────────────
