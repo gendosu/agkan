@@ -32,6 +32,8 @@ const terminalState = {
   onSelectionChangeCb: null as (() => void) | null,
   hasSelection: vi.fn(() => terminalState.selection.length > 0),
   getSelection: vi.fn(() => terminalState.selection),
+  getSelectionPosition: vi.fn(() => (terminalState.selection ? terminalState.selectionPosition : undefined)),
+  selectionPosition: { start: { x: 0, y: 0 }, end: { x: 5, y: 0 } },
   clearSelection: vi.fn(() => {
     terminalState.selection = '';
   }),
@@ -63,6 +65,7 @@ vi.mock('@xterm/xterm', () => {
       onSelectionChange = terminalState.onSelectionChange;
       hasSelection = terminalState.hasSelection;
       getSelection = terminalState.getSelection;
+      getSelectionPosition = terminalState.getSelectionPosition;
       clearSelection = terminalState.clearSelection;
       get element() {
         return terminalState.element;
@@ -166,6 +169,7 @@ beforeEach(() => {
   terminalState.keyEventHandler = null;
   terminalState.onSelectionChangeCb = null;
   terminalState.selection = '';
+  terminalState.selectionPosition = { start: { x: 0, y: 0 }, end: { x: 5, y: 0 } };
   terminalState.element = null;
   terminalState.cols = 80;
   terminalState.rows = 24;
@@ -761,6 +765,24 @@ describe('terminal copy shortcuts', () => {
     expect(execCommand).not.toHaveBeenCalled();
     expect(terminalState.clearSelection).not.toHaveBeenCalled();
     expect(document.activeElement).toBe(input);
+  });
+
+  it.each([true, false])('preserves a same-text selection moved before mouseup (success=%s)', async (success) => {
+    let settle!: () => void;
+    writeText.mockImplementation(
+      () =>
+        new Promise<void>((resolve, reject) => {
+          settle = () => (success ? resolve() : reject(new Error('Clipboard access denied')));
+        })
+    );
+    await attach('Win32');
+    terminalState.keyEventHandler!(keyEvent({ ctrlKey: true }));
+    // xterm changes the range during dragging, before onSelectionChange fires on mouseup.
+    terminalState.selectionPosition = { start: { x: 0, y: 1 }, end: { x: 5, y: 1 } };
+    settle();
+    await Promise.resolve();
+    expect(execCommand).not.toHaveBeenCalled();
+    expect(terminalState.clearSelection).not.toHaveBeenCalled();
   });
 });
 

@@ -65,7 +65,20 @@ function registerCopyShortcut(terminal: Terminal): void {
       event.preventDefault();
       event.stopPropagation();
       const version = selectionVersion;
-      void copyTerminalSelection(terminal, !isMac, () => selectionVersion === version);
+      const position = terminal.getSelectionPosition();
+      void copyTerminalSelection(terminal, !isMac, () => {
+        const current = terminal.getSelectionPosition();
+        // Dragging changes the range before xterm emits onSelectionChange on mouseup.
+        return (
+          selectionVersion === version &&
+          !!position &&
+          !!current &&
+          current.start.x === position.start.x &&
+          current.start.y === position.start.y &&
+          current.end.x === position.end.x &&
+          current.end.y === position.end.y
+        );
+      });
     }
     return false;
   });
