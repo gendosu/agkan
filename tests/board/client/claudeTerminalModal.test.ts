@@ -25,6 +25,11 @@ const terminalState = {
     terminalState.keyEventHandler = handler;
   }),
   keyEventHandler: null as ((event: KeyboardEvent) => boolean) | null,
+  onSelectionChange: vi.fn((callback: () => void) => {
+    terminalState.onSelectionChangeCb = callback;
+    return { dispose: vi.fn() };
+  }),
+  onSelectionChangeCb: null as (() => void) | null,
   hasSelection: vi.fn(() => terminalState.selection.length > 0),
   getSelection: vi.fn(() => terminalState.selection),
   clearSelection: vi.fn(() => {
@@ -55,6 +60,7 @@ vi.mock('@xterm/xterm', () => {
       loadAddon = terminalState.loadAddon;
       resize = terminalState.resize;
       attachCustomKeyEventHandler = terminalState.attachCustomKeyEventHandler;
+      onSelectionChange = terminalState.onSelectionChange;
       hasSelection = terminalState.hasSelection;
       getSelection = terminalState.getSelection;
       clearSelection = terminalState.clearSelection;
@@ -158,6 +164,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   terminalState.onDataCb = null;
   terminalState.keyEventHandler = null;
+  terminalState.onSelectionChangeCb = null;
   terminalState.selection = '';
   terminalState.element = null;
   terminalState.cols = 80;
@@ -558,7 +565,15 @@ describe('terminal copy shortcuts', () => {
   async function attach(platform = 'MacIntel') {
     vi.spyOn(navigator, 'platform', 'get').mockReturnValue(platform);
     const module = await importFresh();
-    module.attachTerminalToTab(770, document.createElement('div'));
+    const container = document.createElement('div');
+    document.body.appendChild(container);
+    module.attachTerminalToTab(770, container);
+    const element = document.createElement('div');
+    const textarea = document.createElement('textarea');
+    element.appendChild(textarea);
+    container.appendChild(element);
+    terminalState.element = element;
+    textarea.focus();
     expect(terminalState.keyEventHandler).not.toBeNull();
     return module;
   }
@@ -649,6 +664,7 @@ describe('terminal copy shortcuts', () => {
     const { attachTerminalToTab } = await attach();
     attachTerminalToTab(771, document.createElement('div'));
     expect(terminalState.attachCustomKeyEventHandler).toHaveBeenCalledTimes(1);
+    expect(terminalState.onSelectionChange).toHaveBeenCalledTimes(1);
   });
 
   it('falls back to the existing copy handler when the Clipboard API is unavailable', async () => {
@@ -709,6 +725,43 @@ describe('terminal copy shortcuts', () => {
       expect(terminalState.clearSelection).not.toHaveBeenCalled();
     }
   );
+
+  it.each([true, false])('preserves a newly selected range containing the same text (success=%s)', async (success) => {
+    let settle!: () => void;
+    writeText.mockImplementation(
+      () =>
+        new Promise<void>((resolve, reject) => {
+          settle = () => (success ? resolve() : reject(new Error('Clipboard access denied')));
+        })
+    );
+    await attach('Win32');
+    terminalState.keyEventHandler!(keyEvent({ ctrlKey: true }));
+    terminalState.onSelectionChangeCb!();
+    settle();
+    await Promise.resolve();
+    expect(execCommand).not.toHaveBeenCalled();
+    expect(terminalState.clearSelection).not.toHaveBeenCalled();
+  });
+
+  it('does not fall back to copying another input after focus moves while a write is pending', async () => {
+    let rejectWrite!: (reason: Error) => void;
+    writeText.mockImplementation(
+      () =>
+        new Promise<void>((_resolve, reject) => {
+          rejectWrite = reject;
+        })
+    );
+    await attach('Win32');
+    terminalState.keyEventHandler!(keyEvent({ ctrlKey: true }));
+    const input = document.createElement('input');
+    document.body.appendChild(input);
+    input.focus();
+    rejectWrite(new Error('Clipboard access denied'));
+    await Promise.resolve();
+    expect(execCommand).not.toHaveBeenCalled();
+    expect(terminalState.clearSelection).not.toHaveBeenCalled();
+    expect(document.activeElement).toBe(input);
+  });
 });
 
 // ─── fitTerminal ─────────────────────────────────────────────────────────────

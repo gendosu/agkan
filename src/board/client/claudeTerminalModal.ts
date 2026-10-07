@@ -21,10 +21,11 @@ function closeWebSockets(): void {
   _controlWs = null;
 }
 
-function copySelectionFallback(terminal: Terminal, selection: string): boolean {
-  // The existing xterm copy handler reads the current selection, so do not copy
-  // another task's output if the selection changed while writeText was pending.
-  if (terminal.getSelection() !== selection) return false;
+function copySelectionFallback(terminal: Terminal, selection: string, isCurrentSelection: () => boolean): boolean {
+  // xterm's copy handler needs the original selection and a copy event inside
+  // the terminal. Never copy a different input after an asynchronous rejection.
+  if (!isCurrentSelection() || terminal.getSelection() !== selection) return false;
+  if (!terminal.element?.contains(document.activeElement)) return false;
   try {
     return document.execCommand('copy');
   } catch {
@@ -32,7 +33,11 @@ function copySelectionFallback(terminal: Terminal, selection: string): boolean {
   }
 }
 
-async function copyTerminalSelection(terminal: Terminal, clearSelection: boolean): Promise<void> {
+async function copyTerminalSelection(
+  terminal: Terminal,
+  clearSelection: boolean,
+  isCurrentSelection: () => boolean
+): Promise<void> {
   const selection = terminal.getSelection();
   let copied = false;
   try {
@@ -43,20 +48,24 @@ async function copyTerminalSelection(terminal: Terminal, clearSelection: boolean
   } catch {
     // Embedded browsers may deny clipboard access; try xterm's copy event path.
   }
-  if (!copied) copied = copySelectionFallback(terminal, selection);
+  if (!copied) copied = copySelectionFallback(terminal, selection, isCurrentSelection);
   // Keep the selection until fallback has read it, and preserve a newer selection.
-  if (copied && clearSelection && terminal.getSelection() === selection) terminal.clearSelection();
+  if (copied && clearSelection && isCurrentSelection() && terminal.getSelection() === selection)
+    terminal.clearSelection();
 }
 
 function registerCopyShortcut(terminal: Terminal): void {
   const isMac = /Mac/i.test(navigator.platform);
+  let selectionVersion = 0;
+  terminal.onSelectionChange(() => selectionVersion++);
   terminal.attachCustomKeyEventHandler((event) => {
     const copyModifier = isMac ? event.metaKey && !event.ctrlKey : event.ctrlKey && !event.metaKey && !event.shiftKey;
     if (event.key.toLowerCase() !== 'c' || event.altKey || !copyModifier || !terminal.hasSelection()) return true;
     if (event.type === 'keydown') {
       event.preventDefault();
       event.stopPropagation();
-      void copyTerminalSelection(terminal, !isMac);
+      const version = selectionVersion;
+      void copyTerminalSelection(terminal, !isMac, () => selectionVersion === version);
     }
     return false;
   });
