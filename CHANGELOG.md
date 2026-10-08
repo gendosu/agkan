@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- Stop pinning the Board terminal to 50 rows: xterm and the PTY follow the panel size again (the PTY still starts at 50 rows). Verified on the real Board with Codex 0.160.1 that shrinking the live 50-row session no longer panics (#773)
+
 ### Fixed
 - Copy selected Board terminal text with the OS shortcut (Cmd+C on macOS, Ctrl+C on Windows/Linux), with a fallback when clipboard access is unavailable. Ctrl+C still interrupts when no text is selected (#770)
 
