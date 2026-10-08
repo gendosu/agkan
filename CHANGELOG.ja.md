@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### 修正
+- Board のターミナルで選択したテキストを OS 標準のショートカット（macOS は Cmd+C、Windows/Linux は Ctrl+C）でコピーできるようにした。クリップボードへアクセスできない場合は代替処理を使い、選択がない場合の Ctrl+C による中断操作は維持する (#770)
+
 ## [3.28.4] - 2026-10-06
 
 ### 変更

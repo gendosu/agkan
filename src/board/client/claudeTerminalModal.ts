@@ -21,6 +21,69 @@ function closeWebSockets(): void {
   _controlWs = null;
 }
 
+function copySelectionFallback(terminal: Terminal, selection: string, isCurrentSelection: () => boolean): boolean {
+  // xterm's copy handler needs the original selection and a copy event inside
+  // the terminal. Never copy a different input after an asynchronous rejection.
+  if (!isCurrentSelection() || terminal.getSelection() !== selection) return false;
+  if (!terminal.element?.contains(document.activeElement)) return false;
+  try {
+    return document.execCommand('copy');
+  } catch {
+    return false;
+  }
+}
+
+async function copyTerminalSelection(
+  terminal: Terminal,
+  clearSelection: boolean,
+  isCurrentSelection: () => boolean
+): Promise<void> {
+  const selection = terminal.getSelection();
+  let copied = false;
+  try {
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(selection);
+      copied = true;
+    }
+  } catch {
+    // Embedded browsers may deny clipboard access; try xterm's copy event path.
+  }
+  if (!copied) copied = copySelectionFallback(terminal, selection, isCurrentSelection);
+  // Keep the selection until fallback has read it, and preserve a newer selection.
+  if (copied && clearSelection && isCurrentSelection() && terminal.getSelection() === selection)
+    terminal.clearSelection();
+}
+
+function registerCopyShortcut(terminal: Terminal): void {
+  const isMac = /Mac/i.test(navigator.platform);
+  let selectionVersion = 0;
+  terminal.onSelectionChange(() => selectionVersion++);
+  terminal.attachCustomKeyEventHandler((event) => {
+    const copyModifier = isMac ? event.metaKey && !event.ctrlKey : event.ctrlKey && !event.metaKey && !event.shiftKey;
+    if (event.key.toLowerCase() !== 'c' || event.altKey || !copyModifier || !terminal.hasSelection()) return true;
+    if (event.type === 'keydown') {
+      event.preventDefault();
+      event.stopPropagation();
+      const version = selectionVersion;
+      const position = terminal.getSelectionPosition();
+      void copyTerminalSelection(terminal, !isMac, () => {
+        const current = terminal.getSelectionPosition();
+        // Dragging changes the range before xterm emits onSelectionChange on mouseup.
+        return (
+          selectionVersion === version &&
+          !!position &&
+          !!current &&
+          current.start.x === position.start.x &&
+          current.start.y === position.start.y &&
+          current.end.x === position.end.x &&
+          current.end.y === position.end.y
+        );
+      });
+    }
+    return false;
+  });
+}
+
 /**
  * Disconnect WebSockets and resize observer, but preserve the xterm.js display
  * (so output remains visible after a session completes).
@@ -65,6 +128,7 @@ export function attachTerminalToTab(taskId: number, container: HTMLElement): voi
       // Shift everywhere, plus Option on macOS once this is enabled.
       macOptionClickForcesSelection: true,
     });
+    registerCopyShortcut(_terminal);
     _fitAddon = new FitAddon();
     _terminal.loadAddon(_fitAddon);
     _terminal.open(container);
