@@ -255,33 +255,50 @@ describe('detachTerminal', () => {
 // ─── attachTerminalToTab ─────────────────────────────────────────────────────
 
 describe('attachTerminalToTab', () => {
-  it('keeps xterm and PTY at 50 rows even when the panel only fits 39', async () => {
+  it('follows a panel that only fits 39 rows instead of keeping the PTY initial 50', async () => {
     fitAddonState.proposeDimensions.mockReturnValue({ cols: 99, rows: 39 });
     const { attachTerminalToTab } = await importFresh();
     attachTerminalToTab(3, document.createElement('div'));
     wsInstances[1].readyState = 1;
     wsInstances[1].onopen!();
 
-    expect(terminalState.resize).toHaveBeenCalledWith(99, 50);
-    expect(fitAddonState.fit).not.toHaveBeenCalled();
-    expect(wsInstances[1].send).toHaveBeenLastCalledWith(JSON.stringify({ type: 'resize', cols: 99, rows: 50 }));
+    expect(terminalState.resize).toHaveBeenCalledWith(99, 39);
+    expect(wsInstances[1].send).toHaveBeenLastCalledWith(JSON.stringify({ type: 'resize', cols: 99, rows: 39 }));
   });
 
-  it('fills a panel taller than 50 rows but never drops below 50 rows when it shrinks', async () => {
+  it('does not pin the initial xterm row count', async () => {
+    const { attachTerminalToTab } = await importFresh();
+    attachTerminalToTab(3, document.createElement('div'));
+    expect(terminalState.options).not.toHaveProperty('rows');
+  });
+
+  it('tracks the proposed rows both when the panel grows and when it shrinks', async () => {
     const { attachTerminalToTab, fitTerminal } = await importFresh();
     attachTerminalToTab(3, document.createElement('div'));
     wsInstances[1].readyState = 1;
-    for (const [dimensions, expectedRows] of [
-      [{ cols: 120, rows: 70 }, 70],
-      [{ cols: 60, rows: 20 }, 50],
-    ] as const) {
+    for (const dimensions of [
+      { cols: 120, rows: 70 },
+      { cols: 60, rows: 20 },
+    ]) {
       fitAddonState.proposeDimensions.mockReturnValue(dimensions);
       fitTerminal();
-      expect(terminalState.resize).toHaveBeenLastCalledWith(dimensions.cols, expectedRows);
+      expect(terminalState.resize).toHaveBeenLastCalledWith(dimensions.cols, dimensions.rows);
       expect(wsInstances[1].send).toHaveBeenLastCalledWith(
-        JSON.stringify({ type: 'resize', cols: dimensions.cols, rows: expectedRows })
+        JSON.stringify({ type: 'resize', cols: dimensions.cols, rows: dimensions.rows })
       );
     }
+  });
+
+  it('ignores a proposal whose rows are not a finite number', async () => {
+    const { attachTerminalToTab, fitTerminal } = await importFresh();
+    attachTerminalToTab(3, document.createElement('div'));
+    wsInstances[1].readyState = 1;
+    terminalState.resize.mockClear();
+    wsInstances[1].send.mockClear();
+    fitAddonState.proposeDimensions.mockReturnValue({ cols: 80, rows: Number.NaN });
+    fitTerminal();
+    expect(terminalState.resize).not.toHaveBeenCalled();
+    expect(wsInstances[1].send).not.toHaveBeenCalled();
   });
 
   it('lets a modifier-drag select text on macOS while an app tracks the mouse', async () => {
@@ -479,7 +496,7 @@ describe('attachTerminalToTab', () => {
     wsInstances[1].readyState = 1; // OPEN
     wsInstances[1].onopen!();
 
-    expect(wsInstances[1].send).toHaveBeenCalledWith(JSON.stringify({ type: 'resize', cols: 80, rows: 50 }));
+    expect(wsInstances[1].send).toHaveBeenCalledWith(JSON.stringify({ type: 'resize', cols: 80, rows: 24 }));
   });
 
   it('does not send resize via control WS when not OPEN at onopen', async () => {
@@ -505,7 +522,7 @@ describe('attachTerminalToTab', () => {
     resizeObserverCb!();
 
     expect(fitAddonState.proposeDimensions).toHaveBeenCalled();
-    expect(wsInstances[1].send).toHaveBeenCalledWith(JSON.stringify({ type: 'resize', cols: 80, rows: 50 }));
+    expect(wsInstances[1].send).toHaveBeenCalledWith(JSON.stringify({ type: 'resize', cols: 80, rows: 24 }));
   });
 
   it('does not send resize when control WS is not OPEN during ResizeObserver callback', async () => {
