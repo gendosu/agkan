@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.28.5] - 2026-10-09
+
 ### 変更
 - Board のターミナルを 50 行に固定するのをやめ、xterm と PTY がパネルサイズに追従するようにした（PTY の起動時は引き続き 50 行）。実 Board で Codex 0.160.1 の稼働中 50 行セッションを縮めても panic しないことを確認済み (#773)
 
