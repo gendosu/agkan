@@ -1610,22 +1610,20 @@ describe('metadata URL link styles - dark mode visibility', () => {
   });
 });
 
-describe('terminal host styles - bottom-anchored display', () => {
-  it('BOARD_STYLES .detail-terminal-host is a column-reverse flex container so overflow is clipped from the top', async () => {
+describe('terminal host styles - fills the panel', () => {
+  it('BOARD_STYLES .detail-terminal-host does not scroll or reverse its content', async () => {
     const { BOARD_STYLES } = await import('../../../src/board/boardStyles');
     const hostMatch = BOARD_STYLES.match(/\.detail-terminal-host\s*\{[^}]*\}/);
     expect(hostMatch).not.toBeNull();
-    expect(hostMatch?.[0]).toContain('display: flex');
-    expect(hostMatch?.[0]).toContain('flex-direction: column-reverse');
-    expect(hostMatch?.[0]).toContain('overflow-y: auto');
+    expect(hostMatch?.[0]).not.toContain('flex-direction: column-reverse');
+    expect(hostMatch?.[0]).not.toContain('overflow-y: auto');
   });
 
-  it('BOARD_STYLES .detail-terminal-host > .xterm keeps its 50-row height and stays top-aligned when the host is taller', async () => {
+  it('BOARD_STYLES .detail-terminal-host .xterm fills the host height', async () => {
     const { BOARD_STYLES } = await import('../../../src/board/boardStyles');
-    const xtermMatch = BOARD_STYLES.match(/\.detail-terminal-host > \.xterm\s*\{[^}]*\}/);
+    const xtermMatch = BOARD_STYLES.match(/\.detail-terminal-host \.xterm\s*\{[^}]*\}/);
     expect(xtermMatch).not.toBeNull();
-    expect(xtermMatch?.[0]).toContain('flex-shrink: 0');
-    expect(xtermMatch?.[0]).toContain('margin-bottom: auto');
+    expect(xtermMatch?.[0]).toContain('height: 100%');
   });
 });
 

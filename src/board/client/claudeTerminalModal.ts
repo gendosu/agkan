@@ -1,6 +1,5 @@
 import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
-import { TERMINAL_ROWS } from '../../terminal/terminalDimensions';
 import '@xterm/xterm/css/xterm.css';
 
 let _terminal: Terminal | null = null;
@@ -113,7 +112,6 @@ export function attachTerminalToTab(taskId: number, container: HTMLElement): voi
 
   if (!_terminal) {
     _terminal = new Terminal({
-      rows: TERMINAL_ROWS,
       cursorBlink: true,
       fontSize: 13,
       fontFamily: 'Menlo, Monaco, "Courier New", monospace',
@@ -193,17 +191,22 @@ export function reattachTerminalForNewSession(taskId: number): void {
 }
 
 /**
- * Fit the width, and grow the height to fill a panel taller than the PTY's initial row
- * count without ever shrinking below it. Safe to call when the Terminal tab becomes
- * visible (e.g. after a tab switch).
+ * Fit xterm to its container and tell the PTY the resulting size. Safe to call when the
+ * Terminal tab becomes visible (e.g. after a tab switch).
  */
 export function fitTerminal(): void {
   const dimensions = _fitAddon?.proposeDimensions();
-  if (!_terminal || !dimensions || !Number.isFinite(dimensions.cols) || dimensions.cols < 2) return;
+  if (
+    !_terminal ||
+    !dimensions ||
+    !Number.isFinite(dimensions.cols) ||
+    dimensions.cols < 2 ||
+    !Number.isFinite(dimensions.rows)
+  ) {
+    return;
+  }
 
-  // Do not call fit(): it would briefly shrink xterm below the fixed PTY height.
-  const rows = Number.isFinite(dimensions.rows) ? Math.max(TERMINAL_ROWS, dimensions.rows) : TERMINAL_ROWS;
-  _terminal.resize(dimensions.cols, rows);
+  _terminal.resize(dimensions.cols, dimensions.rows);
   if (_controlWs?.readyState === WebSocket.OPEN) {
     _controlWs.send(JSON.stringify({ type: 'resize', cols: _terminal.cols, rows: _terminal.rows }));
   }

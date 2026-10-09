@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### 変更
+- Board のターミナルを 50 行に固定するのをやめ、xterm と PTY がパネルサイズに追従するようにした（PTY の起動時は引き続き 50 行）。実 Board で Codex 0.160.1 の稼働中 50 行セッションを縮めても panic しないことを確認済み (#773)
+
 ### 修正
 - Board のターミナルで選択したテキストを OS 標準のショートカット（macOS は Cmd+C、Windows/Linux は Ctrl+C）でコピーできるようにした。クリップボードへアクセスできない場合は代替処理を使い、選択がない場合の Ctrl+C による中断操作は維持する (#770)
 

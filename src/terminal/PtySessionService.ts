@@ -1,5 +1,4 @@
 import * as pty from 'node-pty';
-import { TERMINAL_ROWS } from './terminalDimensions';
 import { execSync, execFileSync } from 'child_process';
 import { constants } from 'os';
 import type { StorageBackend, RunLogRow } from '../db/types/repository';
@@ -108,6 +107,8 @@ const MAX_COMPLETED_SNAPSHOTS = 10;
 const DEFAULT_PTY_COLS = 220;
 const MIN_CLIENT_COLS = 20;
 const MAX_CLIENT_COLS = 500;
+// Rows are not remembered from the browser: the PTY always starts at this height and the attaching browser resizes it.
+const DEFAULT_PTY_ROWS = 50;
 const RECENT_SCREEN_LINE_LIMIT = 80;
 
 type OutputEvent = { kind: 'done'; exitCode: number } | { kind: 'error'; message: string };
@@ -585,7 +586,7 @@ export class PtySessionService {
       ptyProcess = pty.spawn(agentBin, args, {
         name: 'xterm-256color',
         cols: this.lastClientCols ?? DEFAULT_PTY_COLS,
-        rows: TERMINAL_ROWS,
+        rows: DEFAULT_PTY_ROWS,
         cwd: process.cwd(),
         env: {
           ...process.env,
