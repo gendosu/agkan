@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.28.5] - 2026-10-09
+
 ### Changed
 - Stop pinning the Board terminal to 50 rows: xterm and the PTY follow the panel size again (the PTY still starts at 50 rows). Verified on the real Board with Codex 0.160.1 that shrinking the live 50-row session no longer panics (#773)
 
