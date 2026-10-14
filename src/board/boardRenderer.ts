@@ -1,3 +1,4 @@
+import path from 'path';
 import { Task, TaskStatus, PRIORITIES, PRIORITY_ORDER } from '../models';
 import { Tag } from '../models/Tag';
 import { StorageBackend } from '../db/types/repository';
@@ -5,6 +6,7 @@ import { BOARD_STYLES } from './boardStyles';
 import { BOARD_FAVICON_BASE64 } from './boardFavicon';
 import {
   loadConfig,
+  resolveProjectRoot,
   resolveAgentTool,
   readPhaseSettings,
   type AgentTool,
@@ -318,6 +320,11 @@ function getBoardBodyStatic(
   <script src="/static/main.js"></script>`;
 }
 
+export function buildPageTitle(projectName?: string): string {
+  const name = projectName?.trim();
+  return name ? `${name} - agkan board` : 'agkan board';
+}
+
 function renderBoardHeader(boardTitle?: string): string {
   const titleHtml = boardTitle ? `<span class="board-title">${escapeHtml(boardTitle)}</span>` : '';
   return `<header><h1>agkan board</h1>${titleHtml}<div class="burger-menu-wrapper"><div id="header-running-indicator" style="display:none"></div><div id="connection-status-btn" class="connection-status-btn connecting" title="Connecting..."></div><button class="burger-menu-btn" id="burger-menu-btn" title="Menu" aria-label="Menu"><span></span><span></span><span></span></button><div class="burger-menu-dropdown" id="burger-menu-dropdown"><div class="burger-menu-item danger" id="burger-purge-tasks">&#128465; Purge Tasks</div><div class="burger-menu-item" id="burger-archive-tasks">&#128230; Archive Tasks</div><div class="burger-menu-item" id="burger-export-tasks">&#8595; Export Tasks</div><div class="burger-menu-item" id="burger-import-tasks">&#8593; Import Tasks</div><div class="burger-menu-item" id="burger-version-info">&#8505; Version Info</div><div class="burger-menu-separator"></div><div class="burger-menu-item" id="burger-theme-dark">Dark Mode</div><div class="burger-menu-item" id="burger-theme-light">Light Mode</div><div class="burger-menu-item" id="burger-theme-system">System Setting</div></div></div></header>`;
@@ -366,13 +373,14 @@ export function renderBoard(
     renderColumn(status, tasksByStatus.get(status) || [], tagMap, blockMap)
   ).join('');
   const dataThemeAttr = theme === 'dark' || theme === 'light' ? ` data-theme="${theme}"` : '';
+  const pageTitle = buildPageTitle(boardTitle || path.basename(resolveProjectRoot()));
 
   return `<!DOCTYPE html>
 <html lang="en"${dataThemeAttr}>
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>agkan board</title>
+  <title>${escapeHtml(pageTitle)}</title>
   <link rel="icon" type="image/png" href="${BOARD_FAVICON_BASE64}">
   <style>${BOARD_STYLES}
   </style>
