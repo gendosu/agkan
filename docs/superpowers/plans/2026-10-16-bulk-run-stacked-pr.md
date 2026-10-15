@@ -16,7 +16,7 @@
 - 例外は理由を記録して `in_progress` のまま待機する。例外を網羅的に拾う仕組みは作らない
 - board のタスク選択（`src/board/taskSelection.ts:42`）は変えない
 - 単体 run の起動プロンプト（`src/board/claudePromptBuilder.ts:40-44`）は変えない
-- agkan-private の作業ブランチは `beta`。agkan-skills は `main` から `feat/stacked-pr-dependent-tasks` を切って作業する
+- agkan-private は `origin/main` から `feat/bulk-run-stacked-pr` を、agkan-skills は `origin/main` から `feat/stacked-pr-dependent-tasks` を切って作業し、両方とも最後に PR を作る
 - `git add -A` / `git add .` は使わず、ファイルを明示して stage する
 - GitHub 上の捨て用リポジトリの作成・削除は外部への操作のため、実行前にユーザーの承認を得る
 
