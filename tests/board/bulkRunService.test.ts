@@ -537,6 +537,80 @@ describe('BulkRunService - auto status update on completion', () => {
     service.stop();
   });
 
+  it('updates task status to review (not done) when a pr bulk run exits with exitCode 0', async () => {
+    const db = getStorageBackend();
+    const ts = new TaskService(db);
+    const tbs = new TaskBlockService(db);
+
+    const task = ts.createTask({ title: 'task', status: 'ready', priority: 'medium' });
+
+    let outputCallback: OutputCallback | null = null;
+    const subscribeOutput = vi.fn().mockImplementation((_id: number, cb: OutputCallback) => {
+      outputCallback = cb;
+      return () => {};
+    });
+    const pty = buildMockPty({ subscribeOutput });
+    const service = new BulkRunService(ts, tbs, pty);
+
+    await service.start('pr');
+    outputCallback?.({ kind: 'done', exitCode: 0 });
+    await Promise.resolve();
+
+    expect(ts.getTask(task.id)?.status).toBe('review');
+
+    service.stop();
+  });
+
+  it('keeps review when a pr bulk run exits after the skill already moved the task to review', async () => {
+    const db = getStorageBackend();
+    const ts = new TaskService(db);
+    const tbs = new TaskBlockService(db);
+
+    const task = ts.createTask({ title: 'task', status: 'ready', priority: 'medium' });
+
+    let outputCallback: OutputCallback | null = null;
+    const subscribeOutput = vi.fn().mockImplementation((_id: number, cb: OutputCallback) => {
+      outputCallback = cb;
+      return () => {};
+    });
+    const pty = buildMockPty({ subscribeOutput });
+    const service = new BulkRunService(ts, tbs, pty);
+
+    await service.start('pr');
+    ts.updateTask(task.id, { status: 'review' });
+    outputCallback?.({ kind: 'done', exitCode: 0 });
+    await Promise.resolve();
+
+    expect(ts.getTask(task.id)?.status).toBe('review');
+
+    service.stop();
+  });
+
+  it('does not move a done task back to review when a pr bulk run exits with exitCode 0', async () => {
+    const db = getStorageBackend();
+    const ts = new TaskService(db);
+    const tbs = new TaskBlockService(db);
+
+    const task = ts.createTask({ title: 'task', status: 'ready', priority: 'medium' });
+
+    let outputCallback: OutputCallback | null = null;
+    const subscribeOutput = vi.fn().mockImplementation((_id: number, cb: OutputCallback) => {
+      outputCallback = cb;
+      return () => {};
+    });
+    const pty = buildMockPty({ subscribeOutput });
+    const service = new BulkRunService(ts, tbs, pty);
+
+    await service.start('pr');
+    ts.updateTask(task.id, { status: 'done' });
+    outputCallback?.({ kind: 'done', exitCode: 0 });
+    await Promise.resolve();
+
+    expect(ts.getTask(task.id)?.status).toBe('done');
+
+    service.stop();
+  });
+
   it('does not update task status when the task exits with a non-zero exitCode', async () => {
     const db = getStorageBackend();
     const ts = new TaskService(db);
