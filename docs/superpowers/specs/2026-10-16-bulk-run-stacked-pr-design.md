@@ -154,3 +154,29 @@ board の一括 run（pr）で、依存関係のあるタスクを「先行タ�
    - C は A の PR のブランチから切られ、C の PR の base が A のブランチになる
    - C は `review` に到達してセッションが終わり、`in_progress` のまま残らない
 3. A の PR をマージすると C の PR が trunk 向けに付け替わり、agkan-review で A、続いて C が `done` になる
+
+---
+
+## 事前検証の結果（2026-10-16 実施）
+
+捨て用リポジトリ `gendosu/agkan-stack-spike`（既定ブランチ `develop`）、`gh` 2.101.0、`gh stack` 0.2.1 で実施した。
+
+| ID | 手順 | 結果 |
+|---|---|---|
+| S2（自動削除なし） | A: `develop` 向け PR、C: `--base feat/a` の PR。A をマージ | C の base は `feat/a` のまま。develop には付け替わらない |
+| S2（自動削除あり） | 同じ手順（A2 / C2） | C2 の base が `develop` に自動で付け替わり、`OPEN` のまま |
+| S1 | 既存 PR A3（`develop` 向け）と C3（`--base feat/a3`）を `gh stack link feat/a3 feat/c3 < /dev/null` で stack 化 | 非対話で成功（exit 0）。ただし `--base` を省略すると、clone の `origin/HEAD`（`main`）を trunk とみなし、A3 の base を `main` に書き換えた。その後 `--base develop` で付け直そうとすると HTTP 422 `PullRequest.base is invalid` で失敗し、base を戻せなかった |
+| S1（マージ） | stack 内の A3 を `gh pr merge 5 --merge` | 失敗: `This pull request is part of a stack and must be merged using the asynchronous merge REST API` |
+| S3（素の `--base` 方式） | A4: `develop` 向け、C4: `--base feat/a4`。C4 を先にマージ | C4 は `MERGED`（`baseRefName=feat/a4`）。変更は `feat/a4` に入り、develop には入らない。A4 は `OPEN` のまま |
+| S3（auto-merge） | `gh pr merge feat/c4 --auto --merge` | 必須チェックのないリポジトリでは `Pull request is in clean status` で有効化されず、確認できなかった |
+
+skillth は `deleteBranchOnMerge: true`（`gh repo view gendosu/skillth --json deleteBranchOnMerge`）。
+
+### 採用した方式
+
+- STEP6_VARIANT: **A**（`gh pr create --base <stack_base>` だけで積み、native stack には登録しない）
+  - 理由: 自動削除が有効なリポジトリでは、先行のマージで後続が自動で付け替わる（S2）。native stack は、`gh pr merge` によるマージができなくなる・一番下の base が固定される・`--base` の省略で base を書き換える、という点で既存の運用とぶつかる（S1）
+  - 制約: リポジトリの「マージ後にブランチを自動削除」が無効だと、後続の PR は付け替わらない。agkan-subtask には、無効なリポジトリでは積まずに待機する分岐を入れる
+- S3_LOWER_STATE: 素の `--base` 方式では、上の PR を先にマージすると `MERGED` になるが、マージ先は先行のブランチで、既定ブランチには入っていない
+  - agkan-review の変更（設計 4）: `MERGED` でも、マージコミットが既定ブランチに含まれていなければ `done` にしない（skipped として数える）
+- S3_AUTOMERGE: 未確認（検証リポジトリに必須チェックがないため）
