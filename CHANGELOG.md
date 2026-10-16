@@ -10,6 +10,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - The Board's browser tab title now leads with the project name (`<project> - agkan board`), using `--title` / `board.title` when set and the project root directory name otherwise; it falls back to `agkan board` when no name is available (#774)
 
+### Fixed
+- Keep tasks of a `pr` bulk run at `review` when the session exits instead of forcing them to `done`. A task whose PR was still open no longer becomes `done`, so tasks that depend on it are no longer started without its change. Tasks already at `review`, `done`, or `closed` are left as they are
+
 ## [3.28.5] - 2026-10-09
 
 ### Changed

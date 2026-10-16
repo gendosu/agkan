@@ -5,6 +5,8 @@ import { buildClaudePrompt, resolveLaunchSettings, LaunchSettingsError } from '.
 import { selectNextTask } from './taskSelection';
 import type { AgentTool } from '../db/config';
 import { CodexAutoReviewUnavailableError } from '../errors';
+import { runTargetStatus } from '../utils/runTargetStatus';
+import type { TaskStatus } from '../models';
 
 export type BulkRunCommand = 'direct' | 'pr';
 type BulkRunState = 'idle' | 'running';
@@ -19,6 +21,9 @@ export interface BulkRunStatus {
 type StateChangeCallback = (status: BulkRunStatus) => void;
 
 const POLL_INTERVAL_MS = 3000;
+
+// The agent's own skill already moved these forward; a bulk-run exit must not rewind them.
+const SETTLED_STATUSES: ReadonlySet<TaskStatus> = new Set(['review', 'done', 'closed']);
 
 interface LaunchParams {
   prompt: string;
@@ -186,7 +191,10 @@ export class BulkRunService {
     unsubscribe = this.claudeProcess.subscribeOutput(taskId, (evt) => {
       if (evt.kind === 'done' || evt.kind === 'error') {
         if (evt.kind === 'done' && evt.exitCode === 0 && !this.claudeProcess.isExplicitUserStop(taskId)) {
-          this.ts.updateTask(taskId, { status: 'done' });
+          const current = this.ts.getTask(taskId);
+          if (current && !SETTLED_STATUSES.has(current.status)) {
+            this.ts.updateTask(taskId, { status: runTargetStatus(ptyCommand) ?? 'done' });
+          }
         }
         unsubscribe?.();
         if (agent === 'codex' && (evt.kind === 'error' || evt.exitCode !== 0)) {
