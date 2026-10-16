@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.29.0] - 2026-10-16
+
 ### 変更
 - Board のブラウザタブ名をプロジェクト名主体（`<プロジェクト名> - agkan board`）にした。`--title` / `board.title` があればそれを、なければプロジェクトルートのディレクトリ名を使い、名前が取れない場合は従来どおり `agkan board` にする (#774)
 
