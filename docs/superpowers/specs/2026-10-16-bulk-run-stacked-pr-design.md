@@ -180,3 +180,17 @@ skillth は `deleteBranchOnMerge: true`（`gh repo view gendosu/skillth --json d
 - S3_LOWER_STATE: 素の `--base` 方式では、上の PR を先にマージすると `MERGED` になるが、マージ先は先行のブランチで、既定ブランチには入っていない
   - agkan-review の変更（設計 4）: `MERGED` でも、マージコミットが既定ブランチに含まれていなければ `done` にしない（skipped として数える）
 - S3_AUTOMERGE: 未確認（検証リポジトリに必須チェックがないため）
+
+## 受け入れ確認（2026-10-16 実施）
+
+捨て用リポジトリで、A（ready、high）と C（A に依存、ready、medium）を一括 run（pr、agent=codex、gpt-6.1-sol、effort=medium）に流した。修正後の agkan（`feat/bulk-run-stacked-pr` のビルド）と、修正後のスキルを /home/app/.agents/skills/ に一時配置して使った。
+
+| 完了条件 | 観測結果 |
+|---|---|
+| 2: A は `review` で止まり `done` にならない | A は `review`。セッション終了後も `review` のまま |
+| 2: C は A の PR のブランチから切られ、PR の base が A のブランチ | C の metadata `stack_base=feat/1-a-add-docs-a-md`。PR #11 の base も同じ。PR #11 の差分は `docs/c.md` だけ |
+| 2: C は `review` に到達してセッションが終わる | C は `review`。`agkan ps` は実行中なし。一括 run 全体で約 3 分 |
+| 3: A の PR をマージすると C の PR が trunk 向けに付け替わる | A（#10）のマージ後、C（#11）は `OPEN`、base が `develop` |
+| 3: agkan-review で A、続いて C が `done` になる | 1 回目の判定で A が `done`、C は OPEN のためスキップ。C のマージ後の 2 回目で C が `done`。develop に `docs/a.md` と `docs/c.md` が入った |
+
+補足: 1 回目の実行では、検証用ディレクトリが Codex の信頼済みディレクトリに入っておらず、Codex が信頼確認の画面で止まった。信頼設定の追加後に再実行した。Codex のこの挙動は、本対応とは関係のない環境要因である。
