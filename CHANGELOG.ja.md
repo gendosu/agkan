@@ -10,6 +10,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### 変更
 - Board のブラウザタブ名をプロジェクト名主体（`<プロジェクト名> - agkan board`）にした。`--title` / `board.title` があればそれを、なければプロジェクトルートのディレクトリ名を使い、名前が取れない場合は従来どおり `agkan board` にする (#774)
 
+### 修正
+- `pr` の一括 run で、セッション終了時にタスクを `done` へ上書きせず `review` に留めるようにした。PR が未マージのタスクが `done` にならなくなり、それに依存するタスクがその変更を含まないまま起動されることがなくなった。すでに `review` / `done` / `closed` のタスクは変更しない
+
 ## [3.28.5] - 2026-10-09
 
 ### 変更
