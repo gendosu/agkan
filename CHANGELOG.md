@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- The Board's browser tab title now leads with the project name (`<project> - agkan board`), using `--title` / `board.title` when set and the project root directory name otherwise; it falls back to `agkan board` when no name is available (#774)
+
 ## [3.28.5] - 2026-10-09
 
 ### Changed

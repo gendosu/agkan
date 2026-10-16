@@ -13,13 +13,14 @@ import {
   buildTasksByStatus,
   buildBoardCardsPayload,
   getBoardUpdatedAt,
+  buildPageTitle,
 } from '../../src/board/boardRenderer';
 import { Task, TaskStatus } from '../../src/models';
 import { Tag } from '../../src/models/Tag';
 
 vi.mock('../../src/db/config', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../../src/db/config')>();
-  return { ...actual, loadConfig: vi.fn(() => ({})) };
+  return { ...actual, loadConfig: vi.fn(() => ({})), resolveProjectRoot: vi.fn(() => '/work/default-project') };
 });
 
 import * as configModule from '../../src/db/config';
@@ -497,5 +498,55 @@ describe('renderBoard model catalog wiring', () => {
     const html = render();
     expect(html).not.toContain('</script><script>alert(1)</script>');
     expect(html).toContain('</script');
+  });
+});
+
+describe('buildPageTitle', () => {
+  it('puts the project name first and keeps "agkan board" as the suffix', () => {
+    expect(buildPageTitle('agkan-private')).toBe('agkan-private - agkan board');
+  });
+
+  it.each([[undefined], [''], ['   ']])('falls back to "agkan board" when the name is %j', (name) => {
+    expect(buildPageTitle(name)).toBe('agkan board');
+  });
+
+  it('trims surrounding whitespace from the name', () => {
+    expect(buildPageTitle('  My Project  ')).toBe('My Project - agkan board');
+  });
+});
+
+describe('renderBoard page title', () => {
+  beforeEach(() => {
+    vi.mocked(configModule.loadConfig).mockReturnValue({});
+    vi.mocked(configModule.resolveProjectRoot).mockReturnValue('/work/default-project');
+  });
+
+  function render(boardTitle?: string): string {
+    return renderBoard(buildTasksByStatus([]), new Map(), boardTitle);
+  }
+
+  it('uses the board title as the project name when one is configured', () => {
+    expect(render('My Project')).toContain('<title>My Project - agkan board</title>');
+  });
+
+  it('falls back to the project root directory name when no board title is set', () => {
+    vi.mocked(configModule.resolveProjectRoot).mockReturnValue('/work/agkan-private');
+    expect(render()).toContain('<title>agkan-private - agkan board</title>');
+  });
+
+  it('falls back to plain "agkan board" when the project root has no directory name', () => {
+    vi.mocked(configModule.resolveProjectRoot).mockReturnValue('/');
+    expect(render()).toContain('<title>agkan board</title>');
+  });
+
+  it('escapes HTML special characters in the title', () => {
+    expect(render('<b>"A" & \'B\'</b>')).toContain(
+      '<title>&lt;b&gt;&quot;A&quot; &amp; &#039;B&#039;&lt;/b&gt; - agkan board</title>'
+    );
+  });
+
+  it('leaves the header heading and board-title span untouched', () => {
+    const html = render('My Project');
+    expect(html).toContain('<h1>agkan board</h1><span class="board-title">My Project</span>');
   });
 });
