@@ -90,6 +90,9 @@ models:
 #     model: gpt-5.6-luna
 #     efforts: [low, medium, high, xhigh, max]
 #   - cli: agy
+#     model: gemini-4-argon
+#     efforts: [low, medium, high]
+#   - cli: agy
 #     model: gemini-3.8-flash
 #     efforts: [low, medium, high]
 #   - cli: agy

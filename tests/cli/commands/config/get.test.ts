@@ -70,6 +70,7 @@ describe('setupConfigGetCommand', () => {
       { cli: 'codex', model: 'gpt-5.6-sol', efforts: ['low', 'medium', 'high', 'xhigh', 'max', 'ultra'] },
       { cli: 'codex', model: 'gpt-5.6-terra', efforts: ['low', 'medium', 'high', 'xhigh', 'max', 'ultra'] },
       { cli: 'codex', model: 'gpt-5.6-luna', efforts: ['low', 'medium', 'high', 'xhigh', 'max'] },
+      { cli: 'agy', model: 'gemini-4-argon', efforts: ['low', 'medium', 'high'] },
       { cli: 'agy', model: 'gemini-3.8-flash', efforts: ['low', 'medium', 'high'] },
       { cli: 'agy', model: 'gemini-3.7-flash', efforts: ['low', 'medium', 'high'] },
       { cli: 'agy', model: 'claude-sonnet-4-6', efforts: [] },

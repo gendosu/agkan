@@ -419,6 +419,7 @@ describe('renderBoard model catalog wiring', () => {
 
   it.each([
     ['codex', 'gpt-6.1-sol'],
+    ['agy', 'gemini-4-argon'],
     ['grok', 'grok-4.7'],
   ])('renders %s[%s] from the built-in catalog', (cli, model) => {
     vi.mocked(configModule.loadConfig).mockReturnValue({});

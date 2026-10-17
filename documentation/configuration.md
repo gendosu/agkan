@@ -281,6 +281,7 @@ Omitting `modelCatalog` uses this catalog:
 | codex | `gpt-5.6-sol` | `low`, `medium`, `high`, `xhigh`, `max`, `ultra` |
 | codex | `gpt-5.6-terra` | `low`, `medium`, `high`, `xhigh`, `max`, `ultra` |
 | codex | `gpt-5.6-luna` | `low`, `medium`, `high`, `xhigh`, `max` |
+| agy | `gemini-4-argon` | `low`, `medium`, `high` |
 | agy | `gemini-3.8-flash` | `low`, `medium`, `high` |
 | agy | `gemini-3.7-flash` | `low`, `medium`, `high` |
 | agy | `claude-sonnet-4-6` | (none) |
@@ -290,7 +291,7 @@ Omitting `modelCatalog` uses this catalog:
 | grok | `grok-4.6` | `low`, `medium`, `high`, `xhigh` |
 | grok | `grok-4.5` | `low`, `medium`, `high` |
 
-`agy models` lists the gemini flash ids with effort baked in (e.g. `gemini-3.8-flash-high`), but the agy CLI also accepts the bare id with a separate `--effort low|medium|high` flag, so those two rows carry a real effort override. `claude-sonnet-4-6`, `claude-opus-4-6-thinking`, and `gpt-oss-120b-medium` are fixed variants that reject `--effort`, so they accept none.
+`agy models` lists the Gemini ids with effort baked in (e.g. `gemini-4-argon-high`), but the agy CLI also accepts the bare id with a separate `--effort low|medium|high` flag, so those three rows carry a real effort override. `claude-sonnet-4-6`, `claude-opus-4-6-thinking`, and `gpt-oss-120b-medium` are fixed variants that reject `--effort`, so they accept none.
 
 ### Validation
 

@@ -951,6 +951,54 @@ describe('setupTaskUpdateCommand', () => {
   });
 
   describe('model/effort override options', () => {
+    it.each(['low', 'medium', 'high'])('accepts Gemini Argon with %s effort for both phases', async (effort) => {
+      const taskService = new TaskService();
+      const task = taskService.createTask({ title: 'Gemini Argon overrides' });
+
+      const { exitCode } = await runCommand(program, [
+        'task',
+        'update',
+        String(task.id),
+        '--model-planning',
+        'gemini-4-argon',
+        '--model-run',
+        'gemini-4-argon',
+        '--effort-planning',
+        effort,
+        '--effort-run',
+        effort,
+      ]);
+
+      expect(exitCode).toBeUndefined();
+      expect(taskService.getTask(task.id)).toMatchObject({
+        model_planning: 'gemini-4-argon',
+        model_run: 'gemini-4-argon',
+        effort_planning: effort,
+        effort_run: effort,
+      });
+    });
+
+    it.each(['xhigh', 'max', 'ultra'])('rejects unsupported %s effort for Gemini Argon', async (effort) => {
+      const taskService = new TaskService();
+      const task = taskService.createTask({ title: 'Unsupported Gemini Argon effort' });
+
+      const { exitCode, errors } = await runCommand(program, [
+        'task',
+        'update',
+        String(task.id),
+        '--model-run',
+        'gemini-4-argon',
+        '--effort-run',
+        effort,
+      ]);
+
+      expect(exitCode).toBe(1);
+      expect(errors.join('\n')).toContain(
+        `Invalid effort "${effort}" for model "gemini-4-argon". Must be one of: low, medium, high`
+      );
+      expect(taskService.getTask(task.id)?.model_run).toBeNull();
+    });
+
     it('should have the four override options registered', () => {
       const taskCommand = program.commands.find((cmd) => cmd.name() === 'task');
       const updateCommand = taskCommand?.commands.find((cmd) => cmd.name() === 'update');
