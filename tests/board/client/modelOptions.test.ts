@@ -5,6 +5,7 @@
  */
 
 import { describe, it, expect, beforeEach } from 'vitest';
+import { resolveModelCatalog } from '../../../src/db/modelCatalog';
 import {
   getModelCatalog,
   effortsForModel,
@@ -124,6 +125,21 @@ describe('rebuildEffortOptions', () => {
 
 describe('wireModelEffortSync', () => {
   beforeEach(setCatalog);
+
+  it('offers the supported efforts when Gemini Argon is selected from the built-in catalog', () => {
+    window.modelCatalog = resolveModelCatalog({});
+    setupSelects('', 'max');
+    const modelSelect = document.getElementById('m') as HTMLSelectElement;
+    modelSelect.add(new Option('agy[gemini-4-argon]', 'gemini-4-argon'));
+    wireModelEffortSync('m', 'e');
+
+    modelSelect.value = 'gemini-4-argon';
+    modelSelect.dispatchEvent(new Event('change'));
+
+    const effortSelect = document.getElementById('e') as HTMLSelectElement;
+    expect([...effortSelect.options].map((o) => o.value)).toEqual(['', 'low', 'medium', 'high']);
+    expect(effortSelect.value).toBe('');
+  });
 
   it('rebuilds the effort options when the model select changes', () => {
     setupSelects('', '');

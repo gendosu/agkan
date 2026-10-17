@@ -18,7 +18,7 @@ const CLAUDE_EFFORTS = ['low', 'medium', 'high', 'xhigh', 'max'];
 const CODEX_EFFORTS = ['low', 'medium', 'high', 'xhigh', 'max', 'ultra'];
 const CODEX_EFFORTS_NO_ULTRA = ['low', 'medium', 'high', 'xhigh', 'max'];
 
-// `agy models` lists the gemini flash ids with reasoning effort baked in (e.g.
+// `agy models` lists the Gemini ids with reasoning effort baked in (e.g.
 // `gemini-3.8-flash-high`), but the agy CLI also accepts the bare id (`gemini-3.8-flash`)
 // plus a separate --effort flag (confirmed via `agy --help` and by running
 // `agy --model gemini-3.8-flash --effort <low|medium|high>`), so those rows carry a real
@@ -27,6 +27,7 @@ const CODEX_EFFORTS_NO_ULTRA = ['low', 'medium', 'high', 'xhigh', 'max'];
 // keep efforts: [].
 const AGY_EFFORTS = ['low', 'medium', 'high'];
 const AGY_MODELS: Array<{ model: string; efforts: string[] }> = [
+  { model: 'gemini-4-argon', efforts: AGY_EFFORTS },
   { model: 'gemini-3.8-flash', efforts: AGY_EFFORTS },
   { model: 'gemini-3.7-flash', efforts: AGY_EFFORTS },
   { model: 'claude-sonnet-4-6', efforts: [] },

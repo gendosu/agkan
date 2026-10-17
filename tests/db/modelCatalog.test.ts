@@ -28,6 +28,7 @@ describe('DEFAULT_MODEL_CATALOG', () => {
       'codex[gpt-5.6-sol]',
       'codex[gpt-5.6-terra]',
       'codex[gpt-5.6-luna]',
+      'agy[gemini-4-argon]',
       'agy[gemini-3.8-flash]',
       'agy[gemini-3.7-flash]',
       'agy[claude-sonnet-4-6]',
@@ -65,6 +66,7 @@ describe('DEFAULT_MODEL_CATALOG', () => {
       DEFAULT_MODEL_CATALOG.filter((e) => e.cli === 'agy').map((e) => [e.model, e.efforts])
     );
     expect(agyEfforts).toEqual({
+      'gemini-4-argon': ['low', 'medium', 'high'],
       'gemini-3.8-flash': ['low', 'medium', 'high'],
       'gemini-3.7-flash': ['low', 'medium', 'high'],
       'claude-sonnet-4-6': [],
