@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.30.0] - 2026-10-17
+
+### 追加
+- `agy` のモデルカタログに `gemini-4-argon`（effort は `low` / `medium` / `high`）を追加し、`agkan task update --agent-model` や `agkan config` で選択できるようにした。`agkan init` が生成するモデル例と、CLI リファレンス・設定ドキュメントにも掲載した (#467)
+
 ## [3.29.0] - 2026-10-16
 
 ### 変更
