@@ -244,6 +244,7 @@ modelCatalog:
 | codex | `gpt-5.6-sol` | `low`, `medium`, `high`, `xhigh`, `max`, `ultra` |
 | codex | `gpt-5.6-terra` | `low`, `medium`, `high`, `xhigh`, `max`, `ultra` |
 | codex | `gpt-5.6-luna` | `low`, `medium`, `high`, `xhigh`, `max` |
+| agy | `gemini-4-argon` | `low`, `medium`, `high` |
 | agy | `gemini-3.8-flash` | `low`, `medium`, `high` |
 | agy | `gemini-3.7-flash` | `low`, `medium`, `high` |
 | agy | `claude-sonnet-4-6` | (なし) |
@@ -253,7 +254,7 @@ modelCatalog:
 | grok | `grok-4.6` | `low`, `medium`, `high`, `xhigh` |
 | grok | `grok-4.5` | `low`, `medium`, `high` |
 
-`agy models` はモデルIDに effort を埋め込んだ形（`gemini-3.8-flash-high` など）で一覧を返しますが、agy CLI はそのベースID単体と、独立した `--effort low|medium|high` フラグの組み合わせも受け付けるため、この2行は実際の effort オーバーライドを持ちます。`claude-sonnet-4-6`、`claude-opus-4-6-thinking`、`gpt-oss-120b-medium` は固定バリアントで `--effort` を受け付けないため、いずれも効果を持ちません。
+`agy models` はモデルIDに effort を埋め込んだ形（`gemini-4-argon-high` など）で一覧を返しますが、agy CLI はそのベースID単体と、独立した `--effort low|medium|high` フラグの組み合わせも受け付けるため、この3行は実際の effort オーバーライドを持ちます。`claude-sonnet-4-6`、`claude-opus-4-6-thinking`、`gpt-oss-120b-medium` は固定バリアントで `--effort` を受け付けないため、いずれも効果を持ちません。
 
 ### 検証
 
