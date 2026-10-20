@@ -10,6 +10,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - Update the development Node.js version from 22.22.0 to 22.22.3, keeping the 22.22 release line (#778)
 
+### Fixed
+- Keep the Board in sync with CLI/AI task creation, tag changes, and status changes even when update notifications are missed. Visible tabs reconcile every two seconds, retry after failed or timed-out requests, and apply queued updates after dragging and status saving finish. Reload tag filter options when opening the dropdown (#777)
+
 ## [3.30.0] - 2026-10-17
 
 ### Added
