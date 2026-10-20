@@ -899,8 +899,9 @@ describe('initBoardPolling (SSE connection)', () => {
 
   it('registers a board-update listener via addBoardStreamListener', () => {
     const spy = vi.spyOn(boardStream, 'addBoardStreamListener').mockReturnValue(() => {});
-    initBoardPolling();
+    const stop = initBoardPolling();
     expect(spy).toHaveBeenCalledWith('board-update', expect.any(Function));
+    stop();
     spy.mockRestore();
   });
 
@@ -911,9 +912,15 @@ describe('initBoardPolling (SSE connection)', () => {
       if (type === 'board-update') capturedFn = fn;
       return () => {};
     });
-    initBoardPolling();
+    const stop = initBoardPolling();
     capturedFn?.({ updatedAt: '2026-01-01T00:00:00.000Z' });
-    await vi.waitFor(() => expect(global.fetch).toHaveBeenCalledWith('/api/board/cards'));
+    await vi.waitFor(() =>
+      expect(global.fetch).toHaveBeenCalledWith('/api/board/cards', {
+        signal: expect.any(AbortSignal),
+        cache: 'no-store',
+      })
+    );
+    stop();
     vi.restoreAllMocks();
   });
 });

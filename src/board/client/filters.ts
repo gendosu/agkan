@@ -164,6 +164,9 @@ export function initFilterBar(): void {
         dropdown.style.top = rect.bottom + 2 + 'px';
         dropdown.style.left = rect.left + 'px';
         dropdown.classList.add('open');
+        void loadAllTags().then(() => {
+          if (dropdown.classList.contains('open')) renderTagDropdown();
+        });
       }
     });
 

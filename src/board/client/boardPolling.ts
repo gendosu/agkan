@@ -1,6 +1,6 @@
-// Board streaming: receive board updates via SSE
+// Board synchronization: SSE updates with periodic reconciliation
 
-import { draggedCard, isPendingStatusUpdate, attachDragListeners } from './dragDrop';
+import { draggedCard, isPendingStatusUpdate, attachDragListeners, addDragDropIdleListener } from './dragDrop';
 import { attachAutoScrollToBody } from './autoScroll';
 import { attachClaudeButtonListeners, getRunningTaskIds, updateButtonStates } from './claudeButton';
 import type { ActiveFilters, TaskDetail } from './types';
@@ -36,6 +36,7 @@ let _setActiveCard: ((taskId: number | null) => void) | null = null;
 let _isDetailDirty: (() => boolean) | null = null;
 let _redrawDependencies: (() => void) | null = null;
 const detailRefreshSuppressedUntil = new Map<number, number>();
+let pendingDetailRefreshTaskId: number | null = null;
 
 // A PATCH initiated by the open detail panel also emits a board update. Keep
 // that update from re-rendering the form and discarding unsaved title/body text.
@@ -77,6 +78,7 @@ export function registerDetailPanelCallbacks(callbacks: {
   isDetailDirty?: () => boolean;
 }): void {
   detailRefreshSuppressedUntil.clear();
+  pendingDetailRefreshTaskId = null;
   _openTaskDetail = callbacks.openTaskDetail;
   _renderDetailPanel = callbacks.renderDetailPanel;
   _showUpdateWarning = callbacks.showUpdateWarning;
@@ -222,11 +224,16 @@ function didDetailCardChange(before: DetailCardSnapshot | null, after: DetailCar
 // unrelated task updates elsewhere on the board must not reload/warn the open panel.
 async function refreshDetailPanelIfCardChanged(
   detailTaskId: number,
-  beforeDetailSnapshot: DetailCardSnapshot | null
+  beforeDetailSnapshot: DetailCardSnapshot | null,
+  signal: AbortSignal
 ): Promise<void> {
   const afterDetailSnapshot = snapshotDetailCard(detailTaskId);
   if (didDetailCardChange(beforeDetailSnapshot, afterDetailSnapshot)) {
-    await refreshOpenDetailPanel(detailTaskId);
+    pendingDetailRefreshTaskId = detailTaskId;
+  }
+  if (pendingDetailRefreshTaskId === detailTaskId) {
+    const handled = await refreshOpenDetailPanel(detailTaskId, signal);
+    if (handled && !signal.aborted) pendingDetailRefreshTaskId = null;
   }
 }
 
@@ -257,64 +264,190 @@ function isEditingDetailPanel(): boolean {
   return false;
 }
 
-async function refreshOpenDetailPanel(detailTaskId: number): Promise<void> {
+async function refreshOpenDetailPanel(detailTaskId: number, signal: AbortSignal): Promise<boolean> {
   if (isEditingDetailPanel()) {
     if (_showUpdateWarning) _showUpdateWarning();
-    return;
+    return true;
   }
   if (_getDetailActiveTab && _getDetailActiveTab() === 'run-logs') {
-    return;
+    return true;
   }
   try {
-    const taskRes = await fetch('/api/tasks/' + detailTaskId);
-    if (taskRes.ok) {
-      const taskData = (await taskRes.json()) as TaskDetail;
-      if (_renderDetailPanel) _renderDetailPanel(taskData);
+    const taskRes = await fetch('/api/tasks/' + detailTaskId, { signal, cache: 'no-store' });
+    if (!taskRes.ok) return false;
+    const taskData = (await taskRes.json()) as TaskDetail;
+    if (signal.aborted || isBoardInteractionPending() || _getDetailTaskId?.() !== detailTaskId) return false;
+    if (_getDetailActiveTab?.() === 'run-logs') return true;
+    if (isEditingDetailPanel()) {
+      _showUpdateWarning?.();
+    } else {
+      _renderDetailPanel?.(taskData);
     }
+    return true;
   } catch {
     // Ignore network errors during detail panel refresh
+    return false;
   }
 }
 
-export async function refreshBoardCards(options?: RefreshBoardCardsOptions): Promise<void> {
+interface RefreshRequest {
+  suppressDetailRefresh: boolean;
+  suppressedTaskIds: Set<number>;
+  resolve: Array<() => void>;
+}
+
+let pendingRefresh: RefreshRequest | null = null;
+let refreshing = false;
+let refreshController: AbortController | null = null;
+let stopPolling: (() => void) | null = null;
+
+function isBoardInteractionPending(): boolean {
+  return draggedCard !== null || isPendingStatusUpdate;
+}
+
+function queueRefresh(request: RefreshRequest): void {
+  if (pendingRefresh === null) {
+    pendingRefresh = request;
+    return;
+  }
+  pendingRefresh.suppressDetailRefresh ||= request.suppressDetailRefresh;
+  request.suppressedTaskIds.forEach((id) => pendingRefresh!.suppressedTaskIds.add(id));
+  pendingRefresh.resolve.push(...request.resolve);
+}
+
+async function performRefresh(request: RefreshRequest, signal: AbortSignal): Promise<boolean> {
   const filterParams = buildFilterParams();
-  const url = '/api/board/cards' + (filterParams.toString() ? '?' + filterParams.toString() : '');
+  const filterKey = filterParams.toString();
+  const url = '/api/board/cards' + (filterKey ? '?' + filterKey : '');
+  const res = await fetch(url, { signal, cache: 'no-store' });
+  if (!res.ok || signal.aborted) return false;
+  const data = (await res.json()) as { columns: Array<{ status: string; html: string; count: number }> };
+
+  if (signal.aborted) return false;
+  // The response may have become obsolete while the fetch/body was pending.
+  if (isBoardInteractionPending() || filterKey !== buildFilterParams().toString()) return true;
+
+  const detailTaskId = _getDetailTaskId ? _getDetailTaskId() : null;
+  if (pendingDetailRefreshTaskId !== detailTaskId) pendingDetailRefreshTaskId = null;
+  const beforeDetailSnapshot = detailTaskId !== null ? snapshotDetailCard(detailTaskId) : null;
+
+  data.columns.forEach(updateColumnHtml);
+
+  // Re-apply active card indicator after DOM update
+  if (detailTaskId !== null && _setActiveCard) {
+    _setActiveCard(detailTaskId);
+  }
+
+  // Redraw dependency visualization if enabled
+  if (_redrawDependencies) {
+    _redrawDependencies();
+  }
+
+  const suppressDetailRefresh =
+    detailTaskId !== null &&
+    (request.suppressDetailRefresh || request.suppressedTaskIds.has(detailTaskId) || isDetailRefreshSuppressed());
+  if (detailTaskId !== null && !suppressDetailRefresh) {
+    await refreshDetailPanelIfCardChanged(detailTaskId, beforeDetailSnapshot, signal);
+  }
+  return !signal.aborted && isBoardInteractionPending();
+}
+
+async function flushPendingRefresh(): Promise<void> {
+  if (refreshing || isBoardInteractionPending()) return;
+  refreshing = true;
   try {
-    const res = await fetch(url);
-    if (!res.ok) return;
-    const data = (await res.json()) as { columns: Array<{ status: string; html: string; count: number }> };
-
-    const detailTaskId = _getDetailTaskId ? _getDetailTaskId() : null;
-    const beforeDetailSnapshot = detailTaskId !== null ? snapshotDetailCard(detailTaskId) : null;
-
-    data.columns.forEach(updateColumnHtml);
-
-    // Re-apply active card indicator after DOM update
-    if (detailTaskId !== null && _setActiveCard) {
-      _setActiveCard(detailTaskId);
+    while (pendingRefresh !== null && !isBoardInteractionPending()) {
+      const request = pendingRefresh;
+      pendingRefresh = null;
+      const controller = new AbortController();
+      refreshController = controller;
+      // Race the entire refresh (including JSON/detail) so even an unresponsive
+      // transport cannot hold the queue indefinitely after aborting.
+      const aborted = new Promise<false>((resolve) => {
+        controller.signal.addEventListener('abort', () => resolve(false), { once: true });
+      });
+      const timeout = setTimeout(() => controller.abort(), 5000);
+      let deferred = false;
+      try {
+        deferred = await Promise.race([performRefresh(request, controller.signal), aborted]);
+      } catch {
+        // Leave retries to a later notification/interval rather than spinning.
+      } finally {
+        clearTimeout(timeout);
+        refreshController = null;
+      }
+      if (deferred && !controller.signal.aborted) {
+        queueRefresh(request);
+      } else {
+        request.resolve.forEach((resolve) => resolve());
+      }
     }
-
-    // Redraw dependency visualization if enabled
-    if (_redrawDependencies) {
-      _redrawDependencies();
-    }
-
-    const suppressDetailRefresh =
-      detailTaskId !== null &&
-      (options?.suppressDetailRefresh === true ||
-        options?.suppressDetailRefreshForTaskId === detailTaskId ||
-        isDetailRefreshSuppressed());
-    if (detailTaskId !== null && !suppressDetailRefresh) {
-      await refreshDetailPanelIfCardChanged(detailTaskId, beforeDetailSnapshot);
-    }
-  } catch {
-    // Ignore network errors during card refresh
+  } finally {
+    refreshing = false;
   }
 }
 
-export function initBoardPolling(): void {
-  addBoardStreamListener('board-update', () => {
-    if (draggedCard !== null || isPendingStatusUpdate) return;
-    refreshBoardCards();
+export function refreshBoardCards(options?: RefreshBoardCardsOptions): Promise<void> {
+  return new Promise((resolve) => {
+    queueRefresh({
+      suppressDetailRefresh: options?.suppressDetailRefresh === true,
+      suppressedTaskIds: new Set(
+        options?.suppressDetailRefreshForTaskId === undefined ? [] : [options.suppressDetailRefreshForTaskId]
+      ),
+      resolve: [resolve],
+    });
+    void flushPendingRefresh();
   });
+}
+
+export function initBoardPolling(): () => void {
+  stopPolling?.();
+  let stopped = false;
+  let timer: ReturnType<typeof setInterval> | null = null;
+  const refresh = () => {
+    void refreshBoardCards();
+  };
+  const unsubscribe = addBoardStreamListener('board-update', refresh);
+  const unsubscribeIdle = addDragDropIdleListener(() => {
+    void flushPendingRefresh();
+  });
+
+  const updateVisibility = () => {
+    if (timer !== null) clearInterval(timer);
+    timer = null;
+    if (document.visibilityState === 'visible') {
+      refresh();
+      timer = setInterval(refresh, 2000);
+    }
+  };
+  if (document.visibilityState === 'visible') timer = setInterval(refresh, 2000);
+  document.addEventListener('visibilitychange', updateVisibility);
+
+  const cleanup = () => {
+    if (stopped) return;
+    stopped = true;
+    if (timer !== null) clearInterval(timer);
+    unsubscribe();
+    unsubscribeIdle();
+    document.removeEventListener('visibilitychange', updateVisibility);
+    window.removeEventListener('pagehide', onPageHide);
+    window.removeEventListener('pageshow', resume);
+    refreshController?.abort();
+    pendingRefresh?.resolve.forEach((resolve) => resolve());
+    pendingRefresh = null;
+    if (stopPolling === cleanup) stopPolling = null;
+  };
+  const resume = (event: PageTransitionEvent) => {
+    if (event.persisted) {
+      initBoardPolling();
+      refresh();
+    }
+  };
+  const onPageHide = (event: PageTransitionEvent) => {
+    cleanup();
+    if (event.persisted) window.addEventListener('pageshow', resume, { once: true });
+  };
+  window.addEventListener('pagehide', onPageHide);
+  stopPolling = cleanup;
+  return cleanup;
 }
