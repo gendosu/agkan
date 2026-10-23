@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### 変更
+- 開発用 Node.js の指定を 22.22.0 から 22.22.3 に更新し、22.22 系を維持した (#778)
+
 ## [3.30.0] - 2026-10-17
 
 ### 追加
