@@ -12,6 +12,22 @@ export function registerDependencyRedrawCallback(callback: () => void): void {
 export let draggedCard: HTMLElement | null = null;
 export let sourceBody: HTMLElement | null = null;
 export let isPendingStatusUpdate = false;
+let pendingStatusUpdates = 0;
+
+const idleListeners = new Set<() => void>();
+
+export function addDragDropIdleListener(listener: () => void): () => void {
+  idleListeners.add(listener);
+  return () => {
+    idleListeners.delete(listener);
+  };
+}
+
+function notifyIdle(): void {
+  if (draggedCard === null && !isPendingStatusUpdate) {
+    idleListeners.forEach((listener) => listener());
+  }
+}
 
 // Track mouse position and drag offset for virtual rect calculation
 let _dragMouseX = 0;
@@ -54,6 +70,7 @@ async function handleDrop(e: DragEvent, newStatus: string, colEl: HTMLElement): 
   updateCount(newStatus);
   updateCardButton(draggedCard as HTMLElement, newStatus);
 
+  pendingStatusUpdates++;
   isPendingStatusUpdate = true;
   try {
     const res = await fetch('/api/tasks/' + taskId, {
@@ -75,7 +92,9 @@ async function handleDrop(e: DragEvent, newStatus: string, colEl: HTMLElement): 
     }
     showToast();
   } finally {
-    isPendingStatusUpdate = false;
+    pendingStatusUpdates--;
+    isPendingStatusUpdate = pendingStatusUpdates > 0;
+    notifyIdle();
   }
 }
 
@@ -135,6 +154,7 @@ export function attachDragListeners(card: HTMLElement): void {
       cancelAnimationFrame(_redrawAnimationFrameId);
       _redrawAnimationFrameId = null;
     }
+    notifyIdle();
   });
 }
 

@@ -284,6 +284,51 @@ describe('initFilterBar', () => {
   });
 
   describe('tag dropdown', () => {
+    it('reloads tags on opening and preserves the selected filter', async () => {
+      const { allAvailableTags, loadAllTags } = await import('../../../src/board/client/tags');
+      let finish!: () => void;
+      vi.mocked(loadAllTags).mockImplementationOnce(
+        () =>
+          new Promise<void>((resolve) => {
+            finish = resolve;
+          })
+      );
+      activeFilters.tagIds = [1];
+      setupFilterBarDOM();
+      initFilterBar();
+      document.querySelector<HTMLButtonElement>('.filter-tag-add-btn')!.click();
+      allAvailableTags.push({ id: 7, name: 'new-cli-tag' });
+      finish();
+      await Promise.resolve();
+      expect(loadAllTags).toHaveBeenCalled();
+      const names = Array.from(
+        document.querySelectorAll('.filter-tag-dropdown-option'),
+        (option) => option.textContent
+      );
+      expect(names).toContain('new-cli-tag');
+      expect(names).not.toContain('bug');
+      expect(activeFilters.tagIds).toEqual([1]);
+      allAvailableTags.pop();
+    });
+
+    it('does not reopen a dropdown closed while tags were loading', async () => {
+      const { loadAllTags } = await import('../../../src/board/client/tags');
+      let finish!: () => void;
+      vi.mocked(loadAllTags).mockImplementationOnce(
+        () =>
+          new Promise<void>((resolve) => {
+            finish = resolve;
+          })
+      );
+      setupFilterBarDOM();
+      initFilterBar();
+      document.querySelector<HTMLButtonElement>('.filter-tag-add-btn')!.click();
+      document.body.click();
+      finish();
+      await Promise.resolve();
+      expect(document.querySelector('.filter-tag-dropdown')?.classList.contains('open')).toBe(false);
+    });
+
     it('opens dropdown listing available tags on add button click, and closes on second click', () => {
       setupFilterBarDOM();
       initFilterBar();
