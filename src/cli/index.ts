@@ -1,8 +1,7 @@
 #!/usr/bin/env node
 
 import { Command } from 'commander';
-import { readFileSync } from 'fs';
-import { join } from 'path';
+import { version } from '../../package.json';
 
 // Task command handlers
 import { setupTaskAddCommand } from './commands/task/add';
@@ -69,11 +68,8 @@ import { setupConfigGetCommand } from './commands/config/get';
 
 const program = new Command();
 
-// Load version from package.json
-const packageJson = JSON.parse(readFileSync(join(__dirname, '../../package.json'), 'utf8'));
-
 // Program basic information
-program.name('agkan').version(packageJson.version).description('TypeScript-based CLI task management tool');
+program.name('agkan').version(version).description('TypeScript-based CLI task management tool');
 
 // Create task command group
 program.command('task').description('Task management commands');

@@ -14,6 +14,7 @@
     "build": "tsc && node scripts/build-client.mjs && node scripts/build-hooks.mjs",
     "build:server": "tsc",
     "build:client": "node scripts/build-client.mjs",
+    "build:bun": "pnpm run build && bun --no-install scripts/build-bun-binary.mjs",
     "dev": "tsc --watch",
     "board": "pnpm run build && node dist/cli/index.js board",
     "start": "node dist/cli/index.js",
