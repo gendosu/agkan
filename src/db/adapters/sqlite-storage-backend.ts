@@ -1,11 +1,12 @@
 /**
  * SQLite Storage Backend
  *
- * Implements the StorageBackend interface using better-sqlite3.
+ * Implements the StorageBackend interface using the runtime's SQLite driver.
  * All SQL logic is encapsulated here, keeping services SQL-independent.
  */
 
-import Database from 'better-sqlite3';
+import type { SQLiteDatabase } from '../types/sqlite';
+import type Database from 'better-sqlite3';
 import type {
   TaskRepository,
   TagRepository,
@@ -41,7 +42,7 @@ import type {
 const PRIORITY_ORDER_EXPR = `CASE priority WHEN 'critical' THEN 4 WHEN 'high' THEN 3 WHEN 'medium' THEN 2 WHEN 'low' THEN 1 ELSE 0 END`;
 
 class SQLiteTaskRepository implements TaskRepository {
-  constructor(private db: Database.Database) {}
+  constructor(private db: SQLiteDatabase) {}
 
   // NOTE: Returns archived tasks intentionally.
   // Used by 'task get' to display archived task details.
@@ -287,7 +288,7 @@ class SQLiteTaskRepository implements TaskRepository {
 }
 
 class SQLiteTagRepository implements TagRepository {
-  constructor(private db: Database.Database) {}
+  constructor(private db: SQLiteDatabase) {}
 
   findById(id: number): Tag | null {
     const row = this.db.prepare('SELECT * FROM tags WHERE id = ?').get(id) as Tag | undefined;
@@ -322,7 +323,7 @@ class SQLiteTagRepository implements TagRepository {
 }
 
 class SQLiteTaskBlockRepository implements TaskBlockRepository {
-  constructor(private db: Database.Database) {}
+  constructor(private db: SQLiteDatabase) {}
 
   create(input: CreateTaskBlockInput & { created_at: string }): TaskBlock {
     const result = this.db
@@ -363,7 +364,7 @@ class SQLiteTaskBlockRepository implements TaskBlockRepository {
 }
 
 class SQLiteTaskTagRepository implements TaskTagRepository {
-  constructor(private db: Database.Database) {}
+  constructor(private db: SQLiteDatabase) {}
 
   create(input: CreateTaskTagInput & { created_at: string }): TaskTag {
     const result = this.db
@@ -444,7 +445,7 @@ class SQLiteTaskTagRepository implements TaskTagRepository {
 }
 
 class SQLiteMetadataRepository implements MetadataRepository {
-  constructor(private db: Database.Database) {}
+  constructor(private db: SQLiteDatabase) {}
 
   set(input: CreateTaskMetadataInput & { created_at: string; updated_at: string }): TaskMetadata {
     const existing = this.findByKey(input.task_id, input.key);
@@ -503,7 +504,7 @@ class SQLiteMetadataRepository implements MetadataRepository {
 }
 
 class SQLiteCommentRepository implements CommentRepository {
-  constructor(private db: Database.Database) {}
+  constructor(private db: SQLiteDatabase) {}
 
   create(input: CreateTaskCommentInput & { created_at: string; updated_at: string }): TaskComment {
     const result = this.db
@@ -565,7 +566,7 @@ class SQLiteCommentRepository implements CommentRepository {
 }
 
 class SQLiteRunLogRepository implements RunLogRepository {
-  constructor(private db: Database.Database) {}
+  constructor(private db: SQLiteDatabase) {}
 
   create(taskId: number, startedAt: string): number {
     const result = this.db
@@ -621,6 +622,7 @@ class SQLiteRunLogRepository implements RunLogRepository {
  * SQLite implementation of StorageBackend
  */
 export class SQLiteStorageBackend implements StorageBackend {
+  private db: SQLiteDatabase;
   readonly tasks: TaskRepository;
   readonly tags: TagRepository;
   readonly blocks: TaskBlockRepository;
@@ -629,14 +631,16 @@ export class SQLiteStorageBackend implements StorageBackend {
   readonly comments: CommentRepository;
   readonly runLogs: RunLogRepository;
 
-  constructor(private db: Database.Database) {
-    this.tasks = new SQLiteTaskRepository(db);
-    this.tags = new SQLiteTagRepository(db);
-    this.blocks = new SQLiteTaskBlockRepository(db);
-    this.taskTags = new SQLiteTaskTagRepository(db);
-    this.metadata = new SQLiteMetadataRepository(db);
-    this.comments = new SQLiteCommentRepository(db);
-    this.runLogs = new SQLiteRunLogRepository(db);
+  constructor(db: SQLiteDatabase | Database.Database) {
+    // Existing callers can still pass a native better-sqlite3 connection.
+    this.db = db as SQLiteDatabase;
+    this.tasks = new SQLiteTaskRepository(this.db);
+    this.tags = new SQLiteTagRepository(this.db);
+    this.blocks = new SQLiteTaskBlockRepository(this.db);
+    this.taskTags = new SQLiteTaskTagRepository(this.db);
+    this.metadata = new SQLiteMetadataRepository(this.db);
+    this.comments = new SQLiteCommentRepository(this.db);
+    this.runLogs = new SQLiteRunLogRepository(this.db);
   }
 
   transaction<T>(fn: () => T): T {

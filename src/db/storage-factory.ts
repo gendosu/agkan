@@ -6,7 +6,8 @@
  * backends (e.g., Notion, PostgreSQL, etc.).
  */
 
-import Database from 'better-sqlite3';
+import type { SQLiteDatabase } from './types/sqlite';
+import type Database from 'better-sqlite3';
 import { StorageProvider } from './types/storage';
 import { SQLiteAdapter } from './adapters/sqlite-adapter';
 
@@ -14,12 +15,12 @@ import { SQLiteAdapter } from './adapters/sqlite-adapter';
  * Get a storage provider instance
  *
  * Currently always returns a SQLiteAdapter wrapping the provided
- * better-sqlite3 database instance. In future, this could be extended
+ * SQLite driver instance. In future, this could be extended
  * to support multiple backend types.
  *
- * @param db - better-sqlite3 database instance
+ * @param db - SQLite driver instance
  * @returns StorageProvider instance
  */
-export function getStorageProvider(db: Database.Database): StorageProvider {
+export function getStorageProvider(db: SQLiteDatabase | Database.Database): StorageProvider {
   return new SQLiteAdapter(db);
 }

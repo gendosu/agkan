@@ -1,29 +1,28 @@
 /**
  * SQLite Adapter
  *
- * Implements the StorageProvider interface for better-sqlite3.
- * Wraps the native better-sqlite3 API to provide a consistent interface
+ * Implements the StorageProvider interface for the SQLite drivers.
+ * Wraps the SQLite API to provide a consistent interface
  * for the rest of the application.
  */
 
-import Database from 'better-sqlite3';
+import type { SQLiteDatabase, SQLiteStatement as DriverStatement } from '../types/sqlite';
+import type Database from 'better-sqlite3';
 import { StorageProvider, StorageStatement, StorageRunResult } from '../types/storage';
 
 /**
  * SQLite Statement Adapter
- * Wraps better-sqlite3 Statement to implement StorageStatement interface
+ * Wraps a driver statement to implement StorageStatement interface
  */
 class SQLiteStatement implements StorageStatement {
-  private stmt: Database.Statement;
+  private stmt: DriverStatement;
 
-  constructor(stmt: Database.Statement) {
+  constructor(stmt: DriverStatement) {
     this.stmt = stmt;
   }
 
   bind(...params: (string | number | null)[]): StorageStatement {
-    // Cast to any to access bind method not in the type definition
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (this.stmt as any).bind(...params);
+    this.stmt.bind(...params);
     return this;
   }
 
@@ -52,13 +51,14 @@ class SQLiteStatement implements StorageStatement {
 
 /**
  * SQLite Adapter
- * Implements StorageProvider interface for better-sqlite3 database
+ * Implements StorageProvider interface for SQLite databases
  */
 export class SQLiteAdapter implements StorageProvider {
-  private db: Database.Database;
+  private db: SQLiteDatabase;
 
-  constructor(db: Database.Database) {
-    this.db = db;
+  constructor(db: SQLiteDatabase | Database.Database) {
+    // The native driver's generic prepare() overload needs narrowing to the shared API.
+    this.db = db as SQLiteDatabase;
   }
 
   prepare(sql: string): StorageStatement {
