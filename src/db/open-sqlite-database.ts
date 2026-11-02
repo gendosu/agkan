@@ -64,6 +64,12 @@ class BunSQLiteDatabase implements SQLiteDatabase {
       Database: new (filename: string, options: { strict: boolean }) => BunDatabase;
     };
     this.db = new Database(filename, { strict: true });
+    try {
+      this.pragma('busy_timeout = 5000');
+    } catch (error) {
+      this.db.close();
+      throw error;
+    }
   }
 
   prepare(sql: string): SQLiteStatement {
@@ -97,7 +103,7 @@ export function openSQLiteDatabase(filename: string): SQLiteDatabase {
 
   // Loading the native Node driver under Bun crashes before it can be caught.
   const Database = loadDriver('better-sqlite3') as typeof import('better-sqlite3');
-  const db = new Database(filename);
+  const db = new Database(filename, { timeout: 5000 });
   return {
     prepare: (sql) => db.prepare<SQLiteBinding[]>(sql),
     exec: (sql) => {

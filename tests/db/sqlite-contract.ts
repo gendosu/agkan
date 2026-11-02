@@ -10,6 +10,14 @@ const taskInput = { title: 'SQLite検証', status: 'ready' as const, created_at:
 
 export const sqliteContractCases: Array<{ name: string; run: (db: SQLiteDatabase) => void }> = [
   {
+    name: 'sets a five-second busy timeout before initialization',
+    run(db) {
+      assert.deepEqual(db.pragma('busy_timeout'), [{ timeout: 5000 }]);
+      runMigrations(db);
+      assert.deepEqual(db.pragma('busy_timeout'), [{ timeout: 5000 }]);
+    },
+  },
+  {
     name: 'preserves prepared statement results, nulls, row IDs and change counts',
     run(db) {
       db.exec('CREATE TABLE sample (id INTEGER PRIMARY KEY, value TEXT, amount REAL)');

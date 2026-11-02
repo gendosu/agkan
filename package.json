@@ -23,6 +23,7 @@
     "test:all": "pnpm install && pnpm run build && pnpm run type-check && pnpm run lint && vitest run && pnpm run test:e2e",
     "test:errors": "vitest run --reporter=./tests/reporters/error-only.ts",
     "test:e2e": "./test-e2e.sh",
+    "verify:bun-sqlite": "pnpm run build:server && bun --no-install scripts/verify-bun-sqlite.mjs",
     "lint": "eslint src tests vitest.config.ts",
     "lint:fix": "eslint src tests vitest.config.ts --fix",
     "format": "prettier --write \"src/**/*.ts\" \"tests/**/*.ts\"",
