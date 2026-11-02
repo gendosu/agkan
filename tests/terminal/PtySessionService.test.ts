@@ -766,12 +766,12 @@ describe('PtySessionService - model/effort/boardApiUrl args', () => {
     expect(spawnMock.mock.calls[0][2]).toMatchObject({ cols: 220, rows: 50 });
   });
 
-  it('spawns new sessions at the last browser width while keeping 50 rows', async () => {
+  it('spawns new sessions at the last browser size', async () => {
     const svc = new PtySessionService();
     await svc.startProcess(1, 'prompt', 'run');
-    svc.resize(1, 62, 66);
+    svc.resize(1, 62, 39);
     await svc.startProcess(2, 'prompt', 'run');
-    expect(spawnMock.mock.calls[1][2]).toMatchObject({ cols: 62, rows: 50 });
+    expect(spawnMock.mock.calls[1][2]).toMatchObject({ cols: 62, rows: 39 });
   });
 
   it('remembers the browser width even when the resized session is gone', async () => {
@@ -787,6 +787,14 @@ describe('PtySessionService - model/effort/boardApiUrl args', () => {
     svc.resize(99, cols, 50);
     await svc.startProcess(1, 'prompt', 'run');
     expect(spawnMock.mock.calls[0][2]).toMatchObject({ cols: 62 });
+  });
+
+  it.each([0, 4, 301, 39.5, Number.NaN])('ignores an implausible browser height of %s', async (rows) => {
+    const svc = new PtySessionService();
+    svc.resize(99, 62, 39);
+    svc.resize(99, 62, rows);
+    await svc.startProcess(1, 'prompt', 'run');
+    expect(spawnMock.mock.calls[0][2]).toMatchObject({ rows: 39 });
   });
 
   it('passes --model and --effort to spawn when provided', async () => {
