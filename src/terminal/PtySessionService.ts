@@ -1,4 +1,4 @@
-import * as pty from 'node-pty';
+import { spawnPty, type PtyProcess } from './spawnPty';
 import { execSync, execFileSync } from 'child_process';
 import { constants } from 'os';
 import type { StorageBackend, RunLogRow } from '../db/types/repository';
@@ -119,7 +119,7 @@ interface SessionInfo {
   taskId: number;
   command: string;
   agent: AgentTool;
-  ptyProcess: pty.IPty;
+  ptyProcess: PtyProcess;
   startedAt: Date;
   outputBuffer: string;
   totalOutputLength: number;
@@ -454,7 +454,7 @@ export class PtySessionService {
     this.grokHooksConfigDir = options?.grokHooksConfigDir ?? null;
     // Self-heal node-pty's spawn-helper permissions so pty.spawn() cannot fail
     // with "posix_spawnp failed." when the prebuilt binary lost its execute bit.
-    ensureSpawnHelperExecutable();
+    if (!process.versions.bun) ensureSpawnHelperExecutable();
   }
 
   setBoardApiUrl(url: string): void {
@@ -581,9 +581,9 @@ export class PtySessionService {
 
     const agentBin =
       agent === 'codex' ? CODEX_BIN : agent === 'agy' ? AGY_BIN : agent === 'grok' ? GROK_BIN : CLAUDE_BIN;
-    let ptyProcess: pty.IPty;
+    let ptyProcess: PtyProcess;
     try {
-      ptyProcess = pty.spawn(agentBin, args, {
+      ptyProcess = spawnPty(agentBin, args, {
         name: 'xterm-256color',
         cols: this.lastClientCols ?? DEFAULT_PTY_COLS,
         rows: DEFAULT_PTY_ROWS,
