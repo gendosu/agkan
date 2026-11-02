@@ -52,3 +52,11 @@ export class CodexAutoReviewUnavailableError extends AgkanError {
     this.name = 'CodexAutoReviewUnavailableError';
   }
 }
+
+/** A session must not launch without a persistent run-log row. */
+export class RunLogCreationError extends AgkanError {
+  constructor(taskId: number) {
+    super(`Could not create a run log for taskId ${taskId}. See server diagnostics.`);
+    this.name = 'RunLogCreationError';
+  }
+}

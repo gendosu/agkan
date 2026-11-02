@@ -3,13 +3,14 @@ import { execSync, execFileSync } from 'child_process';
 import { constants } from 'os';
 import type { StorageBackend, RunLogRow } from '../db/types/repository';
 import type { RunLog, OutputEvent as ClaudeOutputEvent, CompletionConfirmCallback } from '../services/types';
-import { ConflictError, CodexAutoReviewUnavailableError } from '../errors';
+import { ConflictError, CodexAutoReviewUnavailableError, RunLogCreationError } from '../errors';
 import { ensureBoardHookSettings } from '../hooks/claudeHookSettings';
 import { buildCodexNotifyArgs } from '../hooks/codexNotifyArgs';
 import { ensureAgyHookSettings } from '../hooks/agyHookSettings';
 import { ensureGrokHookSettings } from '../hooks/grokHookSettings';
 import { buildHookEnv } from './buildHookEnv';
 import { ensureSpawnHelperExecutable } from './ensureSpawnHelperExecutable';
+import { RunLogWriter, logRunLogError } from './RunLogWriter';
 import { AttentionStateService } from '../services/AttentionStateService';
 import {
   loadConfig,
@@ -134,7 +135,9 @@ interface SessionInfo {
   enterWatchdogTimer: ReturnType<typeof setTimeout> | null;
   deferredHookStopTimer: ReturnType<typeof setTimeout> | null;
   workspaceTrustHandled: boolean;
-  lastEventsUpdate: number;
+  writer: RunLogWriter | null;
+  doneEvent: OutputEvent | null;
+  lifetime: { superseded: boolean; exited: boolean };
   stopOrigin: 'user' | 'hook' | null;
 }
 
@@ -431,7 +434,17 @@ export interface PtySessionServiceOptions {
 
 export class PtySessionService {
   private sessions: Map<number, SessionInfo> = new Map();
-  private completedSnapshots: Map<number, string> = new Map();
+  private completedSnapshots = new Map<
+    number,
+    {
+      output: string;
+      event: OutputEvent;
+      updates: Set<() => void>;
+      lifetime: SessionInfo['lifetime'];
+    }
+  >();
+  private pendingFinalWrites = new Map<number, RunLogWriter>();
+  private disposed = false;
   // Output printed before the terminal attaches (or while its tab is hidden) is laid out at the
   // PTY's width and never reflowed, so new sessions start at the width the browser last used.
   private lastClientCols: number | null = null;
@@ -479,7 +492,9 @@ export class PtySessionService {
   }
 
   notifyCompletionConfirm(taskId: number, targetStatus: string): void {
-    this.completionConfirmSubscribers.forEach((cb) => cb(taskId, targetStatus));
+    this.completionConfirmSubscribers.forEach((cb) =>
+      this.callSubscriber('completion-confirm', () => cb(taskId, targetStatus), taskId)
+    );
   }
 
   isUserStopped(taskId: number): boolean {
@@ -496,7 +511,83 @@ export class PtySessionService {
   }
 
   private notifyRunningTasksChange(): void {
-    this.runningTasksChangeSubscribers.forEach((cb) => cb());
+    this.runningTasksChangeSubscribers.forEach((cb) => this.callSubscriber('running-change', cb));
+  }
+
+  private callSubscriber(operation: string, callback: () => void, taskId = 0, runLogId: number | null = null): void {
+    try {
+      callback();
+    } catch (error) {
+      logRunLogError(taskId, runLogId, operation, error);
+    }
+  }
+
+  private notifyOutputUpdate(info: SessionInfo): void {
+    info.outputUpdateSubscribers.forEach((cb) => this.callSubscriber('output-update', cb, info.taskId, info.runLogId));
+  }
+
+  private emitDone(info: SessionInfo, event: OutputEvent): void {
+    if (info.doneEvent) return;
+    info.doneEvent = event;
+    info.exitSubscribers.forEach((cb) => this.callSubscriber('done', () => cb(event), info.taskId, info.runLogId));
+    info.exitSubscribers.clear();
+  }
+
+  private finishRunLog(writer: RunLogWriter, finishedAt: string, code: number, events: string): void {
+    if (this.disposed) {
+      writer.cancel();
+      return;
+    }
+    this.pendingFinalWrites.set(writer.runLogId, writer);
+    if (this.pendingFinalWrites.size > MAX_COMPLETED_SNAPSHOTS) {
+      const oldest = this.pendingFinalWrites.values().next().value!;
+      oldest.cancel();
+      this.pendingFinalWrites.delete(oldest.runLogId);
+      logRunLogError(oldest.taskId, oldest.runLogId, 'updateFinished', null, 0, 'evicted');
+    }
+    writer.finish(finishedAt, code, events);
+  }
+
+  private pruneRunLogs(taskId: number, runLogId: number): void {
+    if (!this.db) return;
+    try {
+      const ids = this.db.runLogs.findIdsByTaskId(taskId);
+      const removable = ids.slice(5).filter((id) => !this.pendingFinalWrites.has(id));
+      if (removable.length) this.db.runLogs.deleteMany(removable);
+    } catch (error) {
+      logRunLogError(taskId, runLogId, 'prune', error);
+    }
+  }
+
+  dispose(): void {
+    this.disposed = true;
+    for (const writer of this.pendingFinalWrites.values()) {
+      writer.cancel();
+      logRunLogError(writer.taskId, writer.runLogId, 'updateFinished', null, 0, 'shutdown');
+    }
+    this.pendingFinalWrites.clear();
+    for (const info of this.sessions.values()) info.writer?.cancel();
+    this.completedSnapshots.clear();
+  }
+
+  private rememberCompletion(info: SessionInfo, code: number): void {
+    if (info.lifetime.superseded || this.disposed) return;
+    this.completedSnapshots.delete(info.taskId);
+    this.completedSnapshots.set(info.taskId, {
+      output: info.outputBuffer,
+      event: { kind: 'done', exitCode: code },
+      updates: info.outputUpdateSubscribers,
+      lifetime: info.lifetime,
+    });
+    if (this.completedSnapshots.size > MAX_COMPLETED_SNAPSHOTS) {
+      const firstKey = this.completedSnapshots.keys().next().value!;
+      this.completedSnapshots.get(firstKey)!.lifetime.superseded = true;
+      this.completedSnapshots.delete(firstKey);
+      if (!this.sessions.has(firstKey)) {
+        this.userStoppedTasks.delete(firstKey);
+        this.explicitUserStopTasks.delete(firstKey);
+      }
+    }
   }
 
   // Claude Code's TUI treats fast consecutive writes as a paste, which can absorb the
@@ -544,6 +635,7 @@ export class PtySessionService {
     effort?: string,
     agentOverride?: AgentTool
   ): Promise<void> {
+    if (this.disposed) throw new Error('PTY service is disposed');
     if (this.sessions.has(taskId)) {
       throw new ConflictError(`Process for taskId ${taskId} is already running`);
     }
@@ -584,6 +676,16 @@ export class PtySessionService {
 
     const agentBin =
       agent === 'codex' ? CODEX_BIN : agent === 'agy' ? AGY_BIN : agent === 'grok' ? GROK_BIN : CLAUDE_BIN;
+    const startedAt = new Date();
+    let runLogId: number | null = null;
+    if (this.db) {
+      try {
+        runLogId = this.db.runLogs.create(taskId, startedAt.toISOString());
+      } catch (error) {
+        logRunLogError(taskId, null, 'create', error);
+        throw new RunLogCreationError(taskId);
+      }
+    }
     let ptyProcess: PtyProcess;
     try {
       ptyProcess = spawnPty(agentBin, args, {
@@ -602,6 +704,25 @@ export class PtySessionService {
       console.error(
         `[pty][spawn-error] taskId=${taskId} command=${command} agent=${agent} bin=${agentBin} error=${e instanceof Error ? e.message : String(e)}`
       );
+      if (this.db && runLogId !== null) {
+        const writer = new RunLogWriter(
+          taskId,
+          runLogId,
+          this.db.runLogs,
+          () => '[]',
+          () => {},
+          (saved) => {
+            this.pendingFinalWrites.delete(runLogId!);
+            if (saved) this.pruneRunLogs(taskId, runLogId!);
+          }
+        );
+        this.finishRunLog(
+          writer,
+          new Date().toISOString(),
+          1,
+          JSON.stringify([{ kind: 'text', text: '[spawn-error]' }])
+        );
+      }
       throw e;
     }
 
@@ -614,28 +735,44 @@ export class PtySessionService {
       command,
       agent,
       ptyProcess,
-      startedAt: new Date(),
+      startedAt,
       outputBuffer: '',
       totalOutputLength: 0,
       exitSubscribers: new Set(),
       rawOutputSubscribers: new Set(),
       outputUpdateSubscribers: new Set(),
-      runLogId: null,
+      runLogId,
       pendingPrompt: agent === 'claude' ? prompt : null,
       promptTimer: null,
       enterWatchdogTimer: null,
       deferredHookStopTimer: null,
       workspaceTrustHandled: false,
-      lastEventsUpdate: 0,
+      writer: null,
+      doneEvent: null,
+      lifetime: { superseded: false, exited: false },
       stopOrigin: null,
     };
 
-    this.sessions.set(taskId, info);
-    this.notifyRunningTasksChange();
-
-    if (this.db) {
-      info.runLogId = this.db.runLogs.create(taskId, info.startedAt.toISOString());
+    if (this.db && runLogId !== null) {
+      info.writer = new RunLogWriter(
+        taskId,
+        runLogId,
+        this.db.runLogs,
+        () => JSON.stringify([{ kind: 'text', text: stripAnsi(info.outputBuffer) }]),
+        () => this.notifyOutputUpdate(info),
+        (saved) => {
+          this.pendingFinalWrites.delete(runLogId);
+          if (saved) this.pruneRunLogs(taskId, runLogId);
+          info.outputUpdateSubscribers.clear();
+        }
+      );
     }
+    const previous = this.completedSnapshots.get(taskId);
+    if (previous) previous.lifetime.superseded = true;
+    this.completedSnapshots.delete(taskId);
+    this.userStoppedTasks.delete(taskId);
+    this.explicitUserStopTasks.delete(taskId);
+    this.sessions.set(taskId, info);
 
     // Claude starts without a positional prompt, so inject it once the TUI is
     // ready. Codex receives the prompt as its final CLI argument.
@@ -657,6 +794,9 @@ export class PtySessionService {
     }
 
     ptyProcess.onData((data: string) => {
+      if (info.lifetime.superseded || info.lifetime.exited) return;
+      const current = this.sessions.get(taskId);
+      if (current && current !== info) return;
       info.outputBuffer += data;
       info.totalOutputLength += data.length;
       if (info.outputBuffer.length > MAX_SNAPSHOT_BYTES) {
@@ -691,19 +831,13 @@ export class PtySessionService {
         }, 500);
       }
 
-      info.rawOutputSubscribers.forEach((cb) => cb(data));
-
-      // Throttle: persist current output snapshot as events every 2 seconds
-      const now = Date.now();
-      if (this.db && info.runLogId && now - info.lastEventsUpdate > 2000) {
-        info.lastEventsUpdate = now;
-        const cleanText = stripAnsi(info.outputBuffer);
-        this.db.runLogs.updateEvents(info.runLogId, JSON.stringify([{ kind: 'text', text: cleanText }]));
-        info.outputUpdateSubscribers.forEach((cb) => cb());
-      }
+      info.rawOutputSubscribers.forEach((cb) => this.callSubscriber('raw-output', () => cb(data), taskId, runLogId));
+      info.writer?.update();
     });
 
     ptyProcess.onExit(({ exitCode, signal }) => {
+      if (info.lifetime.exited) return;
+      info.lifetime.exited = true;
       // node-pty can report exitCode=0 even when the process died from a signal.
       // A requested stop is intentional; an unsolicited signal must not look successful.
       const code = info.stopOrigin !== null ? 0 : signal ? 128 + signal : (exitCode ?? 1);
@@ -729,44 +863,39 @@ export class PtySessionService {
       }
       info.pendingPrompt = null;
 
-      if (this.db && info.runLogId) {
+      const current = this.sessions.get(taskId);
+      if (!current || current === info) {
+        this.rememberCompletion(info, code);
+      }
+
+      if (info.writer) {
         const finishedAt = new Date().toISOString();
         const cleanText = stripAnsi(info.outputBuffer);
         const events = JSON.stringify([
           { kind: 'text', text: cleanText },
           { kind: 'text', text: `\n${summary}\n` },
         ]);
-        this.db.runLogs.updateFinished(info.runLogId, finishedAt, code, events);
-        const ids = this.db.runLogs.findIdsByTaskId(taskId);
-        if (ids.length > 5) {
-          this.db.runLogs.deleteMany(ids.slice(5));
-        }
+        this.finishRunLog(info.writer, finishedAt, code, events);
       }
-
-      this.completedSnapshots.set(taskId, info.outputBuffer);
-      if (this.completedSnapshots.size > MAX_COMPLETED_SNAPSHOTS) {
-        const firstKey = this.completedSnapshots.keys().next().value!;
-        this.completedSnapshots.delete(firstKey);
-      }
-
-      info.outputUpdateSubscribers.forEach((cb) => cb());
-      info.outputUpdateSubscribers.clear();
+      this.notifyOutputUpdate(info);
 
       const doneEvent: OutputEvent = { kind: 'done', exitCode: code };
       console.error(
         `[diag][done-emit] taskId=${taskId} exitCode=${code} exitSubscribers=${info.exitSubscribers.size} at=${new Date().toISOString()}`
       );
-      info.exitSubscribers.forEach((cb) => cb(doneEvent));
-
-      this.attentionStateService?.clearTask(taskId);
+      this.emitDone(info, doneEvent);
 
       if (this.sessions.get(taskId) === info) {
         this.sessions.delete(taskId);
+        this.callSubscriber('clear-attention', () => this.attentionStateService?.clearTask(taskId), taskId, runLogId);
         this.notifyRunningTasksChange();
       }
-      this.userStoppedTasks.delete(taskId);
-      this.explicitUserStopTasks.delete(taskId);
+      if (!info.lifetime.superseded && !this.sessions.has(taskId)) {
+        this.userStoppedTasks.delete(taskId);
+        this.explicitUserStopTasks.delete(taskId);
+      }
     });
+    this.notifyRunningTasksChange();
   }
 
   stopProcess(taskId: number, origin: 'user' | 'hook' = 'user'): boolean {
@@ -798,12 +927,20 @@ export class PtySessionService {
     }
     // Notify subscribers before clearing so they can advance (e.g. BulkRunService.runNext()).
     const doneEvent: OutputEvent = { kind: 'done', exitCode: 0 };
-    info.exitSubscribers.forEach((cb) => cb(doneEvent));
-    info.exitSubscribers.clear();
+    this.rememberCompletion(info, 0);
+    info.writer?.pause();
+    this.emitDone(info, doneEvent);
     info.ptyProcess.kill('SIGHUP');
-    this.sessions.delete(taskId);
-    this.attentionStateService?.clearTask(taskId);
-    this.notifyRunningTasksChange();
+    if (this.sessions.get(taskId) === info) {
+      this.sessions.delete(taskId);
+      this.callSubscriber(
+        'clear-attention',
+        () => this.attentionStateService?.clearTask(taskId),
+        taskId,
+        info.runLogId
+      );
+      this.notifyRunningTasksChange();
+    }
     return true;
   }
 
@@ -891,22 +1028,45 @@ export class PtySessionService {
   }
 
   getSnapshot(taskId: number): string {
-    return this.sessions.get(taskId)?.outputBuffer ?? this.completedSnapshots.get(taskId) ?? '';
+    return this.sessions.get(taskId)?.outputBuffer ?? this.completedSnapshots.get(taskId)?.output ?? '';
   }
 
   subscribeOutput(taskId: number, callback: SubscribeCallback): () => void {
     const info = this.sessions.get(taskId);
     if (!info) {
+      const completed = this.completedSnapshots.get(taskId);
+      if (completed) {
+        this.callSubscriber('done-late', () => callback(completed.event), taskId);
+        return () => {};
+      }
       if (this.db) {
-        const row = this.db.runLogs.findLatestByTaskId(taskId);
-        if (row) {
-          callback({ kind: 'done', exitCode: row.exit_code ?? 0 });
+        try {
+          const row = this.db.runLogs.findLatestByTaskId(taskId);
+          if (row?.finished_at) {
+            this.callSubscriber('done-late', () => callback({ kind: 'done', exitCode: row.exit_code ?? 0 }), taskId);
+            return () => {};
+          }
+        } catch (error) {
+          logRunLogError(taskId, null, 'findLatestByTaskId', error);
+          this.callSubscriber(
+            'done-late',
+            () => callback({ kind: 'error', message: `Run log unavailable for taskId ${taskId}` }),
+            taskId
+          );
           return () => {};
         }
       }
       // Session not found and no run log: process may have exited before subscription.
       // Notify caller immediately so the caller can advance to the next action.
-      callback({ kind: 'error', message: `No session or run log found for taskId ${taskId}` });
+      this.callSubscriber(
+        'done-late',
+        () => callback({ kind: 'error', message: `No session or run log found for taskId ${taskId}` }),
+        taskId
+      );
+      return () => {};
+    }
+    if (info.doneEvent) {
+      this.callSubscriber('done-late', () => callback(info.doneEvent!), taskId, info.runLogId);
       return () => {};
     }
     info.exitSubscribers.add(callback);
@@ -918,11 +1078,20 @@ export class PtySessionService {
   subscribeOutputUpdate(taskId: number, callback: () => void): () => void {
     const info = this.sessions.get(taskId);
     if (!info) {
+      const completed = this.completedSnapshots.get(taskId);
+      if (completed) {
+        completed.updates.add(callback);
+        this.callSubscriber('output-update-late', callback, taskId);
+        return () => {
+          completed.updates.delete(callback);
+        };
+      }
       if (this.db) {
-        const row = this.db.runLogs.findLatestByTaskId(taskId);
-        if (row?.finished_at) {
-          callback();
-          return () => {};
+        try {
+          const row = this.db.runLogs.findLatestByTaskId(taskId);
+          if (row?.finished_at) this.callSubscriber('output-update-late', callback, taskId);
+        } catch (error) {
+          logRunLogError(taskId, null, 'findLatestByTaskId', error);
         }
       }
       return () => {};

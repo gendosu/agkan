@@ -47,6 +47,61 @@ beforeEach(() => {
   resetDatabase();
 });
 
+describe('BulkRunService database failures', () => {
+  it.each(['getTask', 'updateTask'] as const)('stops with an error when completion %s fails', async (operation) => {
+    const ts = new TaskService(getStorageBackend());
+    const task = ts.createTask({ title: 'busy completion', status: 'ready' });
+    let callback: OutputCallback | undefined;
+    const pty = buildMockPty({
+      subscribeOutput: vi.fn((_id, cb) => {
+        callback = cb;
+        return () => {};
+      }),
+    });
+    const service = new BulkRunService(ts, new TaskBlockService(getStorageBackend()), pty);
+    await service.start('direct');
+    const failure = vi.spyOn(ts, operation).mockImplementation(() => {
+      throw Object.assign(new Error('database is locked'), { code: 'SQLITE_BUSY' });
+    });
+    try {
+      expect(() => callback?.({ kind: 'done', exitCode: 0 })).not.toThrow();
+      expect(service.getStatus()).toEqual({
+        mode: 'idle',
+        command: null,
+        error: expect.stringContaining('bulk-completion'),
+      });
+      expect(pty.startProcess).toHaveBeenCalledTimes(1);
+    } finally {
+      failure.mockRestore();
+      service.stop();
+    }
+    expect(ts.getTask(task.id)?.status).toBe('ready');
+  });
+
+  it('contains asynchronous task-selection failures and subscriber failures', async () => {
+    const ts = new TaskService(getStorageBackend());
+    const service = new BulkRunService(ts, new TaskBlockService(getStorageBackend()), buildMockPty());
+    const failure = vi.spyOn(ts, 'listTasks').mockImplementation(() => {
+      throw Object.assign(new Error('database is locked'), { code: 'SQLITE_BUSY' });
+    });
+    service.subscribeStateChange(() => {
+      throw new Error('subscriber failed');
+    });
+    const state = vi.fn();
+    service.subscribeStateChange(state);
+    try {
+      await service.start('direct');
+      await Promise.resolve();
+      expect(service.getStatus().mode).toBe('idle');
+      expect(service.getStatus().error).toContain('bulk-next-task');
+      expect(state).toHaveBeenLastCalledWith(expect.objectContaining({ mode: 'idle' }));
+    } finally {
+      failure.mockRestore();
+      service.stop();
+    }
+  });
+});
+
 describe('BulkRunService task selection', () => {
   it('selects highest priority ready task with no blockers', async () => {
     const db = getStorageBackend();
