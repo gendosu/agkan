@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 - Keep the Board in sync with CLI/AI task creation, tag changes, and status changes even when update notifications are missed. Visible tabs reconcile every two seconds, retry after failed or timed-out requests, and apply queued updates after dragging and status saving finish. Reload tag filter options when opening the dropdown (#777)
+- Start new Board terminal sessions at the height the browser last reported, not 50 rows, so Codex 0.166.0 no longer panics with "index outside of buffer" when the browser shrinks its initial layout. The first session after the Board starts still uses 50 rows (#773)
 
 ## [3.30.0] - 2026-10-17
 
