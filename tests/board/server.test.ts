@@ -3,6 +3,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { EventEmitter } from 'node:events';
 import fs from 'fs';
 import path from 'path';
 import { homedir } from 'os';
@@ -19,9 +20,10 @@ import { DETAIL_PANE_MAX_WIDTH } from '../../src/board/boardConfig';
 import { serve } from '@hono/node-server';
 import { createTerminalWsServer } from '../../src/terminal/wsTerminalServer';
 
-const { ptyConstructorCalls, setBoardApiUrlMock } = vi.hoisted(() => ({
+const { ptyConstructorCalls, setBoardApiUrlMock, disposeMock } = vi.hoisted(() => ({
   ptyConstructorCalls: [] as Array<{ db: unknown; options: Record<string, unknown> }>,
   setBoardApiUrlMock: vi.fn(),
+  disposeMock: vi.fn(),
 }));
 
 vi.mock('@hono/node-server', () => ({
@@ -39,6 +41,7 @@ vi.mock('../../src/terminal/PtySessionService', () => ({
     }
     setBoardApiUrl = setBoardApiUrlMock;
     stopProcess = vi.fn();
+    dispose = disposeMock;
   },
 }));
 
@@ -2597,6 +2600,7 @@ describe('createBoardApp', () => {
 
 describe('startBoardServer', () => {
   const originalDataDir = process.env.AGKAN_DATA_DIR;
+  let fakeServer: EventEmitter;
   let fakeServerOn: ReturnType<typeof vi.fn>;
   let handleUpgradeMock: ReturnType<typeof vi.fn>;
   let consoleLogSpy: ReturnType<typeof vi.spyOn>;
@@ -2615,7 +2619,8 @@ describe('startBoardServer', () => {
     handleUpgradeMock = vi.fn();
     vi.mocked(createTerminalWsServer).mockReturnValue({ handleUpgrade: handleUpgradeMock });
 
-    fakeServerOn = vi.fn();
+    fakeServer = new EventEmitter();
+    fakeServerOn = vi.spyOn(fakeServer, 'on');
     vi.mocked(serve).mockImplementation((_options, listeningListener) => {
       // Real @hono/node-server invokes the listener asynchronously once the
       // underlying http.Server emits 'listening', i.e. after `serve()` has
@@ -2623,7 +2628,7 @@ describe('startBoardServer', () => {
       // via microtask so startBoardServer's closure over `server` isn't in
       // the temporal dead zone when the listener runs.
       queueMicrotask(() => listeningListener?.({ port: 4321 } as never));
-      return { on: fakeServerOn } as never;
+      return fakeServer as never;
     });
 
     consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined);
@@ -2666,6 +2671,18 @@ describe('startBoardServer', () => {
     await Promise.resolve();
 
     expect(fakeServerOn).toHaveBeenCalledWith('upgrade', expect.any(Function));
+  });
+
+  it('should dispose the PTY service once when the server closes', async () => {
+    startBoardServer(4321);
+    await Promise.resolve();
+
+    expect(disposeMock).not.toHaveBeenCalled();
+
+    fakeServer.emit('close');
+    fakeServer.emit('close');
+
+    expect(disposeMock).toHaveBeenCalledTimes(1);
   });
 
   it('should call handleUpgrade when the request url starts with /api/terminal/', async () => {
