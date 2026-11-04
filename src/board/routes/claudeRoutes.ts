@@ -66,7 +66,8 @@ export function registerClaudeRoutes(
 
     if (command === 'pr' || command === 'run') {
       const targetStatus = runTargetStatus(command) ?? 'done';
-      const unsubscribe = claudeProcess.subscribeOutput(taskId, (evt) => {
+      let unsubscribe: (() => void) | undefined;
+      unsubscribe = claudeProcess.subscribeOutput(taskId, (evt) => {
         if (evt.kind === 'done' || evt.kind === 'error') {
           console.error(
             `[diag][boardRoutes.subscribe] taskId=${taskId} command=${command} evt=${JSON.stringify(evt)} userStopped=${claudeProcess.isUserStopped(taskId)} at=${new Date().toISOString()}`
@@ -80,13 +81,14 @@ export function registerClaudeRoutes(
           }
         }
         if (evt.kind === 'done' || evt.kind === 'error') {
-          unsubscribe();
+          unsubscribe?.();
         }
       });
     } else if (command === 'planning') {
-      const unsubscribe = claudeProcess.subscribeOutput(taskId, (evt) => {
+      let unsubscribe: (() => void) | undefined;
+      unsubscribe = claudeProcess.subscribeOutput(taskId, (evt) => {
         if (evt.kind === 'done' || evt.kind === 'error') {
-          unsubscribe();
+          unsubscribe?.();
         }
       });
     }

@@ -105,4 +105,5 @@ export function startBoardServer(port: number, boardTitle?: string): void {
       }
     });
   }) as Server;
+  server.once('close', () => ptyService.dispose());
 }

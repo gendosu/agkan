@@ -11,7 +11,7 @@
  * a uniform API to the application layer.
  *
  * ## Implementation: SQLiteAdapter
- * The current implementation uses SQLiteAdapter which wraps better-sqlite3
+ * The current implementation uses SQLiteAdapter which wraps the runtime's SQLite driver
  * and translates its API to match this interface.
  *
  * ## Usage
@@ -201,7 +201,7 @@ export interface StorageStatement {
  *     ↓
  * SQLiteAdapter (or other implementations)
  *     ↓
- * better-sqlite3 (or other database library)
+ * better-sqlite3 / bun:sqlite (or other database library)
  * ```
  *
  * ## Getting a Provider

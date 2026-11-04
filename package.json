@@ -14,6 +14,8 @@
     "build": "tsc && node scripts/build-client.mjs && node scripts/build-hooks.mjs",
     "build:server": "tsc",
     "build:client": "node scripts/build-client.mjs",
+    "build:bun": "pnpm run build && bun --no-install scripts/build-bun-binary.mjs",
+    "install:bun": "pnpm run build:bun && node scripts/install-bun-binary.mjs",
     "dev": "tsc --watch",
     "board": "pnpm run build && node dist/cli/index.js board",
     "start": "node dist/cli/index.js",
@@ -21,6 +23,8 @@
     "test:all": "pnpm install && pnpm run build && pnpm run type-check && pnpm run lint && vitest run && pnpm run test:e2e",
     "test:errors": "vitest run --reporter=./tests/reporters/error-only.ts",
     "test:e2e": "./test-e2e.sh",
+    "verify:bun-sqlite": "pnpm run build:server && bun --no-install scripts/verify-bun-sqlite.mjs",
+    "verify:bun-binary": "node scripts/verify-bun-binary.mjs",
     "lint": "eslint src tests vitest.config.ts",
     "lint:fix": "eslint src tests vitest.config.ts --fix",
     "format": "prettier --write \"src/**/*.ts\" \"tests/**/*.ts\"",
@@ -67,6 +71,7 @@
   "pnpm": {
     "onlyBuiltDependencies": [
       "better-sqlite3",
+      "bun",
       "esbuild",
       "node-pty"
     ]
@@ -81,6 +86,7 @@
     "@vitest/coverage-v8": "^4.0.18",
     "@xterm/addon-fit": "^0.11.0",
     "@xterm/xterm": "^6.0.0",
+    "bun": "1.4.0",
     "esbuild": "^0.27.4",
     "eslint": "^10.0.1",
     "eslint-config-prettier": "^10.1.8",

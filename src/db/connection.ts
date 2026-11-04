@@ -1,4 +1,5 @@
-import Database from 'better-sqlite3';
+import { openSQLiteDatabase } from './open-sqlite-database';
+import type { SQLiteDatabase } from './types/sqlite';
 import path from 'path';
 import fs from 'fs';
 import { resolveDatabasePath } from './config';
@@ -14,7 +15,7 @@ import { SQLiteStorageBackend } from './adapters/sqlite-storage-backend';
 export class DatabaseConnection {
   private static instance: StorageProvider | null = null;
   private static backendInstance: StorageBackend | null = null;
-  private static rawDatabase: Database.Database | null = null;
+  private static rawDatabase: SQLiteDatabase | null = null;
 
   /**
    * Get database instance (singleton)
@@ -53,7 +54,7 @@ export class DatabaseConnection {
     }
 
     // Create database connection
-    this.rawDatabase = new Database(dbPath);
+    this.rawDatabase = openSQLiteDatabase(dbPath);
 
     // Enable foreign key constraints
     this.rawDatabase.pragma('foreign_keys = ON');
@@ -69,9 +70,9 @@ export class DatabaseConnection {
   }
 
   /**
-   * Get the raw better-sqlite3 Database instance
+   * Get the SQLite driver instance used by this runtime
    */
-  public static getRawDatabase(): Database.Database {
+  public static getRawDatabase(): SQLiteDatabase {
     if (!this.rawDatabase) {
       this.initialize();
     }

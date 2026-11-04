@@ -4,9 +4,10 @@ import { PtySessionService } from '../terminal/PtySessionService';
 import { buildClaudePrompt, resolveLaunchSettings, LaunchSettingsError } from './claudePromptBuilder';
 import { selectNextTask } from './taskSelection';
 import type { AgentTool } from '../db/config';
-import { CodexAutoReviewUnavailableError } from '../errors';
+import { CodexAutoReviewUnavailableError, RunLogCreationError } from '../errors';
 import { runTargetStatus } from '../utils/runTargetStatus';
 import type { TaskStatus } from '../models';
+import { logRunLogError } from '../terminal/RunLogWriter';
 
 export type BulkRunCommand = 'direct' | 'pr';
 type BulkRunState = 'idle' | 'running';
@@ -63,7 +64,13 @@ export class BulkRunService {
 
   private notifyStateChange(): void {
     const status = this.getStatus();
-    this.stateChangeSubscribers.forEach((cb) => cb(status));
+    this.stateChangeSubscribers.forEach((cb) => {
+      try {
+        cb(status);
+      } catch (error) {
+        logRunLogError(0, null, 'bulk-state-change', error);
+      }
+    });
   }
 
   async start(command: BulkRunCommand): Promise<{ error?: string }> {
@@ -172,7 +179,7 @@ export class BulkRunService {
     try {
       await this.claudeProcess.startProcess(taskId, prompt, ptyCommand, model, effort, agent);
     } catch (e) {
-      if (agent === 'codex' || e instanceof CodexAutoReviewUnavailableError) {
+      if (agent === 'codex' || e instanceof CodexAutoReviewUnavailableError || e instanceof RunLogCreationError) {
         const message = e instanceof Error ? e.message : String(e);
         console.error(`[BulkRunService] stopping bulk run: ${message}`);
         this.error = message;
@@ -190,11 +197,17 @@ export class BulkRunService {
     let unsubscribe: (() => void) | undefined;
     unsubscribe = this.claudeProcess.subscribeOutput(taskId, (evt) => {
       if (evt.kind === 'done' || evt.kind === 'error') {
-        if (evt.kind === 'done' && evt.exitCode === 0 && !this.claudeProcess.isExplicitUserStop(taskId)) {
-          const current = this.ts.getTask(taskId);
-          if (current && !SETTLED_STATUSES.has(current.status)) {
-            this.ts.updateTask(taskId, { status: runTargetStatus(ptyCommand) ?? 'done' });
+        try {
+          if (evt.kind === 'done' && evt.exitCode === 0 && !this.claudeProcess.isExplicitUserStop(taskId)) {
+            const current = this.ts.getTask(taskId);
+            if (current && !SETTLED_STATUSES.has(current.status)) {
+              this.ts.updateTask(taskId, { status: runTargetStatus(ptyCommand) ?? 'done' });
+            }
           }
+        } catch (error) {
+          unsubscribe?.();
+          this.failDatabaseOperation(taskId, 'bulk-completion', error);
+          return;
         }
         unsubscribe?.();
         if (agent === 'codex' && (evt.kind === 'error' || evt.exitCode !== 0)) {
@@ -212,6 +225,21 @@ export class BulkRunService {
   }
 
   private async runNext(): Promise<void> {
+    try {
+      await this.runNextTask();
+    } catch (error) {
+      this.failDatabaseOperation(0, 'bulk-next-task', error);
+    }
+  }
+
+  private failDatabaseOperation(taskId: number, operation: string, error: unknown): void {
+    logRunLogError(taskId, null, operation, error);
+    this.error = `Bulk run stopped: ${operation} failed for taskId ${taskId}. See server diagnostics.`;
+    this.stopRequested = true;
+    this.finishLoop();
+  }
+
+  private async runNextTask(): Promise<void> {
     if (this.stopRequested) {
       this.finishLoop();
       return;

@@ -7,6 +7,7 @@ export function registerStaticRoutes(app: Hono): void {
     const candidates = [
       path.join(__dirname, 'client', 'main.js'),
       path.join(__dirname, '..', '..', 'dist', 'board', 'client', 'main.js'),
+      path.join(path.dirname(process.argv[1] ?? process.execPath), 'client', 'main.js'),
     ];
     for (const bundlePath of candidates) {
       try {
@@ -25,6 +26,7 @@ export function registerStaticRoutes(app: Hono): void {
     const candidates = [
       path.join(__dirname, 'client', 'main.css'),
       path.join(__dirname, '..', '..', 'dist', 'board', 'client', 'main.css'),
+      path.join(path.dirname(process.argv[1] ?? process.execPath), 'client', 'main.css'),
     ];
     for (const p of candidates) {
       try {

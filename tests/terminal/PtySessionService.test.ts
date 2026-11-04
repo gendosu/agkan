@@ -6,6 +6,12 @@ import { execFileSync } from 'child_process';
 import { existsSync, readFileSync, mkdtempSync, rmSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
+import { openSQLiteDatabase } from '../../src/db/open-sqlite-database';
+import { SQLiteStorageBackend } from '../../src/db/adapters/sqlite-storage-backend';
+import { runMigrations } from '../../src/db/schema';
+import { TaskService } from '../../src/services/TaskService';
+import { TaskBlockService } from '../../src/services/TaskBlockService';
+import { BulkRunService } from '../../src/board/BulkRunService';
 
 describe('stripAnsi', () => {
   it('removes basic SGR color codes', () => {
@@ -766,12 +772,12 @@ describe('PtySessionService - model/effort/boardApiUrl args', () => {
     expect(spawnMock.mock.calls[0][2]).toMatchObject({ cols: 220, rows: 50 });
   });
 
-  it('spawns new sessions at the last browser width while keeping 50 rows', async () => {
+  it('spawns new sessions at the last browser size', async () => {
     const svc = new PtySessionService();
     await svc.startProcess(1, 'prompt', 'run');
-    svc.resize(1, 62, 66);
+    svc.resize(1, 62, 39);
     await svc.startProcess(2, 'prompt', 'run');
-    expect(spawnMock.mock.calls[1][2]).toMatchObject({ cols: 62, rows: 50 });
+    expect(spawnMock.mock.calls[1][2]).toMatchObject({ cols: 62, rows: 39 });
   });
 
   it('remembers the browser width even when the resized session is gone', async () => {
@@ -787,6 +793,14 @@ describe('PtySessionService - model/effort/boardApiUrl args', () => {
     svc.resize(99, cols, 50);
     await svc.startProcess(1, 'prompt', 'run');
     expect(spawnMock.mock.calls[0][2]).toMatchObject({ cols: 62 });
+  });
+
+  it.each([0, 4, 301, 39.5, Number.NaN])('ignores an implausible browser height of %s', async (rows) => {
+    const svc = new PtySessionService();
+    svc.resize(99, 62, 39);
+    svc.resize(99, 62, rows);
+    await svc.startProcess(1, 'prompt', 'run');
+    expect(spawnMock.mock.calls[0][2]).toMatchObject({ rows: 39 });
   });
 
   it('passes --model and --effort to spawn when provided', async () => {
@@ -1516,6 +1530,300 @@ describe('PtySessionService - DB integration on exit', () => {
     mockOnDataHandler?.('data3');
     expect(mockDb.runLogs.updateEvents).toHaveBeenCalledTimes(2);
   });
+});
+
+describe('PtySessionService - persistence failures', () => {
+  const busy = Object.assign(new Error('private terminal text'), { code: 'SQLITE_BUSY' });
+  let svc: PtySessionService;
+  let runLogs: {
+    create: ReturnType<typeof vi.fn>;
+    updateEvents: ReturnType<typeof vi.fn>;
+    updateFinished: ReturnType<typeof vi.fn>;
+    findLatestByTaskId: ReturnType<typeof vi.fn>;
+    findIdsByTaskId: ReturnType<typeof vi.fn>;
+    deleteMany: ReturnType<typeof vi.fn>;
+  };
+
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    runLogs = {
+      create: vi.fn().mockReturnValue(42),
+      updateEvents: vi.fn(),
+      updateFinished: vi.fn(),
+      findLatestByTaskId: vi.fn().mockReturnValue(null),
+      findIdsByTaskId: vi.fn().mockReturnValue([]),
+      deleteMany: vi.fn(),
+    };
+    svc = new PtySessionService({ runLogs } as never);
+  });
+
+  afterEach(() => {
+    svc.dispose();
+    vi.useRealTimers();
+    vi.restoreAllMocks();
+  });
+
+  it('does not spawn a child or register a session when creating its log fails', async () => {
+    const pty = await import('node-pty');
+    const calls = vi.mocked(pty.spawn).mock.calls.length;
+    runLogs.create.mockImplementation(() => {
+      throw busy;
+    });
+    await expect(svc.startProcess(1, 'prompt', 'run', undefined, undefined, 'codex')).rejects.toThrow(
+      'Could not create a run log'
+    );
+    expect(pty.spawn).toHaveBeenCalledTimes(calls);
+    expect(svc.listRunningTasks()).toEqual([]);
+  });
+
+  it('finalizes the created log when spawning fails', async () => {
+    const pty = await import('node-pty');
+    runLogs.findIdsByTaskId.mockReturnValue([42, 5, 4, 3, 2, 1]);
+    vi.mocked(pty.spawn).mockImplementationOnce(() => {
+      throw new Error('spawn failed');
+    });
+    await expect(svc.startProcess(1, 'prompt', 'run', undefined, undefined, 'codex')).rejects.toThrow('spawn failed');
+    expect(runLogs.updateFinished).toHaveBeenCalledWith(
+      42,
+      expect.any(String),
+      1,
+      expect.stringContaining('spawn-error')
+    );
+    expect(svc.listRunningTasks()).toEqual([]);
+    expect(runLogs.deleteMany).toHaveBeenCalledWith([1]);
+  });
+
+  it('stops run-all for any agent when creating its log fails', async () => {
+    const db = openSQLiteDatabase(':memory:');
+    runMigrations(db);
+    const backend = new SQLiteStorageBackend(db);
+    const ts = new TaskService(backend);
+    ts.createTask({ title: 'first', status: 'ready' });
+    runLogs.create.mockImplementation(() => {
+      throw busy;
+    });
+    const bulk = new BulkRunService(ts, new TaskBlockService(backend), svc);
+    try {
+      await bulk.start('direct');
+      await Promise.resolve();
+      expect(bulk.getStatus().mode).toBe('idle');
+      expect(bulk.getStatus().error).toContain('Could not create a run log');
+      expect(runLogs.create).toHaveBeenCalledTimes(1);
+      expect(svc.listRunningTasks()).toEqual([]);
+    } finally {
+      bulk.stop();
+      db.close();
+    }
+  });
+
+  it('contains running and output subscriber failures and installs handlers before notifying', async () => {
+    svc.subscribeRunningTasksChange(() => {
+      expect(mockOnDataHandler).toBeTypeOf('function');
+      expect(mockOnExitHandler).toBeTypeOf('function');
+      throw busy;
+    });
+    const running = vi.fn();
+    svc.subscribeRunningTasksChange(running);
+    await svc.startProcess(1, 'prompt', 'run', undefined, undefined, 'codex');
+    svc.subscribeRawOutput(1, () => {
+      throw busy;
+    });
+    const raw = vi.fn();
+    svc.subscribeRawOutput(1, raw);
+    svc.subscribeOutputUpdate(1, () => {
+      throw busy;
+    });
+    expect(() => mockOnDataHandler?.('output')).not.toThrow();
+    expect(raw).toHaveBeenCalledWith('output');
+    expect(runLogs.updateEvents).toHaveBeenCalledTimes(1);
+    mockOnExitHandler?.({ exitCode: 0 });
+    expect(running).toHaveBeenCalledTimes(2);
+    expect(svc.listRunningTasks()).toEqual([]);
+  });
+
+  it.each([
+    ['normal', 0, undefined, 0],
+    ['failure', 7, undefined, 7],
+    ['signal', 0, 1, 129],
+    ['user', 0, 1, 0],
+    ['hook', 0, 1, 0],
+  ] as const)('completes %s while final persistence is pending', async (origin, exitCode, signal, expected) => {
+    runLogs.updateFinished.mockImplementationOnce(() => {
+      throw busy;
+    });
+    await svc.startProcess(1, 'prompt', 'run', undefined, undefined, 'codex');
+    mockOnDataHandler?.('latest output');
+    svc.subscribeOutput(1, () => {
+      throw busy;
+    });
+    const done = vi.fn();
+    svc.subscribeOutput(1, done);
+    if (origin === 'user' || origin === 'hook') svc.stopProcess(1, origin);
+    expect(() => mockOnExitHandler?.({ exitCode, signal })).not.toThrow();
+    expect(done).toHaveBeenCalledExactlyOnceWith({ kind: 'done', exitCode: expected });
+    expect(svc.listRunningTasks()).toEqual([]);
+    expect(svc.isUserStopped(1)).toBe(false);
+    expect(svc.isExplicitUserStop(1)).toBe(false);
+    expect(svc.getSnapshot(1)).toBe('latest output');
+    runLogs.findLatestByTaskId.mockImplementation(() => {
+      throw busy;
+    });
+    const late = vi.fn();
+    svc.subscribeOutput(1, late);
+    expect(late).toHaveBeenCalledWith({ kind: 'done', exitCode: expected });
+    const update = vi.fn();
+    svc.subscribeOutputUpdate(1, update);
+    vi.advanceTimersByTime(250);
+    expect(update).toHaveBeenCalledTimes(2);
+    expect(runLogs.updateFinished).toHaveBeenLastCalledWith(
+      42,
+      expect.any(String),
+      expected,
+      expect.stringContaining('latest output')
+    );
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it.each(['findIdsByTaskId', 'deleteMany'] as const)('isolates %s failure from completion', async (operation) => {
+    runLogs.findIdsByTaskId.mockReturnValue([1, 2, 3, 4, 5, 6]);
+    runLogs[operation].mockImplementation(() => {
+      throw busy;
+    });
+    await svc.startProcess(1, 'prompt', 'run', undefined, undefined, 'codex');
+    const done = vi.fn();
+    svc.subscribeOutput(1, done);
+    expect(() => mockOnExitHandler?.({ exitCode: 0 })).not.toThrow();
+    expect(done).toHaveBeenCalledTimes(1);
+    expect(svc.listRunningTasks()).toEqual([]);
+  });
+
+  it('keeps previous-run flushes and delayed exits from overwriting a newer run', async () => {
+    runLogs.create.mockReturnValueOnce(41).mockReturnValueOnce(42);
+    runLogs.updateFinished.mockImplementationOnce(() => {
+      throw busy;
+    });
+    await svc.startProcess(1, 'prompt', 'run', undefined, undefined, 'codex');
+    const oldExit = mockOnExitHandler;
+    const oldData = mockOnDataHandler;
+    mockOnDataHandler?.('old');
+    svc.stopProcess(1);
+    await svc.startProcess(1, 'prompt', 'run', undefined, undefined, 'codex');
+    mockOnDataHandler?.('new');
+    mockOnExitHandler?.({ exitCode: 7 });
+    oldData?.('stale data');
+    oldExit?.({ exitCode: 0, signal: 1 });
+    vi.advanceTimersByTime(1250);
+    expect(svc.getSnapshot(1)).toBe('new');
+    const late = vi.fn();
+    svc.subscribeOutput(1, late);
+    expect(late).toHaveBeenCalledWith({ kind: 'done', exitCode: 7 });
+    expect(
+      runLogs.updateFinished.mock.calls.every(([id, , , events]) =>
+        id === 41 ? events.includes('old') : events.includes('new')
+      )
+    ).toBe(true);
+  });
+
+  it('does not prune a pending run while another run finishes', async () => {
+    runLogs.create.mockReturnValueOnce(41).mockReturnValueOnce(42);
+    runLogs.updateFinished.mockImplementationOnce(() => {
+      throw busy;
+    });
+    runLogs.findIdsByTaskId.mockReturnValue([42, 5, 4, 3, 2, 41, 1]);
+    await svc.startProcess(1, 'prompt', 'run', undefined, undefined, 'codex');
+    mockOnExitHandler?.({ exitCode: 0 });
+    await svc.startProcess(1, 'prompt', 'run', undefined, undefined, 'codex');
+    mockOnExitHandler?.({ exitCode: 0 });
+    expect(runLogs.deleteMany).toHaveBeenCalledWith([1]);
+    expect(runLogs.deleteMany.mock.calls.flat(2)).not.toContain(41);
+  });
+
+  it('invalidates late callbacks even after the old completion cache entry is evicted', async () => {
+    await svc.startProcess(1, 'prompt', 'run', undefined, undefined, 'codex');
+    const oldExit = mockOnExitHandler;
+    const oldData = mockOnDataHandler;
+    svc.stopProcess(1);
+    for (let taskId = 2; taskId <= 11; taskId++) {
+      await svc.startProcess(taskId, 'prompt', 'run', undefined, undefined, 'codex');
+      mockOnExitHandler?.({ exitCode: 0 });
+    }
+    await svc.startProcess(1, 'prompt', 'run', undefined, undefined, 'codex');
+    mockOnDataHandler?.('new run');
+    mockOnExitHandler?.({ exitCode: 7 });
+    oldData?.('stale run');
+    oldExit?.({ exitCode: 0, signal: 1 });
+    expect(svc.getSnapshot(1)).toBe('new run');
+    const done = vi.fn();
+    svc.subscribeOutput(1, done);
+    expect(done).toHaveBeenCalledWith({ kind: 'done', exitCode: 7 });
+  });
+
+  it('bounds pending final writes and releases all retry timers on disposal', async () => {
+    let id = 0;
+    runLogs.create.mockImplementation(() => ++id);
+    runLogs.updateFinished.mockImplementation(() => {
+      throw busy;
+    });
+    for (let taskId = 1; taskId <= 11; taskId++) {
+      await svc.startProcess(taskId, 'prompt', 'run', undefined, undefined, 'codex');
+      mockOnExitHandler?.({ exitCode: 0 });
+    }
+    expect(vi.getTimerCount()).toBe(10);
+    expect(vi.mocked(console.error).mock.calls.flat().join(' ')).toContain('outcome=evicted');
+    svc.dispose();
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it('does not treat an unfinished persisted row as a successful completion', () => {
+    runLogs.findLatestByTaskId.mockReturnValue({ exit_code: null, finished_at: null });
+    const done = vi.fn();
+    svc.subscribeOutput(1, done);
+    expect(done).toHaveBeenCalledWith({ kind: 'error', message: expect.any(String) });
+  });
+
+  it.each([false, true])(
+    'runs real BulkRunService with persistence failure (status failure=%s)',
+    async (statusFailure) => {
+      const db = openSQLiteDatabase(':memory:');
+      runMigrations(db);
+      const backend = new SQLiteStorageBackend(db);
+      const ts = new TaskService(backend);
+      const first = ts.createTask({ title: 'first', status: 'ready' });
+      const second = ts.createTask({ title: 'second', status: 'ready' });
+      svc = new PtySessionService(backend);
+      const bulk = new BulkRunService(ts, new TaskBlockService(backend), svc);
+      const finalWrite = vi.spyOn(backend.runLogs, 'updateFinished').mockImplementationOnce(() => {
+        throw busy;
+      });
+      try {
+        await bulk.start('direct');
+        const update = statusFailure
+          ? vi.spyOn(ts, 'updateTask').mockImplementation(() => {
+              throw busy;
+            })
+          : null;
+        mockOnExitHandler?.({ exitCode: 0 });
+        await Promise.resolve();
+        if (statusFailure) {
+          expect(bulk.getStatus().error).toContain('bulk-completion');
+          expect(bulk.getStatus().mode).toBe('idle');
+          expect(svc.listRunningTasks()).toEqual([]);
+          expect(ts.getTask(first.id)?.status).toBe('ready');
+        } else {
+          expect(ts.getTask(first.id)?.status).toBe('done');
+          expect(svc.listRunningTasks()).toEqual([{ taskId: second.id, command: 'run' }]);
+          expect(bulk.getStatus().error).toBeUndefined();
+        }
+        update?.mockRestore();
+      } finally {
+        bulk.stop();
+        svc.dispose();
+        finalWrite.mockRestore();
+        db.close();
+      }
+    }
+  );
 });
 
 describe('PtySessionService - getRunLogs', () => {

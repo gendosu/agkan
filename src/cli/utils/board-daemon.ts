@@ -52,7 +52,9 @@ export function removePidFile(): void {
 }
 
 export function spawnBoardDaemon(boardArgs: string[], port: number): number {
-  const child = spawn(process.argv[0], [process.argv[1], 'board', ...boardArgs], {
+  const standalone = (globalThis as { Bun?: { isStandaloneExecutable?: boolean } }).Bun?.isStandaloneExecutable;
+  const args = standalone ? ['board', ...boardArgs] : [process.argv[1], 'board', ...boardArgs];
+  const child = spawn(process.execPath, args, {
     detached: true,
     stdio: 'ignore',
   });

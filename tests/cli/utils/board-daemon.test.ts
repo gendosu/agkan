@@ -134,6 +134,22 @@ describe('board-daemon', () => {
   });
 
   describe('spawnBoardDaemon', () => {
+    it('restarts a compiled executable without passing its embedded entrypoint', () => {
+      vi.stubGlobal('Bun', { isStandaloneExecutable: true });
+      mockSpawn.mockReturnValue({ pid: 42000, unref: vi.fn() } as never);
+      mockFs.existsSync = vi.fn().mockReturnValue(true);
+      try {
+        spawnBoardDaemon(['--port', '8080'], 8080);
+        expect(mockSpawn).toHaveBeenCalledWith(
+          process.execPath,
+          ['board', '--port', '8080'],
+          expect.objectContaining({ detached: true, stdio: 'ignore' })
+        );
+      } finally {
+        vi.unstubAllGlobals();
+      }
+    });
+
     it('spawns a detached process with board args and returns PID', () => {
       const fakePid = 42000;
       const fakeChild = { pid: fakePid, unref: vi.fn() };
