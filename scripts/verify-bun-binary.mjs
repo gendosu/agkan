@@ -406,6 +406,8 @@ if [ "\${1-}" = "--help" ]; then
   exit 0
 fi
 /bin/sleep 0.2
+# Trigger the save cycle with agent output rather than the PTY's earlier input echo.
+/bin/stty -echo
 tty_flags=''
 for fd in 0 1 2; do
   if [ -t "$fd" ]; then tty_flags="\${tty_flags}1"; else tty_flags="\${tty_flags}0"; fi
