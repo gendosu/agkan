@@ -7,10 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.31.0] - 2026-11-05
+
+### Added
+- Run the CLI and Board under Bun, including as a standalone Bun binary. `build:bun` builds the binary for the host platform (Linux / macOS, x64 / arm64) and `install:bun` installs it to `~/.local/bin/agkan`. Under Bun, SQLite uses `bun:sqlite` (waiting up to 5 seconds for write locks, as on Node.js) and Board terminal sessions use `Bun.Terminal` (#471)
+
 ### Changed
-- Update the development Node.js version from 22.22.0 to 22.22.3, keeping the 22.22 release line (#778)
+- Update the development Node.js version from 22.22.0 to 22.23.4 to pick up the latest security patches, staying on the Node.js 22 line (#778, #472)
 
 ### Fixed
+- Retry Board terminal run-log saves that hit SQLite write-lock contention, so a failed save no longer interrupts the session (#471)
 - Keep the Board in sync with CLI/AI task creation, tag changes, and status changes even when update notifications are missed. Visible tabs reconcile every two seconds, retry after failed or timed-out requests, and apply queued updates after dragging and status saving finish. Reload tag filter options when opening the dropdown (#777)
 - Start new Board terminal sessions at the height the browser last reported, not 50 rows, so Codex 0.166.0 no longer panics with "index outside of buffer" when the browser shrinks its initial layout. The first session after the Board starts still uses 50 rows (#773)
 
