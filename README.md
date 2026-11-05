@@ -151,6 +151,9 @@ Customize the database location and board via a `.agkan.yml` file in your projec
 version: 2
 path: ./.agkan/data.db
 
+database:
+  journalMode: wal
+
 board:
   port: 8080
 
@@ -168,6 +171,8 @@ models:
 The database path can also be overridden with the `AGENT_KANBAN_DB_PATH` environment variable, which takes priority over `.agkan.yml`.
 
 Inside a `git worktree` checkout, agkan reads `.agkan.yml` and `.agkan/` from the main repository root, so all worktrees share the same configuration and task database.
+
+New and existing databases automatically use WAL on connection. For a network filesystem, set `database.journalMode: delete` before the first launch. Writer contention remains. See the [migration and backup guide](docs/sqlite-wal.md) for shutdown/retry, current read-only limitations, and `-wal` / `-shm` handling.
 
 In test mode (`NODE_ENV=test`), agkan automatically isolates data using `.agkan-test.yml` and `.agkan-test/` instead, so tests never touch your real task database.
 

@@ -4,6 +4,8 @@ import {
   loadConfig,
   resolveAgentTool,
   resolveDatabasePath,
+  resolveDatabaseJournalMode,
+  type DatabaseJournalMode,
   resolvePhaseSettings,
   type AgentModelSettings,
   type AgentTool,
@@ -18,6 +20,7 @@ type ResolvedConfig = {
   version: 1 | 2;
   agent: AgentTool;
   path: string;
+  database: { journalMode: DatabaseJournalMode };
   board: {
     port: number;
     title: string | undefined;
@@ -39,6 +42,7 @@ function buildResolvedConfig(): ResolvedConfig {
     version: (config.version ?? 1) as 1 | 2,
     agent: resolveAgentTool(config),
     path: resolveDatabasePath(),
+    database: { journalMode: resolveDatabaseJournalMode(config) },
     board: {
       port: config.board?.port ?? DEFAULT_BOARD_PORT,
       title: config.board?.title,
@@ -105,6 +109,7 @@ export function setupConfigGetCommand(program: Command): void {
               console.log('version: ' + resolved.version);
               console.log('agent: ' + resolved.agent);
               console.log('path: ' + resolved.path);
+              console.log('database.journalMode: ' + resolved.database.journalMode);
               console.log(`board.port: ${resolved.board.port}`);
               if (resolved.board.title !== undefined) {
                 console.log(`board.title: ${resolved.board.title}`);

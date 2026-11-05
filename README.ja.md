@@ -150,11 +150,16 @@ agkanは、人間だけでなくAIコーディングエージェントからも�
 ```yaml
 path: ./.agkan/data.db
 
+database:
+  journalMode: wal
+
 board:
   port: 8080
 ```
 
 データベースパスは環境変数 `AGENT_KANBAN_DB_PATH` でも上書きでき、`.agkan.yml` より優先されます。
+
+新規・既存 DB は共通接続で WAL に自動移行します。ネットワーク FS では初回起動前に `database.journalMode: delete` を設定してください。書き込み同士の競合は残ります。[移行・バックアップ手順](docs/sqlite-wal.md)で、停止と再実行、読み取り専用接続の現状、`-wal` / `-shm` の扱いを確認できます。
 
 テストモード（`NODE_ENV=test`）では、`.agkan-test.yml` と `.agkan-test/` が自動的に使用され、テストが本番のタスクデータベースに影響しないよう分離されます。
 

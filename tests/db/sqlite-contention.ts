@@ -8,7 +8,11 @@ import { openSQLiteDatabase } from '../../src/db/open-sqlite-database';
 import { SQLiteStorageBackend } from '../../src/db/adapters/sqlite-storage-backend';
 import { runMigrations } from '../../src/db/schema';
 
-export async function withWriteLock(filename: string, duration: number, run: () => void): Promise<void> {
+export async function withWriteLock(
+  filename: string,
+  duration: number,
+  run: () => void | Promise<void>
+): Promise<void> {
   const child = spawn('node', [join(__dirname, '../fixtures/sqlite-write-lock.cjs'), filename, String(duration)], {
     stdio: ['ignore', 'pipe', 'pipe'],
   });
@@ -17,7 +21,7 @@ export async function withWriteLock(filename: string, duration: number, run: () 
   try {
     const [ready] = await once(child.stdout, 'data', { signal: AbortSignal.timeout(5000) });
     assert.equal(ready.toString(), 'locked\n');
-    run();
+    await run();
   } finally {
     clearTimeout(timeout);
     child.kill('SIGKILL');

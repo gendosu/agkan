@@ -4,6 +4,7 @@ import yaml from 'js-yaml';
 import { effortsForDefaultCli, findCatalogEntry, resolveModelCatalog, type ModelCatalogEntry } from './modelCatalog';
 
 export type AgentTool = 'claude' | 'codex' | 'agy' | 'grok';
+export type DatabaseJournalMode = 'wal' | 'delete';
 export type ModelSettings = { model?: string; effort?: string };
 export type PhaseModelSettings = ModelSettings & { agent?: AgentTool };
 export type AgentModelSettings = {
@@ -23,6 +24,9 @@ export interface Config {
   version?: number;
   agent?: AgentTool;
   path?: string;
+  database?: {
+    journalMode?: DatabaseJournalMode;
+  };
   board?: {
     port?: number;
     title?: string;
@@ -37,6 +41,19 @@ export interface Config {
   };
   modelCatalog?: ModelCatalogEntry[];
   permissionMode?: string;
+}
+
+export function resolveDatabaseJournalMode(config: Config): DatabaseJournalMode {
+  const database = config.database;
+  if (database !== undefined && (!database || typeof database !== 'object' || Array.isArray(database))) {
+    throw new Error('Invalid database: must be an object with journalMode: wal | delete');
+  }
+  const mode = database?.journalMode;
+  if (mode === undefined) return 'wal';
+  if (mode !== 'wal' && mode !== 'delete') {
+    throw new Error('Invalid database.journalMode: must be wal | delete');
+  }
+  return mode;
 }
 
 /**
@@ -306,6 +323,7 @@ export function loadConfig(): Config {
     if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return {};
     const normalized = { ...parsed, version: parsed.version ?? 1 };
     resolveConfigVersion(normalized);
+    resolveDatabaseJournalMode(normalized);
     return normalized;
   }
 

@@ -10,12 +10,17 @@ import { runMigrations } from '../src/db/schema.ts';
 import { DatabaseConnection } from '../src/db/connection.ts';
 import { TaskService } from '../src/services/TaskService.ts';
 import { sqliteContractCases } from '../tests/db/sqlite-contract.ts';
+import { verifyWALReadProcesses } from '../tests/db/sqlite-wal-processes.ts';
 import { verifySQLiteContention } from '../tests/db/sqlite-contention.ts';
 
 if (!process.versions.bun) throw new Error('Run this script with Bun after pnpm run build:server');
 
 const projectRoot = dirname(dirname(fileURLToPath(import.meta.url)));
 console.log(`Bun ${process.versions.bun}: SQLite compatibility verification`);
+for (const mode of ['new', 'migrate']) {
+  await verifyWALReadProcesses(mode);
+  console.log(`PASS Bun ${mode} database: HTTP and independent CLI read during 7s EXCLUSIVE writer transaction`);
+}
 await verifySQLiteContention();
 console.log('PASS independent-process SQLite locks: initialization, create, updateEvents, updateFinished');
 
