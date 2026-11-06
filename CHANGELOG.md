@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.32.0] - 2026-11-06
+
+### Added
+- Add the `database.journalMode` setting (`wal` by default, or `delete`) to `.agkan.yml`. `agkan config get` shows it, and invalid values are rejected before the database is opened (#477)
+
+### Changed
+- Update Hono from 4.12.5 to 4.13.16 to pick up the November security fixes (#476)
+
+### Fixed
+- Keep Board and CLI reads available while another process holds a write lock. New and existing file databases switch to SQLite WAL on their first connection, keeping task IDs and data. If another connection blocks the switch, the connection fails with instructions to stop Board / CLI and retry. On a network filesystem, set `database.journalMode: delete` before the first launch. See `docs/sqlite-wal.md` for migration, backup, and `-wal` / `-shm` handling (#477)
+
 ## [3.31.1] - 2026-11-06
 
 ### Changed
