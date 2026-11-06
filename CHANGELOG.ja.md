@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.31.1] - 2026-11-06
+
+### 変更
+- スタンドアロンの Bun バイナリのビルド（`build:bun`）に使う Bun を 1.4.0 から 1.4.4 に更新し、最新のセキュリティパッチを取り込んだ (#474)
+
 ## [3.31.0] - 2026-11-05
 
 ### 追加

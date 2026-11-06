@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.31.1] - 2026-11-06
+
+### Changed
+- Update Bun, used to build the standalone Bun binary (`build:bun`), from 1.4.0 to 1.4.4 to pick up the latest security patches (#474)
+
 ## [3.31.0] - 2026-11-05
 
 ### Added
