@@ -16,6 +16,8 @@ attachments-worker-*/
 .akan-test.yml
 *.db
 *.sqlite
+*-wal
+*-shm
 *.tgz
 coverage/
 tmp

@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { execFileSync, spawn } from 'node:child_process';
+import { execFile, execFileSync, spawn } from 'node:child_process';
 import {
   copyFileSync,
   existsSync,
@@ -17,6 +17,10 @@ import { fileURLToPath } from 'node:url';
 import { setTimeout as delay } from 'node:timers/promises';
 import WebSocket from 'ws';
 import { once } from 'node:events';
+import { promisify } from 'node:util';
+import { verifyWALReads } from './lib/verify-wal-reads.mjs';
+
+const exec = promisify(execFile);
 
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
 const bwrap = '/usr/bin/bwrap';
@@ -80,6 +84,28 @@ async function stopBoard() {
   if (boardStarted) {
     cli('board', 'stop');
     boardStarted = false;
+  }
+}
+
+async function startBoard(port) {
+  const baseUrl = `http://127.0.0.1:${port}`;
+  if (boardMode === 'foreground') {
+    foreground = spawn(bwrap, isolatedArgs(['board', '--port', String(port)]), { stdio: ['ignore', 'pipe', 'pipe'] });
+    for (const stream of [foreground.stdout, foreground.stderr]) {
+      stream.on('data', (data) => {
+        foregroundDiagnostics = (foregroundDiagnostics + data.toString()).slice(-16_000);
+      });
+    }
+    await waitFor(
+      () =>
+        fetch(`${baseUrl}/api/version`)
+          .then((res) => res.ok)
+          .catch(() => false),
+      'foreground board startup'
+    );
+  } else {
+    boardStarted = true;
+    cli('board', 'start', '--port', String(port));
   }
 }
 
@@ -380,6 +406,8 @@ if [ "\${1-}" = "--help" ]; then
   exit 0
 fi
 /bin/sleep 0.2
+# Trigger the save cycle with agent output rather than the PTY's earlier input echo.
+/bin/stty -echo
 tty_flags=''
 for fd in 0 1 2; do
   if [ -t "$fd" ]; then tty_flags="\${tty_flags}1"; else tty_flags="\${tty_flags}0"; fi
@@ -419,24 +447,7 @@ done
 
   const port = await freePort();
   const baseUrl = `http://127.0.0.1:${port}`;
-  if (boardMode === 'foreground') {
-    foreground = spawn(bwrap, isolatedArgs(['board', '--port', String(port)]), { stdio: ['ignore', 'pipe', 'pipe'] });
-    for (const stream of [foreground.stdout, foreground.stderr]) {
-      stream.on('data', (data) => {
-        foregroundDiagnostics = (foregroundDiagnostics + data.toString()).slice(-16_000);
-      });
-    }
-    await waitFor(
-      () =>
-        fetch(`${baseUrl}/api/version`)
-          .then((res) => res.ok)
-          .catch(() => false),
-      'foreground board startup'
-    );
-  } else {
-    boardStarted = true;
-    cli('board', 'start', '--port', String(port));
-  }
+  await startBoard(port);
   assert.deepEqual(await (await fetch(`${baseUrl}/api/version`)).json(), { version });
   const page = await fetch(baseUrl);
   assert.equal(page.status, 200);
@@ -453,6 +464,49 @@ done
   const { tasks } = await (await fetch(`${baseUrl}/api/tasks?all=1`)).json();
   assert.equal(tasks.find(({ id }) => id === created.id).body, 'persisted by standalone binary');
   console.log(`PASS ${boardMode} board, HTTP API and embedded JavaScript/CSS`);
+
+  for (const mode of ['new', 'migrate']) {
+    cli('task', 'update', String(created.id), '--title', 'WAL before lock', '--json');
+    if (mode === 'migrate') {
+      await stopBoard();
+      // Simulate an old database only after every application connection is closed.
+      execFileSync(
+        process.execPath,
+        [
+          '-e',
+          `
+        const assert = require('node:assert/strict');
+        const Database = require('better-sqlite3');
+        const db = new Database(process.argv[1]);
+        const before = db.prepare('SELECT * FROM tasks ORDER BY id').all();
+        assert.equal(db.pragma('journal_mode = DELETE', { simple: true }), 'delete');
+        assert.deepEqual(db.prepare('SELECT * FROM tasks ORDER BY id').all(), before);
+        db.close();
+      `,
+          join(workspace, 'data.db'),
+        ],
+        { cwd: root, timeout: 10_000 }
+      );
+      await startBoard(port); // The binary itself must migrate DELETE to WAL.
+    }
+    const count = JSON.parse(cli('task', 'count', '--json')).total;
+    const elapsed = await verifyWALReads({
+      filename: join(workspace, 'data.db'),
+      baseUrl,
+      count,
+      taskId: created.id,
+      runCount: async () =>
+        (
+          await exec(bwrap, isolatedArgs(['task', 'count', '--json']), {
+            encoding: 'utf8',
+            timeout: 5500,
+          })
+        ).stdout,
+    });
+    console.log(
+      `PASS standalone ${mode} database: HTTP and CLI read in ${elapsed}ms during 7s EXCLUSIVE writer transaction`
+    );
+  }
 
   for (const [command, action, code, origin] of [
     ['planning', 'finish', 0, 'process-exit'],

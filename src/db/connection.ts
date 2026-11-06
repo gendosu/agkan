@@ -2,7 +2,7 @@ import { openSQLiteDatabase } from './open-sqlite-database';
 import type { SQLiteDatabase } from './types/sqlite';
 import path from 'path';
 import fs from 'fs';
-import { resolveDatabasePath } from './config';
+import { loadConfig, resolveDatabaseJournalMode, resolveDatabasePath } from './config';
 import { runMigrations } from './schema';
 import { StorageProvider } from './types/storage';
 import { StorageBackend } from './types/repository';
@@ -44,6 +44,7 @@ export class DatabaseConnection {
    * Initialize the database
    */
   private static initialize(): void {
+    const journalMode = resolveDatabaseJournalMode(loadConfig());
     // Get database path from configuration file
     const dbPath = resolveDatabasePath();
 
@@ -54,19 +55,44 @@ export class DatabaseConnection {
     }
 
     // Create database connection
-    this.rawDatabase = openSQLiteDatabase(dbPath);
-
-    // Enable foreign key constraints
-    this.rawDatabase.pragma('foreign_keys = ON');
-
-    // Run migrations
-    runMigrations(this.rawDatabase);
-
-    // Wrap with storage provider (legacy)
-    this.instance = getStorageProvider(this.rawDatabase);
-
-    // Create StorageBackend
-    this.backendInstance = new SQLiteStorageBackend(this.rawDatabase);
+    const database = openSQLiteDatabase(dbPath);
+    try {
+      try {
+        const current = (database.pragma('journal_mode') as { journal_mode: string }[])[0]?.journal_mode;
+        // Memory databases cannot use WAL. Already-WAL files must remain readable during a writer transaction.
+        if (current !== 'memory') {
+          if (current !== journalMode) {
+            const actual = (database.pragma(`journal_mode = ${journalMode}`) as { journal_mode: string }[])[0]
+              ?.journal_mode;
+            if (actual !== journalMode) {
+              throw new Error(`SQLite returned journal_mode=${String(actual)}`);
+            }
+          }
+          if (journalMode === 'wal') database.pragma('synchronous = FULL');
+        }
+      } catch (cause) {
+        throw new Error(
+          `Could not set database journal_mode=${journalMode}: ${cause instanceof Error ? cause.message : String(cause)}. ` +
+            'Stop all Board and CLI processes using this database, then retry. ' +
+            'For a network filesystem, configure database.journalMode: delete before opening the database.',
+          { cause }
+        );
+      }
+      database.pragma('foreign_keys = ON');
+      runMigrations(database);
+      const provider = getStorageProvider(database);
+      const backend = new SQLiteStorageBackend(database);
+      this.rawDatabase = database;
+      this.instance = provider;
+      this.backendInstance = backend;
+    } catch (error) {
+      try {
+        database.close();
+      } catch {
+        // Preserve the initialization failure even if closing the failed connection also fails.
+      }
+      throw error;
+    }
   }
 
   /**

@@ -32,6 +32,17 @@ Create a `.agkan.yml` file in your project root directory to specify the databas
 path: ./.agkan/data.db
 ```
 
+### SQLite journal mode
+
+```yaml
+database:
+  journalMode: wal # wal (default) or delete
+```
+
+New and existing file databases automatically migrate to WAL on connection, including test databases. Invalid types and values are rejected before opening the database. `agkan config get database.journalMode` displays the requested mode. Worktree config sharing and database path precedence are unchanged.
+
+WAL requires a local filesystem on one host. For network filesystems, configure `delete` before the first connection. If migration encounters another connection, stop Board / CLI processes and retry. WAL uses synchronous=FULL. Do not copy a live DB file alone or delete its sidecars. The public connection API has no read-only option; writer contention remains. See the [migration and backup guide](../docs/sqlite-wal.md).
+
 ### Path Specification
 
 - **Relative Path**: Resolved relative to the current directory

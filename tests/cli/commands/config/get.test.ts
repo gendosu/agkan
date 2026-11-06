@@ -48,6 +48,7 @@ describe('setupConfigGetCommand', () => {
     expect(parsed.success).toBe(true);
     expect(parsed.config.board.port).toBe(9090);
     expect(parsed.config.path).toBe('/fake/path/data.db');
+    expect(parsed.config.database.journalMode).toBe('wal');
   });
 
   it('includes the resolved model catalog in the JSON output', async () => {
@@ -235,6 +236,20 @@ describe('setupConfigGetCommand', () => {
     expect(parsed.success).toBe(true);
     expect(parsed.key).toBe('board.port');
     expect(parsed.value).toBe(7777);
+  });
+
+  it('outputs explicit database journal mode by dot notation', async () => {
+    vi.spyOn(configModule, 'loadConfig').mockReturnValue({ database: { journalMode: 'delete' } });
+    vi.spyOn(configModule, 'resolveDatabasePath').mockReturnValue('/fake/data.db');
+    await program.parseAsync(['node', 'agkan', 'config', 'get', 'database.journalMode', '--json']);
+    expect(JSON.parse(consoleLogSpy.mock.calls.map((c) => c[0]).join('')).value).toBe('delete');
+  });
+
+  it('includes the journal mode in text output', async () => {
+    vi.spyOn(configModule, 'loadConfig').mockReturnValue({});
+    vi.spyOn(configModule, 'resolveDatabasePath').mockReturnValue('/fake/data.db');
+    await program.parseAsync(['node', 'agkan', 'config', 'get']);
+    expect(consoleLogSpy).toHaveBeenCalledWith('database.journalMode: wal');
   });
 
   it('should error on unknown key', async () => {

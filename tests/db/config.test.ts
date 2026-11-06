@@ -21,6 +21,7 @@ import yaml from 'js-yaml';
 // These imports will fail until src/db/config.ts is created
 import {
   resolveDatabasePath,
+  resolveDatabaseJournalMode,
   isTestMode,
   getConfigFileName,
   getDefaultDirName,
@@ -615,6 +616,31 @@ describe('Database Path Resolution', () => {
       process.env.NODE_ENV = 'test';
     });
 
+    it.each(['wal', 'delete'])('loads journal mode %s from test config', (journalMode) => {
+      fs.writeFileSync(path.join(process.cwd(), testConfigFileTest), yaml.dump({ database: { journalMode } }));
+      expect(resolveDatabaseJournalMode(loadConfig())).toBe(journalMode);
+    });
+
+    it.each([
+      null,
+      'wal',
+      [],
+      1,
+      false,
+      { journalMode: null },
+      { journalMode: 'WAL' },
+      { journalMode: 1 },
+      { journalMode: 'wal; VACUUM' },
+    ])('rejects invalid database config %j', (database) => {
+      fs.writeFileSync(path.join(process.cwd(), testConfigFileTest), yaml.dump({ database }));
+      expect(() => loadConfig()).toThrow('Invalid database');
+    });
+
+    it('defaults an omitted journal mode to wal', () => {
+      expect(resolveDatabaseJournalMode({})).toBe('wal');
+      expect(resolveDatabaseJournalMode({ database: {} })).toBe('wal');
+    });
+
     it('should return empty object when config file does not exist', () => {
       const config = loadConfig();
       expect(config).toEqual({});
@@ -867,9 +893,13 @@ describe('Worktree project root resolution', () => {
     });
 
     it('loadConfig reads .agkan.yml from the main repository root', () => {
-      fs.writeFileSync(path.join(mainRoot, '.agkan.yml'), yaml.dump({ board: { port: 4321 } }));
+      fs.writeFileSync(
+        path.join(mainRoot, '.agkan.yml'),
+        yaml.dump({ board: { port: 4321 }, database: { journalMode: 'delete' } })
+      );
 
-      expect(loadConfig()).toEqual({ board: { port: 4321 }, version: 1 });
+      expect(loadConfig()).toEqual({ board: { port: 4321 }, database: { journalMode: 'delete' }, version: 1 });
+      expect(resolveDatabaseJournalMode(loadConfig())).toBe('delete');
     });
 
     it('resolveDatabasePath defaults to .agkan/data.db under the main repository root', () => {

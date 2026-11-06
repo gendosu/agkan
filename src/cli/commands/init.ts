@@ -28,6 +28,12 @@ version: 2
 # Example: path: ./custom/db/path/data.db
 # path: .agkan/data.db
 
+# SQLite journal mode (wal | delete; default: wal)
+# WAL requires a local filesystem on a single host. For network filesystems,
+# select delete before the first connection. Stop all connections before switching.
+# database:
+#   journalMode: wal
+
 # Board server configuration
 # Settings for the web-based board interface
 # board:

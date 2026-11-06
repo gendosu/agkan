@@ -55,6 +55,13 @@ describe('setupInitCommand', () => {
     fs.rmSync(tmpDir, { recursive: true, force: true });
   });
 
+  it('documents WAL default and DELETE override in the generated template', async () => {
+    await program.parseAsync(['node', 'agkan', 'init']);
+    const content = fs.readFileSync(path.join(tmpDir, '.agkan.yml'), 'utf8');
+    expect(content).toContain('#   journalMode: wal');
+    expect(content).toContain('network filesystems');
+  });
+
   it('should register the init command', () => {
     const initCommand = program.commands.find((cmd) => cmd.name() === 'init');
     expect(initCommand).toBeDefined();
