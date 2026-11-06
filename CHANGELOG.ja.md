@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.32.0] - 2026-11-06
+
+### 追加
+- `.agkan.yml` に `database.journalMode` 設定（既定は `wal`、`delete` も指定可）を追加した。`agkan config get` で表示され、不正な値は DB を開く前に拒否する (#477)
+
+### 変更
+- Hono を 4.12.5 から 4.13.16 に更新し、11 月のセキュリティ修正を取り込んだ (#476)
+
+### 修正
+- 別プロセスが書き込みロックを保持している間も、Board と CLI の読み取りを継続できるようにした。新規・既存のファイル DB は初回接続時に SQLite WAL に切り替わり、タスク ID とデータは維持される。他の接続と競合して切り替えられない場合は、Board / CLI を停止して再実行するよう案内して失敗する。ネットワークファイルシステムでは初回起動前に `database.journalMode: delete` を設定する。移行・バックアップ・`-wal` / `-shm` の扱いは `docs/sqlite-wal.md` を参照 (#477)
+
 ## [3.31.1] - 2026-11-06
 
 ### 変更
