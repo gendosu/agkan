@@ -649,13 +649,39 @@ describe('TaskService', () => {
     });
 
     it('Can sort by updated_at in descending order', () => {
-      const task1 = taskService.createTask({ title: 'Task A', status: 'backlog' });
-      taskService.createTask({ title: 'Task B', status: 'backlog' });
-      // Update task1 to make its updated_at newer
-      taskService.updateTask(task1.id, { title: 'Task A Updated' });
+      vi.useFakeTimers();
+      try {
+        vi.setSystemTime(new Date('2026-01-01T00:00:00.000Z'));
+        const task1 = taskService.createTask({ title: 'Task A', status: 'backlog' });
 
-      const tasks = taskService.listTasks({}, 'updated_at', 'desc');
-      expect(tasks[0].title).toBe('Task A Updated');
+        vi.setSystemTime(new Date('2026-01-01T00:00:01.000Z'));
+        const task2 = taskService.createTask({ title: 'Task B', status: 'backlog' });
+
+        vi.setSystemTime(new Date('2026-01-01T00:00:02.000Z'));
+        taskService.updateTask(task1.id, { title: 'Task A Updated' });
+
+        const tasks = taskService.listTasks({}, 'updated_at', 'desc');
+        expect(tasks.map((task) => task.id)).toEqual([task1.id, task2.id]);
+        expect(tasks[0].title).toBe('Task A Updated');
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it('Sorts by id descending when updated_at timestamps are equal', () => {
+      vi.useFakeTimers();
+      try {
+        vi.setSystemTime(new Date('2026-01-01T00:00:00.000Z'));
+        const task1 = taskService.createTask({ title: 'Task A', status: 'backlog' });
+        const task2 = taskService.createTask({ title: 'Task B', status: 'backlog' });
+        taskService.updateTask(task1.id, { title: 'Task A Updated' });
+
+        const tasks = taskService.listTasks({}, 'updated_at', 'desc');
+        expect(tasks[0].updated_at).toBe(tasks[1].updated_at);
+        expect(tasks.map((task) => task.id)).toEqual([task2.id, task1.id]);
+      } finally {
+        vi.useRealTimers();
+      }
     });
 
     it('Default sort remains created_at descending', () => {
