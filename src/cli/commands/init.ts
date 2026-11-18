@@ -126,6 +126,9 @@ models:
 #     model: grok-4.7
 #     efforts: [low, medium, high, xhigh]
 #   - cli: grok
+#     model: grok-4.7-build-fast
+#     efforts: [low, medium, high, xhigh]
+#   - cli: grok
 #     model: grok-4.6
 #     efforts: [low, medium, high, xhigh]
 #   - cli: grok

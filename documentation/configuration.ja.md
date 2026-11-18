@@ -265,6 +265,7 @@ modelCatalog:
 | agy | `claude-opus-4-6-thinking` | (なし) |
 | agy | `gpt-oss-120b-medium` | (なし) |
 | grok | `grok-4.7` | `low`, `medium`, `high`, `xhigh` |
+| grok | `grok-4.7-build-fast` | `low`, `medium`, `high`, `xhigh` |
 | grok | `grok-4.6` | `low`, `medium`, `high`, `xhigh` |
 | grok | `grok-4.5` | `low`, `medium`, `high` |
 

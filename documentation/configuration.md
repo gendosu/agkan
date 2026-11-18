@@ -302,6 +302,7 @@ Omitting `modelCatalog` uses this catalog:
 | agy | `claude-opus-4-6-thinking` | (none) |
 | agy | `gpt-oss-120b-medium` | (none) |
 | grok | `grok-4.7` | `low`, `medium`, `high`, `xhigh` |
+| grok | `grok-4.7-build-fast` | `low`, `medium`, `high`, `xhigh` |
 | grok | `grok-4.6` | `low`, `medium`, `high`, `xhigh` |
 | grok | `grok-4.5` | `low`, `medium`, `high` |
 

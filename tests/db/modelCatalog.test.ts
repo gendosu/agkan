@@ -38,6 +38,7 @@ describe('DEFAULT_MODEL_CATALOG', () => {
       'agy[claude-opus-4-6-thinking]',
       'agy[gpt-oss-120b-medium]',
       'grok[grok-4.7]',
+      'grok[grok-4.7-build-fast]',
       'grok[grok-4.6]',
       'grok[grok-4.5]',
     ]);
@@ -87,6 +88,7 @@ describe('DEFAULT_MODEL_CATALOG', () => {
     );
     expect(grokEfforts).toEqual({
       'grok-4.7': ['low', 'medium', 'high', 'xhigh'],
+      'grok-4.7-build-fast': ['low', 'medium', 'high', 'xhigh'],
       'grok-4.6': ['low', 'medium', 'high', 'xhigh'],
       'grok-4.5': ['low', 'medium', 'high'],
     });

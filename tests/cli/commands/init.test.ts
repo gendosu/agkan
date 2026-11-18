@@ -97,6 +97,7 @@ describe('setupInitCommand', () => {
     expect(content).toContain('cli: agy');
     expect(content).toContain('cli: grok');
     expect(content).toContain('#     model: grok-4.7\n#     efforts: [low, medium, high, xhigh]');
+    expect(content).toContain('#     model: grok-4.7-build-fast\n#     efforts: [low, medium, high, xhigh]');
     expect(content).toContain('#     model: gpt-6.2-sol\n#     efforts: [low, medium, high, xhigh, max, ultra]');
     expect(content).toContain('#     model: gpt-6.2-astra\n#     efforts: [low, medium, high, xhigh, max, ultra]');
     expect(content).toContain('#     model: gpt-6.1-terra\n#     efforts: [low, medium, high, xhigh, max, ultra]');

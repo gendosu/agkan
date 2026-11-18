@@ -646,6 +646,7 @@ modelCatalog: agy claude-sonnet-4-6 ()
 modelCatalog: agy claude-opus-4-6-thinking ()
 modelCatalog: agy gpt-oss-120b-medium ()
 modelCatalog: grok grok-4.7 (low, medium, high, xhigh)
+modelCatalog: grok grok-4.7-build-fast (low, medium, high, xhigh)
 modelCatalog: grok grok-4.6 (low, medium, high, xhigh)
 modelCatalog: grok grok-4.5 (low, medium, high)
 ```
