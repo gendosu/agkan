@@ -75,6 +75,15 @@ models:
 #     model: haiku
 #     efforts: [low, medium, high, xhigh, max]
 #   - cli: codex
+#     model: gpt-6.2-sol
+#     efforts: [low, medium, high, xhigh, max, ultra]
+#   - cli: codex
+#     model: gpt-6.2-astra
+#     efforts: [low, medium, high, xhigh, max, ultra]
+#   - cli: codex
+#     model: gpt-6.1-terra
+#     efforts: [low, medium, high, xhigh, max, ultra]
+#   - cli: codex
 #     model: gpt-6.1-sol
 #     efforts: [low, medium, high, xhigh, max, ultra]
 #   - cli: codex

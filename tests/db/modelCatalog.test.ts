@@ -15,12 +15,15 @@ const CODEX_EFFORTS = ['low', 'medium', 'high', 'xhigh', 'max', 'ultra'];
 const CATALOG_WITH_CODEX: ModelCatalogEntry[] = DEFAULT_MODEL_CATALOG.map((e) => ({ ...e, efforts: [...e.efforts] }));
 
 describe('DEFAULT_MODEL_CATALOG', () => {
-  it('lists the four claude models, seven codex models, agy models, then the grok models', () => {
+  it('lists the four claude models, ten codex models, agy models, then the grok models', () => {
     expect(DEFAULT_MODEL_CATALOG.map((e) => `${e.cli}[${e.model}]`)).toEqual([
       'claude[fable]',
       'claude[opus]',
       'claude[sonnet]',
       'claude[haiku]',
+      'codex[gpt-6.2-sol]',
+      'codex[gpt-6.2-astra]',
+      'codex[gpt-6.1-terra]',
       'codex[gpt-6.1-sol]',
       'codex[gpt-6-astra]',
       'codex[gpt-6-sol]',
@@ -51,6 +54,9 @@ describe('DEFAULT_MODEL_CATALOG', () => {
       DEFAULT_MODEL_CATALOG.filter((e) => e.cli === 'codex').map((e) => [e.model, e.efforts])
     );
     expect(codexEfforts).toEqual({
+      'gpt-6.2-sol': CODEX_EFFORTS,
+      'gpt-6.2-astra': CODEX_EFFORTS,
+      'gpt-6.1-terra': CODEX_EFFORTS,
       'gpt-6.1-sol': CODEX_EFFORTS,
       'gpt-6-astra': CODEX_EFFORTS,
       'gpt-6-sol': CODEX_EFFORTS,
