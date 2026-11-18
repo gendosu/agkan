@@ -280,7 +280,7 @@ describe('POST /api/claude/tasks/:taskId/run', () => {
     const mock = buildMockClaudeProcessService();
     const services = buildServices(mock);
     const task = services.ts.createTask({ title: 'Effortless agy model', status: 'backlog' });
-    services.ts.updateTask(task.id, { model_run: 'claude-sonnet-4-6' });
+    services.ts.updateTask(task.id, { model_run: 'gpt-oss-120b-medium' });
     const app = buildApp(services);
 
     const res = await app.fetch(
@@ -296,7 +296,7 @@ describe('POST /api/claude/tasks/:taskId/run', () => {
       task.id,
       expect.any(String),
       'run',
-      'claude-sonnet-4-6',
+      'gpt-oss-120b-medium',
       undefined,
       'agy'
     );

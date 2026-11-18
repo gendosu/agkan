@@ -248,6 +248,9 @@ modelCatalog:
 | claude | `opus` | `low`, `medium`, `high`, `xhigh`, `max` |
 | claude | `sonnet` | `low`, `medium`, `high`, `xhigh`, `max` |
 | claude | `haiku` | `low`, `medium`, `high`, `xhigh`, `max` |
+| codex | `gpt-6.2-sol` | `low`, `medium`, `high`, `xhigh`, `max`, `ultra` |
+| codex | `gpt-6.2-astra` | `low`, `medium`, `high`, `xhigh`, `max`, `ultra` |
+| codex | `gpt-6.1-terra` | `low`, `medium`, `high`, `xhigh`, `max`, `ultra` |
 | codex | `gpt-6.1-sol` | `low`, `medium`, `high`, `xhigh`, `max`, `ultra` |
 | codex | `gpt-6-astra` | `low`, `medium`, `high`, `xhigh`, `max`, `ultra` |
 | codex | `gpt-6-sol` | `low`, `medium`, `high`, `xhigh`, `max`, `ultra` |
@@ -256,16 +259,18 @@ modelCatalog:
 | codex | `gpt-5.6-terra` | `low`, `medium`, `high`, `xhigh`, `max`, `ultra` |
 | codex | `gpt-5.6-luna` | `low`, `medium`, `high`, `xhigh`, `max` |
 | agy | `gemini-4-argon` | `low`, `medium`, `high` |
+| agy | `gemini-4-hydrogen` | `low`, `medium`, `high`, `xhigh` |
+| agy | `gemini-pro-orchestrator-g1-pro` | (なし) |
 | agy | `gemini-3.8-flash` | `low`, `medium`, `high` |
-| agy | `gemini-3.7-flash` | `low`, `medium`, `high` |
-| agy | `claude-sonnet-4-6` | (なし) |
-| agy | `claude-opus-4-6-thinking` | (なし) |
+| agy | `claude-opus-5-5` | `low`, `medium`, `high` |
+| agy | `claude-sonnet-5-5` | `low`, `medium`, `high` |
 | agy | `gpt-oss-120b-medium` | (なし) |
 | grok | `grok-4.7` | `low`, `medium`, `high`, `xhigh` |
+| grok | `grok-4.7-build-fast` | `low`, `medium`, `high`, `xhigh` |
 | grok | `grok-4.6` | `low`, `medium`, `high`, `xhigh` |
 | grok | `grok-4.5` | `low`, `medium`, `high` |
 
-`agy models` はモデルIDに effort を埋め込んだ形（`gemini-4-argon-high` など）で一覧を返しますが、agy CLI はそのベースID単体と、独立した `--effort low|medium|high` フラグの組み合わせも受け付けるため、この3行は実際の effort オーバーライドを持ちます。`claude-sonnet-4-6`、`claude-opus-4-6-thinking`、`gpt-oss-120b-medium` は固定バリアントで `--effort` を受け付けないため、いずれも効果を持ちません。
+`agy models` は多くのモデルIDを effort を埋め込んだ形（`gemini-4-argon-high` など）で一覧を返しますが、agy CLI はそのベースID単体と、独立した `--effort` フラグの組み合わせも受け付けるため、これらの行はベースIDと、一覧にあるバリアントの effort を持ちます（`gemini-4-hydrogen` は `xhigh` も選べます）。`gemini-pro-orchestrator-g1-pro` は effort のバリアントなしで一覧に出ます。`gpt-oss-120b-medium` は固定バリアントで `--effort` を受け付けません。そのため、この2行は effort を選べません。
 
 ### 検証
 

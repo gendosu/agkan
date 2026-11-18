@@ -75,6 +75,15 @@ models:
 #     model: haiku
 #     efforts: [low, medium, high, xhigh, max]
 #   - cli: codex
+#     model: gpt-6.2-sol
+#     efforts: [low, medium, high, xhigh, max, ultra]
+#   - cli: codex
+#     model: gpt-6.2-astra
+#     efforts: [low, medium, high, xhigh, max, ultra]
+#   - cli: codex
+#     model: gpt-6.1-terra
+#     efforts: [low, medium, high, xhigh, max, ultra]
+#   - cli: codex
 #     model: gpt-6.1-sol
 #     efforts: [low, medium, high, xhigh, max, ultra]
 #   - cli: codex
@@ -99,22 +108,28 @@ models:
 #     model: gemini-4-argon
 #     efforts: [low, medium, high]
 #   - cli: agy
+#     model: gemini-4-hydrogen
+#     efforts: [low, medium, high, xhigh]
+#   - cli: agy
+#     model: gemini-pro-orchestrator-g1-pro
+#     efforts: []
+#   - cli: agy
 #     model: gemini-3.8-flash
 #     efforts: [low, medium, high]
 #   - cli: agy
-#     model: gemini-3.7-flash
+#     model: claude-opus-5-5
 #     efforts: [low, medium, high]
 #   - cli: agy
-#     model: claude-sonnet-4-6
-#     efforts: []
-#   - cli: agy
-#     model: claude-opus-4-6-thinking
-#     efforts: []
+#     model: claude-sonnet-5-5
+#     efforts: [low, medium, high]
 #   - cli: agy
 #     model: gpt-oss-120b-medium
 #     efforts: []
 #   - cli: grok
 #     model: grok-4.7
+#     efforts: [low, medium, high, xhigh]
+#   - cli: grok
+#     model: grok-4.7-build-fast
 #     efforts: [low, medium, high, xhigh]
 #   - cli: grok
 #     model: grok-4.6

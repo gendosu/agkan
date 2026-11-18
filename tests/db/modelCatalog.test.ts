@@ -15,12 +15,15 @@ const CODEX_EFFORTS = ['low', 'medium', 'high', 'xhigh', 'max', 'ultra'];
 const CATALOG_WITH_CODEX: ModelCatalogEntry[] = DEFAULT_MODEL_CATALOG.map((e) => ({ ...e, efforts: [...e.efforts] }));
 
 describe('DEFAULT_MODEL_CATALOG', () => {
-  it('lists the four claude models, seven codex models, agy models, then the grok models', () => {
+  it('lists the four claude models, ten codex models, agy models, then the grok models', () => {
     expect(DEFAULT_MODEL_CATALOG.map((e) => `${e.cli}[${e.model}]`)).toEqual([
       'claude[fable]',
       'claude[opus]',
       'claude[sonnet]',
       'claude[haiku]',
+      'codex[gpt-6.2-sol]',
+      'codex[gpt-6.2-astra]',
+      'codex[gpt-6.1-terra]',
       'codex[gpt-6.1-sol]',
       'codex[gpt-6-astra]',
       'codex[gpt-6-sol]',
@@ -29,12 +32,14 @@ describe('DEFAULT_MODEL_CATALOG', () => {
       'codex[gpt-5.6-terra]',
       'codex[gpt-5.6-luna]',
       'agy[gemini-4-argon]',
+      'agy[gemini-4-hydrogen]',
+      'agy[gemini-pro-orchestrator-g1-pro]',
       'agy[gemini-3.8-flash]',
-      'agy[gemini-3.7-flash]',
-      'agy[claude-sonnet-4-6]',
-      'agy[claude-opus-4-6-thinking]',
+      'agy[claude-opus-5-5]',
+      'agy[claude-sonnet-5-5]',
       'agy[gpt-oss-120b-medium]',
       'grok[grok-4.7]',
+      'grok[grok-4.7-build-fast]',
       'grok[grok-4.6]',
       'grok[grok-4.5]',
     ]);
@@ -51,6 +56,9 @@ describe('DEFAULT_MODEL_CATALOG', () => {
       DEFAULT_MODEL_CATALOG.filter((e) => e.cli === 'codex').map((e) => [e.model, e.efforts])
     );
     expect(codexEfforts).toEqual({
+      'gpt-6.2-sol': CODEX_EFFORTS,
+      'gpt-6.2-astra': CODEX_EFFORTS,
+      'gpt-6.1-terra': CODEX_EFFORTS,
       'gpt-6.1-sol': CODEX_EFFORTS,
       'gpt-6-astra': CODEX_EFFORTS,
       'gpt-6-sol': CODEX_EFFORTS,
@@ -67,10 +75,11 @@ describe('DEFAULT_MODEL_CATALOG', () => {
     );
     expect(agyEfforts).toEqual({
       'gemini-4-argon': ['low', 'medium', 'high'],
+      'gemini-4-hydrogen': ['low', 'medium', 'high', 'xhigh'],
+      'gemini-pro-orchestrator-g1-pro': [],
       'gemini-3.8-flash': ['low', 'medium', 'high'],
-      'gemini-3.7-flash': ['low', 'medium', 'high'],
-      'claude-sonnet-4-6': [],
-      'claude-opus-4-6-thinking': [],
+      'claude-opus-5-5': ['low', 'medium', 'high'],
+      'claude-sonnet-5-5': ['low', 'medium', 'high'],
       'gpt-oss-120b-medium': [],
     });
   });
@@ -81,6 +90,7 @@ describe('DEFAULT_MODEL_CATALOG', () => {
     );
     expect(grokEfforts).toEqual({
       'grok-4.7': ['low', 'medium', 'high', 'xhigh'],
+      'grok-4.7-build-fast': ['low', 'medium', 'high', 'xhigh'],
       'grok-4.6': ['low', 'medium', 'high', 'xhigh'],
       'grok-4.5': ['low', 'medium', 'high'],
     });
