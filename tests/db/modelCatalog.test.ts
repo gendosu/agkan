@@ -35,11 +35,8 @@ describe('DEFAULT_MODEL_CATALOG', () => {
       'agy[gemini-4-hydrogen]',
       'agy[gemini-pro-orchestrator-g1-pro]',
       'agy[gemini-3.8-flash]',
-      'agy[gemini-3.7-flash]',
       'agy[claude-opus-5-5]',
       'agy[claude-sonnet-5-5]',
-      'agy[claude-sonnet-4-6]',
-      'agy[claude-opus-4-6-thinking]',
       'agy[gpt-oss-120b-medium]',
       'grok[grok-4.7]',
       'grok[grok-4.7-build-fast]',
@@ -81,11 +78,8 @@ describe('DEFAULT_MODEL_CATALOG', () => {
       'gemini-4-hydrogen': ['low', 'medium', 'high', 'xhigh'],
       'gemini-pro-orchestrator-g1-pro': [],
       'gemini-3.8-flash': ['low', 'medium', 'high'],
-      'gemini-3.7-flash': ['low', 'medium', 'high'],
       'claude-opus-5-5': ['low', 'medium', 'high'],
       'claude-sonnet-5-5': ['low', 'medium', 'high'],
-      'claude-sonnet-4-6': [],
-      'claude-opus-4-6-thinking': [],
       'gpt-oss-120b-medium': [],
     });
   });

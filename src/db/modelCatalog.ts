@@ -23,9 +23,8 @@ const CODEX_EFFORTS_NO_ULTRA = ['low', 'medium', 'high', 'xhigh', 'max'];
 // plus a separate --effort flag that selects the variant (confirmed via `agy --help` and by
 // running `agy --model gemini-3.8-flash --effort <low|medium|high>`), so each of those rows
 // carries the bare id and the efforts of its listed variants. gemini-pro-orchestrator-g1-pro
-// is listed without effort variants, and claude-sonnet-4-6, claude-opus-4-6-thinking, and
-// gpt-oss-120b-medium are fixed variants that reject --effort ("--effort is not supported
-// for model ..."), so they keep efforts: [].
+// is listed without effort variants, and gpt-oss-120b-medium is a fixed variant that rejects
+// --effort ("--effort is not supported for model ..."), so they keep efforts: [].
 const AGY_EFFORTS = ['low', 'medium', 'high'];
 const AGY_EFFORTS_WITH_XHIGH = ['low', 'medium', 'high', 'xhigh'];
 const AGY_MODELS: Array<{ model: string; efforts: string[] }> = [
@@ -33,11 +32,8 @@ const AGY_MODELS: Array<{ model: string; efforts: string[] }> = [
   { model: 'gemini-4-hydrogen', efforts: AGY_EFFORTS_WITH_XHIGH },
   { model: 'gemini-pro-orchestrator-g1-pro', efforts: [] },
   { model: 'gemini-3.8-flash', efforts: AGY_EFFORTS },
-  { model: 'gemini-3.7-flash', efforts: AGY_EFFORTS },
   { model: 'claude-opus-5-5', efforts: AGY_EFFORTS },
   { model: 'claude-sonnet-5-5', efforts: AGY_EFFORTS },
-  { model: 'claude-sonnet-4-6', efforts: [] },
-  { model: 'claude-opus-4-6-thinking', efforts: [] },
   { model: 'gpt-oss-120b-medium', efforts: [] },
 ];
 

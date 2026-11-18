@@ -340,13 +340,8 @@ describe('resolveLaunchSettings', () => {
     );
   });
 
-  describe('catalog rows with efforts: [] (agy fixed variants reject --effort)', () => {
-    const EFFORTLESS_AGY_MODELS = [
-      'gemini-pro-orchestrator-g1-pro',
-      'claude-sonnet-4-6',
-      'claude-opus-4-6-thinking',
-      'gpt-oss-120b-medium',
-    ];
+  describe('catalog rows with efforts: [] (agy models that take no effort override)', () => {
+    const EFFORTLESS_AGY_MODELS = ['gemini-pro-orchestrator-g1-pro', 'gpt-oss-120b-medium'];
 
     it.each(EFFORTLESS_AGY_MODELS)('drops the config default effort for the task-level model %s', (model) => {
       writeConfig({ models: { agy: { run: { effort: 'high' } } } });
@@ -360,11 +355,11 @@ describe('resolveLaunchSettings', () => {
     it('drops a task-level effort instead of throwing', () => {
       const { ts } = buildServices();
       const task = ts.createTask({ title: 'Task', status: 'backlog' });
-      ts.updateTask(task.id, { model_run: 'claude-sonnet-4-6', effort_run: 'high' });
+      ts.updateTask(task.id, { model_run: 'gpt-oss-120b-medium', effort_run: 'high' });
 
       expect(resolveLaunchSettings(ts, task.id, 'run')).toEqual({
         agent: 'agy',
-        model: 'claude-sonnet-4-6',
+        model: 'gpt-oss-120b-medium',
         effort: undefined,
       });
     });
@@ -372,11 +367,14 @@ describe('resolveLaunchSettings', () => {
     it('drops the config effort when the config model resolves to such a row', () => {
       const { ts } = buildServices();
       const task = ts.createTask({ title: 'Task', status: 'backlog' });
-      writeConfig({ agent: 'agy', models: { agy: { run: { model: 'claude-opus-4-6-thinking', effort: 'high' } } } });
+      writeConfig({
+        agent: 'agy',
+        models: { agy: { run: { model: 'gemini-pro-orchestrator-g1-pro', effort: 'high' } } },
+      });
 
       expect(resolveLaunchSettings(ts, task.id, 'run')).toEqual({
         agent: 'agy',
-        model: 'claude-opus-4-6-thinking',
+        model: 'gemini-pro-orchestrator-g1-pro',
         effort: undefined,
       });
     });

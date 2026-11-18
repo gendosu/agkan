@@ -117,20 +117,11 @@ models:
 #     model: gemini-3.8-flash
 #     efforts: [low, medium, high]
 #   - cli: agy
-#     model: gemini-3.7-flash
-#     efforts: [low, medium, high]
-#   - cli: agy
 #     model: claude-opus-5-5
 #     efforts: [low, medium, high]
 #   - cli: agy
 #     model: claude-sonnet-5-5
 #     efforts: [low, medium, high]
-#   - cli: agy
-#     model: claude-sonnet-4-6
-#     efforts: []
-#   - cli: agy
-#     model: claude-opus-4-6-thinking
-#     efforts: []
 #   - cli: agy
 #     model: gpt-oss-120b-medium
 #     efforts: []

@@ -262,18 +262,15 @@ modelCatalog:
 | agy | `gemini-4-hydrogen` | `low`, `medium`, `high`, `xhigh` |
 | agy | `gemini-pro-orchestrator-g1-pro` | (なし) |
 | agy | `gemini-3.8-flash` | `low`, `medium`, `high` |
-| agy | `gemini-3.7-flash` | `low`, `medium`, `high` |
 | agy | `claude-opus-5-5` | `low`, `medium`, `high` |
 | agy | `claude-sonnet-5-5` | `low`, `medium`, `high` |
-| agy | `claude-sonnet-4-6` | (なし) |
-| agy | `claude-opus-4-6-thinking` | (なし) |
 | agy | `gpt-oss-120b-medium` | (なし) |
 | grok | `grok-4.7` | `low`, `medium`, `high`, `xhigh` |
 | grok | `grok-4.7-build-fast` | `low`, `medium`, `high`, `xhigh` |
 | grok | `grok-4.6` | `low`, `medium`, `high`, `xhigh` |
 | grok | `grok-4.5` | `low`, `medium`, `high` |
 
-`agy models` は多くのモデルIDを effort を埋め込んだ形（`gemini-4-argon-high` など）で一覧を返しますが、agy CLI はそのベースID単体と、独立した `--effort` フラグの組み合わせも受け付けるため、これらの行はベースIDと、一覧にあるバリアントの effort を持ちます（`gemini-4-hydrogen` は `xhigh` も選べます）。`gemini-pro-orchestrator-g1-pro` は effort のバリアントなしで一覧に出ます。`claude-sonnet-4-6`、`claude-opus-4-6-thinking`、`gpt-oss-120b-medium` は固定バリアントで `--effort` を受け付けません。そのため、この4行はいずれも effort を選べません。
+`agy models` は多くのモデルIDを effort を埋め込んだ形（`gemini-4-argon-high` など）で一覧を返しますが、agy CLI はそのベースID単体と、独立した `--effort` フラグの組み合わせも受け付けるため、これらの行はベースIDと、一覧にあるバリアントの effort を持ちます（`gemini-4-hydrogen` は `xhigh` も選べます）。`gemini-pro-orchestrator-g1-pro` は effort のバリアントなしで一覧に出ます。`gpt-oss-120b-medium` は固定バリアントで `--effort` を受け付けません。そのため、この2行は effort を選べません。
 
 ### 検証
 
