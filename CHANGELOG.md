@@ -7,14 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.33.0] - 2026-11-18
+
 ### Added
-- Add `gpt-6.2-sol`, `gpt-6.2-astra`, and `gpt-6.1-terra` to the built-in Codex `modelCatalog` with efforts `low`, `medium`, `high`, `xhigh`, `max`, and `ultra`
-- Add `gemini-4-hydrogen` (efforts `low`, `medium`, `high`, `xhigh`), `gemini-pro-orchestrator-g1-pro` (no effort override), `claude-opus-5-5`, and `claude-sonnet-5-5` (efforts `low`, `medium`, `high`) to the built-in `agy` `modelCatalog`
-- Add `grok-4.7-build-fast` to the built-in Grok `modelCatalog` with efforts `low`, `medium`, `high`, and `xhigh`
-- List the new models in the `agkan init` configuration template and in the English/Japanese configuration and CLI reference docs
+- Add `gpt-6.2-sol`, `gpt-6.2-astra`, and `gpt-6.1-terra` to the built-in Codex `modelCatalog` with efforts `low`, `medium`, `high`, `xhigh`, `max`, and `ultra` (#479)
+- Add `gemini-4-hydrogen` (efforts `low`, `medium`, `high`, `xhigh`), `gemini-pro-orchestrator-g1-pro` (no effort override), `claude-opus-5-5`, and `claude-sonnet-5-5` (efforts `low`, `medium`, `high`) to the built-in `agy` `modelCatalog` (#479)
+- Add `grok-4.7-build-fast` to the built-in Grok `modelCatalog` with efforts `low`, `medium`, `high`, and `xhigh` (#479)
+- List the new models in the `agkan init` configuration template and in the English/Japanese configuration and CLI reference docs (#479)
 
 ### Removed
-- Remove `gemini-3.7-flash`, `claude-sonnet-4-6`, and `claude-opus-4-6-thinking` from the built-in `agy` `modelCatalog`, because `agy models` no longer lists them. A task or `.agkan.yml` that still names one of them now fails validation; pick a current model, or restore the row with a custom `modelCatalog`
+- Remove `gemini-3.7-flash`, `claude-sonnet-4-6`, and `claude-opus-4-6-thinking` from the built-in `agy` `modelCatalog`, because `agy models` no longer lists them. A task or `.agkan.yml` that still names one of them now fails validation; pick a current model, or restore the row with a custom `modelCatalog` (#479)
 
 ## [3.32.0] - 2026-11-06
 
