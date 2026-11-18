@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### 追加
+- 組み込みの Codex `modelCatalog` に `gpt-6.2-sol`、`gpt-6.2-astra`、`gpt-6.1-terra`（effort は `low`, `medium`, `high`, `xhigh`, `max`, `ultra`）を追加した
+- 組み込みの `agy` `modelCatalog` に `gemini-4-hydrogen`（effort は `low`, `medium`, `high`, `xhigh`）、`gemini-pro-orchestrator-g1-pro`（effort の指定なし）、`claude-opus-5-5`、`claude-sonnet-5-5`（effort は `low`, `medium`, `high`）を追加した
+- 組み込みの Grok `modelCatalog` に `grok-4.7-build-fast`（effort は `low`, `medium`, `high`, `xhigh`）を追加した
+- 追加したモデルを、`agkan init` が生成する設定テンプレートと、日英の設定ドキュメント・CLI リファレンスに掲載した
+
+### 削除
+- `agy models` の一覧から消えた `gemini-3.7-flash`、`claude-sonnet-4-6`、`claude-opus-4-6-thinking` を、組み込みの `agy` `modelCatalog` から削除した。これらを指定したままのタスクや `.agkan.yml` は検証でエラーになる。現行のモデルに変えるか、独自の `modelCatalog` で行を戻す
+
 ## [3.32.0] - 2026-11-06
 
 ### 追加
