@@ -95,6 +95,10 @@ describe('setupInitCommand', () => {
     expect(content).toContain('run:\n    agent: codex\n    model: gpt-6-astra\n    effort: high');
     expect(content).toContain('# modelCatalog:');
     expect(content).toContain('cli: agy');
+    expect(content).toContain('#     model: gemini-4-hydrogen\n#     efforts: [low, medium, high, xhigh]');
+    expect(content).toContain('#     model: gemini-pro-orchestrator-g1-pro\n#     efforts: []');
+    expect(content).toContain('#     model: claude-opus-5-5\n#     efforts: [low, medium, high]');
+    expect(content).toContain('#     model: claude-sonnet-5-5\n#     efforts: [low, medium, high]');
     expect(content).toContain('cli: grok');
     expect(content).toContain('#     model: grok-4.7\n#     efforts: [low, medium, high, xhigh]');
     expect(content).toContain('#     model: grok-4.7-build-fast\n#     efforts: [low, medium, high, xhigh]');

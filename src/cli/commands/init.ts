@@ -108,10 +108,22 @@ models:
 #     model: gemini-4-argon
 #     efforts: [low, medium, high]
 #   - cli: agy
+#     model: gemini-4-hydrogen
+#     efforts: [low, medium, high, xhigh]
+#   - cli: agy
+#     model: gemini-pro-orchestrator-g1-pro
+#     efforts: []
+#   - cli: agy
 #     model: gemini-3.8-flash
 #     efforts: [low, medium, high]
 #   - cli: agy
 #     model: gemini-3.7-flash
+#     efforts: [low, medium, high]
+#   - cli: agy
+#     model: claude-opus-5-5
+#     efforts: [low, medium, high]
+#   - cli: agy
+#     model: claude-sonnet-5-5
 #     efforts: [low, medium, high]
 #   - cli: agy
 #     model: claude-sonnet-4-6

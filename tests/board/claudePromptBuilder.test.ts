@@ -341,7 +341,12 @@ describe('resolveLaunchSettings', () => {
   });
 
   describe('catalog rows with efforts: [] (agy fixed variants reject --effort)', () => {
-    const EFFORTLESS_AGY_MODELS = ['claude-sonnet-4-6', 'claude-opus-4-6-thinking', 'gpt-oss-120b-medium'];
+    const EFFORTLESS_AGY_MODELS = [
+      'gemini-pro-orchestrator-g1-pro',
+      'claude-sonnet-4-6',
+      'claude-opus-4-6-thinking',
+      'gpt-oss-120b-medium',
+    ];
 
     it.each(EFFORTLESS_AGY_MODELS)('drops the config default effort for the task-level model %s', (model) => {
       writeConfig({ models: { agy: { run: { effort: 'high' } } } });
